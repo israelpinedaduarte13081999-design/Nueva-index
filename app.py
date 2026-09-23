@@ -314,6 +314,9 @@ def get_zip_factor(zip_code):
     print(f"--> ZIP {zona.get('zip')}: ciudad={payload['ciudad']} estado={payload['estado']} factor={payload['factor']}")
     return jsonify(payload)
 
+client = genai.Client(
+    api_key=os.environ.get("GCP_API_KEY") or os.environ.get("GEMINI_API_KEY")
+)
 
 # Tarifas de mano de obra de techo por ZIP (USD). Claves alineadas con las partidas generadas.
 PRECIOS_TECHO_POR_ZIP = {
