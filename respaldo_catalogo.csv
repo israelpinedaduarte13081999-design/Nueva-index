@@ -1,0 +1,1151 @@
+﻿id,categoria,codigo,descripcion,unidad,precio_base,precio_material,precio_mano_obra
+1,ALFOMBRA,FCC REM,Alfombra - Retiro y disposición de alfombra y padding existente,SF,0.45,0.0,0.0
+2,ALFOMBRA,FCC INS,Alfombra - Instalación de alfombra estándar residencial,SF,2.75,0.0,0.0
+3,ALFOMBRA,FCC PRM,Alfombra - Instalación de alfombra premium / pelo alto,SF,3.85,0.0,0.0
+4,ALFOMBRA,FCC PAD6,Alfombra - Reemplazo de esponja/padding estándar 6 lb,SF,0.55,0.0,0.0
+5,ALFOMBRA,FCC PAD8,Alfombra - Reemplazo de esponja/padding de alta densidad 8 lb con barrera de humedad,SF,0.85,0.0,0.0
+6,ALFOMBRA,FCC STR,Alfombra - Instalación en escalón estándar (huella y contrahuella),EA,18.0,0.0,0.0
+7,ALFOMBRA,FCC STR-B,Alfombra - Instalación en escalón tipo Bullnose / borde redondeado,EA,24.0,0.0,0.0
+8,ALFOMBRA,FCC TRN-M,Alfombra - Barra de transición metálica / pin strip en puertas,LF,4.5,0.0,0.0
+9,ALFOMBRA,FCC TCK,Alfombra - Instalación de tiras de clavos perimetrales (tack strips),LF,1.25,0.0,0.0
+10,ALFOMBRA,FCC CLN,Alfombra - Limpieza y extracción profunda a vapor,SF,0.4,0.0,0.0
+11,PISO,FCW LVT,Piso - Instalación de piso vinílico de lujo (LVT / SPC Click Lock),SF,2.35,0.0,0.0
+12,PISO,FCW GLU,Piso - Instalación de piso vinílico pegado directo (Glue-Down),SF,2.6,0.0,0.0
+13,PISO,FCW LAM,Piso - Instalación de piso laminado flotante con bajo-suelo acústico,SF,2.1,0.0,0.0
+14,PISO,FCT REM,Piso - Demolición y retiro de piso de cerámica / baldosa existente,SF,1.95,0.0,0.0
+15,PISO,FCT CER,Piso - Instalación de baldosa cerámica estándar (hasta 12x12),SF,7.5,0.0,0.0
+16,PISO,FCT POR,Piso - Instalación de piso de porcelanato gran formato (12x24 o superior),SF,9.5,0.0,0.0
+17,PISO,MAS SLU,Piso - Preparación de contrapiso con mortero autonivelante (Self-Leveler),BAG,48.0,0.0,0.0
+18,PISO,MAS CMP,Piso - Parcheo localizado de grietas con compuesto de alisado (Patching),SF,0.75,0.0,0.0
+19,PISO,FNC SHO,Piso - Suministro e instalación de cuarto bocel (shoe moulding),LF,1.15,0.0,0.0
+20,PISO,FNC BAS,Piso - Suministro e instalación de rodapié / baseboard de 3-1/4 a 5-1/4,LF,1.85,0.0,0.0
+21,PISO,FNC TRN,"Piso - Instalación de molduras de transición (T-molding, reductor o nariz)",LF,6.5,0.0,0.0
+22,MADERA,WDF SND,Madera - Lijado completo y pulido de piso de roble (Hardwood),SF,3.25,0.0,0.0
+23,MADERA,WDF STN,Madera - Aplicación de tinte a base de aceite o gel (Wood Stain),SF,1.1,0.0,0.0
+24,MADERA,WDF POL,Madera - Sellado y aplicación de 2 manos de poliuretano,SF,1.45,0.0,0.0
+25,MADERA,WDF STR,"Madera - Lijado, tinte y barnizado de escalón individual y contrahuella",EA,45.0,0.0,0.0
+26,BAÑO,PLA DEM,Baño - Demolición integral de área húmeda (ducha/tina completa),EA,450.0,0.0,0.0
+27,BAÑO,PLA TUB,Baño - Retiro y disposición de tina existente de acero o fibra,EA,180.0,0.0,0.0
+28,BAÑO,PLA LIN,Baño - Suministro e instalación de membrana impermeable flexible (Shower Pan Liner),EA,350.0,0.0,0.0
+29,BAÑO,PLA WTR,Baño - Aplicación de membrana impermeabilizante líquida (RedGard - 2 manos),SF,1.45,0.0,0.0
+30,BAÑO,TIL TUB,Baño - Azulejo en paredes de ducha o contorno de bañera,SF,12.5,0.0,0.0
+31,BAÑO,TIL MOS,Baño - Mosaico o piedra de río en piso / pendiente de ducha,SF,14.0,0.0,0.0
+32,BAÑO,TIL NCH,Baño - Fabricación e instalación de nicho empotrado de pared con azulejo,EA,220.0,0.0,0.0
+33,BAÑO,TIL CURB,Baño - Construcción e impermeabilización de brocal de ducha (Curb),LF,35.0,0.0,0.0
+34,BAÑO,PLM TLET,Baño - Desmonte y reinstalación de inodoro (Toilet Reset con pernos y cera),EA,125.0,0.0,0.0
+35,BAÑO,PLA VAN,Baño - Montaje de mueble de vanitory simple con lavamanos y grifo,EA,240.0,0.0,0.0
+36,BAÑO,PLA VAND,Baño - Montaje de vanitory doble con conexiones de fontanería,EA,360.0,0.0,0.0
+37,BAÑO,TIL BCK-B,Baño - Salpicadero / backsplash de azulejo sobre vanitory,SF,14.5,0.0,0.0
+38,COCINA,CAB DEM,Cocina - Desmonte y remoción de gabinetes superiores e inferiores,LF,12.0,0.0,0.0
+39,COCINA,CAB BAS,Cocina - Montaje y nivelación de gabinetes de base,LF,38.0,0.0,0.0
+40,COCINA,CAB UPP,Cocina - Montaje y anclaje estructural de gabinetes aéreos / altos,LF,34.0,0.0,0.0
+41,COCINA,CAB HND,Cocina - Perforación e instalación de manijas o tiradores,EA,6.0,0.0,0.0
+42,COCINA,TIL BCK,Cocina - Azulejo cerámico tipo metro / mosaico en backsplash,SF,13.5,0.0,0.0
+43,COCINA,PLM SNK,Cocina - Instalación de fregadero bajo encimera y triturador de basura,EA,260.0,0.0,0.0
+44,DRYWALL,DRY REM,Drywall - Demolición y acarreo de láminas dañadas,SF,0.75,0.0,0.0
+45,DRYWALL,DRY 12,Drywall - Suministro y colgado de lámina estándar de 1/2 pulgada,SF,1.5,0.0,0.0
+46,DRYWALL,DRY WTR,Drywall - Colgado de panel resistente a humedad (Greenboard / Durock),SF,2.25,0.0,0.0
+47,DRYWALL,DRY FIN,"Drywall - Encinte, masillado y lijado Nivel 4 listo para pintar",SF,1.25,0.0,0.0
+48,DRYWALL,DRY POP,Drywall - Raspado y eliminación de textura popcorn en cielos,SF,1.8,0.0,0.0
+49,DRYWALL,DRY PCH,Drywall - Parche de reparación hasta 2x2 pies con cinta y acabado,EA,85.0,0.0,0.0
+50,DRYWALL,INS BAT,Aislamiento - Colocación de aislamiento de fibra de vidrio R-13 o R-19,SF,0.95,0.0,0.0
+51,PINTURA,PNT WAL,Pintura - Sellador y 2 manos de pintura látex en paredes interiores,SF,0.9,0.0,0.0
+52,PINTURA,PNT CEI,Pintura - Pintura blanca plana antirreflejo para techos / cielos,SF,0.85,0.0,0.0
+53,PINTURA,PNT TRM,"Pintura - Esmalte semi-brillante en rodapiés, molduras y jambas",LF,1.1,0.0,0.0
+54,PINTURA,PNT DOR,Pintura - Preparación y esmaltado de puerta interior completa (ambos lados),EA,50.0,0.0,0.0
+55,PINTURA,PNT EXT,"Pintura - Lavado a presión, sellado y pintura de siding exterior",SF,1.65,0.0,0.0
+56,FRAMING,FRM 2X4,Framing - Muro divisorio interior con madera de 2x4 a 16 O.C.,LF,8.5,0.0,0.0
+57,FRAMING,FRM SUB,Framing - Reemplazo de tablero estructural de subfloor OSB/Plywood 3/4,SF,3.8,0.0,0.0
+58,FRAMING,FRM HDR,Framing - Instalación de cabezal o dintel estructural (Header),LF,18.0,0.0,0.0
+59,CARPINTERÍA,CAR DOR,Carpintería - Instalación y plomeado de puerta interior precolgada,EA,110.0,0.0,0.0
+60,CARPINTERÍA,CAR SLD,Carpintería - Instalación de estructura para puerta de bolsillo (Pocket Door),EA,275.0,0.0,0.0
+61,CARPINTERÍA,CAR CRN,Carpintería - Suministro e instalación de moldura de corona (Crown Moulding),LF,4.85,0.0,0.0
+62,DECK,DCK DEM,Deck - Demolición y remoción de deck de madera existente,SF,2.2,0.0,0.0
+63,DECK,DCK PST,"Deck - Excavación, plomeado y anclaje de poste de soporte 6x6 en zapata",EA,85.0,0.0,0.0
+64,DECK,DCK JST,Deck - Estructura de viguetas tratadas (Joists 2x10 o 2x12),LF,5.8,0.0,0.0
+65,DECK,DCK BRD,Deck - Piso de madera tratada para exterior (Decking 5/4x6),SF,4.5,0.0,0.0
+66,DECK,DCK RAL,Deck - Barandal de madera tratada con pasamanos y balusteres 2x2,LF,22.0,0.0,0.0
+67,CERCA,FNC REM,Cerca - Demolición y acarreo de cerca de madera dañada,LF,3.5,0.0,0.0
+68,CERCA,FNC WOD,Cerca - Instalación de cerca de privacidad de madera 6 pies (dog-ear),LF,26.0,0.0,0.0
+69,CERCA,FNC PIC,Cerca - Cerca de madera estilo Picture-Frame con postes 4x4,LF,32.0,0.0,0.0
+70,TECHO,RFG SHN,Techo - Remoción y reemplazo de teja de asfalto arquitectónica,SQ,340.0,0.0,0.0
+71,TECHO,RFG SBS,Techo - Sistema autoadherible SBS de 2 capas para techo plano/bajo pendiente,SQ,145.0,0.0,0.0
+72,EXTERIOR,SDG WRAP,Exterior - Instalación de barrera contra clima / Housewrap (Tyvek o similar),SF,0.45,0.0,0.0
+73,EXTERIOR,SDG VIN,Exterior - Instalación de siding de vinilo estándar residencial,SF,3.85,0.0,0.0
+74,EXTERIOR,SDG HRD,Exterior - Instalación de siding de fibrocemento (HardiePlank / Lap Siding),SF,6.25,0.0,0.0
+75,EXTERIOR,SDG BRD,Exterior - Instalación de siding vertical estilo Board and Batten (Hardie),SF,7.1,0.0,0.0
+76,EXTERIOR,SDG DEM,Exterior - Demolición y remoción de siding viejo y disposición de escombros,SF,0.95,0.0,0.0
+77,EXTERIOR,FSC WOD,Exterior - Reemplazo o instalación de fascia de madera tratada 1x6 o 1x8,LF,6.5,0.0,0.0
+78,EXTERIOR,FSC ALM,Exterior - Revestimiento de fascia con aluminio doblado en obra (Aluminum Wrap),LF,5.75,0.0,0.0
+79,EXTERIOR,SFT VEN,Exterior - Instalación de soffit de vinilo o aluminio ventilado,LF,5.25,0.0,0.0
+80,EXTERIOR,SFT HRD,Exterior - Instalación de soffit de fibrocemento HardieSoffit con ventilación,SF,4.5,0.0,0.0
+81,EXTERIOR,GTR 6IN,Exterior - Instalación de canaletas continuas de aluminio sin costura de 6 pulg,LF,8.5,0.0,0.0
+82,EXTERIOR,GTR DWS,Exterior - Bajante pluvial de aluminio (Downspout) con codos,LF,7.0,0.0,0.0
+83,EXTERIOR,GTR GRD,Exterior - Protectores de hojas y rejilla para canaletas (Gutter Guards),LF,4.25,0.0,0.0
+84,EXTERIOR,GTR CLN,Exterior - Limpieza y lavado profundo de sistema de canaletas,LF,1.25,0.0,0.0
+85,EXTERIOR,CNC DEM,Exterior - Demolición y remoción de losa de concreto existente (hasta 4 pulg),SF,2.8,0.0,0.0
+86,EXTERIOR,CNC DRV,"Exterior - Vaciado y acabado de concreto para driveway/entrada de vehículos (4 pulg, 4000 PSI)",SF,8.5,0.0,0.0
+87,EXTERIOR,CNC PAT,Exterior - Vaciado y acabado con llana de patio o acera peatonal de concreto,SF,7.5,0.0,0.0
+88,EXTERIOR,CNC STV,Exterior - Concreto estampado decorativo / teñido para patios,SF,13.0,0.0,0.0
+89,EXTERIOR,WIN REP,Exterior - Reemplazo de ventana de vinilo doble vidrio (Retrofit / Replacement),EA,185.0,0.0,0.0
+90,EXTERIOR,WIN NEW,Exterior - Instalación de ventana nueva construcción con aletas y tape impermeabilizante,EA,260.0,0.0,0.0
+91,EXTERIOR,DOR EXT,Exterior - Instalación de puerta de entrada principal de fibra de vidrio o acero,EA,320.0,0.0,0.0
+92,EXTERIOR,DOR PAT,Exterior - Instalación de puerta corrediza de vidrio para patio (Sliding Patio Door),EA,450.0,0.0,0.0
+93,EXTERIOR,PWS HSE,Exterior - Lavado a presión suave (Soft Wash) en paredes y siding de casa,SF,0.25,0.0,0.0
+94,EXTERIOR,PWS DRV,Exterior - Lavado a presión de entrada de autos (driveway) y aceras,SF,0.2,0.0,0.0
+95,EXTERIOR,EXT STN,"Exterior - Limpieza, lijado y aplicación de sellador/stain en deck de madera",SF,1.75,0.0,0.0
+96,COMERCIAL,DRY DEM-M,Demolición - Retiro de muro de tabiquería drywall y studs de metal existentes,SF,1.15,0.0,0.0
+97,COMERCIAL,DRY DEM-L,Demolición - Retiro únicamente de láminas de drywall dañadas sobre perfilería metálica,SF,0.65,0.0,0.0
+98,COMERCIAL,DRY DIS-C,Demolición - Acarreo interno y disposición en contenedor comercial (C&D debris),CY,42.0,0.0,0.0
+99,COMERCIAL,FRM TRK-25,Framing Metálico - Riel o canal inferior/superior (Track) 3-5/8 cal. 25 fijado con disparo/anclaje,LF,2.85,0.0,0.0
+100,COMERCIAL,FRM TRK-20,Framing Metálico - Riel o canal inferior/superior (Track) 3-5/8 o 6 pulg cal. 20 estructural,LF,4.2,0.0,0.0
+101,COMERCIAL,FRM DEF-SL,Framing Metálico - Canal de deflexión superior ranurado (Slotted Track) para asentamiento de losa,LF,5.6,0.0,0.0
+102,COMERCIAL,FRM BCK-W,Framing Metálico - Refuerzo de madera tratada (Wood Backing 2x6/2x8) para soporte de gabinetes y vanities,LF,4.25,0.0,0.0
+103,COMERCIAL,FRM BCK-M,Framing Metálico - Refuerzo con lámina de acero galvanizado (Flat Strap Backing 16-20 Ga),LF,3.4,0.0,0.0
+104,COMERCIAL,FRM STD-25A,Framing Metálico - Stud 2-1/2 cal. 25 a 16 O.C. para muros divisorios (hasta 10 pies),LF,3.1,0.0,0.0
+105,COMERCIAL,FRM STD-25B,Framing Metálico - Stud 3-5/8 cal. 25 a 16 O.C. para tabiquería interior estándar (hasta 10 pies),LF,3.75,0.0,0.0
+106,COMERCIAL,FRM STD-25C,Framing Metálico - Stud 3-5/8 cal. 25 a 16 O.C. para muros altos de 10 a 14 pies,LF,4.6,0.0,0.0
+107,COMERCIAL,FRM STD-20A,Framing Metálico - Stud 3-5/8 cal. 20 (reforzado/puertas/cajas eléctricas) a 16 O.C.,LF,5.1,0.0,0.0
+108,COMERCIAL,FRM STD-20B,Framing Metálico - Stud 6 pulgadas cal. 20 para muros de plomería y fachadas (hasta 14 pies),LF,7.8,0.0,0.0
+109,COMERCIAL,FRM HDR-M,Framing Metálico - Dintel/Cabezal armado sobre vanos de puertas (Box Header comercial),EA,65.0,0.0,0.0
+110,COMERCIAL,INS SAF-3,Aislamiento - Lana mineral de absorción acústica y cortafuego (Thermafiber/SAFB 3 pulg),SF,1.15,0.0,0.0
+111,COMERCIAL,INS BAT-R19,Aislamiento - Colchoneta de fibra de vidrio R-19 para atenuación térmica/acústica,SF,1.25,0.0,0.0
+112,COMERCIAL,DRY RC1,Drywall Comercial - Suministro e instalación de canal resiliente acústico (RC-1 Channel),LF,1.85,0.0,0.0
+113,COMERCIAL,DRY 58-X,Drywall Comercial - Colgado de panel de yeso 5/8 Tipo X cortafuego (Fire-Shield),SF,1.7,0.0,0.0
+114,COMERCIAL,DRY 58-C,Drywall Comercial - Colgado de panel 5/8 Tipo C (resistencia extendida para cielos rasos),SF,2.05,0.0,0.0
+115,COMERCIAL,DRY 58-M,Drywall Comercial - Colgado de panel 5/8 antihumedad y antimoho (Mold/Moisture Resistant),SF,2.15,0.0,0.0
+116,COMERCIAL,DRY 58-DGS,Drywall Comercial - Colgado de panel exterior con velo de fibra de vidrio (DensGlass 5/8),SF,2.75,0.0,0.0
+117,COMERCIAL,DRY CEMENT,Drywall Comercial - Panel de cemento para áreas húmedas de alto uso (Durock 1/2 o 5/8),SF,2.95,0.0,0.0
+118,COMERCIAL,DRY CRN-M,Drywall Comercial - Instalación de esquinero exterior metálico remachado/atornillado,LF,1.85,0.0,0.0
+119,COMERCIAL,DRY CRN-V,Drywall Comercial - Instalación de esquinero vinílico o bullnose comercial,LF,2.1,0.0,0.0
+120,COMERCIAL,DRY LVL-3,Drywall Comercial - Encinte y acabado Nivel 3 (listo para revestimiento pesado o textura),SF,0.95,0.0,0.0
+121,COMERCIAL,DRY LVL-4,"Drywall Comercial - Encinte, masillado y lijado Nivel 4 (estándar comercial para pintura plana)",SF,1.3,0.0,0.0
+122,COMERCIAL,DRY LVL-5,Drywall Comercial - Acabado Nivel 5 (Skim coat total sobre toda la superficie para pinturas satinadas),SF,1.85,0.0,0.0
+123,COMERCIAL,STP FIR-C,Sellado Cortafuego - Masilla intumescente roja en penetraciones de cables y tubos (Fire Caulk),EA,18.0,0.0,0.0
+124,COMERCIAL,STP FIR-L,Sellado Cortafuego - Junta de control superior/inferior de muro contra losa (Head of Wall Firestop),LF,3.4,0.0,0.0
+125,COMERCIAL,STP ACS-L,Sellado Acústico - Cordón continuo de masilla acústica resiliente en perfiles perimetrales,LF,1.1,0.0,0.0
+126,COMERCIAL,ACT DEM-T,Cielo Acústico - Retiro de baldosas acústicas existentes y disposición en dumpster,SF,0.4,0.0,0.0
+127,COMERCIAL,ACT DEM-G,Cielo Acústico - Demolición y retiro de retícula metálica (grid) y alambres de cuelgue,SF,0.55,0.0,0.0
+128,COMERCIAL,ACT DEM-ALL,Cielo Acústico - Demolición completa de sistema suspendido (placas + perfiles + alambre),SF,0.85,0.0,0.0
+129,COMERCIAL,ACT WIR-12,Cielo Acústico - Instalación de alambre galvanizado de cuelgue cal. 12 con anclaje a losa/estructura,LF,0.65,0.0,0.0
+130,COMERCIAL,ACT WIR-SM,Cielo Acústico - Riostras sísmicas de 4 vías y cables de tensión (Seismic Bracing reglamentario),EA,42.0,0.0,0.0
+131,COMERCIAL,ACT WNG-15,Cielo Acústico - Moldura perimetral / ángulo de pared L de 15/16 pulg (Wall Molding),LF,1.85,0.0,0.0
+132,COMERCIAL,ACT WNG-SD,Cielo Acústico - Moldura perimetral escalonada / Shadow line para acabado arquitectónico,LF,2.65,0.0,0.0
+133,COMERCIAL,ACT MN-12,Cielo Acústico - Perfil principal portante de 12 pies (Main Runner 15/16 o 9/16),LF,1.95,0.0,0.0
+134,COMERCIAL,ACT XT-4,Cielo Acústico - Perfil secundario cruzado de 4 pies (Cross Tee 4ft),LF,1.45,0.0,0.0
+135,COMERCIAL,ACT XT-2,Cielo Acústico - Perfil secundario cruzado de 2 pies (Cross Tee 2ft para retícula 2x2),LF,1.35,0.0,0.0
+136,COMERCIAL,ACT GRD-24,Cielo Acústico - Suministro e instalación completa de suspensión metálica 2x4 (Grid Only),SF,1.65,0.0,0.0
+137,COMERCIAL,ACT GRD-22,Cielo Acústico - Suministro e instalación completa de suspensión metálica 2x2 (Grid Only),SF,1.95,0.0,0.0
+138,COMERCIAL,ACT TIL-24S,Cielo Acústico - Baldosa 2x4 estándar borde cuadrado (ej. Armstrong Cortega / USG Radar),SF,1.25,0.0,0.0
+139,COMERCIAL,ACT TIL-22S,Cielo Acústico - Baldosa 2x2 estándar borde cuadrado (Square Lay-in),SF,1.45,0.0,0.0
+140,COMERCIAL,ACT TIL-22T,Cielo Acústico - Baldosa 2x2 borde ranurado / rebajado (Tegular Edge para rejilla vista),SF,2.1,0.0,0.0
+141,COMERCIAL,ACT TIL-VIN,Cielo Acústico - Baldosa 2x4 o 2x2 con recubrimiento vinílico lavable (para cocinas/clínicas Clean Room),SF,2.85,0.0,0.0
+142,COMERCIAL,ACT TIL-FBR,Cielo Acústico - Baldosa de fibra mineral acústica de alta atenuación de sonido (NRC > 0.70),SF,3.2,0.0,0.0
+143,COMERCIAL,ACT CUT-P,Cielo Acústico - Perforación y corte perimetral en placa para rociador de incendio (Sprinkler head),EA,12.0,0.0,0.0
+144,COMERCIAL,ACT CUT-L,Cielo Acústico - Ajuste perimetral y marco para lámpara de empotrar / Troffer 2x4 o 2x2,EA,18.0,0.0,0.0
+145,COMERCIAL,ACT ACC-DR,Cielo Acústico - Puerta de acceso articulada empotrada en cielo suspendido,EA,165.0,0.0,0.0
+146,COMERCIAL,FLR DEM-VCT,Piso Comercial - Remoción de loseta vinílica VCT o LVT existente,SF,0.65,0.0,0.0
+147,COMERCIAL,FLR DEM-CPT,Piso Comercial - Remoción y despegado de alfombra pegada directo (Glue-down),SF,0.5,0.0,0.0
+148,FLR PREP,FLR MST-REM,Piso Comercial - Raspado y remoción mecánica de adhesivo / mastic viejo en concreto,SF,0.95,0.0,0.0
+149,FLR PREP,FLR MST-TST,Piso Comercial - Prueba de emisión de humedad en losa de concreto (Calcium Chloride test),EA,125.0,0.0,0.0
+150,FLR PREP,FLR BAR-HUM,Piso Comercial - Aplicación de barrera epóxica mitigadora de humedad en losa (Moisture Barrier),SF,2.1,0.0,0.0
+151,FLR PREP,FLR SKM-CMP,Piso Comercial - Alisado fino y parchado de fisuras con compuesto cementicio (Skim Coat Patching),SF,0.75,0.0,0.0
+152,FLR PREP,FLR SLV-BAG,Piso Comercial - Autonivelante de alta resistencia para grandes espesores en piso comercial,BAG,52.0,0.0,0.0
+153,COMERCIAL,FCW VCT-STD,Piso Comercial - Instalación de loseta vinílica de composición VCT 12x12 estándar comercial,SF,2.1,0.0,0.0
+154,COMERCIAL,FCW VCT-PRM,Piso Comercial - Instalación de loseta VCT premium / antideslizante o disipativa estática (ESD),SF,3.4,0.0,0.0
+155,COMERCIAL,FCW LVT-COM,Piso Comercial - Instalación de listón o losa vinílica comercial de alto tráfico (Wear Layer 20 mil+),SF,2.65,0.0,0.0
+156,COMERCIAL,FCW SHT-VIN,Piso Comercial - Rollo de vinilo continuo homogéneo sanitario con soldadura térmica en juntas,SF,5.25,0.0,0.0
+157,COMERCIAL,FCW WAX-NEW,"Piso Comercial - Limpieza inicial neutra, 1 mano de sellador y 3 manos de cera de alto brillo",SF,0.6,0.0,0.0
+158,COMERCIAL,FCW WAX-STR,Piso Comercial - Decapado químico profundo (Stripping) de cera vieja acumulada y encerado nuevo,SF,0.85,0.0,0.0
+159,COMERCIAL,FCC MOD-24,Piso Comercial - Instalación de alfombra modular en cuadros (Carpet Tiles 24x24) con adhesivo releasable,SF,2.2,0.0,0.0
+160,COMERCIAL,FCC MOD-PAT,Piso Comercial - Instalación de alfombra modular con patrón arquitectónico geométrico / diseño especial,SF,2.65,0.0,0.0
+161,COMERCIAL,FCC BRD-DIR,Piso Comercial - Instalación de alfombra comercial en rollo pegada directo al concreto (Direct Glue-down),SF,1.95,0.0,0.0
+162,COMERCIAL,FNC COV-4IN,Piso Comercial - Suministro e instalación de rodapié sanitario vinílico / caucho de 4 pulg (Cove Base),LF,1.45,0.0,0.0
+163,COMERCIAL,FNC COV-6IN,Piso Comercial - Suministro e instalación de rodapié sanitario de caucho de 6 pulg con labio sanitario,LF,1.95,0.0,0.0
+164,COMERCIAL,FNC COV-CRN,Piso Comercial - Esquinero preformado de fábrica para rodapié comercial (Corner Block / Cap),EA,3.5,0.0,0.0
+165,COMERCIAL,FNC RED-COM,Piso Comercial - Tira reductora y transición de caucho comercial de alta resistencia al tráfico,LF,4.5,0.0,0.0
+166,COMERCIAL,CNC POL-LV1,Piso Comercial - Desbaste y pulido básico de piso de concreto a llana (Ground & Polished),SF,3.2,0.0,0.0
+167,COMERCIAL,CNC POL-LV2,Piso Comercial - Concreto pulido con endurecedor de litio y abrillantador hasta grano 1500,SF,4.8,0.0,0.0
+168,COMERCIAL,CNC EPX-2PT,Piso Comercial - Sistema epóxico comercial de 2 componentes autonivelante de alto impacto (100% sólidos),SF,4.75,0.0,0.0
+169,COMERCIAL,CNC EPX-FLK,Piso Comercial - Revestimiento epóxico decorativo con hojuelas de vinilo (Flake broadcast) y capa transparente,SF,5.5,0.0,0.0
+170,COMERCIAL,DOR DEM-MET,Puertas Comerciales - Demolición y desmonte de puerta metálica y marco de acero existente,EA,95.0,0.0,0.0
+171,COMERCIAL,DOR DEM-HRD,Puertas Comerciales - Retiro y recuperación de cerradura/herraje comercial existente,EA,35.0,0.0,0.0
+172,COMERCIAL,FRM MET-KD3,Puertas Comerciales - Instalación de marco de acero Knock-Down (KD) para muro stud 3-5/8,EA,140.0,0.0,0.0
+173,COMERCIAL,FRM MET-KD6,Puertas Comerciales - Instalación de marco de acero Knock-Down (KD) para muro stud 6 pulg,EA,165.0,0.0,0.0
+174,COMERCIAL,FRM MET-WLD,Puertas Comerciales - Montaje y anclaje de marco de acero soldado (Welded Frame) a mampostería,EA,190.0,0.0,0.0
+175,COMERCIAL,DOR HLM-3070,Puertas Comerciales - Colgado de puerta de acero hueco 3-0 x 7-0 (Hollow Metal cal. 18/16),EA,185.0,0.0,0.0
+176,COMERCIAL,DOR HLM-FIRE,Puertas Comerciales - Colgado de puerta cortafuego clasificada UL (Fire-Rated 90 min o 3 hrs),EA,230.0,0.0,0.0
+177,COMERCIAL,DOR WOD-SOL,Puertas Comerciales - Instalación de puerta comercial de madera de núcleo sólido (Solid Wood Core),EA,165.0,0.0,0.0
+178,COMERCIAL,DOR LIT-INS,Puertas Comerciales - Instalación de mirilla de vidrio templado o alambre cortafuego (Lite Kit),EA,85.0,0.0,0.0
+179,COMERCIAL,HRD HNG-STD,Herrajes Comerciales - Instalación de juego de 3 bisagras de balero de uso pesado (Ball Bearing 4.5x4.5),SET,45.0,0.0,0.0
+180,COMERCIAL,HRD HNG-CNT,Herrajes Comerciales - Instalación de bisagra corrida continua de aluminio/acero (Continuous Piano Hinge),EA,125.0,0.0,0.0
+181,COMERCIAL,HRD HNG-SPG,Herrajes Comerciales - Instalación de bisagras de resorte con cierre automático (Spring Hinges),SET,65.0,0.0,0.0
+182,COMERCIAL,HRD LCK-GR1,Herrajes Comerciales - Instalación de cerradura de palanca comercial cilíndrica Grado 1 (ADA Compliant),EA,85.0,0.0,0.0
+183,COMERCIAL,HRD MOR-LCK,Herrajes Comerciales - Instalación de cerradura comercial de embutir pesada (Mortise Lockset),EA,150.0,0.0,0.0
+184,COMERCIAL,HRD PAN-RIM,Herrajes Comerciales - Instalación de barra antipánico de borde comercial (Rim Exit Device / Panic Bar),EA,165.0,0.0,0.0
+185,COMERCIAL,HRD PAN-VRD,Herrajes Comerciales - Barra antipánico con varillas verticales superior e inferior (Surface/Concealed Rods),EA,240.0,0.0,0.0
+186,COMERCIAL,HRD ACC-ELC,Herrajes Comerciales - Instalación de recibidor eléctrico para control de acceso (Electric Strike),EA,175.0,0.0,0.0
+187,COMERCIAL,HRD CLS-GR1,Herrajes Comerciales - Instalación y calibración de cierrapuertas hidráulico superior Grado 1,EA,95.0,0.0,0.0
+188,COMERCIAL,HRD CLS-HDL,Herrajes Comerciales - Instalación de cierrapuertas de uso rudo con brazo de retención (Hold-Open Arm),EA,115.0,0.0,0.0
+189,COMERCIAL,HRD STP-FLR,Herrajes Comerciales - Instalación de tope de puerta pesado fijado a piso de concreto o pared,EA,25.0,0.0,0.0
+190,COMERCIAL,HRD KCK-PLT,Herrajes Comerciales - Instalación de placa de protección inferior de acero inoxidable (Kick Plate),EA,30.0,0.0,0.0
+191,COMERCIAL,DOR WTH-SMK,Sellado de Puerta - Instalación de empaque perimetral de sellado contra humo y aire (Smoke Gasket Seal),LF,2.85,0.0,0.0
+192,COMERCIAL,DOR WTH-TRS,Sellado de Puerta - Instalación de umbral de aluminio comercial para piso (Saddle Threshold ADA),LF,8.5,0.0,0.0
+193,COMERCIAL,DOR WTH-SWP,Sellado de Puerta - Instalación de barredera / barrido inferior automático de puerta (Door Bottom Sweep),EA,45.0,0.0,0.0
+194,COMERCIAL,DOR AST-DBL,Sellado de Puerta - Instalación de moldura astrágal para par de puertas dobles cortafuego,LF,6.5,0.0,0.0
+195,COMERCIAL,BTH DEM-STL,Baños Comerciales - Desmonte y remoción de cabina/mampara divisoria de inodoro existente,EA,75.0,0.0,0.0
+196,COMERCIAL,BTH DEM-ACC,"Baños Comerciales - Retiro de accesorios sanitarios comerciales (dispensadores, barras, espejos)",EA,22.0,0.0,0.0
+197,COMERCIAL,BTH DEM-URM,Baños Comerciales - Desmonte de urinario o inodoro comercial con fluxómetro,EA,85.0,0.0,0.0
+198,COMERCIAL,DIV STL-STD,Baños Comerciales - Instalación de cabina estándar de inodoro en acero esmaltado (Floor-anchored),EA,340.0,0.0,0.0
+199,COMERCIAL,DIV STL-ADA,Baños Comerciales - Instalación de cabina amplia accesible ADA con giro reglamentario de 60 pulg,EA,420.0,0.0,0.0
+200,COMERCIAL,DIV STL-PLS,Baños Comerciales - Mampara divisoria de plástico sólido HDPE resistente a vandalismo/humedad,EA,480.0,0.0,0.0
+201,COMERCIAL,DIV STL-CEL,Baños Comerciales - Cabina sanitaria suspendida de techo con anclaje a estructura (Ceiling-hung),EA,510.0,0.0,0.0
+202,COMERCIAL,DIV SCR-URN,Baños Comerciales - Pantalla divisoria de privacidad entre urinarios anclada a pared (Urinal Screen),EA,125.0,0.0,0.0
+203,COMERCIAL,DIV HRD-SET,"Baños Comerciales - Reemplazo de cerradura, pasador de privacidad y bisagras de mampara",SET,65.0,0.0,0.0
+204,COMERCIAL,ADA BAR-36,Baños Comerciales - Suministro e instalación de barra de apoyo ADA 36 pulg inox (pared posterior),EA,70.0,0.0,0.0
+205,COMERCIAL,ADA BAR-42,Baños Comerciales - Suministro e instalación de barra de apoyo ADA 42 pulg inox (pared lateral),EA,78.0,0.0,0.0
+206,COMERCIAL,ADA BAR-SWG,Baños Comerciales - Barra de apoyo abatible / basculante vertical con bloqueo para espacios reducidos,EA,145.0,0.0,0.0
+207,COMERCIAL,ACC DSP-PAP,Baños Comerciales - Dispensador doble de papel higiénico institucional con llave y traba antirrobo,EA,48.0,0.0,0.0
+208,COMERCIAL,ACC DSP-TWL,Baños Comerciales - Dispensador combinado de toallas de papel y receptáculo de basura embutido en muro,EA,185.0,0.0,0.0
+209,COMERCIAL,ACC DRY-AIR,Baños Comerciales - Instalación mecánica de secador de manos eléctrico de aire de alta velocidad,EA,115.0,0.0,0.0
+210,COMERCIAL,ACC DSP-JAB,Baños Comerciales - Dispensador institucional de jabón líquido o espuma en acero inoxidable,EA,45.0,0.0,0.0
+211,COMERCIAL,ACC MIR-ADA,Baños Comerciales - Espejo con marco perimetral soldado en acero inox de 24x36 pulg fijo o inclinable,EA,95.0,0.0,0.0
+212,COMERCIAL,ACC TBL-CHN,Baños Comerciales - Mesa abatible para cambio de pañales de montaje horizontal (Koala Kare o similar),EA,195.0,0.0,0.0
+213,COMERCIAL,PLM WCL-FLX,Baños Comerciales - Inodoro institucional de losa suspendido de pared (Wall-hung) con soporte carrier,EA,320.0,0.0,0.0
+214,COMERCIAL,PLM WCL-FLR,Baños Comerciales - Inodoro institucional montado al piso con fluxómetro manual Sloan Royal,EA,210.0,0.0,0.0
+215,COMERCIAL,PLM FLX-SNS,Baños Comerciales - Instalación o conversión de fluxómetro a sensor electrónico manos libres,EA,145.0,0.0,0.0
+216,COMERCIAL,PLM URN-STN,Baños Comerciales - Urinario institucional de pared con fluxómetro de descarga de 0.125 a 0.5 GPF,EA,225.0,0.0,0.0
+217,COMERCIAL,PLM LAV-ADA,Baños Comerciales - Lavamanos suspendido comercial con grifo electrónico monomando de sensor,EA,260.0,0.0,0.0
+218,COMERCIAL,PLM ADA-INS,Baños Comerciales - Juego de fundas protectoras aislantes para sifón y cañerías bajo lavamanos ADA,SET,38.0,0.0,0.0
+219,COMERCIAL,PNT PRE-SCR,"Pintura Comercial - Limpieza mecánica, raspado y lijado de pintura suelta en muros comerciales",SF,0.4,0.0,0.0
+220,COMERCIAL,PNT PRE-WSH,Pintura Comercial - Lavado desengrasante y preparación de muros de concreto o mampostería,SF,0.35,0.0,0.0
+221,COMERCIAL,PNT MSK-HGT,"Pintura Comercial - Protección y enmascarado pesado de ductos, rociadores y luminarias para rociado en altura",SF,0.45,0.0,0.0
+222,COMERCIAL,PNT DRY-FLT,"Pintura Comercial - Rociado Dryfall en estructura metálica, losa corrugada y viguetas expuestas (Flat Black/White)",SF,1.25,0.0,0.0
+223,COMERCIAL,PNT DRY-DCT,Pintura Comercial - Limpieza y aplicación de primer y recubrimiento Dryfall sobre ductería expuesta de HVAC,LF,4.5,0.0,0.0
+224,COMERCIAL,PNT DRY-HGT,Pintura Comercial - Suplemento por aplicación en altura mayor a 14 pies con elevador de tijera (Scissor Lift),SF,0.35,0.0,0.0
+225,COMERCIAL,PNT PRM-COM,Pintura Comercial - Aplicación de imprimante sellador comercial de alta penetración (PVA / Acrílico),SF,0.38,0.0,0.0
+226,COMERCIAL,PNT WAL-COM,"Pintura Comercial - Pintura acrílica grado comercial en muros interiores (2 manos, acabado Eggshell/Satin)",SF,0.75,0.0,0.0
+227,COMERCIAL,PNT WAL-HIW,Pintura Comercial - Pintura epóxica de 1 componente base agua de alta lavabilidad (Scuff-X o similar),SF,1.15,0.0,0.0
+228,COMERCIAL,PNT DOR-MET,Pintura Comercial - Imprimación y pintura con esmalte uretano en ambas caras de puerta metálica comercial,EA,65.0,0.0,0.0
+229,COMERCIAL,PNT FRM-MET,Pintura Comercial - Pintura con esmalte industrial de marco metálico de puerta Knock-Down,EA,35.0,0.0,0.0
+230,COMERCIAL,PNT RAL-MET,"Pintura Comercial - Lijado, primer anticorrosivo y esmalte brillante en barandales y pasamanos de acero",LF,6.2,0.0,0.0
+231,COMERCIAL,PNT EPX-PRM,Pintura Comercial - Imprimante epóxico penetrante sobre concreto nuevo o desbastado,SF,0.85,0.0,0.0
+232,COMERCIAL,PNT EPX-TOP,Pintura Comercial - Capa de sellado superior de poliuretano alifático resistente a químicos y rayos UV,SF,1.1,0.0,0.0
+233,COMERCIAL,PNT FLR-STR,Pintura Comercial - Pintura de demarcación de líneas de tráfico de seguridad de 4 pulg (Safety Yellow / White),LF,1.8,0.0,0.0
+234,COMERCIAL,PNT ADA-SYM,Pintura Comercial - Pintura de símbolo internacional de accesibilidad ADA en piso / estacionamiento con plantilla,EA,85.0,0.0,0.0
+235,COMERCIAL,01 31 13.1,Condiciones Generales - Supervisión en obra de tiempo completo / Project Superintendent,DAY,480.0,0.0,0.0
+236,COMERCIAL,01 31 13.2,Condiciones Generales - Gestión y coordinación de subcontratistas / Project Management,WK,1250.0,0.0,0.0
+237,COMERCIAL,01 31 19.1,Condiciones Generales - Elaboración de planos As-Built y manuales de operación para entrega final,LS,650.0,0.0,0.0
+238,COMERCIAL,01 51 16.1,Condiciones Generales - Iluminación y tendido eléctrico provisional para áreas de trabajo,MO,380.0,0.0,0.0
+239,COMERCIAL,01 52 13.1,Condiciones Generales - Renta y mantenimiento semanal de sanitario portátil en obra (Porta-Potty),MO,225.0,0.0,0.0
+240,COMERCIAL,01 52 19.1,Condiciones Generales - Estación de primeros auxilios y extintores reglamentarios para obra,MO,120.0,0.0,0.0
+241,COMERCIAL,01 54 23.1,Condiciones Generales - Renta y traslado de elevador de tijera eléctrico (Scissor Lift 19ft a 26ft),WK,420.0,0.0,0.0
+242,COMERCIAL,01 54 23.2,Condiciones Generales - Renta y traslado de plataforma articulada (Boom Lift 40ft),WK,1150.0,0.0,0.0
+243,COMERCIAL,01 54 23.3,"Condiciones Generales - Montaje, renta y desmontaje de andamio tubular por sección (Scaffolding)",WK,85.0,0.0,0.0
+244,COMERCIAL,01 74 19.1,"Condiciones Generales - Renta, acarreo y vertedero de contenedor roll-off de 20 yardas cúbicas",EA,520.0,0.0,0.0
+245,COMERCIAL,01 74 19.2,"Condiciones Generales - Renta, acarreo y vertedero de contenedor roll-off de 30 yardas cúbicas",EA,620.0,0.0,0.0
+246,COMERCIAL,01 74 19.3,"Condiciones Generales - Renta, acarreo y vertedero de contenedor roll-off de 40 yardas cúbicas",EA,740.0,0.0,0.0
+247,COMERCIAL,01 74 19.4,Condiciones Generales - Cuadrilla de acarreo y limpieza diaria de áreas de trabajo (Laborer),HR,38.0,0.0,0.0
+248,COMERCIAL,01 56 39.1,Condiciones Generales - Instalación de muro/barrera antipolvo de plástico hermético (ZipWall Barrier),LF,4.8,0.0,0.0
+249,COMERCIAL,01 56 39.2,Condiciones Generales - Protección de pisos existentes de alto valor con tablero rígido (Ram Board / Masonite),SF,0.65,0.0,0.0
+250,COMERCIAL,01 56 39.3,Condiciones Generales - Filtro de contención de aire y máquina de presión negativa (Air Scrubber HEPA),WK,280.0,0.0,0.0
+251,COMERCIAL,01 77 19.1,Condiciones Generales - Limpieza intermedia continua durante etapas de construcción pesada,SF,0.2,0.0,0.0
+252,COMERCIAL,01 77 19.2,Condiciones Generales - Limpieza fina y desinfección total para entrega a cliente (Final Punchout Clean),SF,0.48,0.0,0.0
+253,COMERCIAL,01 77 19.3,Condiciones Generales - Lavado y pulido de vidrios interiores/exteriores comerciales en entrega,EA,18.0,0.0,0.0
+254,RESIDENCIAL,CON-ZIP-WAL,Contención - Muro temporal hermético de plástico polietileno con postes de tensión y cremallera (ZipWall),LF,4.25,0.0,0.0
+255,RESIDENCIAL,CON-FLR-PRO,Protección - Cubierta de pisos existentes con cartón pesado de alta resistencia (Ram Board / Masonite),SF,0.65,0.0,0.0
+256,RESIDENCIAL,CON-REG-TAP,Protección - Sellado y enmascarado hermético de rejillas y ductos de aire acondicionado contra polvo,EA,14.0,0.0,0.0
+257,RESIDENCIAL,CON-SCR-AIR,Contención - Extractor y purificador de aire continuo con filtro HEPA para control de polvo en obra,DAY,95.0,0.0,0.0
+258,RESIDENCIAL,CON-MSK-PLM,"Protección - Plástico protector ligero y cinta sobre muebles, puertas o zonas que no se remodelan",SF,0.25,0.0,0.0
+259,RESIDENCIAL,DEM-DRY-WAL,Demolición - Retiro manual de láminas de drywall en muros con extracción de tornillos y clavos en postes,SF,0.55,0.0,0.0
+260,RESIDENCIAL,DEM-DRY-CEL,Demolición - Bajada y demolición de drywall en cielos rasos / techos con retiro de anclajes,SF,0.75,0.0,0.0
+261,RESIDENCIAL,DEM-LAT-PLS,Demolición - Demolición pesada de pared antigua de yeso grueso sobre listones de madera (Lath and Plaster),SF,2.1,0.0,0.0
+262,RESIDENCIAL,DEM-INS-BAT,Demolición - Retiro y embolsado manual de aislamiento de fibra de vidrio contaminado o dañado,SF,0.4,0.0,0.0
+263,RESIDENCIAL,DEM-INS-BLW,Demolición - Aspirado mecánico y extracción de aislamiento suelto / soplado en ático o entretecho,SF,0.95,0.0,0.0
+264,RESIDENCIAL,DEM-DOR-INT,Demolición - Desmonte y desecho de puerta interior existente con marco y molduras (Casing),EA,35.0,0.0,0.0
+265,RESIDENCIAL,DEM-DOR-RST,Demolición - Desmonte cuidadoso de puerta interior para guardar y reinstalar luego (Detach and Reset),EA,55.0,0.0,0.0
+266,RESIDENCIAL,DEM-CLS-SHL,"Demolición - Desmonte y retiro de repisas, barras de colgar y organizadores de closet",LF,3.2,0.0,0.0
+267,RESIDENCIAL,LAB-DEM-CLR,Limpieza - Mano de obra de peón para acarreo manual de escombros desde el interior hacia el contenedor,HR,35.0,0.0,0.0
+268,RESIDENCIAL,DSP-DMP-15Y,"Escombros - Renta, entrega y viaje a vertedero de contenedor roll-off de 15 yardas cúbicas",EA,460.0,0.0,0.0
+269,RESIDENCIAL,DSP-DMP-20Y,"Escombros - Renta, entrega y viaje a vertedero de contenedor roll-off de 20 yardas cúbicas",EA,520.0,0.0,0.0
+270,RESIDENCIAL,DSP-TRK-LD,Escombros - Carga manual y viaje de botadero en pickup o camión de estacas (Truckload),EA,180.0,0.0,0.0
+271,RESIDENCIAL,FRM-W24-STD,"Framing - Muro divisorio de madera 2x4 (solera inferior, superior doble y studs a 16 pulg O.C. hasta 9 pies)",LF,8.75,0.0,0.0
+272,RESIDENCIAL,FRM-W24-TLL,Framing - Muro divisorio alto de madera 2x4 (estatura de 10 a 12 pies de altura libre),LF,11.25,0.0,0.0
+273,RESIDENCIAL,FRM-W26-STD,Framing - Muro estructural de carga o muro húmedo de plomería con madera 2x6 a 16 pulg O.C.,LF,12.5,0.0,0.0
+274,RESIDENCIAL,FRM-W24-24O,Framing - Muro divisorio no estructural de madera 2x4 con studs espaciados a 24 pulg O.C.,LF,7.2,0.0,0.0
+275,RESIDENCIAL,FRM-FUR-STR,Framing - Enlistonado de madera 1x3 o 2x2 (furring strips) fijado a muro de concreto/block a 16 pulg O.C.,LF,3.85,0.0,0.0
+276,RESIDENCIAL,FRM-PT-SILL,Framing - Solera inferior tratada a presión (PT 2x4 o 2x6) con sellador de base y anclaje a concreto,LF,4.5,0.0,0.0
+277,RESIDENCIAL,FRM-JST-28,Framing - Armado de entramado de piso con viguetas de madera 2x8 a 16 pulg O.C. con herrajes joist hangers,SF,4.2,0.0,0.0
+278,RESIDENCIAL,FRM-JST-210,Framing - Entramado de piso con viguetas 2x10 o 2x12 a 16 pulg O.C. para claros medianos y grandes,SF,4.95,0.0,0.0
+279,RESIDENCIAL,FRM-JST-SST,Framing - Refuerzo lateral / empalmado (Sistering) de vigueta de madera existente 2x8 o 2x10 dañada,LF,14.5,0.0,0.0
+280,RESIDENCIAL,FRM-SUB-PLY,Framing - Suministro e instalación de subfloor de plywood machihembrado (T&G 3/4 pulg) con adhesivo y tornillos,SF,3.9,0.0,0.0
+281,RESIDENCIAL,FRM-SUB-SHT,Framing - Enchapado exterior de muro con OSB o Plywood 7/16 pulg con clavado perimetral de código,SF,1.85,0.0,0.0
+282,RESIDENCIAL,FRM-HDR-26U,Framing - Fabricación e instalación de dintel doble 2x6 para aperturas de puertas hasta 3-0 pies,EA,48.0,0.0,0.0
+283,RESIDENCIAL,FRM-HDR-28U,Framing - Fabricación e instalación de dintel doble 2x8 para vanos medianos de 4 a 5 pies de luz,EA,70.0,0.0,0.0
+284,RESIDENCIAL,FRM-HDR-210,Framing - Fabricación e instalación de dintel doble 2x10 o 2x12 para aperturas grandes de 6 a 8 pies,EA,105.0,0.0,0.0
+285,RESIDENCIAL,FRM-LVL-BM,Framing - Instalación de viga estructural de madera laminada (LVL beam) para eliminación de muro de carga,LF,38.0,0.0,0.0
+286,RESIDENCIAL,FRM-COL-4X4,Framing - Suministro y montaje de columna de soporte vertical 4x4 o 6x6 con base metálica Simpson,EA,95.0,0.0,0.0
+287,RESIDENCIAL,FRM-POST-JK,Framing - Instalación de juego de postes king stud y jack stud para soporte de cabezal,EA,35.0,0.0,0.0
+288,RESIDENCIAL,FRM-BLK-FIR,Framing - Bloqueo cortafuego horizontal (Fire Blocking 2x4/2x6) entre montantes,LF,2.15,0.0,0.0
+289,RESIDENCIAL,FRM-BCK-VAN,Framing - Refuerzo de madera maciza (Backing 2x8 o 2x10) empotrado entre studs para colgar vanity,LF,4.25,0.0,0.0
+290,RESIDENCIAL,FRM-BCK-TV,Framing - Refuerzo estructural plano de madera maciza para anclaje de soporte articulado de televisor,EA,35.0,0.0,0.0
+291,RESIDENCIAL,FRM-BCK-BAR,"Framing - Bloqueo de madera sólido para sujeción de pasamanos, cortineros o barras de seguridad",LF,3.8,0.0,0.0
+292,RESIDENCIAL,FRM-PKT-DR,Framing - Ensamble e instalación de jaula estructural para puerta corrediza oculta (Pocket door frame kit),EA,185.0,0.0,0.0
+293,RESIDENCIAL,FRM-SOF-DRP,Framing - Construcción de cajón / falso cielo descolgado de madera (Drywall soffit / chase para ductos),LF,14.0,0.0,0.0
+294,RESIDENCIAL,FRM-NEW-LBR,"Framing Nuevo - Solo mano de obra general por pie cuadrado de huella (soleras, studs, headers, plates estándar 8-9ft)",SF,7.5,0.0,0.0
+295,RESIDENCIAL,FRM-NEW-MAT,Framing Nuevo - Mano de obra y materiales estándar de madera 2x4/2x6 para distribución completa de espacio nuevo,SF,14.5,0.0,0.0
+296,RESIDENCIAL,FRM-NEW-BSM,Framing Nuevo - Enmarcado perimetral e interior completo para terminación de sótano (Basement build-out estándar),SF,6.25,0.0,0.0
+297,RESIDENCIAL,FRM-ADD-FLR,Framing Nuevo - Estructura de entrepiso y plataforma de soporte para adición residencial,SF,8.5,0.0,0.0
+298,RESIDENCIAL,FRM-HGT-10F,Framing Nuevo - Suplemento por altura libre de muros entre 10 y 12 pies (High ceiling framing),SF,1.85,0.0,0.0
+299,RESIDENCIAL,FRM-HGT-14F,Framing Nuevo - Suplemento por techos altos catedral o doble altura mayor a 12 pies,SF,3.2,0.0,0.0
+300,RESIDENCIAL,FRM-ROF-TRS,Framing Nuevo - Montaje y arriostrado de armaduras prefabricadas de techo (Roof Trusses) por SF de huella,SF,4.8,0.0,0.0
+301,RESIDENCIAL,FRM-ROF-RAF,Framing Nuevo - Enmarcado de techo tradicional cortado a mano con vigas y limahoyas (Stick framing / Rafters),SF,6.9,0.0,0.0
+302,RESIDENCIAL,INS-BAT-R13,Aislamiento - Colchoneta de fibra de vidrio R-13 con papel kraft para muros interiores 2x4,SF,0.95,0.0,0.0
+303,RESIDENCIAL,INS-BAT-R15,Aislamiento - Colchoneta de alta densidad R-15 para muros 2x4 de mayor eficiencia térmica,SF,1.15,0.0,0.0
+304,RESIDENCIAL,INS-BAT-R19,Aislamiento - Colchoneta de fibra de vidrio R-19 con papel kraft para muros exteriores 2x6 o pisos sobre crawlspace,SF,1.25,0.0,0.0
+305,RESIDENCIAL,INS-BAT-R30,Aislamiento - Colchoneta de fibra de vidrio R-30 sin cara (unfaced) para techos y cielos rasos,SF,1.65,0.0,0.0
+306,RESIDENCIAL,INS-BAT-R38,Aislamiento - Colchoneta gruesa R-38 para techos catedral y cavidades de viguetas profundas,SF,2.1,0.0,0.0
+307,RESIDENCIAL,INS-ROX-24,Aislamiento Acústico - Lana mineral insonorizante para muros 2x4 (Rockwool Safe n Sound),SF,1.45,0.0,0.0
+308,RESIDENCIAL,INS-ROX-26,Aislamiento Acústico - Lana mineral insonorizante y cortafuego para muros 2x6 y entrepisos,SF,1.85,0.0,0.0
+309,RESIDENCIAL,INS-BLW-CEL,Aislamiento Soplado - Celulosa tratada soplada a máquina en ático hasta espesor R-38,SF,1.35,0.0,0.0
+310,RESIDENCIAL,INS-BLW-FBR,Aislamiento Soplado - Fibra de vidrio suelta soplada a máquina en ático hasta espesor R-30 a R-38,SF,1.2,0.0,0.0
+311,RESIDENCIAL,INS-BLW-BAG,Aislamiento Soplado - Suministro e inyección por saco de material aislante suelto,BAG,32.0,0.0,0.0
+312,RESIDENCIAL,INS-ATC-RUL,Aislamiento Soplado - Instalación de reglas de medición de profundidad y bafles de alero (Rafter vents),EA,12.0,0.0,0.0
+313,RESIDENCIAL,INS-SPY-OPN,Aislamiento Spray - Espuma de celda abierta (Open Cell Spray Foam) de 3 a 3.5 pulgadas de espesor,SF,2.15,0.0,0.0
+314,RESIDENCIAL,INS-SPY-CLS,Aislamiento Spray - Espuma de celda cerrada de alta densidad (Closed Cell) de 2 pulgadas (barrera de vapor R-14),SF,3.4,0.0,0.0
+315,RESIDENCIAL,INS-RIM-JST,Aislamiento Spray - Sellado y aislamiento con espuma de vigueta perimetral de cimentación (Rim joist spray),LF,6.5,0.0,0.0
+316,RESIDENCIAL,INS-AIR-FOM,Sellado de Aire - Aplicación de espuma expansiva cortafuego en perforaciones de plomería y cableado (Fireblock foam),LF,1.6,0.0,0.0
+317,RESIDENCIAL,INS-VAP-6ML,Barrera de Vapor - Instalación de plástico polietileno de 6 mil con traslapes encintados en crawlspace o losa,SF,0.55,0.0,0.0
+318,RESIDENCIAL,INS-ATC-HCH,Aislamiento Ático - Fabricación de caja aislada y burlete de sellado para escotilla de acceso al ático,EA,95.0,0.0,0.0
+319,RESIDENCIAL,DRY-SHT-H12,Drywall por Hoja - Solo colgar lámina estándar 1/2 pulg 4x8 (32 SF) con atornillado a estructura,SH,28.0,0.0,0.0
+320,RESIDENCIAL,DRY-SHT-H58,Drywall por Hoja - Solo colgar lámina 5/8 pulg Tipo X o 1/2 antihumedad 4x8 (32 SF),SH,36.0,0.0,0.0
+321,RESIDENCIAL,DRY-SHT-H12L,Drywall por Hoja - Solo colgar lámina larga 1/2 pulg 4x12 (48 SF) para reducir uniones,SH,42.0,0.0,0.0
+322,RESIDENCIAL,DRY-SHT-T12,"Drywall por Hoja - Solo encinte y masillado Nivel 4 completo por hoja 4x8 (Tape, bed and finish)",SH,38.0,0.0,0.0
+323,RESIDENCIAL,DRY-SHT-COM,Drywall por Hoja - Combo completo: Mano de obra para colgar + encintar y lijar hoja 4x8 Nivel 4,SH,65.0,0.0,0.0
+324,RESIDENCIAL,DRY-SHT-C12,Drywall por Hoja - Combo completo para lámina 4x12 (48 SF): colgado + terminado Nivel 4,SH,95.0,0.0,0.0
+325,RESIDENCIAL,DRY-HNG-12W,Drywall - Colgado de panel estándar 1/2 pulg en muros con tornillos a estructura de madera,SF,0.85,0.0,0.0
+326,RESIDENCIAL,DRY-HNG-12C,Drywall - Colgado de panel estándar o liviano 1/2 pulg en cielos rasos / techos (Ceiling board),SF,0.95,0.0,0.0
+327,RESIDENCIAL,DRY-HNG-58F,Drywall - Colgado de panel Tipo X de 5/8 pulg cortafuego (Fire-code) en garaje o cuartos mecánicos,SF,1.15,0.0,0.0
+328,RESIDENCIAL,DRY-HNG-MRG,Drywall - Colgado de panel verde antihumedad / moho 1/2 pulg (Mold/Moisture Resistant),SF,1.1,0.0,0.0
+329,RESIDENCIAL,DRY-HNG-PUR,Drywall - Colgado de panel morado de alta densidad resistente a impactos y humedad extrema (XP/Purple),SF,1.3,0.0,0.0
+330,RESIDENCIAL,DRY-HNG-HGT,Drywall - Suplemento por instalación de paneles a alturas superiores a 10 pies (Scaffolding required),SF,0.35,0.0,0.0
+331,RESIDENCIAL,DRY-FIN-LV3,Drywall Acabado - Nivel 3: Encinte embebido con 2 capas de pasta en uniones y tornillos (apto para textura pesada),SF,0.85,0.0,0.0
+332,RESIDENCIAL,DRY-FIN-LV4,"Drywall Acabado - Nivel 4 estándar: Encinte con 3 capas de pasta, desvanecido amplio y lijado fino listo para pintura",SF,1.15,0.0,0.0
+333,RESIDENCIAL,DRY-FIN-LV5,Drywall Acabado - Nivel 5 de lujo: Nivel 4 completo más capa corrida uniforme de pasta en toda la superficie (Skim coat total),SF,1.85,0.0,0.0
+334,RESIDENCIAL,DRY-SKM-1CP,Drywall Acabado - Capa corrida de pasta simple (1 mano skim coat) para uniformar absorción antes de pintar,SF,0.75,0.0,0.0
+335,RESIDENCIAL,DRY-SKM-2CP,Drywall Acabado - Alisado parejo completo (2 manos skim coat) sobre paredes texturizadas o dañadas,SF,1.35,0.0,0.0
+336,RESIDENCIAL,DRY-SKM-CEL,Drywall Acabado - Alisado parejo corrido a espátula/rodillo en cielos rasos (Ceiling skim coat),SF,1.55,0.0,0.0
+337,RESIDENCIAL,DRY-SND-SCR,Drywall Acabado - Lijado fino parejo de toda la superficie con lija de malla/screen y luz rasante (Full pole screening),SF,0.35,0.0,0.0
+338,RESIDENCIAL,DRY-PAT-SML,"Drywall Reparación - Parche pequeño de hasta 12x12 pulg con respaldo de madera, encinte, pasta y lijado",EA,95.0,0.0,0.0
+339,RESIDENCIAL,DRY-PAT-MED,Drywall Reparación - Parche mediano de 1x2 pies hasta 2x2 pies (ej. corte de plomería o acceso),EA,145.0,0.0,0.0
+340,RESIDENCIAL,DRY-PAT-LRG,Drywall Reparación - Parche grande de 2x4 pies hasta media lámina con alineación estructural,EA,210.0,0.0,0.0
+341,RESIDENCIAL,DRY-PAT-CEL,Drywall Reparación - Suplemento por reparación de parche en cielo raso por fuga de agua,EA,65.0,0.0,0.0
+342,RESIDENCIAL,DRY-STS-STR,Drywall Reparación - Retiro de cinta soplada / agrietada y re-encinte con malla y pasta de secado rápido,LF,4.5,0.0,0.0
+343,RESIDENCIAL,DRY-CRN-MET,Drywall Remates - Instalación y masillado de esquinero metálico tradicional a 90 grados (Metal corner bead),LF,2.1,0.0,0.0
+344,RESIDENCIAL,DRY-CRN-VIN,Drywall Remates - Esquinero vinílico pegado y engrapado para esquinas exteriores perfectas,LF,2.25,0.0,0.0
+345,RESIDENCIAL,DRY-CRN-BLN,Drywall Remates - Esquinero redondeado decorativo de radio 3/4 pulg (Bullnose corner bead),LF,2.65,0.0,0.0
+346,RESIDENCIAL,DRY-TRM-JBD,Drywall Remates - Moldura terminal en J metálica o plástica contra marcos de puertas o ventanas (J-Bead),LF,2.2,0.0,0.0
+347,RESIDENCIAL,TXT-ORG-PEL,Textura - Aplicación de textura mecánica tipo piel de naranja fina o media (Orange Peel),SF,0.65,0.0,0.0
+348,RESIDENCIAL,TXT-KNC-DWN,Textura - Aplicación de textura Knockdown rociada a máquina y planchada con espátula de goma,SF,0.85,0.0,0.0
+349,RESIDENCIAL,TXT-POP-REM,Textura - Raspado y remoción de textura acústica de palomita de maíz vieja (Popcorn ceiling removal),SF,1.65,0.0,0.0
+350,RESIDENCIAL,TXT-POP-SKM,Textura - Remoción de textura popcorn + aplicación de capa corrida de pasta para dejar cielo liso,SF,2.65,0.0,0.0
+351,RESIDENCIAL,TXT-SMO-CEL,Textura - Acabado de cielo raso 100% liso nivel espejo (Smooth flat finish),SF,1.45,0.0,0.0
+352,RESIDENCIAL,DRY-PKG-LV3,Drywall Paquete - Colgar hoja 1/2 pulg + encinte y acabado Nivel 3 (por pie cuadrado completo),SF,1.7,0.0,0.0
+353,RESIDENCIAL,DRY-PKG-LV4,Drywall Paquete - Colgar hoja 1/2 pulg + terminado estándar Nivel 4 listo para pintura (por SF),SF,2.0,0.0,0.0
+354,RESIDENCIAL,DRY-PKG-LV5,Drywall Paquete - Colgar panel + terminado de lujo Nivel 5 con capa corrida total (Skim coat por SF),SF,2.7,0.0,0.0
+355,RESIDENCIAL,DRY-PKG-58F,Drywall Paquete - Colgar placa 5/8 pulg cortafuego + terminado de uniones contra fuego (Garage fire-tape por SF),SF,1.9,0.0,0.0
+450,PISOS,FLR-HWD-GLU,Pisos Madera - Instalacion de madera solida o ingenieril pegada a losa con adhesivo de uretano,SF,4.95,0.0,0.0
+356,RESIDENCIAL,DOR-BRN-SGL,Puertas Colgantes - Montaje y nivelacion de riel superior de acero negro y colgado de puerta tipo granero de 1 hoja,EA,165.0,0.0,0.0
+357,RESIDENCIAL,DOR-BRN-DBL,Puertas Colgantes - Montaje de riel continuo largo o doble carro para par de puertas tipo granero abiertas al centro,SET,275.0,0.0,0.0
+358,RESIDENCIAL,DOR-BYP-CLS,Puertas Colgantes - Instalacion de sistema corredizo colgante bypass de 2 hojas para closet con guia oculta de piso,SET,125.0,0.0,0.0
+359,RESIDENCIAL,DOR-BIF-CLS,Puertas Colgantes - Instalacion y calibracion de puerta plegable colgante de dos o cuatro paneles,EA,75.0,0.0,0.0
+360,RESIDENCIAL,DOR-PKT-SLB,"Puertas Colgantes - Colgado, nivelacion y ajuste de hoja deslizable dentro de armazon de bolsillo existente",EA,95.0,0.0,0.0
+361,RESIDENCIAL,DOR-INT-HCP,"Puertas Interiores - Instalacion, aplomado y calzado de puerta estandar pre-colgada de tambor hueco",EA,75.0,0.0,0.0
+362,RESIDENCIAL,DOR-INT-SLD,Puertas Interiores - Instalacion de puerta pesada de nucleo solido con calzado de carga y 3 bisagras,EA,110.0,0.0,0.0
+363,RESIDENCIAL,DOR-CAO-SLD,Puertas de Lujo - Instalacion y ajuste de puerta pesada de madera fina o caoba maciza con marco reforzado,EA,145.0,0.0,0.0
+364,RESIDENCIAL,DOR-SLB-FIT,"Puertas Interiores - Ajuste manual: cepillado de bordes, rebajes de bisagras y calado de cerradura en hoja suelta",EA,85.0,0.0,0.0
+365,RESIDENCIAL,DOR-FRN-INT,Puertas Grandes Dobles - Instalacion y nivelacion de par de puertas francesas interiores con jamba y pasadores de canto,SET,195.0,0.0,0.0
+366,RESIDENCIAL,DOR-FRN-EXT,Puertas Grandes Dobles - Instalacion de unidad doble francesa exterior con rotura de puente termico y sellado de umbral,SET,285.0,0.0,0.0
+367,RESIDENCIAL,DOR-GLS-PAT,Puertas Vidrio Residencial - Instalacion de puerta corrediza de patio de 2 hojas de vidrio templado,EA,290.0,0.0,0.0
+368,RESIDENCIAL,DOR-GLS-3PN,Puertas Vidrio Residencial - Instalacion de puerta corrediza o plegable de patio de gran formato de 3 a 4 paneles de vidrio,EA,440.0,0.0,0.0
+369,RESIDENCIAL,DOR-GLS-LIT,Puertas Vidrio Residencial - Instalacion de puerta interior de 1 hoja con paneles de vidrio transparente o esmerilado,EA,125.0,0.0,0.0
+370,RESIDENCIAL,DOR-LOK-PAS,Herrajes Puerta - Instalacion de manija tubular de paso o pomo con pestillo estandar,EA,22.0,0.0,0.0
+371,RESIDENCIAL,DOR-LOK-PRV,Herrajes Puerta - Instalacion de cerradura de privacidad con boton de bloqueo para banos o alcobas,EA,25.0,0.0,0.0
+372,RESIDENCIAL,DOR-LOK-DED,Herrajes Puerta - Perforacion con broca corona e instalacion de cerrojo de seguridad,EA,35.0,0.0,0.0
+373,RESIDENCIAL,DOR-STP-WAL,"Herrajes Puerta - Instalacion de tope de puerta en rodapie, piso o pared",EA,8.5,0.0,0.0
+374,RESIDENCIAL,TRM-SHO-MDF,Molduras Zapata - Suministro e instalacion de moldura de zapato delgada en MDF pre-primed,LF,1.35,0.0,0.0
+375,RESIDENCIAL,TRM-SHO-WOD,Molduras Zapata - Suministro e instalacion de zapata de madera solida de pino o roble para tenir,LF,1.85,0.0,0.0
+376,RESIDENCIAL,TRM-QTR-STD,Molduras Zapata - Suministro e instalacion de cuarto de bocel estandar en MDF o Pino,LF,1.45,0.0,0.0
+377,RESIDENCIAL,TRM-QTR-LBR,Molduras Zapata - Solo mano de obra: clavado neumatico de moldura de piso provista por el cliente,LF,0.95,0.0,0.0
+378,RESIDENCIAL,TRM-BBD-3IN,Molduras Zocalo - Instalacion y cortes a 45 de rodapie estandar bajo de 3-1/4 pulgadas,LF,2.1,0.0,0.0
+379,RESIDENCIAL,TRM-BBD-4IN,Molduras Zocalo - Instalacion y cortes a 45 de rodapie mediano de 4-1/4 pulgadas colonial o flat shaker,LF,2.45,0.0,0.0
+380,RESIDENCIAL,TRM-BBD-5IN,Molduras Zocalo - Instalacion de rodapie semiancho de 5-1/4 pulgadas con copado en esquinas internas,LF,2.85,0.0,0.0
+381,RESIDENCIAL,TRM-BBD-6IN,Molduras Zocalo - Instalacion de rodapie ancho de 6 pulgadas con remate decorativo superior,LF,3.35,0.0,0.0
+382,RESIDENCIAL,TRM-BBD-8IN,Molduras Zocalo - Instalacion de rodapie alto de lujo de 7-1/4 a 8 pulgadas para techos altos,LF,4.25,0.0,0.0
+383,RESIDENCIAL,TRM-BBD-10I,Molduras Zocalo - Instalacion de zocalo victoriano alto de 9-1/4 a 10 pulgadas de 2 piezas,LF,5.8,0.0,0.0
+384,RESIDENCIAL,TRM-BBD-CAP,Molduras Zocalo - Suministro e instalacion de remate superior decorativo para rodapie plano base cap,LF,1.45,0.0,0.0
+385,RESIDENCIAL,TRM-CAS-2IN,Molduras Marco - Instalacion de marco de puerta o ventana colonial estrecho de 2-1/4 pulgadas,LF,1.65,0.0,0.0
+386,RESIDENCIAL,TRM-CAS-3IN,Molduras Marco - Instalacion de marco de puerta o ventana ancho de 3-1/4 a 3-1/2 pulgadas,LF,2.15,0.0,0.0
+387,RESIDENCIAL,TRM-CAS-SET,Molduras Marco - Mano de obra por apertura de puerta interior completa en ambos lados,EA,55.0,0.0,0.0
+388,RESIDENCIAL,TRM-WIN-ST4,Molduras Ventana - Forrado perimetral de ventana de 4 lados con marco a 45 grados,EA,65.0,0.0,0.0
+389,RESIDENCIAL,TRM-WIN-SIL,Molduras Ventana - Instalacion tradicional de repisa de madera saliente y faldon inferior stool and apron,EA,45.0,0.0,0.0
+390,RESIDENCIAL,TRM-CAS-ROS,Molduras Marco - Instalacion de bloques de esquina decorativos o rosetas superiores,EA,12.0,0.0,0.0
+391,RESIDENCIAL,TRM-PLN-BLK,Molduras Marco - Instalacion de bloques base plinth blocks de union entre marco y zocalo,EA,14.0,0.0,0.0
+392,RESIDENCIAL,TRM-CHR-RAI,Molduras Pared - Instalacion a nivel de moldura guardasillas o pasamanos a media pared chair rail,LF,3.25,0.0,0.0
+393,RESIDENCIAL,TRM-PIC-RAI,Molduras Pared - Instalacion de moldura superior picture rail para colgar cuadros,LF,3.45,0.0,0.0
+394,RESIDENCIAL,TRM-BOX-PNL,Molduras Pared - Fabricacion y centrado de marcos rectangulares decorativos picture framing boxes,EA,45.0,0.0,0.0
+395,RESIDENCIAL,TRM-BNB-WOD,Molduras Pared - Sistema decorativo board and batten con tablas verticales 1x4 y repisa,SF,7.5,0.0,0.0
+396,RESIDENCIAL,TRM-WNS-PNL,Molduras Pared - Revestimiento ranurado machihembrado con zocalo y remate superior wainscoting,SF,8.25,0.0,0.0
+397,RESIDENCIAL,TRM-SHP-LAP,Molduras Pared - Instalacion de tablas machihembradas tipo shiplap horizontal o vertical,SF,5.5,0.0,0.0
+398,RESIDENCIAL,TRM-COV-MED,Molduras Techo - Instalacion de moldura concava sencilla en union cielo y pared cove moulding,LF,4.5,0.0,0.0
+399,RESIDENCIAL,TRM-CRN-35I,Molduras Corona - Suministro e instalacion con cortes compuestos de corona estandar de 3-1/2 a 4-1/2 pulg,LF,6.25,0.0,0.0
+400,RESIDENCIAL,TRM-CRN-57I,Molduras Corona - Instalacion de moldura de corona ancha de 5-1/4 a 7 pulgadas para techos altos,LF,7.85,0.0,0.0
+401,RESIDENCIAL,TRM-CRN-2PC,Molduras Corona - Ensamble artesanal de 2 piezas con tabla de respaldo y corona,LF,9.5,0.0,0.0
+402,RESIDENCIAL,TRM-CRN-3PC,Molduras Corona - Ensamble artesanal de 3 piezas de lujo con zocalo invertido y corona,LF,13.5,0.0,0.0
+403,RESIDENCIAL,TRM-BAM-FLS,Molduras Techo - Fabricacion e instalacion de vigas decorativas falsas de madera hueca faux beams,LF,18.0,0.0,0.0
+404,RESIDENCIAL,TRM-COF-CEL,Molduras Techo - Fabricacion completa de cielo raso artesonado en cuadricula coffered ceiling,SF,14.0,0.0,0.0
+405,RESIDENCIAL,PNT-MSK-GEN,"Pintura Preparacion - Enmascarado con plastico y tape de pisos, ventanas y muebles en area de trabajo",SF,0.35,0.0,0.0
+406,RESIDENCIAL,PNT-CLK-TRM,Pintura Preparacion - Calafateo continuo con siliconized acrylic caulk en uniones de moldura contra drywall,LF,0.65,0.0,0.0
+407,RESIDENCIAL,PNT-PUT-NAL,Pintura Preparacion - Relleno y lijado de orificios de clavos en rodapies y marcos con pasta de madera,LF,0.45,0.0,0.0
+408,RESIDENCIAL,PNT-PRM-PVA,Pintura Primer - Aplicacion de 1 mano de sellador vinilico PVA sobre drywall nuevo o reparado,SF,0.45,0.0,0.0
+409,RESIDENCIAL,PNT-PRM-STN,"Pintura Primer - Aplicacion de sellador bloqueador de manchas de agua, humo o tanino base aceite",SF,0.65,0.0,0.0
+410,RESIDENCIAL,PNT-WAL-1CT,Pintura Muros - Aplicacion de 1 mano de mantenimiento de pintura de latex en paredes,SF,0.55,0.0,0.0
+411,RESIDENCIAL,PNT-WAL-2CT,"Pintura Muros - Aplicacion de 2 manos de pintura de latex calidad premium acabado flat, eggshell o satin",SF,0.95,0.0,0.0
+412,RESIDENCIAL,PNT-CEL-FLT,Pintura Cielos - Aplicacion de 2 manos de pintura blanca mate antireflejante especial para techos,SF,0.85,0.0,0.0
+413,RESIDENCIAL,PNT-HGT-10F,Pintura Muros - Suplemento por mano de obra en pintura de muros o cielos con altura mayor a 10 pies,SF,0.3,0.0,0.0
+414,RESIDENCIAL,PNT-BBD-LF,Pintura Molduras - Aplicacion a brocha de 2 manos de esmalte semibrillante o satin en rodapies,LF,1.25,0.0,0.0
+415,RESIDENCIAL,PNT-QTR-LF,Pintura Molduras - Pintura detallada de moldura shoe moulding o quarter round ya instalada,LF,0.75,0.0,0.0
+416,RESIDENCIAL,PNT-CAS-LF,Pintura Molduras - Aplicacion de 2 manos de esmalte en marcos de puertas y ventanas por pie lineal,LF,1.15,0.0,0.0
+417,RESIDENCIAL,PNT-CRN-LF,Pintura Molduras - Pintura detallada a brocha en moldura de corona en altura,LF,1.65,0.0,0.0
+418,RESIDENCIAL,PNT-WNS-SF,Pintura Paneles - Aplicacion de esmalte a rodillo fino y brocha sobre wainscoting o shiplap,SF,1.85,0.0,0.0
+419,RESIDENCIAL,PNT-DOR-FLT,Pintura Puertas - Preparacion y 2 manos de esmalte en puerta lisa de tambor hueco ambas caras,EA,35.0,0.0,0.0
+420,RESIDENCIAL,PNT-DOR-PNL,Pintura Puertas - Preparacion y 2 manos de esmalte en puerta de 2 a 6 paneles ambas caras,EA,48.0,0.0,0.0
+421,RESIDENCIAL,PNT-DOR-FRN,Pintura Puertas - Esmaltado detallado de puerta francesa con recorte individual de vidrios lite,EA,85.0,0.0,0.0
+422,RESIDENCIAL,PNT-WIN-SGL,"Pintura Ventanas - Preparacion y pintura de marco interior, repisa y faldon de ventana",EA,35.0,0.0,0.0
+423,RESIDENCIAL,CAB-PNT-DOR,"Gabinetes Pintura - Proceso completo por puerta o gaveta: desmonte, limpieza TSP, lijado, primer y 2 manos a pistola HVLP",EA,48.0,0.0,0.0
+424,RESIDENCIAL,CAB-PNT-BXF,Gabinetes Pintura - Pintura en sitio de armazones fijos exteriores (Face frames y costados) por pie lineal,LF,28.0,0.0,0.0
+425,RESIDENCIAL,CAB-PNT-ISL,Gabinetes Pintura - Preparacion y aplicacion a pistola de esmalte de alta durabilidad en isla completa de cocina,EA,320.0,0.0,0.0
+426,RESIDENCIAL,CAB-PNT-INT,Gabinetes Pintura - Aplicacion de esmalte protector en interiores y repisas interiores de gabinetes,LF,18.5,0.0,0.0
+427,RESIDENCIAL,CAB-PNT-SET,Gabinetes Pintura - Paquete completo cocina mediana (hasta 20 puertas/gavetas + cajas) terminado fino a pistola,SET,1850.0,0.0,0.0
+428,RESIDENCIAL,PNT-CLR-POL,Acabado Madera - Lijado fino y aplicacion de 3 capas de poliuretano transparente satinado o brillante en molduras y puertas,LF,2.85,0.0,0.0
+429,RESIDENCIAL,PNT-STN-TRM,Acabado Madera - Aplicacion manual de tinte penetrating stain y sellador de grano en carpinteria fina,LF,2.25,0.0,0.0
+430,RESIDENCIAL,PNT-LAC-SPR,Acabado Madera - Aplicacion a compresor de laca transparente de nitrocelulosa o conversion varnish,SF,3.4,0.0,0.0
+431,RESIDENCIAL,PNT-ACN-WAL,Pintura Alto Estandar - Muro de acento (Accent Wall) con color de contraste y recorte milimetrico con cinta laser,SF,1.45,0.0,0.0
+432,RESIDENCIAL,PNT-VEN-PLS,Pintura Alto Estandar - Aplicacion de estuco veneciano artesanal a llana de acero con pulido y encerado efecto marmol,SF,9.5,0.0,0.0
+433,RESIDENCIAL,PNT-CHL-BRD,Pintura Especial - Aplicacion de pintura magnetica o esmalte negro pizarron en muros de cocina o cuartos,SF,2.65,0.0,0.0
+434,RESIDENCIAL,PNT-MET-FIN,Pintura Especial - Aplicacion decorativa de esmalte metalizado o perlado con rodillo especial o brocha de efecto,SF,3.2,0.0,0.0
+435,PISOS,FLR-DEM-CPT,Pisos Prep - Retiro y disposicion final de alfombra vieja con esponja y clavadores tack strip,SY,3.5,0.0,0.0
+436,PISOS,FLR-DEM-TIL,Pisos Prep - Demolicion manual y levantado de piso ceramico existente con mortero pegado a losa,SF,3.25,0.0,0.0
+437,PISOS,FLR-DEM-HWD,Pisos Prep - Levantado y remocion de piso de madera solida clavada o pegada existente,SF,2.85,0.0,0.0
+438,PISOS,FLR-SLV-LEV,Pisos Prep - Imprimacion y vertido de mortero autonivelante self-leveling underlayment sobre superficie,SF,2.4,0.0,0.0
+439,PISOS,FLR-DRC-INS,Pisos Prep - Instalacion de panel de cemento Durock o Hardie de 1/2 pulg con mortero thinset y tornillos,SF,2.85,0.0,0.0
+440,PISOS,FLR-DIT-MEM,Pisos Prep - Instalacion de membrana de desacoplamiento e impermeabilizacion tipo Schluter Ditra,SF,2.15,0.0,0.0
+441,PISOS,FLR-REP-SUB,Pisos Reparacion - Corte y extraccion de madera danada por humedad y parche de subfloor con soporte en viguetas,SF,12.5,0.0,0.0
+442,PISOS,FLR-REP-SHT,Pisos Reparacion - Reemplazo de hoja completa 4x8 pies de subfloor OSB o Plywood 3/4 pulg con adhesivo estructural,SH,85.0,0.0,0.0
+443,PISOS,FLR-REP-CRK,Pisos Reparacion - Correccion de crujidos en entramado mediante atornillado reforzado a las viguetas,SF,1.25,0.0,0.0
+444,PISOS,FLR-REP-CNC,Pisos Reparacion - Reparacion de grietas en losa de concreto con compuesto epoxico o mortero hidraulico,LF,4.5,0.0,0.0
+445,PISOS,FLR-LVP-CLK,Pisos Vinilo - Instalacion de piso de vinilo de lujo LVP rigido sistema clic con membrana integrada,SF,1.95,0.0,0.0
+446,PISOS,FLR-LVT-GLU,Pisos Vinilo - Instalacion de loseta o duela de vinilo LVT pegada directamente con adhesivo,SF,2.45,0.0,0.0
+447,PISOS,FLR-LAM-CLK,Pisos Laminados - Instalacion de piso laminado flotante con colocacion de bajo-suelo aislante,SF,1.85,0.0,0.0
+448,PISOS,FLR-REP-LVP,Pisos Reparacion - Sustitucion puntual de duela danada de vinilo flotante LVP sin desmontar el cuarto,EA,65.0,0.0,0.0
+449,PISOS,FLR-HWD-NAL,Pisos Madera - Instalacion con clavado neumatico a 45 grados de piso de madera solida o ingenieril de roble,SF,4.25,0.0,0.0
+451,PISOS,FLR-HWD-SND,"Pisos Madera - Lijado y pulido profundo a maquina con secuencia de granos grueso, medio y fino",SF,2.65,0.0,0.0
+452,PISOS,FLR-HWD-STN,Pisos Madera - Aplicacion uniforme de tinte penetrating stain y acondicionador de poro en madera,SF,0.95,0.0,0.0
+453,PISOS,FLR-HWD-POL,Pisos Madera - Aplicacion de 3 capas de poliuretano protector satinado o brillante base agua o aceite,SF,1.85,0.0,0.0
+454,PISOS,FLR-REP-HWD,Pisos Reparacion - Remocion e integracion entrelazada de duelas de madera solida weave-in en area danada,SF,18.5,0.0,0.0
+455,PISOS,FLR-STR-TRD,"Pisos Madera - Lijado, tinte y barnizado completo de peldano individual huella y contrahuella de escalera",EA,65.0,0.0,0.0
+456,PISOS,FLR-TIL-STD,Pisos Ceramica - Colocacion de baldosa o porcelanato regular 12x12 o 12x24 con mortero adhesivo modificado,SF,6.5,0.0,0.0
+457,PISOS,FLR-TIL-LRG,Pisos Porcelanato - Colocacion de porcelanato rectificado de gran formato 24x24 o 24x48 con clips niveladores,SF,8.5,0.0,0.0
+458,PISOS,FLR-TIL-HRN,Pisos Porcelanato - Instalacion en patron decorativo tipo espiga herringbone o piezas hexagonales,SF,11.5,0.0,0.0
+459,PISOS,FLR-TIL-GRT,"Pisos Boquilla - Aplicacion, emboquillado y limpieza de lechada con o sin arena sellada en pisos",SF,1.25,0.0,0.0
+460,PISOS,FLR-REP-TIL,"Pisos Reparacion - Extraccion limpia de baldosa quebrada, raspado de mortero viejo y reemplazo con fragua",EA,45.0,0.0,0.0
+461,PISOS,FLR-REP-GRT,Pisos Reparacion - Raspado de lechada deteriorada o con moho y reaplicacion de boquilla nueva,SF,2.85,0.0,0.0
+462,ALFOMBRA,CPT-TCK-STR,Alfombra Proceso - Suministro e instalacion de listones de anclaje con puas tack strips en perimetro,LF,1.25,0.0,0.0
+463,ALFOMBRA,CPT-PAD-6LB,Alfombra Proceso - Instalacion y engrapado de bajo-alfombra esponja estandar de densidad 6 libras,SY,3.75,0.0,0.0
+464,ALFOMBRA,CPT-PAD-8LB,Alfombra Proceso - Instalacion de bajo-alfombra premium de alta densidad 8 libras con barrera antiderrames,SY,4.5,0.0,0.0
+465,ALFOMBRA,CPT-SEM-TRN,Alfombra Proceso - Termosellado continuo de juntas con cinta termica y plancha termofusora,LF,3.2,0.0,0.0
+466,ALFOMBRA,CPT-INS-STR,Alfombra Proceso - Montaje y tensado profesional con palanca electrica power stretcher y recorte de bordes,SY,6.5,0.0,0.0
+467,ALFOMBRA,CPT-INS-GLU,Alfombra Proceso - Instalacion de alfombra comercial mediante pegado directo direct glue-down,SY,5.5,0.0,0.0
+468,ALFOMBRA,CPT-STP-STR,Alfombra Proceso - Forrado y engrapado de huella y contrahuella en escalon individual estilo waterfall,EA,18.0,0.0,0.0
+469,ALFOMBRA,CPT-REP-INS,Alfombra Reparacion - Parche quirurgico bonded insert empalmando la orientacion del pelo con cinta de calor,EA,75.0,0.0,0.0
+470,ALFOMBRA,CPT-REP-STR,Alfombra Reparacion - Retensado correctivo de alfombra abolsada con power stretcher en habitacion completa,ROOM,95.0,0.0,0.0
+471,ALFOMBRA,CPT-TRN-MTL,Alfombra Remate - Suministro e instalacion de perfil metalico de transicion dentado clamp-down,LF,4.5,0.0,0.0
+472,PISOS,FLR-TRN-TMD,"Pisos Transicion - Instalacion de moldura en T, reductor o perfil de transicion flotante a juego",LF,6.8,0.0,0.0
+473,PISOS,FLR-TRN-SLU,Pisos Transicion - Instalacion de perfil metalico decorativo tipo Schluter Reno o Jolly en borde expuesto,LF,4.5,0.0,0.0
+474,PISOS,FLR-TRN-THR,Pisos Transicion - Colocacion y calzado de umbral de marmol o granito de 4 a 6 pulgadas bajo puerta,EA,45.0,0.0,0.0
+475,COCINA,CAB-ST-BAS-LF,Gabinetes Estandar - Mueble base modular prefabricado stock aglomerado/MDF suministro e instalacion por pie lineal,LF,165.0,0.0,0.0
+476,COCINA,CAB-ST-WAL-LF,Gabinetes Estandar - Mueble aereo de pared prefabricado stock de 30 pulg suministro e instalacion por pie lineal,LF,145.0,0.0,0.0
+477,COCINA,CAB-ST-PNT-EA,Gabinetes Estandar - Alacena vertical despensera stock prefabricada suministro e instalacion por unidad,EA,420.0,0.0,0.0
+478,COCINA,CAB-ST-VAN-EA,Gabinetes Estandar - Vanity de bano prefabricado basico de 30 a 36 pulg suministro e instalacion,EA,280.0,0.0,0.0
+479,COCINA,CAB-MD-BAS-LF,Gabinetes Medio Alto - Mueble base semi-custom caja plywood puertas madera solid/shaker soft-close por pie lineal,LF,285.0,0.0,0.0
+480,COCINA,CAB-MD-WAL-LF,Gabinetes Medio Alto - Mueble aereo semi-custom de 36 a 42 pulg plywood con repisas ajustables por pie lineal,LF,245.0,0.0,0.0
+481,COCINA,CAB-MD-PNT-EA,Gabinetes Medio Alto - Alacena semi-custom con repisas extraibles pull-out shelves por unidad,EA,780.0,0.0,0.0
+482,COCINA,CAB-MD-ISL-LF,Gabinetes Medio Alto - Ensamble de modulos para isla con acabado perimetral y decorativo por pie lineal,LF,310.0,0.0,0.0
+483,COCINA,CAB-MD-VAN-EA,Gabinetes Medio Alto - Vanity semi-custom de 48 a 60 pulg con gavetas cierre suave y frente solido,EA,580.0,0.0,0.0
+484,COCINA,CAB-PR-BAS-LF,Gabinetes Alta Calidad - Mueble base de ebanisteria a medida custom solido cajones dovetail laca catalizada,LF,485.0,0.0,0.0
+485,COCINA,CAB-PR-WAL-LF,Gabinetes Alta Calidad - Mueble aereo custom hasta cielo con frentes de vidrio o paneles biselados por pie lineal,LF,420.0,0.0,0.0
+486,COCINA,CAB-PR-PNT-EA,Gabinetes Alta Calidad - Despensa empotrada artesanal de piso a techo con organizadores y herrajes de lujo,EA,1450.0,0.0,0.0
+487,COCINA,CAB-PR-ISL-EA,"Gabinetes Alta Calidad - Isla artesanal a la medida con molduras integradas, zapatas y paneles enmarcardos",EA,1850.0,0.0,0.0
+488,COCINA,CAB-PR-VAN-EA,Gabinetes Alta Calidad - Mueble de bano vanity artesanal a medida doble poza acabado automotriz o madera fina,EA,980.0,0.0,0.0
+489,COCINA,CAB-LBR-ST-LF,Gabinetes Mano de Obra - Instalacion y anclaje de gabinetes de grado estandar stock por pie lineal corrido,LF,32.0,0.0,0.0
+490,COCINA,CAB-LBR-MD-LF,"Gabinetes Mano de Obra - Instalacion de gabinetes semi-custom con ajustes de campo, fillers y nivelacion fina",LF,45.0,0.0,0.0
+491,COCINA,CAB-LBR-PR-LF,Gabinetes Mano de Obra - Instalacion especializada de gabinetes custom a medida con tolerancias milimetricas,LF,65.0,0.0,0.0
+492,COCINA,CAB-LBR-BAS-EA,Gabinetes Mano de Obra - Fijacion y calzado individual de mueble base provisto por cliente por pieza,EA,65.0,0.0,0.0
+493,COCINA,CAB-LBR-WAL-EA,Gabinetes Mano de Obra - Fijacion estructural de mueble aereo individual por pieza,EA,55.0,0.0,0.0
+494,COCINA,CAB-LBR-PNT-EA,Gabinetes Mano de Obra - Montaje y anclaje de torre vertical tipo pantry por pieza,EA,125.0,0.0,0.0
+495,ENCIMERAS,CTP-SLB-GRN,Encimeras Lamina - Suministro de losa completa de granito natural 3cm (promedio 50-55 SF por lamina),SLB,1450.0,0.0,0.0
+496,ENCIMERAS,CTP-SLB-QTZ,Encimeras Lamina - Suministro de losa completa de cuarzo blanco/veteado engineered stone (aprox 55 SF),SLB,1750.0,0.0,0.0
+497,ENCIMERAS,CTP-SLB-MRB,Encimeras Lamina - Suministro de losa completa de marmol Carrara o Calacatta natural 3cm seleccionada,SLB,2200.0,0.0,0.0
+498,ENCIMERAS,CTP-SLB-QTZ-EX,Encimeras Lamina - Suministro de losa exotica de cuarcita natural dura de alta densidad,SLB,2850.0,0.0,0.0
+499,ENCIMERAS,CTP-SLB-PRC,Encimeras Lamina - Suministro de placa de gran formato de porcelanato tecnico sinterizado (Neolith/Dekton),SLB,2400.0,0.0,0.0
+500,ENCIMERAS,CTP-INS-LAM-SF,Encimeras Laminado - Suministro e instalacion de encimera de formica/laminado plastico con base de madera,SF,28.5,0.0,0.0
+501,ENCIMERAS,CTP-INS-SOL-SF,Encimeras Corian - Suministro e instalacion de cubierta de superficie solida termoformable 1/2 pulg,SF,62.0,0.0,0.0
+502,ENCIMERAS,CTP-INS-BUT-SF,Encimeras Madera - Suministro e instalacion de tope de bloque de carnicero (Butcher Block) de roble o arce sellado,SF,48.0,0.0,0.0
+503,ENCIMERAS,CTP-INS-GR1-SF,"Encimeras Granito - Suministro, plantilla, corte e instalacion de granito estandar Grupo 1 (3cm)",SF,58.0,0.0,0.0
+504,ENCIMERAS,CTP-INS-GR2-SF,"Encimeras Granito - Suministro, plantilla, corte e instalacion de granito importado Grupo 2-3 (3cm)",SF,74.0,0.0,0.0
+505,ENCIMERAS,CTP-INS-QT1-SF,Encimeras Cuarzo - Suministro e instalacion de cuarzo serie estandar colores solidos o chispeados (3cm),SF,68.0,0.0,0.0
+506,ENCIMERAS,CTP-INS-QT2-SF,Encimeras Cuarzo - Suministro e instalacion de cuarzo premium con diseno tipo Calacatta con vetas profundas (3cm),SF,88.0,0.0,0.0
+507,ENCIMERAS,CTP-INS-DEK-SF,Encimeras Ultracompacta - Suministro e instalacion especializada de piedra sinterizada Dekton/Porcelanico 12mm/20mm,SF,125.0,0.0,0.0
+508,ENCIMERAS,CTP-CUT-UND,"Encimeras Corte - Perforacion, perfilado y pulido interior para fregadero bajo tope (Undermount Sink Cutout)",EA,145.0,0.0,0.0
+509,ENCIMERAS,CTP-CUT-DRP,Encimeras Corte - Corte simple desbastado sin pulir para fregadero sobrepuesto o estufa drop-in,EA,75.0,0.0,0.0
+510,ENCIMERAS,CTP-CUT-CKT,Encimeras Corte - Apertura rectangular biselada para instalacion de estufa empotrada (Cooktop Cutout),EA,95.0,0.0,0.0
+511,ENCIMERAS,CTP-CUT-HOL,"Encimeras Perforacion - Hueco con broca diamantada para griferia, dispensador de jabon, llave purificadora o switch de aire",EA,18.0,0.0,0.0
+512,ENCIMERAS,CTP-CUT-OUT,Encimeras Perforacion - Corte rectangular de precision para tomacorriente pop-up de empotrar en isla,EA,45.0,0.0,0.0
+513,ENCIMERAS,CTP-FAB-TMP,Encimeras Fabricacion - Toma de medidas en sitio y fabricacion de plantilla fisica o escaneo laser digital (Laser Templating),EA,150.0,0.0,0.0
+514,ENCIMERAS,CTP-EDG-EAS,Encimeras Canto - Borde recto pulido estándar o bisel plano 1/8 pulg (Eased Edge) incluido en metro base,LF,0.0,0.0,0.0
+515,ENCIMERAS,CTP-EDG-BLL,Encimeras Canto - Perfilado y pulido redondeado completo (Full Bullnose) o medio redondeado (Demi/Half Bullnose),LF,16.0,0.0,0.0
+516,ENCIMERAS,CTP-EDG-OGE,Encimeras Canto - Maquinado artesanal y brillo de canto curvo clasico estilo Ogee o Pecho Paloma,LF,24.0,0.0,0.0
+517,ENCIMERAS,CTP-EDG-MIT,Encimeras Canto - Ensamble con corte a inglete a 45 grados pegado y pulido para dar apariencia de canto grueso 2 a 3 pulg,LF,28.0,0.0,0.0
+518,ENCIMERAS,CTP-EDG-CHL,Encimeras Canto - Acabado rustico irregular quebrado a cincel y pulido suave (Chiseled / Rock Edge),LF,22.0,0.0,0.0
+519,ENCIMERAS,CTP-WTF-MTR,Encimeras Cascada - Fabricacion y union a inglete con continuacion de veta de pata lateral en caida vertical (Waterfall Edge),EA,350.0,0.0,0.0
+520,ENCIMERAS,CTP-SPL-4IN,"Encimeras Zocalo - Suministro, corte, pulido de canto y pegado de rodapie perimetral de piedra a juego de 4 pulg",LF,16.0,0.0,0.0
+521,ENCIMERAS,CTP-SPL-FUL,Encimeras Salpicadero - Forrado completo de pared entre mueble bajo y mueble alto con la misma lamina de piedra (Full Height Splash),SF,52.0,0.0,0.0
+522,ENCIMERAS,CTP-BRK-STL,Encimeras Soporte - Suministro e instalacion de barra plana o escuadra oculta de acero estructural de 1/2 pulg para voladizo de barra,EA,55.0,0.0,0.0
+523,ENCIMERAS,CTP-ROD-FBR,Encimeras Refuerzo - Ranurado inferior e insercion de varilla de fibra de vidrio/acero con resina en puntos debiles de fregadero,EA,45.0,0.0,0.0
+524,ENCIMERAS,CTP-LBR-INS,"Encimeras Mano de Obra - Carga, nivelacion, calzado y sellado elastico de planchas fabricadas provistas por el cliente",SF,22.0,0.0,0.0
+525,ENCIMERAS,CTP-DTR-REM,Encimeras Desmonte - Desprender con cuidado encimera existente para conservarla o reemplazarla sin romper gabinetes (R&R),LF,18.5,0.0,0.0
+526,ENCIMERAS,CTP-REP-CHP,Encimeras Reparacion - Reconstruccion de desportilladura o quiebre en borde con resina epoxica color-match y pulido,EA,95.0,0.0,0.0
+527,ENCIMERAS,CTP-REP-SEM,"Encimeras Reparacion - Vaciado, limpieza, reapriete con abrazaderas de succion y relleno de junta abierta entre losas",EA,85.0,0.0,0.0
+528,ENCIMERAS,CTP-REP-SNK,Encimeras Reparacion - Reanclaje de fregadero bajo tope caido o despegado con soportes mecanicos epoxicos nuevos,EA,165.0,0.0,0.0
+529,ENCIMERAS,CTP-REP-POL,"Encimeras Mantenimiento - Desbaste con diamantes de agua, eliminacion de manchas de grabado acido y pulido fino en marmol/granito",SF,14.5,0.0,0.0
+530,ENCIMERAS,CTP-SEL-GRN,Encimeras Mantenimiento - Aplicacion manual de impregnador sellador hidrofugo de penetracion profunda antimanchas,SF,1.15,0.0,0.0
+531,COCINA,KIT-APP-RST-DSH,"Lavavajillas - Desconectar linea de agua, drenaje y corriente, retirar del mueble y reinstalar con pruebas de ciclo (Detach & Reset)",EA,188.5,0.0,0.0
+532,COCINA,KIT-APP-REM-DSH,"Lavavajillas - Desconexion plomerica/electrica completa, desanclaje de cubierta y remocion de la unidad (Remove only)",EA,48.0,0.0,0.0
+533,COCINA,KIT-APP-CON-DSH,"Lavavajillas - Solo conexion de equipo nuevo: anclaje antitipping, conexion de manguera de agua, desague con lazo alto y cableado",EA,135.0,0.0,0.0
+534,COCINA,KIT-APP-RST-MIC,"Microondas OTR - Bajar de muro, desconectar conducto de tiro, resguardar y volver a colgar y nivelar (Detach & Reset)",EA,165.0,0.0,0.0
+535,COCINA,KIT-APP-REM-MIC,"Microondas OTR - Desmonte de mueble y soporte posterior, desconexion electrica y retiro (Remove only)",EA,42.0,0.0,0.0
+536,COCINA,KIT-APP-CON-MIC,"Microondas OTR - Solo montaje de unidad nueva: fijacion de chapa a montantes, perforacion superior, acople a ducto y corriente",EA,128.0,0.0,0.0
+537,COCINA,KIT-APP-RST-REF,"Refrigerador - Desconectar linea de agua de fabrica de hielo, mover fuera de cocina y reubicar con purga de filtro (Detach & Reset)",EA,85.0,0.0,0.0
+538,COCINA,KIT-APP-REM-REF,"Refrigerador - Cierre de suministro, desconexion de manguera/corriente y desalojo de cocina (Remove only)",EA,45.0,0.0,0.0
+539,COCINA,KIT-APP-CON-REF,Refrigerador - Solo puesta en sitio de unidad nueva: nivelacion de rodillos y conexion de tubo de cobre/PEX 1/4 pulg a valvula,EA,65.0,0.0,0.0
+540,COCINA,KIT-APP-RST-RGE,"Estufa Electrica - Mover fuera de nicho, desconectar receptaculo 240V, resguardar y reubicar calibrando nivel y tope (Detach & Reset)",EA,78.0,0.0,0.0
+541,COCINA,KIT-APP-REM-RGE,Estufa Electrica - Desconexion de terminales de fuerza 240V de 3 o 4 polos y retiro para desecho (Remove only),EA,35.0,0.0,0.0
+542,COCINA,KIT-APP-CON-RGE,"Estufa Electrica - Solo conexion de unidad nueva: instalacion de kit antivuelco en piso, sujecion de cordon 240V y nivelacion",EA,58.0,0.0,0.0
+543,COCINA,KIT-APP-RST-RGG,"Estufa Gas - Cierre de llave, desacople de manguera flexible, retiro temporal y reinstalacion con prueba de hermeticidad (Detach & Reset)",EA,132.0,0.0,0.0
+544,COCINA,KIT-APP-REM-RGG,"Estufa Gas - Cierre seguro de valvula de gas, desacople y desecho de manguera vieja y retiro del artefacto (Remove only)",EA,46.0,0.0,0.0
+545,COCINA,KIT-APP-CON-RGG,"Estufa Gas - Solo conexion de unidad nueva: linea flexible certificada amarilla, sellador de rosca de gas y prueba de burbujas",EA,88.0,0.0,0.0
+546,COCINA,KIT-APP-RST-CKT,"Parrilla Cooktop - Desempotre de encimera, desconexion electrica/gas, resguardo y reinstalacion sellada con empaque (Detach & Reset)",EA,148.0,0.0,0.0
+547,COCINA,KIT-APP-REM-CKT,"Parrilla Cooktop - Desconexion de suministro, aflojado de mordazas inferiores bajo cubierta y extraccion (Remove only)",EA,48.0,0.0,0.0
+548,COCINA,KIT-APP-CON-CKT,"Parrilla Cooktop - Solo instalacion en vano preparado: fijacion con clips bajo tope, junta perimetral y enlace electrico o linea de gas",EA,98.0,0.0,0.0
+549,COCINA,KIT-APP-RST-OVN,"Horno de Pared - Retiro frontal de nicho de gabinete, desconexion de conducto flexible 240V y reinstalacion (Detach & Reset)",EA,225.0,0.0,0.0
+550,COCINA,KIT-APP-REM-OVN,"Horno de Pared - Desatornillado perimetral de bastidor, desconexion en caja de paso y extraccion con maniobra (Remove only)",EA,65.0,0.0,0.0
+551,COCINA,KIT-APP-CON-OVN,"Horno de Pared - Solo izado y conexion de equipo nuevo: calce en vano, enlace electrico 240V y sujecion frontal",EA,165.0,0.0,0.0
+552,COCINA,KIT-APP-RST-HOD,"Campana Pared - Desmonte de tiros de chimenea, ducto y cables para azulejo de pared y reposicion calibrada (Detach & Reset)",EA,195.0,0.0,0.0
+553,COCINA,KIT-APP-REM-HOD,"Campana Pared - Desconexion de tiro forzado, linea electrica, remocion de soportes y desecho (Remove only)",EA,45.0,0.0,0.0
+554,COCINA,KIT-APP-CON-HOD,"Campana Pared - Solo instalacion de unidad nueva: anclaje de soporte a pared, montaje de motor, empate a ducto exterior y molduras",EA,148.0,0.0,0.0
+555,COCINA,KIT-APP-RST-HDI,"Campana Isla - Descenso de estructura suspendida de techo, desacople de tiro y cables y recolocacion posterior (Detach & Reset)",EA,285.0,0.0,0.0
+556,COCINA,KIT-APP-REM-HDI,"Campana Isla - Desconexion electrica en cielo, desanclaje de bastidor suspendido y retiro completo (Remove only)",EA,65.0,0.0,0.0
+557,COCINA,KIT-APP-CON-HDI,"Campana Isla - Solo instalacion de unidad nueva: refuerzo en viguetas de cielo, montaje telescopico, ducto y enlace",EA,228.0,0.0,0.0
+558,COCINA,KIT-APP-RST-DSP,"Triturador Basura - Desacople de anillo bajo tarja, desconexion sanitaria y electrica y reinstalacion sellada (Detach & Reset)",EA,158.0,0.0,0.0
+559,COCINA,KIT-APP-REM-DSP,"Triturador Basura - Desacople rapido, desconexion de cable y tuberia sanitaria y desecho (Remove only)",EA,45.0,0.0,0.0
+560,COCINA,KIT-APP-CON-DSP,"Triturador Basura - Solo instalacion de motor nuevo: montaje de brida con masilla de plomero, conexion a trampa P y corriente",EA,118.0,0.0,0.0
+561,COCINA,KIT-APP-RST-CMP,"Compactador Basura - Extraccion de nicho bajo tope, desconexion electrica y reposicion con anclaje a muebles (Detach & Reset)",EA,145.0,0.0,0.0
+562,COCINA,KIT-APP-REM-CMP,"Compactador Basura - Desatornillado lateral, desconexion y desalojo de equipo (Remove only)",EA,42.0,0.0,0.0
+563,COCINA,KIT-APP-CON-CMP,"Compactador Basura - Solo calce en hueco bajo encimera, fijacion perimetral y conexion electrica",EA,92.0,0.0,0.0
+564,COCINA,KIT-APP-RST-WIN,Enfriador Vino - Desconexión y retiro fuera de área de trabajo para pisos/muebles y recolocación calibrada (Detach & Reset),EA,85.0,0.0,0.0
+565,COCINA,KIT-APP-REM-WIN,Enfriador Vino - Desconexion y retiro fuera del inmueble para reciclaje (Remove only),EA,35.0,0.0,0.0
+566,COCINA,KIT-APP-CON-WIN,Enfriador Vino - Solo puesta en sitio de unidad nueva: nivelacion milimetrica bajo cubierta y puesta en marcha,EA,65.0,0.0,0.0
+567,COCINA,KIT-PLM-INS-SKU,"Fregadero Bajo Tope - Instalacion, anclaje con clips epoxicos bajo cubierta y sellado perimetral con silicon 100%",EA,115.0,0.0,0.0
+568,COCINA,KIT-PLM-REM-SKU,"Fregadero Bajo Tope - Corte de sellos de silicon, retiro de anclajes inferiores, desmonte y retiro",EA,45.0,0.0,0.0
+569,COCINA,KIT-PLM-RST-SKU,"Fregadero Bajo Tope - Desprender con cuidado para cambio de encimera, limpiar bordes y reanclar con sellador nuevo",EA,165.0,0.0,0.0
+570,COCINA,KIT-PLM-INS-SKD,"Fregadero Sobre Tope - Encastre en vano de encimera, ajuste con grapas de tension y cordon perimetral antihumedad",EA,85.0,0.0,0.0
+571,COCINA,KIT-PLM-REM-SKD,"Fregadero Sobre Tope - Desmonte de grapas inferiores, corte de sello y retiro de fregadero existente",EA,38.0,0.0,0.0
+572,COCINA,KIT-PLM-RST-SKD,Fregadero Sobre Tope - Retiro temporal durante instalacion de encimera y recolocacion hermetica con grapas,EA,125.0,0.0,0.0
+573,COCINA,KIT-PLM-INS-SKF,"Fregadero Farmhouse - Refuerzo de bastidor de madera en gabinete base, asentado a nivel y calafateo estructural",EA,185.0,0.0,0.0
+574,COCINA,KIT-PLM-REM-SKF,"Fregadero Farmhouse - Descalzado de soportes de madera interiores, corte de sellos y extraccion con maniobra pesada",EA,65.0,0.0,0.0
+575,COCINA,KIT-PLM-RST-SKF,Fregadero Farmhouse - Desmonte cuidadoso durante remodelacion y reinstalacion ajustando altura con nueva cubierta,EA,245.0,0.0,0.0
+576,COCINA,KIT-PLM-INS-FAU,"Grifo de Cocina - Instalacion de llave monomando o con rociador pull-down, arandela de fijacion y flexibles a llaves de paso",EA,85.0,0.0,0.0
+577,COCINA,KIT-PLM-REM-FAU,"Grifo de Cocina - Cierre de llaves de paso, desconexion de mangueras trenzadas y retiro de grifo viejo",EA,32.0,0.0,0.0
+578,COCINA,KIT-PLM-RST-FAU,Grifo de Cocina - Desmonte de llave para cambio de tope/fregadero y reinstalacion con empaques nuevos probada,EA,115.0,0.0,0.0
+579,COCINA,KIT-PLM-INS-STP,Valvula de Paso - Suministro e instalacion de llave de corte angular de 1/4 de vuelta de compresion o crimpado PEX,EA,42.0,0.0,0.0
+580,COCINA,KIT-PLM-REP-STP,Valvula de Paso - Sustitucion de 2 llaves de paso angulares de agua fria y caliente bajo fregadero,PAIR,78.0,0.0,0.0
+581,COCINA,KIT-PLM-INS-ICM,Linea Fabrica de Hielo - Suministro e instalacion de caja empotrada Ice Maker Box con llave de 1/4 vuelta y tubo PEX,EA,145.0,0.0,0.0
+582,COCINA,KIT-PLM-RUN-ICM,Linea Fabrica de Hielo - Tendido de linea de tuberia flexible PEX/Cobre de 1/4 pulg desde fregadero hasta refrigerador,LF,4.5,0.0,0.0
+583,COCINA,KIT-PLM-INS-PTR,Desague Fregadero - Ensamble e instalacion de trampa sanitaria P-Trap y extension de desague de PVC blanco o negro,EA,58.0,0.0,0.0
+584,COCINA,KIT-PLM-RST-PTR,Desague Fregadero - Desacople de trampa de drenaje para obra y reensamble con tuercas y empaques nuevos de friccion,EA,45.0,0.0,0.0
+585,COCINA,KIT-PLM-INS-STR,Canasta Fregadero - Instalacion de contracanasta (Basket strainer) con masilla de plomero y empaque de presion,EA,38.0,0.0,0.0
+586,COCINA,KIT-PLM-INS-AIR,Espacio de Aire - Instalacion de brecha de aire (Air Gap) para lavavajillas sobre tope con mangueras de derivacion,EA,45.0,0.0,0.0
+587,COCINA,KIT-PLM-INS-POT,Llave Pot Filler - Montaje y enrosque de grifo articulado para llenado de ollas a niple de pared con prueba de presion,EA,145.0,0.0,0.0
+588,COCINA,KIT-PLM-RST-POT,Llave Pot Filler - Desmonte temporal de grifo articulado durante enchapado de backsplash y recolocacion nivelada,EA,85.0,0.0,0.0
+589,COCINA,KIT-PLM-INS-ROF,"Osmosis Inversa - Instalacion completa de sistema purificador de 5 etapas: membrana, tanque, derivacion y llave auxiliar",EA,165.0,0.0,0.0
+590,COCINA,KIT-PLM-RST-ROF,Osmosis Inversa - Desconexion de modulo purificador y tanque para remodelacion y reconexion final verificando sellos,EA,95.0,0.0,0.0
+591,COCINA,KIT-PLM-INS-SKU,"Fregadero Bajo Tope - Instalacion, anclaje con clips epoxicos bajo cubierta y sellado perimetral con silicon 100%",EA,115.0,0.0,0.0
+592,COCINA,KIT-PLM-REM-SKU,"Fregadero Bajo Tope - Corte de sellos de silicon, retiro de anclajes inferiores, desmonte y retiro",EA,45.0,0.0,0.0
+593,COCINA,KIT-PLM-RST-SKU,"Fregadero Bajo Tope - Desprender con cuidado para cambio de encimera, limpiar bordes y reanclar con sellador nuevo",EA,165.0,0.0,0.0
+594,COCINA,KIT-PLM-INS-SKD,"Fregadero Sobre Tope - Encastre en vano de encimera, ajuste con grapas de tension y cordon perimetral antihumedad",EA,85.0,0.0,0.0
+595,COCINA,KIT-PLM-REM-SKD,"Fregadero Sobre Tope - Desmonte de grapas inferiores, corte de sello y retiro de fregadero existente",EA,38.0,0.0,0.0
+596,COCINA,KIT-PLM-RST-SKD,Fregadero Sobre Tope - Retiro temporal durante instalacion de encimera y recolocacion hermetica con grapas,EA,125.0,0.0,0.0
+597,COCINA,KIT-PLM-INS-SKF,"Fregadero Farmhouse - Refuerzo de bastidor de madera en gabinete base, asentado a nivel y calafateo estructural",EA,185.0,0.0,0.0
+598,COCINA,KIT-PLM-REM-SKF,"Fregadero Farmhouse - Descalzado de soportes de madera interiores, corte de sellos y extraccion con maniobra pesada",EA,65.0,0.0,0.0
+599,COCINA,KIT-PLM-RST-SKF,Fregadero Farmhouse - Desmonte cuidadoso durante remodelacion y reinstalacion ajustando altura con nueva cubierta,EA,245.0,0.0,0.0
+600,COCINA,KIT-PLM-INS-FAU,"Grifo de Cocina - Instalacion de llave monomando o con rociador pull-down, arandela de fijacion y flexibles a llaves de paso",EA,85.0,0.0,0.0
+601,COCINA,KIT-PLM-REM-FAU,"Grifo de Cocina - Cierre de llaves de paso, desconexion de mangueras trenzadas y retiro de grifo viejo",EA,32.0,0.0,0.0
+602,COCINA,KIT-PLM-RST-FAU,Grifo de Cocina - Desmonte de llave para cambio de tope/fregadero y reinstalacion con empaques nuevos probada,EA,115.0,0.0,0.0
+603,COCINA,KIT-PLM-INS-STP,Valvula de Paso - Suministro e instalacion de llave de corte angular de 1/4 de vuelta de compresion o crimpado PEX,EA,42.0,0.0,0.0
+604,COCINA,KIT-PLM-REP-STP,Valvula de Paso - Sustitucion de 2 llaves de paso angulares de agua fria y caliente bajo fregadero,PAIR,78.0,0.0,0.0
+605,COCINA,KIT-PLM-INS-ICM,Linea Fabrica de Hielo - Suministro e instalacion de caja empotrada Ice Maker Box con llave de 1/4 vuelta y tubo PEX,EA,145.0,0.0,0.0
+606,COCINA,KIT-PLM-RUN-ICM,Linea Fabrica de Hielo - Tendido de linea de tuberia flexible PEX/Cobre de 1/4 pulg desde fregadero hasta refrigerador,LF,4.5,0.0,0.0
+607,COCINA,KIT-PLM-INS-PTR,Desague Fregadero - Ensamble e instalacion de trampa sanitaria P-Trap y extension de desague de PVC blanco o negro,EA,58.0,0.0,0.0
+608,COCINA,KIT-PLM-RST-PTR,Desague Fregadero - Desacople de trampa de drenaje para obra y reensamble con tuercas y empaques nuevos de friccion,EA,45.0,0.0,0.0
+609,COCINA,KIT-PLM-INS-STR,Canasta Fregadero - Instalacion de contracanasta (Basket strainer) con masilla de plomero y empaque de presion,EA,38.0,0.0,0.0
+610,COCINA,KIT-PLM-INS-AIR,Espacio de Aire - Instalacion de brecha de aire (Air Gap) para lavavajillas sobre tope con mangueras de derivacion,EA,45.0,0.0,0.0
+611,COCINA,KIT-PLM-INS-POT,Llave Pot Filler - Montaje y enrosque de grifo articulado para llenado de ollas a niple de pared con prueba de presion,EA,145.0,0.0,0.0
+612,COCINA,KIT-PLM-RST-POT,Llave Pot Filler - Desmonte temporal de grifo articulado durante enchapado de backsplash y recolocacion nivelada,EA,85.0,0.0,0.0
+613,COCINA,KIT-PLM-INS-ROF,"Osmosis Inversa - Instalacion completa de sistema purificador de 5 etapas: membrana, tanque, derivacion y llave auxiliar",EA,165.0,0.0,0.0
+614,COCINA,KIT-PLM-RST-ROF,Osmosis Inversa - Desconexion de modulo purificador y tanque para remodelacion y reconexion final verificando sellos,EA,95.0,0.0,0.0
+615,COCINA,KIT-ELE-INS-GFC,Electricidad Toma - Suministro e instalacion de tomacorriente GFCI de 20A resistente a manipulacion (Tamper-Resistant),EA,58.0,0.0,0.0
+616,COCINA,KIT-ELE-RST-GFC,Electricidad Toma - Desmonte temporal de tomacorriente GFCI para instalacion de backsplash y recolocacion con placa,EA,32.0,0.0,0.0
+617,COCINA,KIT-ELE-INS-REC,Electricidad Toma - Suministro e instalacion de receptaculo duplex estandar de 15A/20A para pared o isla,EA,38.0,0.0,0.0
+618,COCINA,KIT-ELE-RST-REC,"Electricidad Toma - Desmonte de tomacorriente estandar para obra, proteccion de cables y reinstalacion",EA,26.0,0.0,0.0
+619,COCINA,KIT-ELE-INS-EXT,Electricidad Toma - Instalacion de anillo de extension de caja electrica (Box extender / spark ring) para compensar espesor de azulejo,EA,18.0,0.0,0.0
+620,COCINA,KIT-ELE-INS-POP,Electricidad Toma - Perforacion e instalacion de estacion retractil motorizada o manual pop-up con USB en cubierta de isla,EA,95.0,0.0,0.0
+621,COCINA,KIT-ELE-INS-R40,Electricidad 240V - Suministro e instalacion de caja y receptaculo superficial o empotrado de 4 polos 50A para estufa (NEMA 14-50R),EA,125.0,0.0,0.0
+622,COCINA,KIT-ELE-RST-R40,Electricidad 240V - Desmonte y recolocacion de toma de 240V ajustando altura tras colocacion de nuevo piso o gabinete,EA,65.0,0.0,0.0
+623,COCINA,KIT-ELE-INS-CKT,Electricidad 240V - Instalacion de caja de conexion directa con conducto flexible para parrilla electrica/cooktop de 30A/40A,EA,115.0,0.0,0.0
+624,COCINA,KIT-ELE-INS-OVN,Electricidad 240V - Instalacion de caja de conexion dedicada para horno empotrado simple o doble wall oven,EA,120.0,0.0,0.0
+625,COCINA,KIT-ELE-CON-DSH,Electricidad Electrodomestico - Tendido de cable Romex 12/2 y conexion en caja de bornes de lavavajillas con switch de desconexion,EA,75.0,0.0,0.0
+626,COCINA,KIT-ELE-CON-DSP,Electricidad Electrodomestico - Cableado de tomacorriente bajo fregadero con interruptor en pared para triturador,EA,85.0,0.0,0.0
+627,COCINA,KIT-ELE-CON-HOD,Electricidad Electrodomestico - Conduccion de linea de alimentacion y conexion directa en caja de campana extractora,EA,68.0,0.0,0.0
+628,COCINA,KIT-ELE-CON-MIC,Electricidad Electrodomestico - Instalacion de tomacorriente dedicado de 20A dentro de gabinete aereo para microondas OTR,EA,72.0,0.0,0.0
+629,COCINA,KIT-ELE-INS-WFR,Iluminacion - Perforacion en cielo raso e instalacion de lampara empotrada tipo Wafer LED extraplana de 4 o 6 pulg,EA,75.0,0.0,0.0
+630,COCINA,KIT-ELE-RST-WFR,Iluminacion - Desmonte de lampara empotrada durante reparacion o pintura de cielo raso y recolocacion,EA,28.0,0.0,0.0
+631,COCINA,KIT-ELE-INS-PND,"Iluminacion - Montaje, suspension nivelada y conexion de lampara colgante decorativa (Pendant light) sobre barra o isla",EA,95.0,0.0,0.0
+632,COCINA,KIT-ELE-RST-PND,Iluminacion - Descolgado de lampara colgante para pintura o proteccion y reposicion calibrando altura de caida,EA,55.0,0.0,0.0
+633,COCINA,KIT-ELE-INS-LED,Iluminacion - Instalacion de tira continua de luz LED de trabajo bajo gabinete superior con difusor de canal de aluminio,LF,16.5,0.0,0.0
+634,COCINA,KIT-ELE-INS-TRF,Iluminacion - Montaje y cableado de transformador / driver regulable oculto dentro de gabinete para iluminacion LED,EA,85.0,0.0,0.0
+635,COCINA,KIT-ELE-INS-PLK,Iluminacion - Suministro e instalacion de lampara de disco individual tipo Puck Light bajo mueble alto,EA,35.0,0.0,0.0
+636,COCINA,KIT-ELE-INS-SGL,Electricidad Control - Instalacion de interruptor basculante unipolar tipo Decora para control de luz o triturador,EA,32.0,0.0,0.0
+637,COCINA,KIT-ELE-INS-3WY,Electricidad Control - Suministro e instalacion de switch de 3 vias (3-Way) para control de iluminacion desde 2 accesos,EA,42.0,0.0,0.0
+638,COCINA,KIT-ELE-INS-DMR,Electricidad Control - Suministro e instalacion de interruptor dimmer electronico regulable compatible con luces LED,EA,58.0,0.0,0.0
+639,COCINA,KIT-ELE-RST-SWT,Electricidad Control - Desmonte de placas e interruptores durante aplicacion de pintura o enchapado y reinstalacion,EA,22.0,0.0,0.0
+640,COCINA,KIT-ELE-RUN-120,Electricidad Circuito - Tirada de cable Romex 12/2 NM-B con breaker nuevo de 20A en panel principal hasta cocina (Home Run),EA,265.0,0.0,0.0
+641,COCINA,KIT-ELE-RUN-240,Electricidad Circuito - Tirada de cable Romex 6/3 o 8/3 para circuito de 240V con breaker bipolar de 40A/50A en tablero,EA,385.0,0.0,0.0
+642,COCINA,KIT-ELE-ADD-BRK,Electricidad Tablero - Suministro e instalacion de breaker individual AFCI/GFCI de 20A en panel electrico para cumplir codigo,EA,95.0,0.0,0.0
+643,COCINA,KIT-BAK-DEM-TIL,Backsplash Prep - Retiro cuidadoso de salpicadero de azulejo existente y rasqueteado de mortero seco en pared,SF,4.5,0.0,0.0
+644,COCINA,KIT-BAK-DEM-DRY,Backsplash Prep - Corte y remocion de drywall danado por pegamento y colocacion de hoja nueva de yeso o panel de cemento,SF,6.25,0.0,0.0
+645,COCINA,KIT-BAK-PRE-PRM,Backsplash Prep - Aplicacion de imprimante promotor de adherencia o compuesto de nivelacion rapida sobre pared irregular,SF,1.35,0.0,0.0
+646,COCINA,KIT-BAK-INS-SUB,Backsplash Azulejo - Colocacion de azulejo rectangular tipo metro (Subway Tile 3x6 o 4x8) en patron trabado tradicional,SF,14.5,0.0,0.0
+647,COCINA,KIT-BAK-INS-MSC,"Backsplash Mosaico - Colocacion de laminas de mosaico en malla (vidrio, ceramica, marmol o acero) con mortero fino blanco",SF,16.5,0.0,0.0
+648,COCINA,KIT-BAK-INS-LRG,Backsplash Porcelanato - Colocacion de piezas de gran formato rectificadas (12x24 o paneles) con separadores autonivelantes,SF,15.0,0.0,0.0
+649,COCINA,KIT-BAK-INS-NAT,"Backsplash Piedra - Colocacion de piedra natural porosa (Travertino, Marmol o Pizarra) con doble encolado en pared",SF,18.0,0.0,0.0
+650,COCINA,KIT-BAK-INS-HRN,Backsplash Patron - Instalacion en diseno de espiga (Herringbone) a 45 o 90 grados con cortes perimetrales de precision,SF,19.5,0.0,0.0
+651,COCINA,KIT-BAK-INS-CHV,Backsplash Patron - Instalacion de azulejo en patron Chevron con cortes angulares biselados continuos,SF,21.0,0.0,0.0
+652,COCINA,KIT-BAK-INS-HEX,Backsplash Patron - Colocacion de piezas hexagonales o disenos geometricos especiales con ajuste perimetral,SF,18.5,0.0,0.0
+653,COCINA,KIT-BAK-INS-MED,Backsplash Detalle - Enmarcado e instalacion de recuadro decorativo focal sobre la estufa (Feature framed mural),EA,175.0,0.0,0.0
+654,COCINA,KIT-BAK-TRM-MTL,Backsplash Remate - Suministro e instalacion de perfil metalico decorativo de terminacion tipo Schluter Jolly o Quadec,LF,4.5,0.0,0.0
+655,COCINA,KIT-BAK-TRM-BUL,Backsplash Remate - Instalacion de moldura de acabado ceramico redondeado (Bullnose tile) o listelo de lapiz (Pencil trim),LF,6.0,0.0,0.0
+656,COCINA,KIT-BAK-GRT-STD,"Backsplash Lechada - Emboquillado, lavado y pulido final de junta con fragua regular sin arena sellada",SF,1.45,0.0,0.0
+657,COCINA,KIT-BAK-GRT-EPX,Backsplash Lechada - Aplicacion especializada y lavado de lechada epoxica impermeable 100% resistente a grasa y manchas,SF,3.85,0.0,0.0
+658,COCINA,KIT-BAK-CAU-SIL,Backsplash Sellado - Aplicacion de cordon de silicon sanitario elastico 100% de color a juego en union entre tope y pared,LF,2.25,0.0,0.0
+659,COCINA,KIT-BAK-SEA-TIL,Backsplash Sellado - Aplicacion de 2 manos de sellador penetrante antimanchas para piedra natural y lechada en muro,SF,1.1,0.0,0.0
+660,COCINA,KIT-BAK-REP-SGL,"Backsplash Reparacion - Extraccion limpia de pieza o tesela quebrada, limpieza de mortero y reposicion con fragua a juego",EA,45.0,0.0,0.0
+661,COCINA,KIT-BAK-REP-REG,Backsplash Reparacion - Vaciado de lechada danada o descolorida alrededor de estufa y rellenado con fragua nueva sellada,SF,3.25,0.0,0.0
+662,ELECTRICIDAD,INT-ELE-INS-REC,Electricidad Tomas - Suministro e instalacion de tomacorriente duplex 15A resistente a manipulacion (Tamper-Resistant),EA,36.0,0.0,0.0
+663,ELECTRICIDAD,INT-ELE-INS-GFC,Electricidad Tomas - Suministro e instalacion de receptaculo GFCI de 15A/20A para areas humedas con autodiagnostico,EA,56.0,0.0,0.0
+664,ELECTRICIDAD,INT-ELE-INS-USB,Electricidad Tomas - Suministro e instalacion de tomacorriente duplex con puertos de carga rapida USB A y C integrados,EA,48.0,0.0,0.0
+665,ELECTRICIDAD,INT-ELE-INS-DRY,Electricidad 240V - Suministro e instalacion de receptaculo de 30A a 4 polos para secadora de ropa en pared (NEMA 14-30R),EA,115.0,0.0,0.0
+666,ELECTRICIDAD,INT-ELE-RST-DEV,Electricidad Tomas - Desmonte de tomacorriente/placa para pintura o drywall y reconexion final verificando polaridad,EA,22.0,0.0,0.0
+667,ELECTRICIDAD,INT-ELE-REP-BOX,Electricidad Reparacion - Sustitucion de caja de registro plastica/metalica suelta por caja de remodelacion (Old work box),EA,38.0,0.0,0.0
+668,ELECTRICIDAD,INT-ELE-INS-SW1,Electricidad Switch - Suministro e instalacion de interruptor basculante unipolar basico o tipo Decora de 15A,EA,32.0,0.0,0.0
+669,ELECTRICIDAD,INT-ELE-INS-SW3,Electricidad Switch - Suministro e instalacion de interruptor de tres vias (3-Way) para control de escaleras o pasillos,EA,42.0,0.0,0.0
+670,ELECTRICIDAD,INT-ELE-INS-SW4,Electricidad Switch - Suministro e instalacion de interruptor de cuatro vias (4-Way) para control de luz desde tres accesos,EA,52.0,0.0,0.0
+671,ELECTRICIDAD,INT-ELE-INS-DMR,Electricidad Switch - Suministro e instalacion de atenuador (Dimmer) electronico digital deslizable compatible con LED,EA,58.0,0.0,0.0
+672,ELECTRICIDAD,INT-ELE-INS-SMT,Electricidad Switch - Suministro e instalacion de interruptor inteligente Wi-Fi empotrado compatible con aplicaciones moviles,EA,78.0,0.0,0.0
+673,ELECTRICIDAD,INT-ELE-RST-SWT,Electricidad Switch - Desmonte temporal de interruptor durante obra y reinstalacion con ajuste de plomada,EA,22.0,0.0,0.0
+674,ELECTRICIDAD,INT-ELE-INS-WFR,"Iluminacion - Perforacion en yeso, instalacion de lampara ultraplana Wafer LED de 4 o 6 pulg con caja de empalme integrada",EA,68.0,0.0,0.0
+675,ELECTRICIDAD,INT-ELE-RTR-LED,Iluminacion - Conversion retrofit de bote antiguo de 6 pulg a modulo LED decorativo sin cambiar caja en cielo,EA,32.0,0.0,0.0
+676,ELECTRICIDAD,INT-ELE-INS-FLS,"Iluminacion - Montaje, armado y conexion de plafon superficial o lampara de cielo (Flush / Semi-flush mount)",EA,75.0,0.0,0.0
+677,ELECTRICIDAD,INT-ELE-RST-LGT,Iluminacion - Descolgado de lampara superficial para enlucido o pintura de cielo y recolocacion posterior,EA,45.0,0.0,0.0
+678,ELECTRICIDAD,INT-ELE-INS-CHD,Iluminacion - Armado y suspension de candelabro decorativo estandar (Chandelier) hasta 10 pies de altura,EA,165.0,0.0,0.0
+679,ELECTRICIDAD,INT-ELE-INS-CHH,Iluminacion - Montaje de candelabro de gran tamano o doble altura (mas de 12 pies) con andamiaje de seguridad,EA,320.0,0.0,0.0
+680,ELECTRICIDAD,INT-ELE-INS-VAN,Iluminacion - Montaje y nivelacion de barra de luz decorativa de 2 a 4 luces sobre espejo de bano (Vanity light bar),EA,85.0,0.0,0.0
+681,ELECTRICIDAD,INT-ELE-INS-FAN,"Ventilacion - Armado, balanceo de aspas y montaje de ventilador de techo (Ceiling Fan) en caja certificada para ventilador",EA,135.0,0.0,0.0
+682,ELECTRICIDAD,INT-ELE-BOX-FAN,Ventilacion - Suministro e instalacion de barra de soporte estructural y caja octagonal reforzada para ventilador (Fan brace box),EA,85.0,0.0,0.0
+683,ELECTRICIDAD,INT-ELE-RST-FAN,Ventilacion - Descolgado de ventilador de techo durante reparacion o acabado de cielo raso y reinstalacion balanceada,EA,95.0,0.0,0.0
+684,ELECTRICIDAD,INT-ELE-INS-EXH,Ventilacion - Suministro e instalacion de extractor de bano estandar empotrado en cielo raso con conexion a ducto,EA,145.0,0.0,0.0
+685,ELECTRICIDAD,INT-ELE-INS-EXL,Ventilacion - Instalacion de extractor de bano silencioso con lampara LED integrada y sensor de humedad/luz,EA,175.0,0.0,0.0
+686,ELECTRICIDAD,INT-ELE-RST-EXH,Ventilacion - Desmonte de rejilla y motor de extractor para acabados de cielo y recolocacion probada,EA,55.0,0.0,0.0
+687,ELECTRICIDAD,INT-ELE-INS-SMK,Seguridad - Instalacion de detector de humo cableado a 120V interconectado con bateria de respaldo de litio (Hardwired),EA,58.0,0.0,0.0
+688,ELECTRICIDAD,INT-ELE-INS-COM,Seguridad - Instalacion de detector combinado de humo y monoxido de carbono (Smoke/CO) cableado interconectado,EA,72.0,0.0,0.0
+689,ELECTRICIDAD,INT-ELE-RST-SMK,Seguridad - Retiro temporal de cabezal de detector para pintura con protector de polvo y reconexion funcional,EA,18.0,0.0,0.0
+690,ELECTRICIDAD,INT-ELE-RUN-15A,Cableado - Tendido de cable Romex 14/2 NM-B a traves de entramado abierto de madera o viguetas por pie lineal,LF,2.1,0.0,0.0
+691,ELECTRICIDAD,INT-ELE-RUN-20A,Cableado - Tendido de cable Romex 12/2 NM-B para circuito de tomas generales por pie lineal,LF,2.45,0.0,0.0
+692,ELECTRICIDAD,INT-ELE-FSH-WLL,Cableado - Pesca de cable Romex a traves de cavidades de drywall cerrado sin demolicion destructiva por tramo,EA,85.0,0.0,0.0
+693,ELECTRICIDAD,INT-ELE-RUN-CIR,Circuito Nuevo - Tendido completo de circuito nuevo de 15A/20A desde panel principal hasta habitacion (Home run),EA,245.0,0.0,0.0
+694,ELECTRICIDAD,INT-ELE-INS-BRK,Panel Electrico - Suministro e instalacion de breaker estandar monopolar de 15A o 20A en tablero de distribucion,EA,48.0,0.0,0.0
+695,ELECTRICIDAD,INT-ELE-INS-BAF,Panel Electrico - Suministro e instalacion de breaker moderno de arco electrico (AFCI/GFCI dual function) de 15A o 20A,EA,98.0,0.0,0.0
+696,ELECTRICIDAD,INT-ELE-REP-GND,Electricidad Reparacion - Correccion de falta de tierra o polaridad invertida en circuito de tomacorrientes,EA,35.0,0.0,0.0
+697,HVAC,HVC-CND-INS-2T,HVAC Condensador - Suministro e instalacion de condensador de aire acondicionado exterior de 2 a 2.5 Toneladas 14-15 SEER,EA,2850.0,0.0,0.0
+698,HVAC,HVC-CND-INS-3T,HVAC Condensador - Suministro e instalacion de condensador de aire acondicionado exterior de 3 a 3.5 Toneladas 14-15 SEER,EA,3450.0,0.0,0.0
+699,HVAC,HVC-CND-INS-4T,HVAC Condensador - Suministro e instalacion de condensador exterior de alta capacidad 4 a 5 Toneladas,EA,4200.0,0.0,0.0
+700,HVAC,HVC-CND-RST-ALL,"HVAC Condensador - Recuperacion de refrigerante con maquina, desconexion electrica, retiro para obra exterior y reinstalacion con vacio y recarga (Detach & Reset)",EA,485.0,0.0,0.0
+701,HVAC,HVC-CND-REM-ALL,"HVAC Condensador - Recuperacion reglamentaria de gas segun norma EPA, desconexion de fuerza y retiro de unidad exterior (Remove only)",EA,125.0,0.0,0.0
+702,HVAC,HVC-PAD-INS-PAD,HVAC Condensador - Suministro e instalacion de base niveladora exterior de polipropileno/concreto para soporte de condensador,EA,110.0,0.0,0.0
+703,HVAC,HVC-DSW-INS-BOX,HVAC Condensador - Suministro e instalacion de caja de desconexion electrica exterior estanca (A/C Disconnect switch) con fusibles,EA,145.0,0.0,0.0
+704,HVAC,HVC-WHP-INS-FLX,HVAC Condensador - Instalacion de latiguillo flexible impermeable de fuerza (Liquid-tight whip) con terminales desde desconectador al compresor,EA,75.0,0.0,0.0
+705,HVAC,HVC-HDL-INS-STD,HVAC Interior - Suministro e instalacion de manejadora de aire interior (Air Handler) con paquete de resistencias electricas auxiliares,EA,2650.0,0.0,0.0
+706,HVAC,HVC-COL-INS-EVO,HVAC Interior - Reemplazo e instalacion de serpentin evaporador (Evaporator A-Coil) sellado en cajon plenum,EA,1450.0,0.0,0.0
+707,HVAC,HVC-COL-CLN-COI,HVAC Interior - Limpieza quimica in-situ con espuma limpiadora neutra de serpentin evaporador y desinfeccion de charola,EA,185.0,0.0,0.0
+708,HVAC,HVC-PAN-INS-DRN,HVAC Interior - Instalacion de bandeja colectora de condensado secundaria (Emergency drain pan) bajo manejadora con soporte antivibracion,EA,165.0,0.0,0.0
+709,HVAC,HVC-SWT-INS-FLT,HVAC Seguridad - Instalacion de interruptor flotador de seguridad (Float switch / Safe-T-Switch) en linea de drenaje para corte antidesbordamiento,EA,78.0,0.0,0.0
+710,HVAC,HVC-PMP-INS-CND,HVAC Condensado - Suministro e instalacion de bomba automatica de desalojo de condensado con tuberia de descarga de vinilo transparente,EA,145.0,0.0,0.0
+711,HVAC,HVC-SPL-INS-12K,"HVAC Mini-Split - Instalacion completa de sistema Mini-Split Inverter de 12,000 BTU: unidad exterior, evaporador de pared, linea y pase de muro",EA,1850.0,0.0,0.0
+712,HVAC,HVC-SPL-INS-18K,"HVAC Mini-Split - Instalacion completa de sistema Mini-Split Inverter de 18,000 a 24,000 BTU para areas amplias o sotanos",EA,2450.0,0.0,0.0
+713,HVAC,HVC-SPL-RST-WAL,"HVAC Mini-Split - Desmonte de consola interior de pared para trabajos de drywall/pintura, cierre de valvulas y reinstalacion",EA,225.0,0.0,0.0
+714,HVAC,HVC-LNS-RUN-34,HVAC Linea Cobre - Tendido de tuberia de cobre para gas y liquido (Line set 3/4 pulg y 3/8 pulg) con aislamiento Armaflex por pie lineal,LF,16.5,0.0,0.0
+715,HVAC,HVC-LNS-VAC-CHG,"HVAC Servicio - Prueba de presion con nitrogeno seco, vacio profundo a menos de 500 micrones y ajuste de carga de gas R-410A por libra",EA,245.0,0.0,0.0
+716,HVAC,HVC-DCT-RUN-FLX,HVAC Ducto - Suministro y tendido de ducto flexible termicamente aislado R-6 o R-8 soportado con correas en cielo raso,LF,14.5,0.0,0.0
+717,HVAC,HVC-DCT-INS-PLN,HVAC Ducto - Fabricacion y sellado hermetico de caja plenum o bota de distribucion de lamina galvanizada forrada,EA,175.0,0.0,0.0
+718,HVAC,HVC-REG-INS-WLL,HVAC Rejilla - Instalacion y fijacion a bota de ducto de rejilla de suministro de aire (Supply register) de pared o techo,EA,32.0,0.0,0.0
+719,HVAC,HVC-REG-RST-ALL,HVAC Rejilla - Desmonte temporal de rejilla para trabajos de pintura o sheetrock y reinstalacion nivelada con tornillos,EA,16.0,0.0,0.0
+720,HVAC,HVC-RET-INS-FLT,HVAC Retorno - Suministro e instalacion de rejilla de retorno con portafiltro abatible empotrado (Filter return grill),EA,85.0,0.0,0.0
+721,HVAC,HVC-DCT-CLN-REG,HVAC Limpieza - Limpieza mecanica y aspirado de interior de ducto de distribucion por boca de registro,EA,45.0,0.0,0.0
+722,HVAC,HVC-TMS-INS-STD,HVAC Termostato - Suministro e instalacion de termostato digital basico programable para 1 o 2 etapas,EA,115.0,0.0,0.0
+723,HVAC,HVC-TMS-INS-WFI,"HVAC Termostato - Suministro, montaje y configuracion Wi-Fi de termostato inteligente digital (Google Nest / Ecobee)",EA,225.0,0.0,0.0
+724,HVAC,HVC-TMS-RST-ALL,HVAC Termostato - Desmonte de termostato de pared durante aplicacion de textura o pintura y reconexion de cables por codigo de color,EA,35.0,0.0,0.0
+725,HVAC,HVC-TMS-RUN-WIR,HVAC Cableado - Tendido de cable multiconductor de bajo voltaje para termostato (Cable 18/5 o 18/8) por pie lineal,LF,2.25,0.0,0.0
+726,PLOMERIA,PLM-PIP-RUN-PX1,Plomeria Suministro - Tendido de tuberia de agua potable PEX-A o PEX-B de 1/2 pulg por pie lineal,LF,3.85,0.0,0.0
+727,PLOMERIA,PLM-PIP-RUN-PX2,Plomeria Suministro - Tendido de tuberia de distribucion principal PEX de 3/4 pulg por pie lineal,LF,4.5,0.0,0.0
+728,PLOMERIA,PLM-PIP-RUN-CP1,Plomeria Suministro - Tendido y soldadura con soldadura libre de plomo de tuberia de cobre tipo L de 1/2 pulg,LF,8.5,0.0,0.0
+729,PLOMERIA,PLM-PIP-RUN-CP2,Plomeria Suministro - Tendido y soldadura de tuberia de cobre rigido tipo L de 3/4 pulg,LF,11.2,0.0,0.0
+730,PLOMERIA,PLM-VLV-INS-MN1,Plomeria Valvula - Suministro e instalacion de valvula de esfera de corte general de paso completo de 3/4 pulg a 1 pulg,EA,165.0,0.0,0.0
+731,PLOMERIA,PLM-PRV-INS-VAL,Plomeria Valvula - Instalacion y calibracion de valvula reguladora y reductora de presion de agua (PRV - Pressure Regulating Valve),EA,285.0,0.0,0.0
+732,PLOMERIA,PLM-MNF-INS-PEX,Plomeria Colector - Montaje de panel colector centralizado multiport PEX (Manifold) para control individual de circuitos de agua,EA,380.0,0.0,0.0
+733,PLOMERIA,PLM-WHT-INS-E40,Plomeria Calentador - Suministro e instalacion de calentador de agua electrico de tanque de 40 galones con conexiones dielectricas,EA,1150.0,0.0,0.0
+734,PLOMERIA,PLM-WHT-INS-E50,Plomeria Calentador - Suministro e instalacion de calentador de agua electrico de tanque de 50 galones de alta recuperacion,EA,1280.0,0.0,0.0
+735,PLOMERIA,PLM-WHT-INS-G40,Plomeria Calentador - Suministro e instalacion de calentador de agua a gas natural o propano de 40 galones con tiro de gases,EA,1350.0,0.0,0.0
+736,PLOMERIA,PLM-WHT-INS-G50,Plomeria Calentador - Suministro e instalacion de calentador de agua a gas de 50 galones con nueva linea de suministro de gas flexible,EA,1480.0,0.0,0.0
+737,PLOMERIA,PLM-WHT-INS-TNK,Plomeria Calentador - Suministro e instalacion de calentador de agua de paso continuo sin tanque de alta eficiencia (Tankless),EA,2450.0,0.0,0.0
+738,PLOMERIA,PLM-WHT-REM-ALL,"Plomeria Calentador - Vaciado completo, desconexion segura de plomeria y corriente/gas y remocion para reciclaje",EA,115.0,0.0,0.0
+739,PLOMERIA,PLM-WHT-RST-ALL,"Plomeria Calentador - Vaciado, desconexion y retiro temporal durante obra en piso/pared y reinstalacion probada (Detach & Reset)",EA,295.0,0.0,0.0
+740,PLOMERIA,PLM-WHT-PAN-INS,Plomeria Calentador - Suministro e instalacion de charola o bandeja colectora de derrames de aluminio bajo el tanque con linea de desague,EA,85.0,0.0,0.0
+741,PLOMERIA,PLM-WHT-EXP-TNK,Plomeria Calentador - Suministro e instalacion de tanque de expansion termica de 2 galones presurizado para boiler,EA,145.0,0.0,0.0
+742,PLOMERIA,PLM-DWV-RUN-P15,Plomeria Drenaje - Tendido de tuberia sanitaria y de ventilacion de PVC Cedula 40 de 1-1/2 pulg o 2 pulg por pie lineal,LF,7.5,0.0,0.0
+743,PLOMERIA,PLM-DWV-RUN-P30,Plomeria Drenaje - Tendido de tuberia de drenaje principal de PVC Cedula 40 de 3 pulg o 4 pulg para sanitarios,LF,12.5,0.0,0.0
+744,PLOMERIA,PLM-DWV-INS-CLN,Plomeria Drenaje - Suministro e instalacion de registro de inspeccion roscado para limpieza de drenaje (Cleanout) de 3 a 4 pulg,EA,135.0,0.0,0.0
+745,PLOMERIA,PLM-DWV-VNT-STK,Plomeria Drenaje - Extension de bajante de ventilacion sanitaria a traves de cielo raso y sello de penetracion de techo,EA,185.0,0.0,0.0
+746,PLOMERIA,PLM-DWV-AAV-VLV,Plomeria Drenaje - Suministro e instalacion de valvula de admision de aire (Auto-Vent / AAV Studor Vent) en muebles aislados,EA,65.0,0.0,0.0
+747,PLOMERIA,PLM-LND-INS-BOX,Plomeria Lavanderia - Suministro e instalacion de caja empotrada en muro para lavadora (Washer Outlet Box) con llaves y desague,EA,155.0,0.0,0.0
+748,PLOMERIA,PLM-LND-RST-BOX,Plomeria Lavanderia - Desconexión y desmonte de valvulas para instalacion de nuevo drywall y reinstalacion de cubierta,EA,65.0,0.0,0.0
+749,PLOMERIA,PLM-UTL-INS-SNK,Plomeria Pila - Montaje y nivelacion de tina/fregadero de servicio o lavanderia (Utility Sink) de polipropileno con grifo y trampa,EA,175.0,0.0,0.0
+750,PLOMERIA,PLM-UTL-REM-SNK,"Plomeria Pila - Desconexion de agua, corte de drenaje y remocion de batea de servicio de lavanderia existente",EA,45.0,0.0,0.0
+751,PLOMERIA,PLM-EXT-BIB-FRS,Plomeria Exterior - Suministro e instalacion de grifo exterior antihielo para manguera de 8 a 12 pulg (Frost-Proof Sillcock / Hose Bibb),EA,145.0,0.0,0.0
+752,PLOMERIA,PLM-EXT-REP-BIB,Plomeria Exterior - Reemplazo de llave o maneral de grifo exterior de manguera con conector rapido y rompedor de vacio,EA,75.0,0.0,0.0
+753,PLOMERIA,PLM-PMP-INS-SMP,Plomeria Achique - Suministro e instalacion de bomba sumergible para pozo de sumidero (Sump Pump) de 1/3 HP o 1/2 HP de hierro fundido,EA,385.0,0.0,0.0
+754,PLOMERIA,PLM-PMP-INS-CHK,Plomeria Achique - Instalacion de valvula de retencion antirretorno silenciosa (Silent Check Valve) en linea de descarga,EA,65.0,0.0,0.0
+755,PLOMERIA,PLM-PMP-INS-BCK,Plomeria Achique - Instalacion de sistema auxiliar de bomba de sumidero de respaldo con bateria marina de ciclo profundo de 12V,EA,450.0,0.0,0.0
+756,PLOMERIA,PLM-REP-LEK-SGL,Plomeria Reparacion - Localizacion de rotura y reparacion puntual de tuberia de cobre o PEX danada en muro o cielo raso,EA,145.0,0.0,0.0
+757,PLOMERIA,PLM-REP-DWV-REP,Plomeria Reparacion - Corte y reemplazo con acoples de neopreno blindados (Fernco Mission Couplings) de seccion rota de drenaje,EA,125.0,0.0,0.0
+758,PLOMERIA,PLM-TST-PRS-WTR,Plomeria Prueba - Prueba hidrostatica con manometro de presion en todo el sistema de distribucion de agua potable,EA,110.0,0.0,0.0
+759,GAS,GAS-PIP-RUN-B12,"Gas Tuberia - Tendido de tuberia de acero negro Cedula 40 de 1/2 pulg con cortes, roscado mecanico y soportes",LF,11.5,0.0,0.0
+760,GAS,GAS-PIP-RUN-B34,Gas Tuberia - Tendido de linea principal de alimentacion en acero negro Cedula 40 de 3/4 pulg por pie lineal,LF,14.5,0.0,0.0
+761,GAS,GAS-PIP-RUN-B10,Gas Tuberia - Tendido de linea matriz de acero negro de 1 pulgada desde medidor hasta colector por pie lineal,LF,18.5,0.0,0.0
+762,GAS,GAS-PIP-FIT-TEE,"Gas Conexiones - Suministro e instalacion de conexion T, codo de 90 o niple de acero maleable negro roscado con sellador",EA,28.0,0.0,0.0
+763,GAS,GAS-CST-RUN-C12,Gas Tuberia - Tendido continuo de tuberia flexible corrugada de acero inoxidable CSST con funda protectora de 1/2 pulg,LF,8.5,0.0,0.0
+764,GAS,GAS-CST-RUN-C34,Gas Tuberia - Tendido de linea flexible corrugada CSST de 3/4 pulg a traves de entrepisos o viguetas por pie lineal,LF,11.2,0.0,0.0
+765,GAS,GAS-CST-FIT-END,Gas Conexiones - Montaje y abocardado mecanico de terminal macho/hembra de laton sellado para tuberia CSST,EA,42.0,0.0,0.0
+766,GAS,GAS-CST-BND-GRN,Gas Seguridad - Instalacion de abrazadera y puente de conexion a tierra (Bonding clamp) de cobre calibre 6 hacia tierra principal,EA,95.0,0.0,0.0
+767,GAS,GAS-VLV-INS-12V,Gas Valvula - Suministro e instalacion de llave esferica de paso de 1/4 de vuelta certificada CSA para gas de 1/2 pulg,EA,58.0,0.0,0.0
+768,GAS,GAS-VLV-INS-34V,Gas Valvula - Suministro e instalacion de llave esferica de paso de gas de 3/4 pulg de accion rapida,EA,72.0,0.0,0.0
+769,GAS,GAS-VLV-INS-SED,Gas Seguridad - Fabricacion e instalacion de trampa de sedimentos (Dirt leg / Sediment trap) obligatoria en punto de servicio,EA,48.0,0.0,0.0
+770,GAS,GAS-REG-INS-PRS,Gas Valvula - Suministro e instalacion de regulador de presion de linea de gas natural o gas propano LP para artefacto,EA,135.0,0.0,0.0
+771,GAS,GAS-FLX-INS-STD,Gas Conexion - Suministro e instalacion de linea flexible de acero inoxidable corrugado recubierta amarilla de 1/2 pulg x 36-48 pulg,EA,45.0,0.0,0.0
+772,GAS,GAS-FLX-INS-HVY,Gas Conexion - Suministro e instalacion de manguera flexible de alta capacidad de 3/4 pulg x 48 pulg para caldera o generador,EA,78.0,0.0,0.0
+773,GAS,GAS-BOX-INS-REC,Gas Salida - Suministro e instalacion de caja empotrada en pared con llave de corte integrada (Gas Outlet Box) para secadora,EA,125.0,0.0,0.0
+774,GAS,GAS-EXT-QCK-CON,Gas Exterior - Suministro e instalacion de valvula de conexion rapida exterior (Quick-Connect) para asador o calentador de patio,EA,145.0,0.0,0.0
+775,GAS,GAS-LOG-INS-KIT,Gas Chimenea - Conexion de linea de gas a quemador decorativo de chimenea (Gas Log Kit) con valvula de control de seguridad,EA,165.0,0.0,0.0
+776,GAS,GAS-RST-LNS-ALL,"Gas Reubicacion - Desacople seguro de linea, sellado de niple con tapon roscado durante remodelacion y reconexion final probada",EA,95.0,0.0,0.0
+777,GAS,GAS-REM-LNS-ALL,"Gas Desmonte - Desacople de linea de gas en desuso, corte y colocado de tapon hermetico con sellador (Cap & Seal)",EA,55.0,0.0,0.0
+778,GAS,GAS-TST-PRS-MNM,Gas Prueba - Presurizacion de red con aire o nitrogeno a 15-20 PSI con manometro de prueba para inspeccion municipal y liberacion,EA,165.0,0.0,0.0
+779,GAS,GAS-LEK-SRH-ELC,Gas Diagnostico - Deteccion y rastreo de fuga oculta mediante detector electronico de gas combustible y solucion tensioactiva,EA,125.0,0.0,0.0
+780,GAS,GAS-REP-THD-LEK,"Gas Reparacion - Desensamble de union roscada con escape, limpieza profunda de rosca, reaplicacion de compuesto y apriete mecanico",EA,85.0,0.0,0.0
+781,CRAWL_SPACE,CRW-VPR-INS-06M,Crawl Space - Suministro e instalacion de barrera de vapor plastica de polietileno de 6 mil sobre tierra con traslapes de 12 pulg,SF,0.55,0.0,0.0
+782,CRAWL_SPACE,CRW-VPR-INS-10M,Crawl Space - Suministro y colocacion de barrera de vapor de polietileno reforzado de 10 mil de alta durabilidad,SF,0.85,0.0,0.0
+783,CRAWL_SPACE,CRW-ENC-INS-20M,Crawl Space - Encapsulamiento completo con membrana blanca antimicrobiana de alta resistencia de 20 mil sellada a muros y pilares,SF,1.85,0.0,0.0
+784,CRAWL_SPACE,CRW-ENC-TAP-SEM,Crawl Space - Sellado hermetico de empates y traslapes de barrera de vapor con cinta impermeable de butilo de 4 pulg,LF,1.25,0.0,0.0
+785,CRAWL_SPACE,CRW-ENC-TRM-BAR,Crawl Space - Anclaje mecanico perimetral en muros de bloque o concreto con platina de terminacion (Termination bar) y remaches,LF,3.25,0.0,0.0
+786,CRAWL_SPACE,CRW-VPR-REM-OLD,"Crawl Space - Retiro, embolsado y desecho de plastico viejo, roto o contaminado en espacio bajo piso",SF,0.35,0.0,0.0
+787,CRAWL_SPACE,CRW-INS-BAT-R19,Crawl Space - Suministro e instalacion de colchoneta de fibra de vidrio R-19 entre viguetas de piso de madera,SF,1.45,0.0,0.0
+788,CRAWL_SPACE,CRW-INS-BAT-R30,Crawl Space - Suministro e instalacion de aislamiento termico de fibra de vidrio R-30 de alto espesor en cielo de crawl space,SF,1.95,0.0,0.0
+789,CRAWL_SPACE,CRW-INS-SUP-ROD,Crawl Space - Suministro y colocacion de alambres acerados de soporte a presion para aislamiento (Tiger claws / Wire supports),EA,0.85,0.0,0.0
+790,CRAWL_SPACE,CRW-INS-BRD-R10,Crawl Space - Instalacion de panel rigido de poliestireno extruido (Foam Board R-10) de 2 pulg adherido y anclado a muros de cimiento,SF,2.35,0.0,0.0
+791,CRAWL_SPACE,CRW-INS-REM-DMG,"Crawl Space - Desmonte y desecho de colchonetas de fibra de vidrio colgadas, humedas o contaminadas",SF,0.65,0.0,0.0
+792,CRAWL_SPACE,CRW-DHM-INS-APP,Crawl Space - Suministro e instalacion de deshumidificador de alta capacidad para bajo piso/sotano con manguera de drenaje por gravedad,EA,1650.0,0.0,0.0
+877,EXTERIOR,EXT-SDG-VNL-PRM,Siding Vinil - Vinil reforzado premium 0.046 pulg con respaldo de espuma aislante integrada (1er piso),SF,6.45,0.0,0.0
+793,CRAWL_SPACE,CRW-DHM-LBR-SET,"Crawl Space - Solo mano de obra: montaje, suspension antivibracion y enlace de linea de condensado para deshumidificador suministrado",EA,285.0,0.0,0.0
+794,CRAWL_SPACE,CRW-PMP-INS-SMP,"Crawl Space - Excavacion en tierra, colocacion de cubeta perforada con grava e instalacion de bomba sumergible de achique (Sump pump)",EA,750.0,0.0,0.0
+795,CRAWL_SPACE,CRW-DRN-FRN-INT,"Crawl Space - Excavacion de zanja perimetral interior, tela geotextil de filtrado, grava de 3/4 pulg y tuberia perforada de 4 pulg",LF,24.0,0.0,0.0
+796,CRAWL_SPACE,CRW-TRT-MLD-SF,Crawl Space - Nebulizacion y rociado de agente antimicrobiano / fungicida en toda la madera de viguetas y subpiso,SF,0.6,0.0,0.0
+797,CRAWL_SPACE,CRW-STR-JCK-LVL,Crawl Space - Levantamiento y nivelacion puntual de viga/vigueta de piso con gato hidraulico y calzas estructurales,EA,175.0,0.0,0.0
+798,CRAWL_SPACE,CRW-STR-PST-STL,Crawl Space - Suministro e instalacion de columna o poste telescopico roscado de acero para carga pesada (Screw Jack / Lally column),EA,225.0,0.0,0.0
+799,CRAWL_SPACE,CRW-STR-FOT-CNC,Crawl Space - Excavacion manual y colado de zapata/base de concreto solido de 24x24x12 pulg para asiento de poste estructural,EA,195.0,0.0,0.0
+800,CRAWL_SPACE,CRW-STR-SST-210,"Crawl Space - Refuerzo adosado lateral (Sistering) de vigueta danada o vencida con madero 2x10 tratado, clavado y atornillado",LF,16.5,0.0,0.0
+801,CRAWL_SPACE,CRW-STR-SST-212,Crawl Space - Refuerzo lateral de vigueta con madero 2x12 de madera tratada por pie lineal,LF,18.5,0.0,0.0
+802,CRAWL_SPACE,CRW-STR-GIR-REP,Crawl Space - Reemplazo o suplemento de viga maestra/cargadora de madera tratada (Girder beam compuesta de 3 maderos 2x10 o 2x12),LF,38.0,0.0,0.0
+803,CRAWL_SPACE,CRW-DRS-INS-ACC,Crawl Space - Fabricacion e instalacion de puerta exterior de acceso aislada en madera tratada con pestillo y sello hermetico,EA,265.0,0.0,0.0
+804,CRAWL_SPACE,CRW-DRS-INS-MTL,Crawl Space - Suministro e instalacion de puerta de acceso prefabricada de plastico reforzado o metalico al ras de piso,EA,345.0,0.0,0.0
+805,CRAWL_SPACE,CRW-VNT-INS-NEW,Crawl Space - Suministro e instalacion de rejilla de ventilacion perimetral de cimiento 8x16 pulg con cedazo protector,EA,45.0,0.0,0.0
+806,CRAWL_SPACE,CRW-VNT-SEA-ENC,Crawl Space - Sellado hermetico de ventila de cimiento con lamina de foam aislante y espuma de poliuretano expansiva para encapsulado,EA,35.0,0.0,0.0
+807,CRAWL_SPACE,CRW-LBR-CNF-SPC,Crawl Space - Suplemento de mano de obra por trabajo en espacio confinado de altura reducida (Menor a 36 pulg de espacio libre),HR,45.0,0.0,0.0
+808,TECHOS,EXT-ROF-MET-STN,Techo Metal - Suministro e instalacion de cubierta de metal Standing Seam calibre 24 con clips ocultos y engargolado mecanico,SQ,545.0,0.0,0.0
+809,TECHOS,EXT-ROF-MET-COR,Techo Metal - Suministro e instalacion de laminas metalicas onduladas o trapezoidales tipo R-Panel con tornillos con empaque de neopreno,SQ,285.0,0.0,0.0
+810,TECHOS,EXT-ROF-MET-RDG,Techo Metal - Suministro e instalacion de cumbrera metalica ventilada troquelada para panel metalico con cinta de sellado perfilada,LF,14.5,0.0,0.0
+811,EXTERIOR,EXT-ROF-MET-DEM,Techo Metal - Desmonte completo de paneles metalicos atornillados o engargolados y retiro para reciclaje,SQ,78.0,0.0,0.0
+812,TECHOS,EXT-ROF-TPO-SGL,Techo Plano - Instalacion de sistema de membrana TPO blanca termoplastica de 60 mil soldada por termofusion con soplador de aire caliente,SQ,395.0,0.0,0.0
+813,TECHOS,EXT-ROF-EPD-SGL,Techo Plano - Suministro e instalacion de membrana de caucho sintetico EPDM negro de 60 mil pegada con adhesivo de contacto,SQ,365.0,0.0,0.0
+814,TECHOS,EXT-ROF-ISO-BRD,Techo Aislamiento - Suministro e instalacion de placas de aislamiento termico rigido Polyiso de 2 pulg fijadas con platos y tornillos de techo,SQ,125.0,0.0,0.0
+815,TECHOS,EXT-ROF-DRN-SDR,Techo Drenaje - Instalacion de coladera perimetral / gárgola de descarga pasamuros (Scupper drain) forrada y sellada con membrana,EA,185.0,0.0,0.0
+816,TECHOS,EXT-ROF-SHI-DSG,Techo Tejas - Suministro e instalacion de teja asfaltica pesada de diseñador/estilo pizarra (Presidential / Grand Manor) con fijacion reforzada,SQ,265.0,0.0,0.0
+817,TECHOS,EXT-ROF-SKY-INS,Techo Tragaluz - Instalacion de tragaluz fijo sobre brocal prefabricado (Curb-mounted skylight) con kit de tapajuntas perimetral de aluminio,EA,385.0,0.0,0.0
+818,TECHOS,EXT-ROF-SKY-TUN,Techo Tragaluz - Instalacion completa de tubo solar rigido o flexible (Sun Tunnel) de 10 a 14 pulg desde cubierta hasta difusor de cielo raso,EA,425.0,0.0,0.0
+819,TECHOS,EXT-ROF-SKY-RST,Techo Tragaluz - Desmonte cuidadoso de tragaluz existente para reemplazo de tejas y recolocacion hermetica con sellos nuevos (Detach & Reset),EA,175.0,0.0,0.0
+820,TECHOS,EXT-GUT-ALM-05K,Canaleta - Suministro e instalacion de canaleta continua sin costura de aluminio de 5 pulg estilo K con soportes ocultos atornillados,LF,7.5,0.0,0.0
+821,TECHOS,EXT-GUT-ALM-06K,Canaleta - Suministro e instalacion de canaleta continua de aluminio sobredimensionada de 6 pulg para techos grandes o con pendiente pronunciada,LF,9.2,0.0,0.0
+822,TECHOS,EXT-GUT-DWN-ALM,Canaleta Bajante - Suministro e instalacion de bajante pluvial corrugada de aluminio 2x3 o 3x4 pulg con codos de desvio y abrazaderas a muro,LF,6.8,0.0,0.0
+823,TECHOS,EXT-GUT-GRD-MSH,Canaleta Cubierta - Suministro e instalacion de sistema de proteccion antiojas de malla de micromalla o rejilla de aluminio (Gutter Guard),LF,5.5,0.0,0.0
+824,TECHOS,EXT-GUT-DEM-ALL,Canaleta Demolicion - Retiro de canaletas y bajantes deterioradas con desecho de soportes y clavos viejos,LF,1.65,0.0,0.0
+825,TECHOS,EXT-ROF-VNT-TUR,Techo Ventilacion - Suministro e instalacion de turbina eolica giratoria de ventilacion de 12 a 14 pulg montada sobre base nivelada,EA,135.0,0.0,0.0
+826,TECHOS,EXT-ROF-CAP-CHM,Techo Chimenea - Suministro e instalacion de tapa protectora / sombrero parachispas de acero inoxidable o cobre sobre corona de chimenea,EA,195.0,0.0,0.0
+827,TECHOS,EXT-ROF-CRK-CHM,Techo Estructura - Fabricacion de deflector en caballete / contracaballete (Cricket / Saddle) detras de chimenea para desviar flujo de agua,EA,285.0,0.0,0.0
+828,EXTERIOR,EXT-FAS-INS-1X6,Fascia Madera - Suministro e instalacion de tabla de fascia de pino tratado o con imprimacion de fabrica 1x6 pulg,LF,6.85,0.0,0.0
+829,EXTERIOR,EXT-FAS-INS-1X8,Fascia Madera - Suministro e instalacion de tabla de fascia de 1x8 pulg clavada a cabios de techo,LF,8.2,0.0,0.0
+830,EXTERIOR,EXT-FAS-INS-2X6,Fascia Estructural - Suministro e instalacion de tabla de fascia de madera tratada 2x6 pulg para soporte rigido de canaletas,LF,9.5,0.0,0.0
+831,EXTERIOR,EXT-FAS-INS-HRD,Fascia Fibrocemento - Suministro e instalacion de fascia de fibrocemento James Hardie 5/4x6 o 5/4x8 resistente a pudricion y fuego,LF,11.5,0.0,0.0
+832,EXTERIOR,EXT-FAS-INS-PVC,Fascia Celular PVC - Suministro e instalacion de tabla de fascia de PVC celular solido (Azek/Royal) libre de mantenimiento,LF,14.8,0.0,0.0
+833,EXTERIOR,EXT-FAS-WRP-ALM,Fascia Forro - Fabricacion en plegadora de obra e instalacion de forro de aluminio lacado (Trim coil wrap) sobre fascia existente,LF,5.8,0.0,0.0
+834,EXTERIOR,EXT-FAS-WRP-OVR,Fascia Forro - Instalacion de cubierta prefabricada de aluminio o PVC sobre tabla de fascia para eliminar mantenimiento de pintura,LF,4.95,0.0,0.0
+835,EXTERIOR,EXT-SOF-VNL-VNT,Soffit Vinil - Suministro e instalacion de paneles de vinil perforado/ventilado de doble o triple hilera bajo el alero,LF,7.5,0.0,0.0
+836,EXTERIOR,EXT-SOF-VNL-SLD,Soffit Vinil - Suministro e instalacion de panel de vinil liso y solido sin ventilacion bajo voladizo,LF,6.95,0.0,0.0
+837,EXTERIOR,EXT-SOF-ALM-VNT,Soffit Aluminio - Suministro e instalacion de panel de alero de aluminio perforado de alta resistencia,LF,9.2,0.0,0.0
+838,EXTERIOR,EXT-SOF-HRD-PNL,Soffit Fibrocemento - Suministro e instalacion de laminas de fibrocemento HardieSoffit ventiladas o lisas con clavos galvanizados,SF,5.25,0.0,0.0
+839,EXTERIOR,EXT-SOF-PLY-ACD,Soffit Madera - Suministro e instalacion de plywood de pino para alero con rejillas circulares de ventilacion incorporadas,SF,4.65,0.0,0.0
+840,EXTERIOR,EXT-SOF-CHN-FCH,Soffit Perfil - Suministro e instalacion de canal F (F-Channel) o canal J de aluminio/vinil clavado a muro para soporte de panel,LF,2.85,0.0,0.0
+841,EXTERIOR,EXT-SOF-CHN-TRM,Soffit Perfil - Colocacion de perfil de transicion o union intermedia para vanos anchos de alero,LF,3.2,0.0,0.0
+842,EXTERIOR,EXT-SOF-VNT-STR,Soffit Ventilacion - Suministro e instalacion de rejilla metalica lineal continua de ventilacion de alero de 2 a 3 pulg,LF,3.85,0.0,0.0
+843,EXTERIOR,EXT-FAS-DEM-ROT,Fascia Demolicion - Retiro de tramo de tabla de fascia podrida por agua o termitas y preparacion de cabios para parche nuevo,LF,2.45,0.0,0.0
+844,EXTERIOR,EXT-SOF-DEM-ALL,"Soffit Demolicion - Desmonte completo de paneles de alero danados, retiro de canales viejos y desecho de escombros",LF,1.85,0.0,0.0
+845,EXTERIOR,EXT-FAS-REP-TAI,Fascia Reparacion - Reparacion estructural o suplemento lateral (Sistering) en cola de cabio de techo podrida (Rafter tail repair),EA,65.0,0.0,0.0
+846,EXTERIOR,EXT-FAS-LBR-ONLY,Fascia Labor - Solo mano de obra para reemplazo y clavado de tabla de fascia suministrada por el cliente,LF,4.2,0.0,0.0
+847,EXTERIOR,EXT-SOF-LBR-ONLY,Soffit Labor - Solo mano de obra para instalacion y corte de paneles de soffit provistos por el cliente,LF,4.5,0.0,0.0
+848,EXTERIOR,EXT-SHT-OSB-716,Tablero Exterior - Suministro e instalacion de OSB estructural de 7/16 pulg clavado a montantes (1er piso),SF,2.45,0.0,0.0
+849,EXTERIOR,EXT-SHT-OSB-120,Tablero Exterior - Suministro e instalacion de OSB de 1/2 pulg de alta resistencia con clavos 8d (1er piso),SF,2.75,0.0,0.0
+850,EXTERIOR,EXT-SHT-PLY-120,Tablero Exterior - Suministro e instalacion de contrachapado de madera CDX de 1/2 pulg estructural (1er piso),SF,3.1,0.0,0.0
+851,EXTERIOR,EXT-SHT-PLY-580,Tablero Exterior - Suministro e instalacion de contrachapado estructural pesado CDX de 5/8 pulg (1er piso),SF,3.65,0.0,0.0
+852,EXTERIOR,EXT-SHT-ZIP-SYS,Tablero Exterior - Suministro e instalacion de panel estructural ZIP System con barrera hidrofuga integrada (1er piso),SF,3.85,0.0,0.0
+853,EXTERIOR,EXT-SHT-ISO-R05,Tablero Exterior - Placa continua exterior de espuma rigida Polyiso / XPS de 1 pulg R-5 (1er piso),SF,1.85,0.0,0.0
+854,EXTERIOR,EXT-SHT-DEM-ROT,Tablero Exterior Demolicion - Retiro de tablero contrachapado u OSB podrido o danado por agua y desecho,SF,0.95,0.0,0.0
+855,EXTERIOR,EXT-SHT-REP-SHT,Tablero Exterior Reparacion - Reemplazo de 1 hoja completa de plywood/OSB 4x8 pies incluyendo cortes y clavado,EA,115.0,0.0,0.0
+856,EXTERIOR,EXT-SHT-REP-PTC,Tablero Exterior Reparacion - Parche puntual de tablero hasta 16 pies cuadrados con respaldo de madera,EA,75.0,0.0,0.0
+857,EXTERIOR,EXT-SHT-HGT-2ST,"Tablero Recargo Altura - Suplemento por izado, corte y clavado de tablero en segundo nivel (mas de 12 pies)",SF,0.65,0.0,0.0
+858,EXTERIOR,EXT-SHT-HGT-3ST,Tablero Recargo Altura - Suplemento por labor de tablero en tercer nivel o sobre 22 pies de altura,SF,1.1,0.0,0.0
+859,EXTERIOR,EXT-WRB-FLT-15L,Barrera Climatica - Papel fieltro asfaltico no. 15 con traslapes de 4 pulg horizontales y 6 pulg verticales (1er piso),SF,0.55,0.0,0.0
+860,EXTERIOR,EXT-WRB-FLT-30L,Barrera Climatica - Papel asfaltico pesado no. 30 Grado D para respaldo de mortero/mamposteria (1er piso),SF,0.85,0.0,0.0
+861,EXTERIOR,EXT-WRB-TYV-AIR,Barrera Climatica - Membrana sintetica transpirable contra agua y viento tipo Tyvek HomeWrap con grapas de tapa (1er piso),SF,0.72,0.0,0.0
+862,EXTERIOR,EXT-WRB-DRN-WRB,Barrera Climatica - Membrana transpirable con matriz drenable HydroGap detras del siding (1er piso),SF,0.95,0.0,0.0
+863,EXTERIOR,EXT-WRB-LBR-SET,Barrera Climatica Labor - Solo mano de obra para colocacion y grapado de papel o envoltura provista por cliente,SF,0.4,0.0,0.0
+864,EXTERIOR,EXT-WRB-TAP-SEM,Barrera Sellado - Sellado hermetico de traslapes con cinta acrilica para construccion Tyvek Tape de 3 pulg,LF,0.85,0.0,0.0
+865,EXTERIOR,EXT-WRB-TAP-ZIP,Barrera Sellado - Sellado de uniones de tablero ZIP con cinta especializada ZIP Tape asentada con rodillo,LF,1.35,0.0,0.0
+866,EXTERIOR,EXT-WRB-FLS-WND,Barrera Flasheo - Membrana autoadherible de butilo de 4 a 6 pulg para vanos de puertas y ventanas (Peel & Stick),LF,2.85,0.0,0.0
+867,EXTERIOR,EXT-WRB-COR-FLS,Barrera Flasheo - Piezas esquineras premoldeadas flexibles para sellado antifiltraciones en vanos exteriores,EA,14.5,0.0,0.0
+868,EXTERIOR,EXT-WRB-HGT-2ST,Barrera Recargo Altura - Suplemento por instalacion y sellado de Tyvek/fieltro en segundo nivel (mas de 12 pies),SF,0.3,0.0,0.0
+869,EXTERIOR,EXT-WRB-HGT-3ST,Barrera Recargo Altura - Suplemento por instalacion de membrana climatica en tercer nivel con arnes,SF,0.55,0.0,0.0
+870,EXTERIOR,EXT-SDG-HRD-LAP,Siding Fibrocemento - Duela horizontal James HardiePlank 8-1/4 pulg con traslape ciego y clavado galvanizado (1er piso),SF,6.85,0.0,0.0
+871,EXTERIOR,EXT-SDG-HRD-PAN,Siding Fibrocemento - Hojas verticales HardiePanel 4x8 o 4x10 lisas o textura cedro (1er piso),SF,6.2,0.0,0.0
+872,EXTERIOR,EXT-SDG-HRD-BAT,Siding Fibrocemento - Liston vertical HardieTrim Batten de 2.5 pulg para estilo Board & Batten,LF,3.85,0.0,0.0
+873,EXTERIOR,EXT-SDG-HRD-SHK,Siding Fibrocemento - Teja decorativa HardieShingle de borde recto o escalonado (1er piso),SF,9.25,0.0,0.0
+874,EXTERIOR,EXT-SDG-HRD-DEM,Siding Fibrocemento Demolicion - Retiro manual y desecho de siding de fibrocemento danado,SF,1.25,0.0,0.0
+875,EXTERIOR,EXT-SDG-HRD-REP,Siding Fibrocemento Reparacion - Reemplazo individual de pieza rota de HardiePlank con sellado,LF,8.5,0.0,0.0
+876,EXTERIOR,EXT-SDG-VNL-STD,Siding Vinil - Revestimiento de vinil residencial estandar 0.040 a 0.042 pulg estilo Clapboard o Dutch Lap (1er piso),SF,4.85,0.0,0.0
+878,EXTERIOR,EXT-SDG-VNL-SHK,Siding Vinil - Paneles decorativos de polimero moldeado imitacion teja de cedro (Cedar Shake Vinyl),SF,8.5,0.0,0.0
+879,EXTERIOR,EXT-SDG-VNL-DEM,Siding Vinil Demolicion - Desprendimiento cuidadoso de vinil con extractor Zip tool y desecho,SF,0.85,0.0,0.0
+880,EXTERIOR,EXT-SDG-VNL-RST,Siding Vinil R&R - Desmonte y reinstalacion de paneles de vinil para accesos o reparaciones (Detach & Reset),SF,2.25,0.0,0.0
+881,EXTERIOR,EXT-SDG-STN-VEN,Siding Piedra - Chapa de piedra manufacturada/cultivada asentada con mortero polimerico (1er piso),SF,24.5,0.0,0.0
+882,EXTERIOR,EXT-SDG-STN-PNL,Siding Piedra - Paneles premontados de piedra natural apilada (Stacked Stone Ledger) adheridos (1er piso),SF,28.0,0.0,0.0
+883,EXTERIOR,EXT-SDG-STN-PRE,"Siding Piedra Prep - Base de mamposteria: doble papel No. 30, malla galvanizada de metal desplegado engrapada",SF,3.5,0.0,0.0
+884,EXTERIOR,EXT-SDG-STN-SCR,Siding Piedra Prep - Capa base de mortero rayado (Scratch coat) sobre malla metalica para anclaje de piedra,SF,2.85,0.0,0.0
+885,EXTERIOR,EXT-SDG-STN-CAP,Siding Piedra Remate - Remate superior de alfeizar en concreto arquitectonico para pared de piedra (Sill cap),LF,22.0,0.0,0.0
+886,EXTERIOR,EXT-SDG-WOD-T11,Siding Madera - Tablero ranurado T1-11 de 4x8 pies con juntas selladas y clavos galvanizados (1er piso),SF,5.65,0.0,0.0
+887,EXTERIOR,EXT-SDG-WOD-CED,Siding Madera - Duela biselada de cedro rojo occidental (Cedar Bevel Lap) tratada (1er piso),SF,9.5,0.0,0.0
+888,EXTERIOR,EXT-SDG-WOD-SHK,Siding Madera - Tejuela de madera de cedro dividida a mano (Cedar Shakes) traslapada (1er piso),SF,12.8,0.0,0.0
+889,EXTERIOR,EXT-SDG-WOD-DEM,Siding Madera Demolicion - Retiro y acarreo de siding de madera o tablero T1-11 podrido,SF,1.15,0.0,0.0
+890,EXTERIOR,EXT-SDG-STU-3CT,"Siding Estuco - Sistema tradicional de 3 capas: papel, malla, capa de adherencia, capa base y textura final (1er piso)",SF,11.5,0.0,0.0
+891,EXTERIOR,EXT-SDG-STU-SYN,"Siding Estuco - Sistema sintetico EIFS: placa de EPS de 1 pulg, malla de fibra de vidrio y enlucido acrilico elastico (1er piso)",SF,14.2,0.0,0.0
+892,EXTERIOR,EXT-SDG-STU-REP,Siding Estuco Reparacion - Saneado de grietas o zonas desprendidas con mortero elastico y textura a juego,SF,8.5,0.0,0.0
+893,EXTERIOR,EXT-SDG-TRM-CRN,Siding Remate - Poste esquinero exterior de vinil o fibrocemento 4x4 o 5/4x4 pulg,LF,6.5,0.0,0.0
+894,EXTERIOR,EXT-SDG-TRM-JCH,Siding Perfil - Perfil J-Channel de vinil o aluminio para encuadre de ventanas y aleros,LF,3.2,0.0,0.0
+895,EXTERIOR,EXT-SDG-TRM-ZFL,Siding Flasheo - Tapajuntas metalico en Z (Z-Flashing) galvanizado sobre molduras de ventanas y transiciones horizontales,LF,2.85,0.0,0.0
+896,EXTERIOR,EXT-SDG-BLK-MNT,"Siding Accesorio - Bloque de montaje exterior integrado (J-Block) para lamparas, tomacorrientes o grifos",EA,35.0,0.0,0.0
+897,EXTERIOR,EXT-SDG-CAU-PRM,Siding Sellado - Cordon continuo de sellador de poliuretano exterior resistente a intemperie en uniones y marcos,LF,1.85,0.0,0.0
+898,EXTERIOR,EXT-SDG-HGT-2ST,Siding Recargo Altura - Suplemento por colocacion de revestimiento en segundo piso (entre 12 y 22 pies),SF,1.35,0.0,0.0
+899,EXTERIOR,EXT-SDG-HGT-3ST,Siding Recargo Altura - Suplemento por colocacion de revestimiento en tercer piso (mas de 22 pies),SF,2.15,0.0,0.0
+900,EXTERIOR,EXT-ACC-SCF-SET,"Siding Acceso - Transporte, montaje y desmontaje de torre de andamio metalico con barandas y rodapies",EA,380.0,0.0,0.0
+901,EXTERIOR,EXT-ACC-SCF-LBR,Siding Acceso - Colocacion y ajuste de gatas mecanicas de escalera con plataforma de aluminio (Ladder Jack),DAY,125.0,0.0,0.0
+902,EXTERIOR,EXT-CNC-DEM-04I,Concreto Demolicion - Rotura con martillo hidraulico/demoledor de acera o anden existente de 4 pulg de espesor y retiro de escombros,SF,3.85,0.0,0.0
+903,EXTERIOR,EXT-CNC-DEM-06I,Concreto Demolicion - Demolicion de entrada de vehiculos (Driveway) o losa reforzada de 6 pulg con carga mecanica,SF,5.25,0.0,0.0
+904,EXTERIOR,EXT-CNC-EXC-TRN,Concreto Excavacion - Excavacion manual y perfilado de terreno para anden perimetral alrededor de la vivienda hasta 4-6 pulg,SF,1.65,0.0,0.0
+905,EXTERIOR,EXT-CNC-GRD-SUB,"Concreto Nivelacion - Nivelacion, despalme y compactacion mecanica de rasante de tierra con placa vibratoria",SF,0.85,0.0,0.0
+906,EXTERIOR,EXT-CNC-BAS-GRV,"Concreto Base - Suministro, tendido y compactado de base de grava triturada no. 57 o GAB de 4 pulg de espesor",SF,1.85,0.0,0.0
+907,EXTERIOR,EXT-CNC-FRM-WOD,Concreto Encofrado - Armado y estacado de formaleta de madera 2x4 para bordes rectos de acera perimetral,LF,3.25,0.0,0.0
+908,EXTERIOR,EXT-CNC-FRM-CRV,Concreto Encofrado - Formaleta curva flexible con madera delgada/masonite para andenes con diseno ondeado o rotondas,LF,4.85,0.0,0.0
+909,EXTERIOR,EXT-CNC-MSH-WIR,Concreto Refuerzo - Suministro y colocacion de malla electrosoldada de acero 6x6 W1.4/W1.4 elevada sobre silletas,SF,0.95,0.0,0.0
+910,EXTERIOR,EXT-CNC-RBR-038,Concreto Refuerzo - Suministro y emparrillado de varilla corrugada de 3/8 pulg (No. 3) espaciada a 18 pulg centro a centro,LF,1.85,0.0,0.0
+911,EXTERIOR,EXT-CNC-RBR-050,Concreto Refuerzo - Tendido y amarre de varilla corrugada de 1/2 pulg (No. 4) para rampas y entradas de autos,LF,2.35,0.0,0.0
+912,EXTERIOR,EXT-CNC-WKW-04B,Concreto Anden - Vaciado y reglado de losa de 4 pulg concreto premezclado 3000-3500 PSI con acabado escobillado antideslizante (Broom finish),SF,8.5,0.0,0.0
+913,EXTERIOR,EXT-CNC-WKW-LBR,"Concreto Anden Labor - Solo mano de obra: reglado, orillado, acabado escobillado y curado de acera provista por cliente",SF,4.25,0.0,0.0
+914,EXTERIOR,EXT-CNC-PRC-SLB,Concreto Porche - Vaciado de losa frontal de descanso o porche de entrada con remates orillados de precision,SF,9.5,0.0,0.0
+915,EXTERIOR,EXT-CNC-DRV-06B,Concreto Driveway - Vaciado de entrada vehicular de 6 pulg 4000 PSI de alta resistencia a carga pesada con acabado escobillado,SF,11.5,0.0,0.0
+916,EXTERIOR,EXT-CNC-FIN-STP,"Concreto Estampado - Acabado estampado decorativo (Piedra laja, adoquín o ladrillo) con desmoldante, lavado y sellador acrilico",SF,14.5,0.0,0.0
+917,EXTERIOR,EXT-CNC-FIN-EXP,Concreto Agregado - Acabado de agregado expuesto con retardante superficial de fraguado y lavado a presion,SF,12.0,0.0,0.0
+918,EXTERIOR,EXT-CNC-FIN-SMT,Concreto Acabado - Acabado pulido liso tradicional con llana de magnesio y llana metalica de acero,SF,8.9,0.0,0.0
+919,EXTERIOR,EXT-CNC-STP-FRM,"Concreto Gradas - Encofrado, vaciado y acabado de huella y contrahuella de escalon de concreto colado in situ por pie lineal",LF,45.0,0.0,0.0
+920,EXTERIOR,EXT-CNC-STP-BOX,Concreto Descanso - Construccion de descanso escalonado frontal elevado (Landing / Stoop) para acceso a puerta principal,SF,18.5,0.0,0.0
+921,EXTERIOR,EXT-CNC-JNT-SAW,Concreto Juntas - Corte de juntas de control y dilatacion con sierra y disco diamantado a 1/4 del espesor de la losa,LF,1.65,0.0,0.0
+922,EXTERIOR,EXT-CNC-JNT-EXP,Concreto Expansión - Suministro e instalacion de cinta de expansion flexible de 1/2 pulg en union entre anden y cimientos de la casa,LF,2.45,0.0,0.0
+923,EXTERIOR,EXT-CNC-SEA-ACR,Concreto Sellado - Aplicacion de 2 manos de sellador penetrante transparente base solvente antimanchas y antipolvo,SF,1.25,0.0,0.0
+924,EXTERIOR,EXT-CNC-CAU-JNT,Concreto Calafateo - Relleno y sellado de juntas de dilatacion con cordon de respaldo de espuma y sellador elastico autonivelante,LF,2.85,0.0,0.0
+925,CERCAS,EXT-FNC-WOD-DOG,Cerca Madera - Construccion de cerca de privacidad de 6 pies estilo Dog-Ear con tablas 1x6 tratadas y 3 travesanos 2x4,LF,28.5,0.0,0.0
+926,CERCAS,EXT-FNC-WOD-SHB,Cerca Madera - Cerca estilo Shadowbox (Buen vecino) de 6 pies con tablas traslapadas en ambos lados para paso de aire,LF,33.0,0.0,0.0
+927,CERCAS,EXT-FNC-WOD-BOB,Cerca Madera - Cerca estilo Board-on-Board de 6 pies con traslape completo sin espacios visuales (100% privacidad),LF,36.5,0.0,0.0
+928,CERCAS,EXT-FNC-WOD-PIC,Cerca Madera - Cerca estilo Picture-Frame / Enmarcada de 6 pies con moldura superior (Cap rail 2x6) y zocalo inferior (Rot board 2x6),LF,42.0,0.0,0.0
+929,CERCAS,EXT-FNC-WOD-PCK,Cerca Madera - Cerca frontal decorativa tipo Picket de 4 pies de altura con barrotes espaciados y remate superior,LF,22.5,0.0,0.0
+930,CERCAS,EXT-FNC-WOD-HRZ,Cerca Madera - Cerca de diseno horizontal contemporaneo con tablas tratadas 1x6 o 1x4 fijadas a postes de madera o metal,LF,38.0,0.0,0.0
+931,CERCAS,EXT-FNC-WOD-LBR,Cerca Madera Labor - Solo mano de obra: instalacion de tramos de cerca de madera provistos en obra,LF,14.5,0.0,0.0
+932,CERCAS,EXT-FNC-PST-CNC,Cerca Poste - Perforacion de hoyo a 24-30 pulg de profundidad y colado con concreto premezclado de poste tratado 4x4x8,EA,68.0,0.0,0.0
+933,CERCAS,EXT-FNC-PST-6X6,Cerca Poste - Perforacion profunda y colado con concreto de poste pesado 6x6x10 para soporte rigido de portones,EA,125.0,0.0,0.0
+934,CERCAS,EXT-FNC-PST-STL,Cerca Poste Metalico - Suministro e instalacion de poste de acero galvanizado de 2-3/8 pulg embebido en zapata de concreto,EA,78.0,0.0,0.0
+935,CERCAS,EXT-FNC-PST-BRK,Cerca Herraje - Suministro e instalacion de abrazaderas de fijacion WAP de poste de acero a travesanos de madera 2x4,EA,14.5,0.0,0.0
+936,CERCAS,EXT-FNC-RUN-2X4,Cerca Travesano - Suministro e instalacion de larguero horizontal de madera tratada 2x4x16 fijado con tornillos de exterior,LF,3.85,0.0,0.0
+937,CERCAS,EXT-FNC-ROT-BRD,Cerca Zocalo - Suministro e instalacion de tabla de sacrificio en contacto con tierra (Rot board) de 2x6 tratada Ground Contact,LF,4.5,0.0,0.0
+938,CERCAS,EXT-FNC-CHN-GL4,Cerca Malla - Cerca de malla ciclonica de 4 pies de altura en acero galvanizado calibre 11 con tubo superior y postes,LF,18.5,0.0,0.0
+939,CERCAS,EXT-FNC-CHN-GL6,Cerca Malla - Cerca de malla ciclonica perimetral de 6 pies de altura en acero galvanizado con accesorios de tension,LF,23.0,0.0,0.0
+940,CERCAS,EXT-FNC-CHN-BLK,Cerca Malla - Cerca de malla ciclonica de 6 pies con recubrimiento de vinil negro (Black vinyl-coated) resistente a corrosion,LF,27.5,0.0,0.0
+941,CERCAS,EXT-FNC-VNL-PRV,Cerca Vinil - Suministro e instalacion de paneles prefabricados de vinil blanco de 6 pies con postes encamisados en concreto,LF,44.0,0.0,0.0
+942,CERCAS,EXT-FNC-ALM-ORN,Cerca Aluminio - Suministro e instalacion de paneles de aluminio ornamental lacado negro de 4 a 5 pies estilo reja de hierro,LF,48.5,0.0,0.0
+943,CERCAS,EXT-FNC-GAT-SGL,Cerca Porton - Fabricacion e instalacion de puerta peatonal simple de madera de 4 pies con marco reforzado anti-caida (Anti-sag),EA,245.0,0.0,0.0
+944,CERCAS,EXT-FNC-GAT-DBL,Cerca Porton - Fabricacion e instalacion de porton vehicular doble de madera de 10 a 12 pies con varilla de caida al piso (Drop rod),EA,520.0,0.0,0.0
+945,CERCAS,EXT-FNC-GAT-CHN,Cerca Porton - Suministro e instalacion de marco tubular galvanizado para puerta de paso en cerca de malla de 4 pies,EA,185.0,0.0,0.0
+946,CERCAS,EXT-FNC-GAT-HRD,Cerca Herrajes - Suministro e instalacion de kit de bisagras de uso pesado con cierre automatico por resorte y cerrojo de gravedad,EA,75.0,0.0,0.0
+947,CERCAS,EXT-FNC-GAT-WHL,Cerca Accesorio - Instalacion de rueda giratoria con resorte de amortiguacion (Gate wheel) para soporte de hojas anchas,EA,58.0,0.0,0.0
+948,CERCAS,EXT-FNC-DEM-WOD,Cerca Demolicion - Desmonte completo de cerca de madera existente con acarreo y desecho de tablas y travesanos,LF,3.25,0.0,0.0
+949,CERCAS,EXT-FNC-DEM-PST,Cerca Demolicion - Excavacion manual/mecanica y extraccion de zapata de concreto con munon de poste podrido enterrado,EA,45.0,0.0,0.0
+950,CERCAS,EXT-FNC-CLN-PRS,"Cerca Mantenimiento - Lavado a presion profunda de cerca de madera para eliminacion de moho, hongos y grisura solar",LF,1.65,0.0,0.0
+951,EXTERIOR,EXT-FNC-STN-SEA,Cerca Mantenimiento - Aplicacion de 2 manos de tinte penetrante para exterior repelente al agua y proteccion UV,LF,3.85,0.0,0.0
+952,PAISAJISMO,EXT-LND-MOW-SML,"Cesped Mantenimiento - Corte de cesped residencial pequeno (hasta 5,000 SF), orillado con hilo (Weed eating), perfilado de banquetas y soplado final",EA,55.0,0.0,0.0
+953,PAISAJISMO,EXT-LND-MOW-MED,"Cesped Mantenimiento - Corte de cesped de tamano medio (5,000 a 10,000 SF), orillado perimetral, perfilado con disco y limpieza con sopladora",EA,85.0,0.0,0.0
+954,PAISAJISMO,EXT-LND-MOW-LRG,"Cesped Mantenimiento - Corte de cesped en predio amplio (10,000 a 20,000 SF / hasta 1/2 acre) con maquina de montar y desbroce perimetral",EA,145.0,0.0,0.0
+955,PAISAJISMO,EXT-LND-EDG-TRM,"Cesped Perfilado - Perfilado rigido con cuchilla metalica de bordes de andenes, entradas de vehiculos (Driveways) y camas de flores por pie lineal",LF,0.45,0.0,0.0
+956,PAISAJISMO,EXT-LND-CLR-BSH,"Cesped Desbroce - Limpieza profunda de maleza densa, matorrales y pasto crecido excesivo con desbrozadora pesada o tractor (Bush hog)",SF,0.18,0.0,0.0
+957,PAISAJISMO,EXT-LND-SOD-INS,Cesped Instalacion - Suministro e instalacion de rollos de cesped natural (Bermuda o Fescue) trabados sobre terreno preparado con apisonado,SF,1.25,0.0,0.0
+958,PAISAJISMO,EXT-LND-SOD-LBR,Cesped Labor - Solo mano de obra para tendido y ajuste de rollos de pasto suministrados en sitio por el cliente,SF,0.55,0.0,0.0
+959,PAISAJISMO,EXT-LND-TOP-SOIL,"Jardineria Suelo - Suministro, acarreo y esparcido de tierra negra fertil / abono (Topsoil) nivelado para camas o reparacion de huecos",CY,65.0,0.0,0.0
+960,PAISAJISMO,EXT-LND-MLC-BLD,Jardineria Acolchado - Suministro y tendido de capa de 2-3 pulg de mantillo / astillas de madera tratada (Black / Brown Hardwood Mulch),CY,78.0,0.0,0.0
+961,PAISAJISMO,EXT-LND-PIN-STR,Jardineria Paja de Pino - Suministro e instalacion de fardos de paja de pino (Pine straw bales) colocados y ribeteados en jardineras por fardo,EA,12.5,0.0,0.0
+962,PAISAJISMO,EXT-LND-TRM-SHR,Jardineria Arbustos - Poda de formacion y recorte estetico de arbustos individuales o plantas ornamentales hasta 6 pies de altura,EA,18.0,0.0,0.0
+963,PAISAJISMO,EXT-LND-TRM-HDG,Jardineria Setos - Poda rectificada de cerco vivo o seto perimetral (Hedge trimming) con cortasetos mecanico por pie lineal,LF,2.85,0.0,0.0
+964,PAISAJISMO,EXT-TRE-TRM-LOW,Arboles Poda - Corte y despeje de ramas bajas o follaje que interfieren el paso peatonal o vehicular (Elevacion de copa),EA,75.0,0.0,0.0
+965,PAISAJISMO,EXT-TRE-TRM-ROF,Arboles Poda - Corte de seguridad de ramas sobre el techo de la casa o contra cables de servicio para evitar danos por viento/friccion,EA,165.0,0.0,0.0
+966,PAISAJISMO,EXT-TRE-TRM-BIG,Arboles Poda Mayor - Poda estructural de aclareo de copa en arbol de gran tamano con arnes y trepa o canastilla hidraulica,EA,380.0,0.0,0.0
+967,PAISAJISMO,EXT-TRE-REM-T12,Arboles Tala - Derribo controlado y apeo de arbol pequeno de hasta 12 pulg de diametro de tronco a nivel de suelo,EA,350.0,0.0,0.0
+968,PAISAJISMO,EXT-TRE-REM-T24,Arboles Tala - Tala seccionada de arbol mediano de 13 a 24 pulg de tronco con aparejos de descenso controlado (Rigging),EA,750.0,0.0,0.0
+969,PAISAJISMO,EXT-TRE-REM-T36,Arboles Tala - Tala de arbol grande o de alto riesgo de 25 a 36 pulg de tronco cercano a estructuras con maniobras de precision,EA,1450.0,0.0,0.0
+970,PAISAJISMO,EXT-TRE-REM-T48,Arboles Tala - Tala de arbol monumental de mas de 36 pulg de diametro que requiera canastilla o grua de carga,EA,2200.0,0.0,0.0
+971,PAISAJISMO,EXT-TRE-STP-SML,Arboles Munon - Destoconado con maquina destoconadora de tocon de arbol hasta 12 pulg de diametro a 6-8 pulg bajo nivel de tierra,EA,125.0,0.0,0.0
+972,PAISAJISMO,EXT-TRE-STP-MED,Arboles Munon - Destoconado con trituradora de tocon mediano de 13 a 24 pulg de diametro incluyendo eliminacion de contrafuertes,EA,220.0,0.0,0.0
+973,PAISAJISMO,EXT-TRE-STP-LRG,Arboles Munon - Destoconado de tocon masivo de 25 a 36 pulg con trituracion profunda de raices principales superficiales,EA,360.0,0.0,0.0
+974,PAISAJISMO,EXT-TRE-CHP-WOD,Arboles Triturado - Procesamiento in situ de ramas y ramajes con maquina chipeadora de madera industrial por hora de servicio,HR,145.0,0.0,0.0
+975,PAISAJISMO,EXT-TRE-HAU-LOG,"Arboles Disposicion - Carga manual/mecanica, acarreo en remolque/camion y pago de tasa de tiro de troncos pesados y tocones por viaje",EA,350.0,0.0,0.0
+976,PAISAJISMO,EXT-LND-CLN-YRD,"Jardineria Limpieza - Limpieza general de patio, rastrillado de hojas secas, recoleccion de ramas caidas y embolsado por hora-hombre",HR,45.0,0.0,0.0
+977,PINTURA,EXT-PNT-PWSH-GEN,"Pintura Prep - Lavado a presion (Pressure washing) de muros, aleros y revestimiento exterior con solucion desengrasante y antimoho",SF,0.45,0.0,0.0
+978,PINTURA,EXT-PNT-PWSH-DCK,Pintura Prep - Lavado a presion profunda de terraza/deck de madera o cerca para abrir poro y remover tinte viejo,SF,0.55,0.0,0.0
+979,PINTURA,EXT-PNT-PWSH-CNC,Pintura Prep - Lavado con hidrolavadora de alto tonelaje y tratamiento de acido muriatico / limpiador en losas de concreto,SF,0.5,0.0,0.0
+980,PINTURA,EXT-PNT-SCP-SND,"Pintura Prep - Raspado manual mecanico con espatula de pintura descascarada, lijado de transiciones y limpieza de polvo",SF,0.75,0.0,0.0
+981,PINTURA,EXT-PNT-CAU-EXT,"Pintura Prep - Calafateo y sellado de grietas y juntas en marcos de ventanas, puertas y uniones con masilla acrilica siliconizada exterior",LF,0.95,0.0,0.0
+982,PINTURA,EXT-PNT-PRM-EXT,Pintura Imprimacion - Aplicacion de 1 mano de sellador fijador / primer acrilico o base aceite bloqueador de manchas en zonas expuestas,SF,0.65,0.0,0.0
+983,PINTURA,EXT-PNT-SDG-1CT,Pintura Siding - Aplicacion de 1 mano de pintura acrilica 100% latex exterior a soplete airless con roleado hacia atras (Back-roll),SF,0.95,0.0,0.0
+984,PINTURA,EXT-PNT-SDG-2CT,"Pintura Siding - Aplicacion de 2 manos de pintura exterior de alta durabilidad en siding de fibrocemento Hardie, madera o vinil",SF,1.65,0.0,0.0
+985,PINTURA,EXT-PNT-MAS-ELA,Pintura Estuco - Aplicacion de recubrimiento elastomerico impermeable de alto espesor (Elastomeric coating) en muros de estuco o ladrillo,SF,2.15,0.0,0.0
+986,PINTURA,EXT-PNT-MAS-LAT,"Pintura Mamposteria - Aplicacion de 2 manos de pintura acrilica especial para bloques de concreto, chimeneas o cimientos visibles",SF,1.45,0.0,0.0
+987,PINTURA,EXT-PNT-SDG-LBR,Pintura Siding Labor - Solo mano de obra para aplicacion de 2 manos de pintura exterior suministrada por el cliente,SF,0.9,0.0,0.0
+988,PINTURA,EXT-PNT-FAS-SOF,Pintura Alero - Preparacion y pintura a 2 manos de tabla de fascia y panel de soffit continuo hasta 12 pulg de ancho por pie lineal,LF,3.25,0.0,0.0
+989,PINTURA,EXT-PNT-FAS-ONL,"Pintura Fascia - Preparacion, enmascarado y aplicacion de 2 manos de esmalte exterior en tabla de fascia frontal",LF,1.85,0.0,0.0
+990,PINTURA,EXT-PNT-SOF-SF,Pintura Soffit - Pintura a brocha/rodillo de cielo de alero ancho o bajo porche por pie cuadrado (2 manos),SF,1.35,0.0,0.0
+991,PINTURA,EXT-PNT-TRM-WND,"Pintura Molduras - Lijado, sellado y aplicacion de 2 manos en molduras exteriores de ventanas y puertas (Exterior Trim/Casing)",LF,1.65,0.0,0.0
+992,PINTURA,EXT-PNT-CRN-BRD,Pintura Esquineros - Pintura de postes esquineros de madera o fibrocemento (Corner boards) por pie lineal,LF,1.45,0.0,0.0
+993,PINTURA,EXT-PNT-GUT-DWN,"Pintura Canaletas - Limpieza, imprimacion para metales no ferrosos y pintura de canaletas y bajantes pluviales existentes",LF,1.95,0.0,0.0
+994,PINTURA,EXT-PNT-DCK-STN,Deck Tinte - Aplicacion de 2 manos de tinte semitransparente o solido con sellador hidrofugo en piso de terraza/deck de madera,SF,1.65,0.0,0.0
+995,PINTURA,EXT-PNT-DCK-RES,Deck Recubrimiento - Aplicacion de recubrimiento elastico grueso antideslizante para restauracion de madera vieja (Deck Resurfacer),SF,2.45,0.0,0.0
+996,PINTURA,EXT-PNT-RAL-STN,"Deck Barandal - Tinturado o pintura detallada a mano de pasamanos, travesanos y balaustres de madera por pie lineal de baranda",LF,7.5,0.0,0.0
+997,PINTURA,EXT-PNT-STR-STN,"Deck Escalera - Tinturado y sellado de peldanos, contrahuellas y largueros de escalera exterior por escalon completo",EA,18.0,0.0,0.0
+998,PINTURA,EXT-PNT-PST-STN,Deck Poste - Lijado y aplicacion de sellador o tinte protector en poste estructural 4x4 o 6x6 por unidad,EA,14.5,0.0,0.0
+999,PINTURA,EXT-PNT-FNC-ST1,Cerca Tinte - Aplicacion con pistola airless y brocha de tinte penetrante protector en 1 cara de cerca de madera de 6 pies,LF,2.85,0.0,0.0
+1000,PINTURA,EXT-PNT-FNC-ST2,Cerca Tinte - Aplicacion completa de tinte exterior protector por ambas caras de cerca de madera de 6 pies de privacidad,LF,4.85,0.0,0.0
+1001,PINTURA,EXT-PNT-FNC-PNT,Cerca Pintura - Aplicacion de 2 manos de pintura latex exterior 100% acrilica por pie lineal de cerca (1 cara),LF,3.45,0.0,0.0
+1002,PINTURA,EXT-PNT-GAT-STN,Cerca Porton - Tinturado o pintura integral de hoja de porton peatonal de madera por ambas caras,EA,45.0,0.0,0.0
+1003,PINTURA,EXT-PNT-CNC-STN,Concreto Tinte - Aplicacion de tinte acrilico o acido penetrante decorativo para concreto exterior (Acid/Acrylic stain),SF,1.85,0.0,0.0
+1004,PINTURA,EXT-PNT-CNC-SLB,"Concreto Pintura - Aplicacion de 2 manos de pintura para pisos de porche, anden o patio con aditivo antideslizante",SF,1.45,0.0,0.0
+1005,PINTURA,EXT-PNT-CNC-EPX,Concreto Epoxico - Preparacion con desbaste mecanico y aplicacion de sistema epoxico bicomponente con hojuelas de vinil en piso de cochera/garaje,SF,4.85,0.0,0.0
+1006,PINTURA,EXT-PNT-CNC-SEA,Concreto Sellado - Aplicacion de sellador transparente penetrante base siloxano/solvente antimanchas y antipolvo en andenes,SF,0.85,0.0,0.0
+1007,PINTURA,EXT-PNT-DOR-ENT,"Pintura Puerta - Lijado, preparacion y aplicacion de 2 manos de esmalte de alta gama en puerta de entrada principal (Ambas caras)",EA,125.0,0.0,0.0
+1008,PINTURA,EXT-PNT-DOR-FRM,Pintura Puerta Marco - Preparacion y pintura de jamba y marco exterior de puerta de entrada,EA,45.0,0.0,0.0
+1009,PINTURA,EXT-PNT-GAR-SGL,"Pintura Garaje - Lavado, desengrasado y aplicacion a soplete de 2 manos de pintura exterior en puerta de cochera de 1 auto (8x7 pies)",EA,145.0,0.0,0.0
+1010,PINTURA,EXT-PNT-GAR-DBL,Pintura Garaje - Pintura completa a soplete de puerta de cochera doble de 2 autos (16x7 pies),EA,225.0,0.0,0.0
+1011,PINTURA,EXT-PNT-SHT-SET,"Pintura Persianas - Desmonte, limpieza, pintura a 2 manos y reinstalacion de par de postigos decorativos (Shutters) de vinil o madera",EA,55.0,0.0,0.0
+1012,PINTURA,EXT-PNT-HGT-2ST,Pintura Recargo Altura - Suplemento por aplicacion de pintura o tinte en segundo nivel (entre 12 y 22 pies de altura),SF,0.45,0.0,0.0
+1013,PINTURA,EXT-PNT-HGT-3ST,Pintura Recargo Altura - Suplemento por pintura en tercer nivel o sobre 22 pies con escalera de extension o andamio,SF,0.85,0.0,0.0
+1014,VENTANAS,EXT-WND-INS-VN2,Ventana Reemplazo - Suministro e instalacion de ventana de vinil doble guillotina (Double Hung) doble vidrio Low-E/Argon tamano estandar (hasta 101 UI),EA,465.0,0.0,0.0
+1015,VENTANAS,EXT-WND-INS-NEW,"Ventana Obra Nueva - Suministro e instalacion de ventana con aleta perimetral (Nailing Fin), fijada a montantes y sellada con cinta flashing",EA,525.0,0.0,0.0
+1016,VENTANAS,EXT-WND-INS-SLD,Ventana Corrediza - Suministro e instalacion de ventana de vinil corrediza horizontal (Horizontal Slider) con mosquitero incluido,EA,440.0,0.0,0.0
+1017,VENTANAS,EXT-WND-INS-PIC,Ventana Fija - Suministro e instalacion de ventana panoramica fija sin apertura (Picture Window) de hasta 20 pies cuadrados,EA,580.0,0.0,0.0
+1018,VENTANAS,EXT-WND-INS-CLD,Ventana Madera Revestida - Suministro e instalacion de ventana premium de madera con revestimiento exterior de aluminio (Aluminum Clad Wood),EA,850.0,0.0,0.0
+1019,VENTANAS,EXT-WND-INS-LBR,"Ventana Solo Labor - Mano de obra para retirar ventana vieja, colocar ventana provista por el cliente, nivelar con calzas (Shims) y fijar",EA,145.0,0.0,0.0
+1020,VENTANAS,EXT-WND-LBR-NEW,"Ventana Solo Labor - Mano de obra para instalacion de ventana tipo nueva construccion con aleta, sellado de vano y cinta autoadherible",EA,195.0,0.0,0.0
+1021,VENTANAS,EXT-WND-RST-ALL,Ventana R&R - Desmonte cuidadoso de ventana existente durante reparacion de pared exterior/siding y recolocacion hermetica (Detach & Reset),EA,165.0,0.0,0.0
+1022,VENTANAS,EXT-WND-DEM-OLD,"Ventana Demolicion - Retiro de ventana vieja de madera, aluminio o vinil, desarmado y acarreo para desecho",EA,45.0,0.0,0.0
+1023,PUERTAS,EXT-DOR-INS-STL,"Puerta Entrada Acero - Suministro e instalacion de puerta exterior de acero precolgada (Pre-hung) con marco, umbral ajustable y burletes",EA,585.0,0.0,0.0
+1024,PUERTAS,EXT-DOR-INS-FBR,Puerta Entrada Fibra de Vidrio - Suministro e instalacion de puerta precolgada de fibra de vidrio texturizada de alto rendimiento termico,EA,820.0,0.0,0.0
+1025,PUERTAS,EXT-DOR-INS-WOD,"Puerta Entrada Madera - Suministro e instalacion de puerta precolgada de madera solida (Caoba, Roble o Pino tratado) con marco perimetral",EA,1250.0,0.0,0.0
+1026,PUERTAS,EXT-DOR-INS-LBR,"Puerta Exterior Labor - Solo mano de obra: plomeado, calzado con shims, atornillado a montantes y ajuste de cerrojos para puerta provista por cliente",EA,225.0,0.0,0.0
+1027,PUERTAS,EXT-DOR-RST-ALL,Puerta Exterior R&R - Desmonte de unidad precolgada para cambio de piso o reparacion de vano y reinstalacion calibrada,EA,185.0,0.0,0.0
+1028,PUERTAS,EXT-DOR-DEM-OLD,"Puerta Exterior Demolicion - Desprendimiento de puerta, marco y umbral deteriorado con retiro de escombros",EA,55.0,0.0,0.0
+1029,PUERTAS,EXT-DOR-INS-PAT,Puerta Patio Corrediza - Suministro e instalacion de puerta corrediza de vidrio templado Low-E de 6 pies (72x80 pulg) con riel y cedazo,EA,1350.0,0.0,0.0
+1030,PUERTAS,EXT-DOR-INS-PA8,Puerta Patio Corrediza - Suministro e instalacion de puerta corrediza amplia de 8 pies (96x80 pulg) con felpa hermetica reforzada,EA,1750.0,0.0,0.0
+1031,PUERTAS,EXT-DOR-INS-FRN,Puerta Francesa Doble - Suministro e instalacion de juego de puertas francesas dobles abisagradas exteriores de 6 pies con vidrieras,EA,1650.0,0.0,0.0
+1032,PUERTAS,EXT-DOR-PAT-LBR,"Puerta Patio Labor - Solo mano de obra: ensamblado de marco en sitio, sellado de base, nivelacion y montaje de paneles corredizos provistos",EA,360.0,0.0,0.0
+1033,PUERTAS,EXT-DOR-INS-STM,"Puerta Tormenta - Suministro e instalacion de contrapuerta de aluminio extruido con vidrio de seguridad, mosquitero y cierrapuertas hidraulico",EA,385.0,0.0,0.0
+1034,PUERTAS,EXT-DOR-STM-LBR,"Puerta Tormenta Labor - Solo mano de obra: corte a medida de marcos Z de aluminio, fijacion a jamba exterior e instalacion de pestillo",EA,135.0,0.0,0.0
+1035,PUERTAS,EXT-DOR-STM-REM,Puerta Tormenta Demolicion - Desmonte de contrapuerta vieja de aluminio y retiro de anclajes oxidados,EA,35.0,0.0,0.0
+1036,PUERTAS,EXT-GAR-INS-087,"Puerta Garaje 1 Auto - Suministro e instalacion de puerta seccional de acero aislada de 8x7 o 9x7 pies con rieles, resortes y rodillos",EA,1150.0,0.0,0.0
+1037,PUERTAS,EXT-GAR-INS-167,Puerta Garaje Doble - Suministro e instalacion de puerta seccional de acero de 16x7 pies para 2 vehiculos con refuerzos antitorsion,EA,1850.0,0.0,0.0
+1038,PUERTAS,EXT-GAR-INS-MTR,Puerta Garaje Motor - Suministro e instalacion de abridor/motor electrico a cadena o faja silenciosa de 1/2 a 3/4 HP con sensores y mandos,EA,440.0,0.0,0.0
+1039,PUERTAS,EXT-GAR-LBR-DOR,"Puerta Garaje Labor - Solo mano de obra: armado de paneles seccionales, calibracion de resortes y tendido de rieles para puerta provista",EA,320.0,0.0,0.0
+1040,PUERTAS,EXT-GAR-DEM-ALL,Puerta Garaje Demolicion - Desarmado con destensado seguro de resortes y retiro completo de porton de cochera viejo,EA,120.0,0.0,0.0
+1041,VENTANAS,EXT-WND-SEA-FOM,Ventana/Puerta Sellado - Inyeccion perimetral en la cavidad del marco de espuma de poliuretano de baja expansion no deformable (Window & Door Foam),EA,22.0,0.0,0.0
+1042,VENTANAS,EXT-WND-FLS-BUT,Ventana/Puerta Flasheo - Suministro e instalacion de cinta flexible autoadhesiva de butilo para sellado de alfeizar con declive (Sill Pan Flashing),LF,3.25,0.0,0.0
+1043,VENTANAS,EXT-WND-TRM-BRK,Ventana/Puerta Moldura - Suministro e instalacion de moldura exterior de ladrillo/jamba (Brickmould) de madera tratada o PVC celular,LF,4.5,0.0,0.0
+1044,VENTANAS,EXT-WND-CAU-PRM,Ventana/Puerta Calafateo - Sellado continuo de estanqueidad entre marco exterior y revestimiento con sellador de poliuretano o hibrido,LF,1.85,0.0,0.0
+1045,PUERTAS,EXT-DOR-LCK-SET,Puerta Herraje - Instalacion de juego de chapa de manija y cerrojo de seguridad independiente de alta resistencia (Deadbolt),EA,65.0,0.0,0.0
+1046,PUERTAS,EXT-DOR-WTH-STR,Puerta Aislamiento - Suministro e instalacion de kit completo de burlete perimetral de compresion y barrido de goma inferior de umbral,EA,48.0,0.0,0.0
+1047,VENTANAS,EXT-WND-HGT-2ST,Ventana Recargo Altura - Suplemento de instalacion de ventana en segundo nivel (mas de 12 pies) por maniobra exterior en escalera/andamio,EA,45.0,0.0,0.0
+1048,VENTANAS,EXT-WND-HGT-3ST,Ventana Recargo Altura - Suplemento por izado y colocacion de ventana en tercer piso o sobre 22 pies de altura,EA,85.0,0.0,0.0
+1049,TERRAZAS,TRZ-NEW-SYS-PT5,"Terraza Nueva Completa - Suministro e instalacion integral de terraza de madera tratada a nivel de suelo/1er piso: zapatas, postes, vigas, viguetas a 16 pulg OC y piso 5/4x6",SF,32.0,0.0,0.0
+1050,TERRAZAS,TRZ-NEW-SYS-ELV,"Terraza Nueva Elevada - Sistema completo de terraza elevada (2do nivel): zapatas profundas, postes 6x6, viga madrina triple, viguetas 2x10, piso tratado y arrostramientos diagonales",SF,44.0,0.0,0.0
+1051,TERRAZAS,TRZ-NEW-SYS-CMP,Terraza Nueva Composite - Sistema completo de terraza con entramado estructural tratado a 12-16 pulg OC y piso de material compuesto (Trex/TimberTech) con clips ocultos,SF,56.0,0.0,0.0
+1052,TERRAZAS,TRZ-NEW-FRM-ALL,"Terraza Nueva Estructura - Solo entramado portante nuevo: vigas maestras, viguetas tratadas 2x8 o 2x10 y anclaje a vivienda (sin piso)",SF,14.5,0.0,0.0
+1053,TERRAZAS,TRZ-NEW-FLR-PT5,Terraza Nueva Entarimado - Suministro e instalacion de piso nuevo de pino tratado 5/4x6 con tornillos star-drive para exterior,SF,6.85,0.0,0.0
+1054,TERRAZAS,TRZ-NEW-FLR-CMP,Terraza Nueva Entarimado - Suministro e instalacion de piso nuevo de material compuesto con fijaciones ocultas,SF,15.5,0.0,0.0
+1055,TERRAZAS,TRZ-NEW-RAL-WOD,"Terraza Nueva Barandal - Barandal perimetral completo nuevo de madera tratada: pasamanos 2x6, base y balaustres 2x2 a menos de 4 pulg",LF,28.5,0.0,0.0
+1056,TERRAZAS,TRZ-NEW-RAL-ALM,Terraza Nueva Barandal - Barandal nuevo prefabricado de aluminio extruido lacado negro con postes anclados,LF,62.0,0.0,0.0
+1057,TERRAZAS,TRZ-NEW-STR-SET,"Terraza Nueva Escalera - Construccion completa de escalera exterior nueva: 3 largueros cortados 2x12, huellas dobles, contrahuellas y pasamanos en pendiente",LF,58.0,0.0,0.0
+1058,TERRAZAS,TRZ-REP-PC-TB08,Terraza Reparacion - Sustitucion puntual de 1 tabla danada de piso de pino tratado 5/4x6 de 8 pies de largo con retiro y refijacion,EA,36.0,0.0,0.0
+1059,TERRAZAS,TRZ-REP-PC-TB12,Terraza Reparacion - Sustitucion puntual de 1 tabla de piso de pino tratado 5/4x6 de 12 pies de largo fijada con tornillos exteriores,EA,49.0,0.0,0.0
+1060,TERRAZAS,TRZ-REP-PC-TB16,Terraza Reparacion - Sustitucion de 1 tabla individual de piso tratado 5/4x6 de 16 pies de largo,EA,62.0,0.0,0.0
+1061,TERRAZAS,TRZ-REP-PC-CMP12,Terraza Reparacion - Sustitucion de 1 tabla de material compuesto (Composite) de 12 pies con desarmado cuidadoso de clips contiguos,EA,95.0,0.0,0.0
+1062,TERRAZAS,TRZ-REP-PC-CMP16,Terraza Reparacion - Sustitucion de 1 tabla de material compuesto de 16 pies con ajuste de clips perimetrales,EA,125.0,0.0,0.0
+1063,TERRAZAS,TRZ-REP-LBR-BRD,"Terraza Reparacion Labor - Solo mano de obra: extraccion de tornillos oxidados/atorados, corte a escuadra y colocacion de 1 tabla individual provista",EA,25.0,0.0,0.0
+1064,TERRAZAS,TRZ-REP-PC-STP,Terraza Reparacion - Reemplazo integral de 1 escalon suelto o roto (par de huellas 5/4 o 2x6 y contrahuella tratada),EA,68.0,0.0,0.0
+1065,TERRAZAS,TRZ-REP-PC-TRD,Terraza Reparacion - Sustitucion puntual de tabla de huella individual de escalon con calzado de nivel,EA,38.0,0.0,0.0
+1066,TERRAZAS,TRZ-REP-PC-STG,Terraza Reparacion - Retiro de larguero podrido y corte/instalacion de 1 nuevo larguero estructural 2x12 tratado (Stringer),EA,78.0,0.0,0.0
+1067,TERRAZAS,TRZ-REP-PC-BAL,Terraza Reparacion - Sustitucion individual de balaustre de madera 2x2x36 pulg clavado y sellado,EA,9.5,0.0,0.0
+1068,TERRAZAS,TRZ-REP-PC-PST,Terraza Reparacion - Desanclaje de poste de baranda 4x4 danado y reemplazo con nuevo poste tratado apernado con tirafondos,EA,65.0,0.0,0.0
+1069,TERRAZAS,TRZ-REP-PC-SEC6,Terraza Reparacion - Sustitucion de seccion completa danada de barandal de madera de 6 pies lineales,EA,175.0,0.0,0.0
+1070,TERRAZAS,TRZ-REP-PC-SEC8,Terraza Reparacion - Sustitucion de seccion completa danada de barandal de madera de 8 pies lineales,EA,225.0,0.0,0.0
+1071,TERRAZAS,TRZ-REP-STR-SST,Terraza Reparacion - Refuerzo adosado lateral (Sistering) de vigueta con madero 2x8 o 2x10 tratado sin desmontar piso superior,LF,18.5,0.0,0.0
+1072,TERRAZAS,TRZ-REP-MIN-TRP,Terraza Minimo Reparacion - Tarifa base de movilizacion para reparaciones menores de carpinteria exterior (Cubre puesta en sitio y diagnostico),EA,150.0,0.0,0.0
+1073,TERRAZAS,TRZ-REP-RST-SEC,Terraza R&R - Desmonte cuidadoso de tramo de barandal o tablas para reparaciones estructurales y recolocacion calibrada (Detach & Reset),LF,8.5,0.0,0.0
+1074,PORCHES,PRC-NEW-SYS-OPN,"Porche Abierto Completo - Suministro e instalacion de porche cubierto: zapatas, columnas, estructura de techo ligada a la casa, entarimado y cielo raso (sin mallas)",SF,48.0,0.0,0.0
+1075,PORCHES,PRC-NEW-SYS-SCR,"Porche Mosquitero Completo - Sistema de porche cerrado con malla (Screened Porch): estructura portante, techo, cielo raso, piso y cerramiento perimetral con puerta",SF,62.0,0.0,0.0
+1076,PORCHES,PRC-NEW-FLR-TNG,Porche Piso Machihembrado - Suministro e instalacion de piso tradicional machihembrado Tongue & Groove de 1x4 tratado fijado a ciegas,SF,8.5,0.0,0.0
+1077,PORCHES,PRC-NEW-FLR-CMP,Porche Piso Composite - Suministro e instalacion de piso de duela compuesta machihembrada para porche frontal resistente a intemperie,SF,16.5,0.0,0.0
+1078,PORCHES,PRC-NEW-CEI-BDB,Porche Cielo Raso Beadboard - Suministro e instalacion de cielo raso machihembrado Beadboard de pino o PVC con moldura perimetral,SF,7.5,0.0,0.0
+1079,PORCHES,PRC-NEW-CEI-VNL,Porche Cielo Raso Vinil - Suministro e instalacion de panel de cielo falso ventilado o liso con canales de remate perimetrales,SF,6.2,0.0,0.0
+1080,PORCHES,PRC-NEW-COL-06X,Porche Columna Estructural - Suministro e instalacion de poste portante 6x6 tratado con anclajes estructurales ocultos inferior y superior,EA,145.0,0.0,0.0
+1081,PORCHES,PRC-NEW-COL-FBR,Porche Columna Fibra - Suministro e instalacion de columna arquitectonica redonda o cuadrada de fibra de vidrio portante de carga de 8 pulg,EA,320.0,0.0,0.0
+1082,PORCHES,PRC-NEW-COL-WRP,Porche Columna Encamisado - Fabricacion e instalacion de forro/encamisado en PVC celular o madera con moldura de capitel y base en poste existente,EA,165.0,0.0,0.0
+1083,PORCHES,PRC-NEW-SCR-TGT,"Porche Malla Sistema - Instalacion de sistema Screen Tight: base de vinil atornillada a montantes, malla tensada y moldura de tapa a presion",SF,4.5,0.0,0.0
+1084,PORCHES,PRC-NEW-SCR-WOD,Porche Malla Madera - Colocacion tradicional de malla de fibra de vidrio fijada con grapas y asegurada con moldura de madera tratada (Screen stop),SF,3.85,0.0,0.0
+1085,PORCHES,PRC-NEW-SCR-ALM,Porche Malla Perfil - Instalacion de perfiles tubulares de aluminio con estria y empaque de hule (Spline) para paneles desmontables,SF,5.25,0.0,0.0
+1086,PORCHES,PRC-NEW-DOR-SCR,Porche Puerta Mosquitera - Suministro e instalacion de puerta mosquitera de madera o aluminio para porche con bisagras de resorte y pestillo,EA,225.0,0.0,0.0
+1087,PORCHES,PRC-NEW-LBR-SCR,"Porche Malla Labor - Solo mano de obra para corte, estirado y tensado de malla mosquitera en vanos preparados",SF,2.1,0.0,0.0
+1088,PORCHES,PRC-REP-PC-JCK,Porche Reparacion Apuntalamiento - Instalacion de poste temporal y gata mecanica para suspender techo durante cambio de columna,EA,135.0,0.0,0.0
+1089,PORCHES,PRC-REP-PC-COL,Porche Reparacion Columna - Retiro de columna podrida y colocacion de nuevo poste de soporte 4x4 o 6x6 con base metalica separadora,EA,195.0,0.0,0.0
+1090,PORCHES,PRC-REP-PC-BAS,Porche Reparacion Base - Suministro e instalacion de base de plinto / moldura inferior podrida en columna existente,EA,45.0,0.0,0.0
+1091,PORCHES,PRC-REP-PC-SCR,Porche Reparacion Malla - Retiro de empaque viejo y reemplazo de malla mosquitera rota en 1 vano individual de porche hasta 4x8 pies,EA,55.0,0.0,0.0
+1092,PORCHES,PRC-REP-PC-DOR,"Porche Reparacion Puerta - Ajuste, nivelacion, cambio de bisagras o reposicion de cierrapuertas en puerta mosquitera",EA,75.0,0.0,0.0
+1093,PORCHES,PRC-REP-PC-CEI,Porche Reparacion Cielo - Parche o sustitucion puntual de duelas sueltas o danadas en cielo raso machihembrado hasta 20 SF,EA,95.0,0.0,0.0
+1094,PORCHES,PRC-REP-STR-BEA,Porche Reparacion Viga - Sustitucion o refuerzo de viga cargadora frontal de techo de porche deteriorada por filtracion de canaleta,LF,26.0,0.0,0.0
+1095,PORCHES,PRC-DEM-SCR-ALL,"Porche Demolicion - Retiro de sistema de mallas deterioradas, molduras viejas y limpieza de vanos de madera",SF,0.85,0.0,0.0
+1096,PORCHES,PRC-DEM-TOT-SYS,Porche Demolicion - Desmonte completo de cerramientos y piso de porche deteriorado dejando la estructura limpia,SF,3.45,0.0,0.0
+1097,PORCHES,PRC-REP-MIN-SVC,Porche Minimo Reparacion - Tarifa base minima de movilizacion para ajustes y reparaciones menores en porches residenciales,EA,150.0,0.0,0.0
+1098,BODEGAS,EXT-SHD-SYS-STK,"Bodega Completa - Construccion integral en sitio (Stick-built) de bodega de madera: base elevada tratada, muros 2x4, tablero T1-11 o Hardie, techo a 2 aguas con teja asfaltica y puerta doble",SF,42.0,0.0,0.0
+1099,BODEGAS,EXT-SHD-SYS-PRM,"Bodega Completa Premium - Bodega tipo taller/estudio con aislamiento en paredes/techo, ventanas de vinil, revestimiento a juego con la casa y puerta con cerradura de seguridad",SF,65.0,0.0,0.0
+1100,BODEGAS,EXT-SHD-KIT-SML,Bodega Kit Ensamble - Solo armado y nivelacion de caseta prefabricada pequena de resina o metal (hasta 8x8 pies) sobre base preparada,EA,450.0,0.0,0.0
+1101,BODEGAS,EXT-SHD-KIT-MED,Bodega Kit Ensamble - Armado completo de caseta prefabricada mediana de madera o resina (tipo 10x10 a 10x12 pies) con herrajes y techo,EA,750.0,0.0,0.0
+1102,BODEGAS,EXT-SHD-KIT-LRG,Bodega Kit Ensamble - Armado de caseta prefabricada grande (12x16 pies o superior) incluyendo ensamble de cerchas y ajuste de puertas dobles,EA,1100.0,0.0,0.0
+1103,BODEGAS,EXT-SHD-BAS-SKD,"Bodega Base Trineo - Preparacion de terreno con grava 57, bloques solidos de concreto y vigas de arrastre (Skids) 4x4 o 4x6 tratadas Ground Contact",SF,4.85,0.0,0.0
+1104,BODEGAS,EXT-SHD-CNC-SLB,"Bodega Losa Concreto - Excavacion, encofrado y vaciado de losa monolítica de concreto de 4 pulg con borde engrosado perimetral y malla electrosoldada",SF,9.5,0.0,0.0
+1105,BODEGAS,EXT-SHD-FLR-SUB,Bodega Subpiso - Entramado de piso con viguetas de madera tratada 2x6 a 12-16 pulg OC y tablero contrachapado de 3/4 pulg machihembrado fijado con tornillos,SF,7.2,0.0,0.0
+1106,BODEGAS,EXT-SHD-FLR-LBR,Bodega Subpiso Labor - Solo mano de obra: ensamblado y nivelacion de estructura de piso y atornillado de contrachapado,SF,3.45,0.0,0.0
+1107,BODEGAS,EXT-SHD-FRM-WAL,Bodega Muros Estructura - Armado y levantamiento de muros portantes de madera 2x4 a 16 pulg OC con soleras dobles superiores y dinteles,SF,4.5,0.0,0.0
+1108,BODEGAS,EXT-SHD-FRM-TRU,Bodega Cerchas Techo - Fabricacion y montaje de cerchas o cabios triangulados 2x4 con tornapuntas para caida a dos aguas,EA,65.0,0.0,0.0
+1109,BODEGAS,EXT-SHD-SHT-T11,Bodega Pared T1-11 - Suministro e instalacion de panel ranurado exterior T1-11 de madera tratada de 4x8 pies clavado a montantes,SF,5.65,0.0,0.0
+1110,BODEGAS,EXT-SHD-ROF-ARC,"Bodega Techo Cubierta - Tablero OSB 7/16, fieltro sintetico, drip edge perimetral y teja asfaltica arquitectonica para techo de bodega",SF,3.85,0.0,0.0
+1111,BODEGAS,EXT-SHD-DOR-DBL,"Bodega Puertas Dobles - Fabricacion e instalacion de juego de puertas dobles de madera de 4 a 6 pies de vano con refuerzo en Z, bisagras T-Hinge pesadas y aldaba con candado",EA,385.0,0.0,0.0
+1112,BODEGAS,EXT-SHD-DOR-SGL,Bodega Puerta Simple - Fabricacion e instalacion de puerta peatonal de bodega de 3 pies con marco y cerrojo de manija,EA,220.0,0.0,0.0
+1113,BODEGAS,EXT-SHD-DOR-LBR,"Bodega Puertas Labor - Solo mano de obra para ensamblado, colgado y ajuste de puertas de bodega suministradas",EA,140.0,0.0,0.0
+1114,BODEGAS,EXT-SHD-RMP-WOD,Bodega Rampa Acceso - Fabricacion e instalacion de rampa inclinada de madera tratada de 4 a 5 pies de ancho para podadoras de montar y carretillas,EA,195.0,0.0,0.0
+1115,BODEGAS,EXT-SHD-VNT-GAB,Bodega Ventilacion - Suministro e instalacion de rejilla de ventilacion exterior tipo piñon (Gable vent) de aluminio con cedazo antiroedores,EA,42.0,0.0,0.0
+1116,BODEGAS,EXT-SHD-WND-SML,Bodega Ventana - Suministro e instalacion de ventana pequena fija o de guillotina de 18x24 o 24x36 pulg para iluminacion natural,EA,145.0,0.0,0.0
+1117,BODEGAS,EXT-SHD-SHL-WOD,Bodega Repisas Interior - Fabricacion e instalacion de estanteria corrida de madera de 16 pulg de fondo con soportes para herramientas por pie lineal,LF,12.5,0.0,0.0
+1118,BODEGAS,EXT-SHD-REP-LVL,Bodega Reparacion Nivelacion - Levantamiento con gata hidraulica de esquina o lateral de bodega hundida y colocacion de calzas de concreto,EA,185.0,0.0,0.0
+1119,BODEGAS,EXT-SHD-REP-ROT,Bodega Reparacion Pudricion - Corte y reemplazo de seccion de madera podrida en solera o fondo de pared por pie lineal,LF,16.5,0.0,0.0
+1120,BODEGAS,EXT-SHD-REP-DRS,"Bodega Reparacion Puertas - Desmonte, reajuste de escuadra, sustitucion de bisagras o cambio de cerrojo en puerta descolgada",EA,95.0,0.0,0.0
+1121,BODEGAS,EXT-SHD-DEM-ALL,"Bodega Demolicion - Desarme manual completo de caseta de patio vieja, demolicion de piso y retiro de escombros en contenedor",SF,3.85,0.0,0.0
+1124,ROOFING,1,Remoción de teja asfáltica (Tear-off) (20% waste),SQ,42.5,0.0,42.5
+1125,ROOFING,2,Instalación de teja arquitectónica (con waste 15%),SQ,150.0,85.0,65.0
+1126,ROOFING,RFG SBS,Techo - Sistema autoadherible SBS de 2 capas protectoras,SQ,140.0,95.0,45.0
+1127,ROOFING,4,Starter Strip,LF,2.85,1.2,1.65
+1128,ROOFING,5,Valley metal / Limahoya,LF,5.2,2.3,2.9
+1129,ROOFING,6,Hips,LF,3.9,1.8,2.1
+1130,ROOFING,8,Techo Metal - Suministro e instalacion de cumbrera,LF,12.0,6.0,6.0
+1131,ROOFING,11,Rakes,LF,3.1,1.4,1.7
+1132,ROOFING,EXT-SDG-TRM,Siding Flasheo - Tapajuntas metalico en Z (Z-Flash),LF,2.75,1.25,1.5
+1133,CANALES,GUT 5IN REM,"Canales - Demolición y retiro de canales de lluvia 5""",LF,1.15,0.0,0.0
+1134,CANALES,GUT 5IN INS,"Canales - Instalación de canales de lluvia 5"" de aluminio sin costura",LF,8.25,0.0,0.0
+1135,CANALES,GUT 6IN REM,"Canales - Demolición y retiro de canales de lluvia 6""",LF,1.35,0.0,0.0
+1136,CANALES,GUT 6IN INS,"Canales - Instalación de canales de lluvia 6"" de aluminio sin costura",LF,10.15,0.0,0.0
+1137,CANALES,GUT DWN REM,Canales - Demolición y retiro de bajante pluvial / tubo de drenaje de gutter,LF,1.15,0.0,0.0
+1138,CANALES,GUT DWN INS,Canales - Instalación de bajante pluvial / tubo de drenaje de gutter,LF,8.5,0.0,0.0
+1139,CANALES,GUT EXT INS,Canales - Instalación de extensión de bajante pluvial,EA,24.5,0.0,0.0
+1140,CANALES,GUT BLK INS,Canales - Instalación de bloque de salpicadura (Splash block),EA,18.75,0.0,0.0
+1141,CANALES,GUT GRD REM,Canales - Demolición y retiro de protector de hojas (Gutter Guard),LF,0.65,0.0,0.0
+1142,CANALES,GUT GRD INS,Canales - Instalación de protector de hojas (Gutter Guard),LF,4.85,0.0,0.0
+1143,CANALES,GUT 5IN REM-EN,"Gutters - Remove 5"" seamless aluminum gutters",LF,1.15,0.0,0.0
+1144,CANALES,GUT 5IN INS-EN,"Gutters - Install 5"" seamless aluminum gutters",LF,8.25,0.0,0.0
+1145,CANALES,GUT 6IN REM-EN,"Gutters - Remove 6"" seamless aluminum gutters",LF,1.35,0.0,0.0
+1146,CANALES,GUT 6IN INS-EN,"Gutters - Install 6"" seamless aluminum gutters",LF,10.15,0.0,0.0
+1147,CANALES,GUT DWN REM-EN,Gutters - Remove aluminum downspout (drain pipe / water leader),LF,1.15,0.0,0.0
+1148,CANALES,GUT DWN INS-EN,Gutters - Install aluminum downspout (drain pipe / water leader),LF,8.5,0.0,0.0
+1149,CANALES,GUT EXT INS-EN,Gutters - Install aluminum downspout extension,EA,24.5,0.0,0.0
+1150,CANALES,GUT BLK INS-EN,Gutters - Install splash block,EA,18.75,0.0,0.0
+1151,CANALES,GUT GRD REM-EN,Gutters - Remove gutter guard / leaf screen,LF,0.65,0.0,0.0
+1152,CANALES,GUT GRD INS-EN,Gutters - Install gutter guard / leaf screen,LF,4.85,0.0,0.0

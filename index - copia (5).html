@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Presupuesto de mano de obra | Solid Remodeling</title>
+  <style>
+    :root { --navy:#19385f; --blue:#2d70ad; --blue-soft:#edf5fb; --ink:#1d2b3b; --muted:#627083; --line:#d7e0e8; --gold:#dba72b; --green:#27834e; --green-soft:#effaf2; --paper:#fff; --canvas:#eef2f6; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--canvas); font-family:Arial,Helvetica,sans-serif; font-size:13px; }
+    button,input,textarea { font:inherit; }
+    button { cursor:pointer; }
+    .app { width:min(1100px,calc(100% - 32px)); margin:28px auto 48px; }
+    .toolbar { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:18px; }
+    .toolbar h1 { margin:0; color:var(--navy); font-size:20px; }
+    .toolbar-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .client-actions { display:flex; gap:8px; flex-wrap:wrap; width:100%; }
+    .client-actions select { flex:1; min-width:210px; }
+    .business-modal[hidden] { display:none; }
+    .business-modal { position:fixed; inset:0; z-index:20; display:grid; place-items:center; padding:18px; background:rgba(25,56,95,.42); }
+    .business-dialog { width:min(520px,100%); max-height:calc(100vh - 36px); overflow:auto; background:#fff; border:1px solid var(--line); border-radius:6px; box-shadow:0 18px 50px rgba(24,55,86,.28); padding:22px; }
+    .business-dialog h2 { margin:0 0 6px; color:var(--navy); font-size:19px; }
+    .business-dialog p { margin:0 0 16px; color:var(--muted); }
+    .business-dialog .field-row { grid-template-columns:1fr; gap:4px; margin:10px 0; }
+    .business-dialog input { border-color:var(--line); background:#fff; }
+    .business-dialog-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
+    .export-modal[hidden] { display:none; }
+    .export-modal { position:fixed; inset:0; z-index:25; display:grid; place-items:center; padding:18px; background:rgba(25,56,95,.42); }
+    .export-dialog { width:min(430px,100%); background:#fff; border:1px solid var(--line); border-radius:6px; box-shadow:0 18px 50px rgba(24,55,86,.28); padding:22px; }
+    .export-dialog h2 { margin:0 0 16px; color:var(--navy); font-size:19px; }
+    .export-options { display:grid; gap:8px; }
+    .export-options .btn { text-align:left; }
+    .export-dialog-close { display:block; margin:16px 0 0 auto; }
+    .document.export-clean { background:#fff!important; box-shadow:none!important; }
+    .document.export-clean .area-actions,
+    .document.export-clean .add-row,
+    .document.export-clean .remove-row,
+    .document.export-clean .payment-quick-actions,
+    .document.export-clean .payment-method-controls { display:none!important; }
+    .document.export-clean input,
+    .document.export-clean textarea,
+    .document.export-clean select { border-color:transparent!important; background:transparent!important; }
+    .payment-method-controls { display:flex; flex-wrap:wrap; gap:10px 16px; margin:-2px 0 12px; padding-bottom:10px; border-bottom:1px solid #d5eadc; }
+    .payment-method-controls label { display:inline-flex; align-items:center; gap:5px; color:var(--navy); font-size:11px; font-weight:700; }
+    .payment-method-controls input { width:auto; }
+    .service-select { min-width:250px; }
+    .language-select { border:1px solid var(--line); border-radius:4px; background:#fff; color:var(--navy); padding:9px 10px; font-weight:700; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    .btn { border:1px solid var(--line); border-radius:4px; background:#fff; color:var(--navy); padding:9px 13px; font-weight:700; }
+    .btn:hover { border-color:var(--blue); color:var(--blue); }
+    .btn-primary { background:var(--blue); border-color:var(--blue); color:#fff; }
+    .btn-primary:hover { background:var(--navy); color:#fff; }
+    .document { background:#fff; padding:40px 42px 46px; box-shadow:0 8px 28px rgba(24,55,86,.13); }
+    .brand { background:var(--navy); border-radius:4px; color:#fff; padding:20px 26px 17px; margin-bottom:20px; }
+    .brand h2 { margin:0; font-size:23px; letter-spacing:.5px; }
+    .brand p { margin:8px 0 0; color:#f0c344; font-size:15px; font-weight:700; }
+    .brand small { display:block; margin-top:5px; color:#d8e2ec; font-size:12px; }
+    .section-title { display:flex; align-items:center; gap:8px; margin:22px 0 8px; color:var(--navy); font-size:15px; text-transform:uppercase; }
+    .section-title::before { content:""; width:5px; height:22px; background:var(--gold); }
+    .tech-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:10px; }
+    .tech-card { border:1px solid var(--line); border-radius:5px; background:#fbfcfd; padding:14px 16px; }
+    .tech-card h3 { margin:0 0 8px; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--line); padding-bottom:6px; }
+    .field-row { display:grid; grid-template-columns:112px 1fr; align-items:center; gap:8px; margin:6px 0; }
+    .field-row label { font-size:12px; font-weight:700; }
+    input,textarea { width:100%; border:1px solid transparent; border-radius:3px; color:var(--ink); background:transparent; padding:5px 6px; }
+    input:hover,textarea:hover,input:focus,textarea:focus { border-color:var(--line); background:#fff; outline:0; }
+    .field-row input { font-weight:600; }
+    .area { margin-top:18px; break-inside:avoid; }
+    .area-header { display:flex; justify-content:space-between; align-items:center; gap:10px; background:var(--blue); color:#fff; padding:8px 10px; }
+    .area-name { display:flex; align-items:center; gap:8px; flex:1; font-weight:700; }
+    .area-name input { color:#fff; font-weight:700; text-transform:uppercase; padding:2px 4px; }
+    .area-name input:focus { color:var(--ink); }
+    .area-actions { display:flex; gap:5px; }
+    .icon-btn { border:0; border-radius:3px; background:rgba(255,255,255,.14); color:#fff; padding:5px 8px; font-size:12px; }
+    .icon-btn:hover { background:#fff; color:var(--navy); }
+    table { width:100%; border-collapse:collapse; table-layout:fixed; }
+    th,td { box-sizing:border-box; padding:8px 6px; vertical-align:top; overflow:hidden; }
+    th { background:#f6f9fc; color:var(--navy); font-size:10px; text-align:left; text-transform:uppercase; letter-spacing:.03em; border-bottom:1px solid var(--line); }
+    td { border-bottom:1px solid #e4e9ee; }
+    tbody tr:nth-child(even) { background:#fafbfd; }
+    th:nth-child(1),td:nth-child(1) { width:14%; } th:nth-child(2),td:nth-child(2) { width:42%; } th:nth-child(3),td:nth-child(3) { width:8%; text-align:center; } th:nth-child(4),td:nth-child(4) { width:9%; } th:nth-child(5),td:nth-child(5) { width:11%; } th:nth-child(6),td:nth-child(6) { width:5%; } th:nth-child(7),td:nth-child(7) { width:11%; } th:nth-child(8),td:nth-child(8) { width:2%; }
+    td input,td select { max-width:100%; box-sizing:border-box; }
+    td input { padding:5px 2px; }
+    td:nth-child(1) input,td:nth-child(2) input,td:nth-child(5) input,td:nth-child(6) input { width:100%; }
+    td:nth-child(2) .select-alcance { width:100%; box-sizing:border-box; }
+    .number-input { text-align:right; }
+    .quantity-cell { display:block; width:100%; }
+    .quantity-cell .quantity { width:100%!important; min-width:45px; max-width:70px; text-align:center; }
+    .unit-select { width:100%; border:1px solid #ced4da; border-radius:4px; background:#fff; color:var(--muted); padding:5px 2px; font-size:11px; }
+    .unit-select:focus,.unit-select:hover { border-color:var(--line); background:#fff; outline:0; }
+    .row-total { display:block; text-align:right; font-weight:700; white-space:normal; overflow-wrap:anywhere; }
+    .remove-row { width:100%; border:0; background:transparent; color:#9ba8b5; font-size:16px; padding:0 2px; }
+    .remove-row:hover { color:#c33; }
+    .add-row { margin-top:8px; color:var(--blue); border:1px dashed #a8c5df; background:#f6fbff; padding:6px 10px; border-radius:3px; font-size:12px; font-weight:700; }
+    .add-row:hover { background:#eaf4fc; }
+    .bottom-grid { display:grid; grid-template-columns:1.25fr .85fr; gap:26px; align-items:start; margin-top:22px; }
+    .terms { border:1px solid #b9deca; border-radius:5px; background:var(--green-soft); padding:14px 16px; }
+    .terms h3 { margin:0 0 8px; color:#236c43; font-size:12px; text-transform:uppercase; }
+    .terms textarea { min-height:92px; line-height:1.55; resize:vertical; background:transparent; padding:0; }
+    .terms .project-notes { margin-top:10px; padding-top:9px; border-top:1px solid #d5eadc; min-height:58px; }
+    .summary { font-size:12px; }
+    .summary-line { display:flex; justify-content:space-between; gap:15px; border-bottom:1px solid #e1e7ed; padding:7px 9px; font-weight:700; }
+    .summary-line strong { white-space:nowrap; }
+    .summary-line.grand { border-top:2px solid var(--navy); border-bottom:0; background:#f0f4f8; color:var(--navy); font-size:14px; padding:11px 9px; }
+    .summary-line.balance { background:#fff7df; border:2px solid var(--gold); color:var(--navy); font-size:20px; padding:14px 9px; }
+    .summary-line.balance strong { font-size:22px; }
+    .payment-tracking { margin:8px 0; padding:10px; border:1px solid var(--line); background:#fbfcfd; }
+    .payment-tracking .field-row { grid-template-columns:1fr; gap:3px; margin:0; }
+    .payment-quick-actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:7px; }
+    .payment-quick-actions .btn { padding:6px 8px; font-size:11px; }
+    .paid-stamp { display:inline-flex; flex-direction:column; align-items:center; justify-content:center; min-width:155px; margin:14px 0 0 auto; padding:10px 14px; border:4px double #27834e; color:#27834e; font-weight:800; font-size:22px; line-height:1.05; transform:rotate(-12deg); break-inside:avoid; page-break-inside:avoid; }
+    .paid-stamp[hidden] { display:none; }
+    .paid-stamp small { margin-top:4px; font-size:10px; letter-spacing:.03em; }
+    .payments { margin-top:18px; padding:13px 16px; border:1px solid #b9deca; border-radius:5px; background:var(--green-soft); }
+    .payments h3 { margin:0 0 10px; color:#236c43; font-size:12px; text-transform:uppercase; }
+    .payment-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .payment { background:#fff; border:1px solid #dcefe2; text-align:center; padding:10px; }
+    .payment b { display:block; color:var(--green); font-size:19px; }
+    .payment span { display:block; color:var(--muted); font-size:11px; margin:4px 0; }
+    .payment strong { font-size:15px; }
+    .payment .field-row { grid-template-columns:1fr; gap:2px; margin:7px 0; text-align:left; }
+    .payment .field-row label { font-size:11px; }
+    .payment input { border-color:var(--line); background:#fff; }
+    .qr-preview { display:none; width:110px; height:110px; object-fit:contain; margin:8px auto 0; border:1px solid var(--line); }
+    .invoice-thanks { margin-top:20px; color:var(--navy); font-size:13px; font-weight:700; text-align:center; }
+    .mode-select { min-width:260px; border:2px solid var(--blue); border-radius:4px; background:#fff; color:var(--navy); padding:9px 10px; font-weight:700; }
+    .signatures { margin-top:18px; border:1px solid var(--line); border-radius:5px; padding:14px 16px; background:#fbfcfd; }
+    .signature-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    .signature-box h3 { margin:0 0 8px; color:var(--muted); font-size:11px; text-transform:uppercase; }
+    .signature-canvas { display:block; width:100%; height:120px; border:1px dashed var(--line); background:#fff; touch-action:none; cursor:crosshair; }
+    .signature-line { margin-top:6px; border-top:1px solid var(--ink); padding-top:5px; color:var(--muted); font-size:11px; }
+    .client-address-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+    .client-address-grid .field-row { display:block; margin:0; }
+    .client-address-grid .field-row label { display:block; margin-bottom:3px; }
+    .client-print-line { display:none; }
+    .mode-block[hidden] { display:none; }
+    .summary:not(.invoice-summary) .balance, .summary:not(.invoice-summary) .advance-editor, .summary:not(.invoice-summary) .payment-tracking { display:none; }
+    .footer-note { margin-top:22px; color:#7c8895; font-size:10px; text-align:right; }
+    .empty-row { color:#8290a0; text-align:center; padding:12px; }
+    .technical-diagram { display:none; margin-top:18px; padding:14px 16px; border:1px solid var(--line); border-radius:5px; background:#fbfcfd; break-inside:avoid; page-break-inside:avoid; }
+    .technical-diagram.has-content { display:block; }
+    .technical-diagram h3 { margin:0 0 10px; color:var(--navy); font-size:13px; text-transform:uppercase; }
+    .technical-diagram img,.technical-diagram iframe { display:block; width:100%; max-height:450px; min-height:160px; object-fit:contain; border:1px solid var(--line); background:#fff; }
+    .technical-diagram iframe { height:450px; }
+    .technical-diagram p { margin:8px 0 0; color:var(--muted); font-size:11px; }
+    .regional-controls { display:flex; align-items:center; gap:18px; flex-wrap:wrap; margin:12px 0; padding:10px 14px; border:1px solid var(--line); border-radius:6px; background:#f8f9fa; }
+    .regional-control { display:flex; align-items:center; gap:7px; }
+    .regional-control label { color:var(--navy); font-size:13px; font-weight:700; }
+    .regional-control input[type="text"] { width:95px; padding:5px 8px; border:1px solid #ced4da; background:#fff; font-weight:700; text-align:center; }
+    .regional-control input[type="checkbox"] { width:16px; height:16px; cursor:pointer; }
+    .regional-badge { padding:4px 10px; border-radius:4px; background:#e2e3e5; color:#383d41; font-size:12px; font-weight:700; }
+    .regional-sync { margin-left:auto; color:var(--muted); font-size:11px; }
+    .minimum-tag { display:none; color:#856404; font-size:10px; white-space:normal; overflow-wrap:anywhere; }
+    .pricing-terms { margin-top:25px; padding:10px 14px; border-left:3px solid #6c757d; background:#fafafa; color:#555; font-size:10px; line-height:1.4; text-align:justify; }
+    .select-alcance,.codigo-item { width:100%; margin-top:3px; padding:4px; border:1px solid #ced4da; border-radius:4px; color:var(--ink); background:#fff; font-size:11px; }
+    @media (max-width:720px) { .app{width:calc(100% - 18px);margin:10px auto 25px}.document{padding:20px 14px 28px}.toolbar{align-items:flex-start;flex-direction:column}.tech-grid,.bottom-grid,.payment-grid{grid-template-columns:1fr}.brand h2{font-size:18px}.field-row{grid-template-columns:100px 1fr} .area{overflow-x:auto}.area table{min-width:690px}.area-header{min-width:690px}.bottom-grid{gap:14px} }
+    @media print { @page { size:A4; margin:12mm; } body{background:#fff;font-size:10px}.app{width:100%;margin:0}.toolbar,.business-modal,.export-modal,.area-actions,.add-row,.remove-row,.payment-method-controls{display:none!important}.document{padding:0;box-shadow:none}.brand{margin-bottom:12px;padding:14px 18px}.brand h2{font-size:19px}.brand p{font-size:12px}.section-title{margin:12px 0 5px;font-size:12px}.tech-grid{gap:10px}.tech-card{padding:9px 11px}.field-row{margin:3px 0;grid-template-columns:95px 1fr}.client-address-grid{display:none}.bill-to .field-row{display:none}.client-print-line{display:block;margin:3px 0 0;font-weight:600}.area{margin-top:10px}.area-header{padding:6px 8px}.area-name input{font-size:11px}.area table{font-size:9px}.area th,.area td{padding:4px 5px}.bottom-grid{margin-top:13px;gap:14px}.terms{padding:10px 12px}.terms textarea{min-height:70px}.payments{margin-top:10px;padding:9px 12px}.footer-note{margin-top:9px}input,textarea{border-color:transparent!important}.row-total{font-size:9px} }
+    @media print { @page { size:A4; margin:12mm; } body{background:#fff;font-size:10px}.app{width:100%;margin:0}.toolbar,.business-modal,.export-modal,.area-actions,.add-row,.remove-row,.payment-method-controls,.no-print{display:none!important}.document{padding:0;box-shadow:none}.brand{margin-bottom:12px;padding:14px 18px}.brand h2{font-size:19px}.brand p{font-size:12px}.section-title{margin:12px 0 5px;font-size:12px}.tech-grid{gap:10px}.tech-card{padding:9px 11px}.field-row{margin:3px 0;grid-template-columns:95px 1fr}.client-address-grid{display:none}.bill-to .field-row{display:none}.client-print-line{display:block;margin:3px 0 0;font-weight:600}.area{margin-top:10px}.area-header{padding:6px 8px}.area-name input{font-size:11px}.area table{font-size:9px}.area th,.area td{padding:4px 5px}.bottom-grid{margin-top:13px;gap:14px}.terms{padding:10px 12px}.terms textarea{min-height:70px}.payments{margin-top:10px;padding:9px 12px}.footer-note{margin-top:9px}input,textarea{border-color:transparent!important}.row-total{font-size:9px} }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+  <main class="app">
+    <div class="toolbar">
+      <label class="sr-only" for="docMode">Modo de documento</label><select class="mode-select" id="docMode" aria-label="Modo de documento"><option value="estimate">Estimado / Estimate</option><option value="contract">Contrato de Trabajo / Contract Agreement</option><option value="invoice" selected>Factura / Invoice</option></select>
+      <h1>Generador de presupuestos</h1>
+      <div class="toolbar-actions">
+        <label class="sr-only" for="specialty">Especialidad / Servicio</label><select class="language-select service-select" id="specialty" aria-label="Especialidad / Servicio"></select>
+        <label class="language-control" for="language"><span class="sr-only">Idioma</span><select class="language-select" id="language" aria-label="Idioma"><option value="es">ES</option><option value="en">EN</option></select></label>
+        <button class="btn" id="addArea" type="button">+ Añadir área</button>
+        <button class="btn btn-primary" id="printButton" type="button" onclick="window.print()">Imprimir / Guardar en PDF</button>
+        <button class="btn" id="exportButton" type="button">📤 Compartir / Exportar</button>
+        <button class="btn" id="importReportButton" type="button">📂 Importar Reporte (ESX / PDF)</button>
+        <input class="sr-only" id="reportFileInput" type="file" accept=".esx,.pdf,.xml,.jpg,.jpeg,.png">
+        <button class="btn" id="newInvoiceButton" type="button">+ Nueva Factura</button>
+        <button class="btn" id="businessProfileButton" type="button">⚙️ Mi Negocio</button>
+        <div class="client-actions">
+          <label class="sr-only" for="selectorClientes">Clientes guardados</label>
+          <select class="language-select" id="selectorClientes" aria-label="Clientes guardados"><option value="">-- Clientes guardados --</option></select>
+          <button class="btn" id="saveClientButton" type="button">💾 Guardar Cliente</button>
+        </div>
+      </div>
+    </div>
+    <div class="business-modal" id="businessModal" role="dialog" aria-modal="true" aria-labelledby="businessModalTitle" hidden>
+      <form class="business-dialog" id="businessForm">
+        <h2 id="businessModalTitle">⚙️ Mi Negocio / Business Profile</h2>
+        <p>Configura los datos fijos que aparecerán en tus facturas.</p>
+        <div class="field-row"><label for="businessName">Nombre de su Empresa</label><input id="businessName" required></div>
+        <div class="field-row"><label for="businessRepresentative">Nombre del Representante / Contratista</label><input id="businessRepresentative"></div>
+        <div class="field-row"><label for="businessEmail">Correo electrónico de contacto</label><input id="businessEmail" type="email"></div>
+        <div class="field-row"><label for="businessPhone">Teléfono de contacto</label><input id="businessPhone" type="tel"></div>
+        <div class="field-row"><label for="businessService">Tipo de servicio principal</label><input id="businessService"></div>
+        <div class="business-dialog-actions"><button class="btn" id="cancelBusinessButton" type="button">Cancelar</button><button class="btn btn-primary" type="submit">Guardar Datos de Mi Negocio</button></div>
+      </form>
+    </div>
+    <div class="export-modal" id="exportModal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle" hidden>
+      <div class="export-dialog">
+        <h2 id="exportModalTitle">📤 Compartir / Exportar</h2>
+        <div class="export-options">
+          <button class="btn" id="downloadImageButton" type="button">📸 Descargar como Foto (Imagen PNG)</button>
+          <button class="btn" id="shareImageButton" type="button">📲 Compartir Foto por WhatsApp / Celular</button>
+          <button class="btn" id="exportPdfButton" type="button">📄 Guardar como PDF</button>
+          <button class="btn" id="emailInvoiceButton" type="button">✉️ Enviar por Correo</button>
+        </div>
+        <button class="btn export-dialog-close" id="closeExportButton" type="button">Cerrar</button>
+      </div>
+    </div>
+    <section class="document" aria-label="Presupuesto de mano de obra">
+      <header class="brand">
+        <h2 id="companyBanner">SOLID REMODELING &amp; RECONSTRUCTION LLC</h2>
+        <p id="documentTitle">FACTURA / INVOICE</p>
+        <small id="documentSubtitle">Solid Remodeling &amp; Reconstruction LLC</small>
+      </header>
+      <div class="paid-stamp" id="paidStamp" role="status" aria-live="polite" hidden>PAID / PAGADO<small id="paidDate"></small></div>
+      <div class="tech-grid">
+        <section class="tech-card">
+          <h3 id="contractorHeading">Empresa / Contratista</h3>
+          <div class="field-row"><label for="company" id="companyLabel">Empresa</label><input id="company" value="Solid Remodeling &amp; Reconstruction LLC"></div>
+          <div class="field-row"><label for="representative" id="representativeLabel">Representante</label><input id="representative" value="Israel Pineda"></div>
+          <div class="field-row"><label for="email" id="contactLabel">Contacto</label><input id="email" value="israelpinedaurte13081999@gmail.com"></div>
+          <div class="field-row"><label for="companyPhone">Teléfono</label><input id="companyPhone"></div>
+          <div class="field-row"><label for="service" id="serviceLabel">Servicio</label><input id="service" value="Instalación de Gabinetes"></div>
+        </section>
+        <section class="tech-card">
+          <h3 id="quoteHeading">Datos de factura / Invoice Details</h3>
+          <div class="field-row"><label for="quote" id="quoteLabel">Invoice #</label><input id="quote" value="INV-2026-0001"></div>
+          <div class="field-row"><label for="date" id="dateLabel">Fecha de Emisión</label><input id="date" type="date"></div>
+          <div class="field-row" id="dueDateRow"><label for="dueDate">Fecha de Vencimiento / Due Date</label><input id="dueDate" type="date"></div>
+          <div hidden><label for="plans">Planos / Plans</label><input id="plans"></div>
+          <div class="field-row"><label for="status" id="statusLabel">Estado / Status</label><select id="status"><option value="open">Pendiente (Open)</option><option value="paid">Pagado (PAID)</option></select></div>
+        </section>
+      </div>
+      <section class="tech-card bill-to">
+        <h3>Facturado a / Bill To</h3>
+        <div class="field-row"><label for="clientName">Cliente / Client</label><input id="clientName" value="Nombre del cliente"></div>
+        <div class="field-row"><label for="clientEmail">Correo / Email</label><input id="clientEmail" value="correo@cliente.com"></div>
+        <div class="field-row"><label for="clientPhone">Teléfono / Phone</label><input id="clientPhone" placeholder="(000) 000-0000"></div>
+        <div class="field-row"><label for="clientStreet">Dirección (Calle) / Street Address</label><input id="clientStreet" placeholder="123 Main St, Suite 100..."></div>
+        <div class="client-address-grid">
+          <div class="field-row"><label for="clientCity">Ciudad / City</label><input id="clientCity" placeholder="Marietta"></div>
+          <div class="field-row"><label for="clientState">Estado / State</label><select id="clientState"><option value="AL">AL - Alabama</option><option value="AK">AK - Alaska</option><option value="AZ">AZ - Arizona</option><option value="AR">AR - Arkansas</option><option value="CA">CA - California</option><option value="CO">CO - Colorado</option><option value="CT">CT - Connecticut</option><option value="DE">DE - Delaware</option><option value="FL">FL - Florida</option><option value="GA" selected>GA - Georgia</option><option value="HI">HI - Hawaii</option><option value="ID">ID - Idaho</option><option value="IL">IL - Illinois</option><option value="IN">IN - Indiana</option><option value="IA">IA - Iowa</option><option value="KS">KS - Kansas</option><option value="KY">KY - Kentucky</option><option value="LA">LA - Louisiana</option><option value="ME">ME - Maine</option><option value="MD">MD - Maryland</option><option value="MA">MA - Massachusetts</option><option value="MI">MI - Michigan</option><option value="MN">MN - Minnesota</option><option value="MS">MS - Mississippi</option><option value="MO">MO - Missouri</option><option value="MT">MT - Montana</option><option value="NE">NE - Nebraska</option><option value="NV">NV - Nevada</option><option value="NH">NH - New Hampshire</option><option value="NJ">NJ - New Jersey</option><option value="NM">NM - New Mexico</option><option value="NY">NY - New York</option><option value="NC">NC - North Carolina</option><option value="ND">ND - North Dakota</option><option value="OH">OH - Ohio</option><option value="OK">OK - Oklahoma</option><option value="OR">OR - Oregon</option><option value="PA">PA - Pennsylvania</option><option value="RI">RI - Rhode Island</option><option value="SC">SC - South Carolina</option><option value="SD">SD - South Dakota</option><option value="TN">TN - Tennessee</option><option value="TX">TX - Texas</option><option value="UT">UT - Utah</option><option value="VT">VT - Vermont</option><option value="VA">VA - Virginia</option><option value="WA">WA - Washington</option><option value="WV">WV - West Virginia</option><option value="WI">WI - Wisconsin</option><option value="WY">WY - Wyoming</option></select></div>
+          <div class="field-row"><label for="clientZip">Código Postal / ZIP Code</label><input id="clientZip" placeholder="30060"></div>
+        </div>
+        <div class="client-print-line" id="clientPrintContact"></div>
+        <div class="client-print-line" id="clientPrintLine"></div>
+      </section>
+      <section class="regional-controls no-print" aria-label="Controles regionales de precios">
+        <div class="regional-control"><label for="zip-code">📍 ZIP Code (Obra):</label><input type="text" id="zip-code" placeholder="Ej. 30060" maxlength="5" inputmode="numeric" oninput="buscarPorZip(this.value)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; width: 100px;"></div>
+        <div class="regional-control"><label for="tipoProyecto">Tipo de Proyecto:</label><select id="tipoProyecto" onchange="actualizarModoProyecto()" style="padding: 5px 10px; border-radius: 4px; border: 1px solid #ced4da; font-weight: bold;"><option value="residencial" selected>🏠 Residencial</option><option value="comercial">🏢 Comercial</option></select></div>
+        <div class="regional-control"><label for="select-rol" style="font-weight:bold;color:#0d47a1;">Cotizar como:</label><select id="select-rol" onchange="aplicarMargenRol(this.value)" style="padding:6px 10px;border-radius:4px;font-weight:600;border:2px solid #0d47a1;"><option value="contratista" selected>Contratista General (Incluye Overhead + Profit/Ganancia)</option><option value="subcontratista">Subcontratista (Costo Directo sin Margen de GC)</option></select></div>
+        <div class="regional-control"><label for="select-estado">Estado:</label><select id="select-estado" name="estado" onchange="actualizarCiudades()" style="padding: 5px 10px; border-radius: 4px; border: 1px solid #ced4da; font-weight:600;"><option value="">Seleccionar Estado</option><option value="AL">Alabama (AL)</option><option value="FL">Florida (FL)</option><option value="GA" selected>Georgia (GA)</option><option value="NC">North Carolina (NC)</option><option value="SC">South Carolina (SC)</option><option value="TN">Tennessee (TN)</option><option value="TX">Texas (TX)</option><option value="CA">California (CA)</option><option value="NY">New York (NY)</option><option value="OTRO">Otro Estado</option></select></div>
+        <div class="regional-control"><label for="select-ciudad">Ciudad:</label><select id="select-ciudad" name="ciudad" onchange="asignarCiudadZIP()" style="padding: 5px 10px; border-radius: 4px; border: 1px solid #ced4da;"><option value="">Seleccionar Ciudad</option></select></div>
+        <div class="regional-control"><input type="checkbox" id="toggleAutoPrecios" checked><label for="toggleAutoPrecios">🤖 Precios Automáticos</label></div>
+        <div class="regional-control"><input type="checkbox" id="toggleMinimos" checked><label for="toggleMinimos">🛡️ Aplicar Cargo Mínimo</label></div>
+        <span class="regional-badge" id="badgeZonaMercado">Promedio Nacional (1.00x)</span>
+        <span class="regional-sync" id="badgeEstadoSync">Catálogo: Base local</span>
+      </section>
+      <h2 class="section-title" id="itemsHeading">DETALLE DE FACTURACIÓN / INVOICE ITEMS</h2>
+      <div id="areas"></div>
+      <section class="terms mode-block" id="legalTerms" hidden>
+        <h3 id="termsHeading">CLÁUSULAS Y EXCLUSIONES / LEGAL TERMS</h3>
+        <textarea id="terms">• Daños ocultos, permisos y trabajos fuera del alcance se cotizan por separado.
+• El cliente es responsable de retirar objetos y escombros antes de comenzar.
+• Cualquier cambio aprobado requiere confirmación y puede generar un costo adicional.</textarea>
+        <textarea class="project-notes" id="projectNotes" placeholder="Notas adicionales del proyecto..."></textarea>
+      </section>
+      <div class="pricing-terms" id="pricingTerms">
+        <strong>TÉRMINOS DE PRECIOS Y TARIFAS MÍNIMAS:</strong> Las tarifas unitarias, los índices regionales y los montos sugeridos por este sistema corresponden a referencias promedio de mercado y están sujetos a evaluación de obra. Toda partida menor está sujeta a un cargo mínimo de servicio por movilización técnica, logística y costo operativo de cuadrilla. Las partes aceptan que los montos estipulados en este presupuesto constituyen el alcance final acordado, reservándose el contratista el derecho de emitir Órdenes de Cambio (<em>Change Orders</em>) en caso de detectarse condiciones imprevistas, vicios ocultos o modificaciones solicitadas por el cliente.
+      </div>
+      <section class="signatures mode-block" id="signatures" hidden>
+        <h3>Firmas / Signatures</h3>
+        <div class="signature-grid">
+          <div class="signature-box"><h3>Firma Contratista / Contractor Signature</h3><canvas class="signature-canvas" id="contractorSignature" width="520" height="160"></canvas><div class="signature-line">Nombre y fecha / Name and date</div></div>
+          <div class="signature-box"><h3>Firma Cliente / Client Signature</h3><canvas class="signature-canvas" id="clientSignature" width="520" height="160"></canvas><div class="signature-line">Nombre y fecha / Name and date</div></div>
+        </div>
+      </section>
+      <section class="technical-diagram" id="technicalDiagram" aria-live="polite">
+        <h3>📐 Diagrama Técnico y Medición de Techo / Exterior</h3>
+        <div id="technicalDiagramContent"></div>
+      </section>
+      <section class="bottom-grid">
+        <div>
+          <div class="payments">
+            <h3 id="paymentHeading">Instrucciones de Pago / Payment Instructions</h3>
+            <div class="payment-method-controls" role="group" aria-label="Métodos de pago visibles">
+              <label><input class="payment-method-toggle" type="checkbox" data-payment-method="zelle" checked> Zelle</label>
+              <label><input class="payment-method-toggle" type="checkbox" data-payment-method="online"> Pago en Línea</label>
+              <label><input class="payment-method-toggle" type="checkbox" data-payment-method="check" checked> Cheque</label>
+              <label><input class="payment-method-toggle" type="checkbox" data-payment-method="bank"> Transferencia Bancaria</label>
+            </div>
+            <div class="payment-grid">
+              <div class="payment" data-payment-card="zelle"><b>Zelle</b><div class="field-row"><label for="zellePhone">Teléfono registrado</label><input id="zellePhone" value=""></div><div class="field-row"><label for="zelleEmail">Correo registrado</label><input id="zelleEmail" value=""></div><div class="field-row"><label for="zelleName">Nombre de cuenta</label><input id="zelleName" value=""></div></div>
+              <div class="payment" data-payment-card="online"><b>Pago en Línea</b><div class="field-row"><label for="onlinePaymentUrl">URL / Link de pago</label><input id="onlinePaymentUrl" value="https://"></div><label class="btn" for="qrUpload">Subir Código QR</label><input class="sr-only" id="qrUpload" type="file" accept="image/*"><img class="qr-preview" id="qrPreview" alt="Código QR para escanear"></div>
+              <div class="payment" data-payment-card="check"><b>Cheque</b><div class="field-row"><label for="checkPayee">Hacer cheque a nombre de</label><input id="checkPayee" value="Solid Remodeling &amp; Reconstruction LLC"></div><div class="field-row"><label for="checkAddress">Dirección</label><input id="checkAddress" value="Dirección para envío del cheque"></div></div>
+              <div class="payment" data-payment-card="bank"><b>Transferencia Bancaria</b><div class="field-row"><label for="bankName">Banco</label><input id="bankName" value=""></div><div class="field-row"><label for="routingNumber">Número de ruta</label><input id="routingNumber" value=""></div><div class="field-row"><label for="accountNumber">Cuenta</label><input id="accountNumber" value=""></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="summary" id="summary" aria-live="polite" aria-atomic="true"></div>
+      </section>
+      <div class="invoice-thanks">Thank you for your business! / ¡Gracias por su preferencia!</div>
+      <div class="footer-note">Documento generado con Solid Remodeling &amp; Reconstruction LLC · Todos los valores expresados en USD</div>
+    </section>
+  </main>
+  <template id="areaTemplate"><section class="area"><div class="area-header"><div class="area-name"><span class="area-index"></span><input class="area-title" value="Área de Cocina"><span>(</span><input class="area-reference" value="PLANO 85999"><span>)</span></div><div class="area-actions"><button class="icon-btn add-row-btn" type="button">+ Fila</button><button class="icon-btn remove-area-btn" type="button">Quitar área</button></div></div><table><thead><tr><th class="code-heading">Código / Elemento</th><th class="description-heading">Descripción del trabajo</th><th class="quantity-heading">Cant.</th><th class="unit-heading">Unidad</th><th class="price-heading">Precio unit. ($)</th><th class="tax-heading">TAX (%)</th><th class="subtotal-heading">Subtotal ($)</th><th></th></tr></thead><tbody></tbody></table><button class="add-row" type="button">+ Añadir fila</button></section></template>
+    <template id="rowTemplate"><tr class="fila-trabajo"><td><input class="code" value=""><select class="codigo-item selector-item" aria-label="Seleccionar partida de remodelación" onchange="actualizarPrecioFila(this)"><option value="">-- Seleccionar Partida de Remodelación --</option></select></td><td><input type="text" class="description" list="listaSugerenciasMateriales" autocomplete="off" value=""></td><td><div class="quantity-cell"><input type="number" class="input-cantidad quantity" value="1" min="0" step="any" placeholder="0" style="width: 70px; padding: 4px; border: 1px solid #ced4da; border-radius: 4px; text-align: center; font-weight: bold;" oninput="ejecutarMotorPrecios()"></div></td><td><select class="select-unidad unit-select" aria-label="Unidad"><option value="SF" selected>Sq Ft</option><option value="Hoja 4x8">Hoja 4x8</option><option value="Hoja">Hoja</option><option value="LF">Lin Ft</option><option value="SQ">Squares</option><option value="EA">Pzas</option><option value="Unidad">Unidad</option></select></td><td><input class="price number-input input-precio" type="number" min="0" step="0.01" value="0"></td><td><input class="tax number-input" type="number" min="0" step="0.01" value="0" aria-label="TAX (%)"></td><td><span class="row-total span-subtotal input-subtotal">$0.00</span><small class="minimum-tag tag-minimo"></small></td><td><button class="remove-row" type="button" aria-label="Quitar fila">×</button></td></tr></template>
+  <datalist id="listaSugerenciasMateriales">
+    <option value="Instalación de piso Luxury Vinyl Tile (LVT) pegado (Glue-down)"></option>
+    <option value="Instalación de piso Luxury Vinyl Plank (LVP) Click-Lock flotante"></option>
+    <option value="Instalación de piso LVT / LVP con bajo suelo acústico (Underlayment)"></option>
+    <option value="Instalación de Tile porcelanato / cerámica 12x12 o 12x24"></option>
+    <option value="Instalación de azulejo tipo mosaico / backsplash"></option>
+    <option value="Instalación de rodapié / Baseboard 3-1/4 a 5-1/4"></option>
+    <option value="Preparación de contrapiso / Floor Prep autonivelante"></option>
+    <option value="Remover piso existente (alfombra / vinil / baldosa)"></option>
+    <option value="Instalación de techo shingle arquitectónico"></option>
+    <option value="Instalación de siding vinílico o fiber cement"></option>
+    <option value="Instalación de drywall, encintado y acabado"></option>
+    <option value="Pintura interior de paredes y cielos"></option>
+    <option value="Instalación de molduras, crown molding y trim"></option>
+    <option value="Demolición de baño y retiro de escombros"></option>
+    <option value="Demolición de cocina y retiro de gabinetes"></option>
+    <option value="Instalación de gabinetes de cocina"></option>
+    <option value="Instalación de vanity y accesorios de baño"></option>
+    <option value="Instalación de puerta interior prehung"></option>
+    <option value="Instalación de aislamiento térmico R-13 / R-19"></option>
+    <option value="Preparación e instalación de backsplash de cocina"></option>
+    <option value="Instalación de Drywall 1/2 pulgada (Paredes estándar)"></option>
+    <option value="Instalación de Drywall 5/8 pulgada (Techos / Fuego Type X)"></option>
+    <option value="Instalación de Drywall antihumedad / Greenboard 1/2 pulgada"></option>
+    <option value="Tape, Float y Acabado Nivel 4 (Finish)"></option>
+    <option value="Parche y reparación puntual de Drywall"></option>
+    <option value="Instalación de Piso LVT pegado (Glue-Down)"></option>
+    <option value="Instalación de Piso LVP Click-Lock flotante"></option>
+    <option value="Instalación de Tile porcelanato 12x12 / 12x24"></option>
+    <option value="Instalación de Durock / Cement board para piso"></option>
+    <option value="Instalación de Shingles Arquitectónicos 30 años"></option>
+    <option value="Instalación de Shingles 3-Tab estándar"></option>
+    <option value="Instalación de Membrana sintética / Ice &amp; Water Shield"></option>
+    <option value="Solo colgado de Drywall 1/2&quot; en paredes (Hang Only - Sin acabado)"></option>
+    <option value="Solo colgado de Drywall 5/8&quot; en techos / áreas cortafuego (Hang Only)"></option>
+    <option value="Tapeado, floteado y masillado Nivel 3 (Tape &amp; Float - Listo para textura)"></option>
+    <option value="Tapeado, masillado y finichado liso Nivel 4 (Finish - Listo para pintura)"></option>
+    <option value="Acabado liso premium Nivel 5 / Skim coat completo en muros existentes"></option>
+    <option value="Instalación completa de Drywall 1/2&quot; (Colgado + Tapeado + Finichado Nivel 4)"></option>
+    <option value="Instalación completa de Drywall 5/8&quot; Type X (Colgado + Tapeado + Finichado)"></option>
+    <option value="Reparación y finichado de parches de Sheetrock (hasta 2x2 ft con cinta y pasta)"></option>
+    <option value="Aplicación de textura a pistola (Orange Peel o Knockdown)"></option>
+    <option value="Demolición y retiro de Drywall deteriorado con acarreo a botadero"></option>
+    <option value="Pintura interior en paredes a 2 manos (Mano de obra + Material estándar)"></option>
+    <option value="Pintura interior en techos / Ceilings blanco mate (2 manos)"></option>
+    <option value="Solo mano de obra pintura interior (Cliente suministra pintura)"></option>
+    <option value="Aplicación de Primer / Sellador fijador en Drywall nuevo (1 mano)"></option>
+    <option value="Pintura exterior residencial completa (Lavado, sellado y 2 manos)"></option>
+    <option value="Pintura de molduras, zócalos y marcos de puerta (Baseboard / Trim)"></option>
+    <option value="Pintura esmaltada de puertas interiores (Ambas caras)"></option>
+    <option value="Pintura y preparación de gabinetes de cocina (Desengrase, primer y laca)"></option>
+    <option value="Retoque puntual de pintura / Parche de color y masillado"></option>
+    <option value="Demolición completa de baño hasta los montantes (studs)"></option>
+    <option value="Demolición completa de cocina (gabinetes, cubiertas y piso)"></option>
+    <option value="Demolición de muro de carga con soporte temporal"></option>
+    <option value="Demolición de muro divisorio no estructural"></option>
+    <option value="Remoción de contrapiso de madera dañado"></option>
+    <option value="Remoción de azulejo en piso y cama de mortero"></option>
+    <option value="Contenedor de basura para escombros (Dumpster 20 yardas)"></option>
+    <option value="Excavación y colado de zapatas de concreto (Footings)"></option>
+    <option value="Reparación de grietas en losa o muro de fundación"></option>
+    <option value="Nivelación de vigas maestras y gatos de soporte en crawlspace"></option>
+    <option value="Framing de muros de carga 2x6 con cabezales dobles"></option>
+    <option value="Framing de muros divisorios estándar 2x4"></option>
+    <option value="Instalación de vigas de ingeniería LVL o vigas de acero"></option>
+    <option value="Instalación de viguetas de piso 2x10 o 2x12"></option>
+    <option value="Instalación de subfloor plywood lengüeta y ranura 3/4"></option>
+    <option value="Construcción de tijerales o cabios para techo (Rafters)"></option>
+    <option value="Instalación de entablado de techo (OSB/Plywood de 1/2)"></option>
+    <option value="Apertura y encuadre para nueva ventana en pared existente"></option>
+    <option value="Apertura y encuadre para puerta exterior corrediza o francesa"></option>
+  </datalist>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const areas = document.querySelector('#areas');
+    const areaTemplate = document.querySelector('#areaTemplate');
+    const rowTemplate = document.querySelector('#rowTemplate');
+    const money = new Intl.NumberFormat('en-US', { style:'currency', currency:'USD' });
+    const CATALOGO_REGIONAL = {
+      roofing:{basePrecio:320,cargoMinBase:450}, siding:{basePrecio:420,cargoMinBase:400}, tile:{basePrecio:9,cargoMinBase:350},
+      lvp:{basePrecio:2.75,cargoMinBase:250}, drywall:{basePrecio:2.5,cargoMinBase:200}, painting:{basePrecio:2,cargoMinBase:200},
+      trim:{basePrecio:2.5,cargoMinBase:180}, demolition:{basePrecio:1.75,cargoMinBase:250}
+    };
+    const FASE_1_ESTRUCTURA_Y_DEMOLICION = [
+      // DEMOLICIÓN TOTAL
+      { nombre: 'Demolición completa de baño hasta los montantes (studs)', familia: 'DEMOLICION', unidad: 'EA', precio: 1250.00 },
+      { nombre: 'Demolición completa de cocina (gabinetes, cubiertas y piso)', familia: 'DEMOLICION', unidad: 'EA', precio: 1450.00 },
+      { nombre: 'Demolición de muro de carga con soporte temporal', familia: 'DEMOLICION', unidad: 'LF', precio: 65.00 },
+      { nombre: 'Demolición de muro divisorio no estructural', familia: 'DEMOLICION', unidad: 'LF', precio: 18.00 },
+      { nombre: 'Remoción de contrapiso de madera dañado', familia: 'DEMOLICION', unidad: 'Sq Ft', precio: 1.85 },
+      { nombre: 'Remoción de azulejo en piso y cama de mortero', familia: 'DEMOLICION', unidad: 'Sq Ft', precio: 3.20 },
+      { nombre: 'Contenedor de basura para escombros (Dumpster 20 yardas)', familia: 'DEMOLICION', unidad: 'EA', precio: 550.00 },
+
+      // CIMENTACIÓN Y REFUERZOS
+      { nombre: 'Excavación y colado de zapatas de concreto (Footings)', familia: 'ESTRUCTURA', unidad: 'CY', precio: 380.00 },
+      { nombre: 'Reparación de grietas en losa o muro de fundación', familia: 'ESTRUCTURA', unidad: 'LF', precio: 45.00 },
+      { nombre: 'Nivelación de vigas maestras y gatos de soporte en crawlspace', familia: 'ESTRUCTURA', unidad: 'EA', precio: 320.00 },
+
+      // FRAMING Y ESTRUCTURA
+      { nombre: 'Framing de muros de carga 2x6 con cabezales dobles', familia: 'ESTRUCTURA', unidad: 'LF', precio: 24.00 },
+      { nombre: 'Framing de muros divisorios estándar 2x4', familia: 'ESTRUCTURA', unidad: 'LF', precio: 16.50 },
+      { nombre: 'Instalación de vigas de ingeniería LVL o vigas de acero', familia: 'ESTRUCTURA', unidad: 'LF', precio: 58.00 },
+      { nombre: 'Instalación de viguetas de piso 2x10 o 2x12', familia: 'ESTRUCTURA', unidad: 'LF', precio: 14.50 },
+      { nombre: 'Instalación de subfloor plywood lengüeta y ranura 3/4', familia: 'ESTRUCTURA', unidad: 'Sq Ft', precio: 2.75 },
+      { nombre: 'Construcción de tijerales o cabios para techo (Rafters)', familia: 'ESTRUCTURA', unidad: 'Sq Ft', precio: 4.80 },
+      { nombre: 'Instalación de entablado de techo (OSB/Plywood de 1/2)', familia: 'ESTRUCTURA', unidad: 'Sq Ft', precio: 2.10 },
+      { nombre: 'Apertura y encuadre para nueva ventana en pared existente', familia: 'ESTRUCTURA', unidad: 'EA', precio: 420.00 },
+      { nombre: 'Apertura y encuadre para puerta exterior corrediza o francesa', familia: 'ESTRUCTURA', unidad: 'EA', precio: 580.00 }
+    ];
+    const FASE_2_INSTALACIONES_MECANICAS = [
+      // PLOMERÍA GRUESA (ROUGH-IN)
+      { nombre: 'Plomería rough-in para baño completo (suministro y drenaje)', familia: 'PLOMERIA', unidad: 'EA', precio: 1850.00 },
+      { nombre: 'Plomería rough-in para cocina (fregadero, lavavajillas y refrigerador)', familia: 'PLOMERIA', unidad: 'EA', precio: 950.00 },
+      { nombre: 'Reemplazo de líneas de suministro de agua potable con tubería PEX', familia: 'PLOMERIA', unidad: 'Sq Ft', precio: 2.75 },
+      { nombre: 'Reemplazo de líneas principales de drenaje y ventilación en PVC', familia: 'PLOMERIA', unidad: 'LF', precio: 45.00 },
+      { nombre: 'Instalación de calentador de agua tradicional de tanque (50 galones)', familia: 'PLOMERIA', unidad: 'EA', precio: 1450.00 },
+      { nombre: 'Instalación de calentador de agua sin tanque (Tankless gas/eléctrico)', familia: 'PLOMERIA', unidad: 'EA', precio: 2650.00 },
+
+      // ELECTRICIDAD GRUESA (ROUGH-IN) Y PANELES
+      { nombre: 'Actualización y reemplazo de panel eléctrico principal de 200 amperios', familia: 'ELECTRICIDAD', unidad: 'EA', precio: 2400.00 },
+      { nombre: 'Cableado eléctrico rough-in completo para casa o adición', familia: 'ELECTRICIDAD', unidad: 'Sq Ft', precio: 4.85 },
+      { nombre: 'Nuevo circuito dedicado de 120V o 240V para electrodomésticos', familia: 'ELECTRICIDAD', unidad: 'EA', precio: 275.00 },
+      { nombre: 'Instalación de cajas y cableado para luces empotradas (Pot lights)', familia: 'ELECTRICIDAD', unidad: 'EA', precio: 85.00 },
+      { nombre: 'Instalación de cableado para detectores de humo y monóxido interconectados', familia: 'ELECTRICIDAD', unidad: 'EA', precio: 95.00 },
+
+      // CLIMATIZACIÓN (HVAC)
+      { nombre: 'Instalación de sistema completo de ductos flexibles y retornos', familia: 'HVAC', unidad: 'LF', precio: 38.00 },
+      { nombre: 'Instalación de sistema mini-split de una zona con bomba de calor', familia: 'HVAC', unidad: 'EA', precio: 2850.00 },
+      { nombre: 'Reemplazo de unidad central de aire acondicionado y bomba de calor', familia: 'HVAC', unidad: 'EA', precio: 6800.00 },
+      { nombre: 'Instalación de extractor de aire en techo de baño hacia el exterior', familia: 'HVAC', unidad: 'EA', precio: 290.00 }
+    ];
+    const FASE_3_CERRAMIENTOS_AISLAMIENTO_Y_DRYWALL = [
+      // AISLAMIENTO E IMPERMEABILIZACIÓN
+      { nombre: 'Aislamiento de fibra de vidrio en batts R-13 o R-19 para paredes', familia: 'AISLAMIENTO', unidad: 'Sq Ft', precio: 1.15 },
+      { nombre: 'Aislamiento de fibra de vidrio soplado R-30 o R-38 para áticos', familia: 'AISLAMIENTO', unidad: 'Sq Ft', precio: 1.65 },
+      { nombre: 'Aislamiento con espuma de poliuretano spray foam de celda cerrada', familia: 'AISLAMIENTO', unidad: 'Sq Ft', precio: 2.85 },
+      { nombre: 'Barrera de vapor o membrana impermeabilizante líquida para duchas', familia: 'AISLAMIENTO', unidad: 'Sq Ft', precio: 1.95 },
+      { nombre: 'Platacho o base de ducha prefabricada e impermeabilización completa', familia: 'AISLAMIENTO', unidad: 'EA', precio: 450.00 },
+
+      // TABLEROS DE YESO Y CEMENTO
+      { nombre: 'Instalación de panel de cemento Durock o WonderBoard en zonas húmedas', familia: 'DRYWALL', unidad: 'Sq Ft', precio: 2.75 },
+      { nombre: 'Instalación de drywall estándar de 1/2 pulgada en muros', familia: 'DRYWALL', unidad: 'Sq Ft', precio: 1.95 },
+      { nombre: 'Instalación de drywall antihumedad Greenboard de 1/2 pulgada', familia: 'DRYWALL', unidad: 'Sq Ft', precio: 2.35 },
+      { nombre: 'Instalación de drywall contra fuego Type X de 5/8 en cielos o garajes', familia: 'DRYWALL', unidad: 'Sq Ft', precio: 2.45 },
+
+      // ENYESADO Y ACABADOS DE DRYWALL
+      { nombre: 'Encintado, aplicación de compuesto y lijado a Nivel 4 comercial', familia: 'DRYWALL', unidad: 'Sq Ft', precio: 1.30 },
+      { nombre: 'Acabado liso premium Nivel 5 con capa final completa de compuesto', familia: 'DRYWALL', unidad: 'Sq Ft', precio: 0.95 },
+      { nombre: 'Remoción de textura tipo palomita o popcorn en cielos', familia: 'DRYWALL', unidad: 'Sq Ft', precio: 1.85 },
+      { nombre: 'Aplicación de textura knockdown o cáscara de naranja', familia: 'DRYWALL', unidad: 'Sq Ft', precio: 0.85 }
+    ];
+    const CATALOGO_PREDICTIVO = [
+      {nombre:'Instalación de piso Luxury Vinyl Tile (LVT) pegado (Glue-down)',familia:'PISOS',categoria:'lvt_glue',precio:3.25,unidad:'SF',min:280,palabras:['lvt','glue-down','pegado']},
+      {nombre:'Instalación de piso Luxury Vinyl Plank (LVP) Click-Lock flotante',familia:'PISOS',categoria:'lvp_click',precio:2.75,unidad:'SF',min:250,palabras:['lvp','click-lock','flotante']},
+      {nombre:'Instalación de piso LVT / LVP con bajo suelo acústico (Underlayment)',familia:'PISOS',categoria:'lvp_underlay',precio:3.10,unidad:'SF',min:260,palabras:['underlayment','bajo suelo','acústico']},
+      {nombre:'Instalación de Tile porcelanato / cerámica 12x12 o 12x24',familia:'PISOS',categoria:'tile',precio:9,unidad:'SF',min:350,palabras:['tile','porcelanato','cerámica']},
+      {nombre:'Instalación de azulejo tipo mosaico / backsplash',familia:'PISOS',categoria:'backsplash',precio:14,unidad:'SF',min:300,palabras:['mosaico','backsplash','azulejo']},
+      {nombre:'Instalación de rodapié / Baseboard 3-1/4 a 5-1/4',familia:'PISOS',categoria:'trim',precio:2.5,unidad:'LF',min:180,palabras:['baseboard','rodapié','rodapie']},
+      {nombre:'Preparación de contrapiso / Floor Prep autonivelante',familia:'PISOS',categoria:'prep',precio:1.85,unidad:'SF',min:200,palabras:['floor prep','contrapiso','autonivelante']},
+      {nombre:'Remover piso existente (alfombra / vinil / baldosa)',familia:'PISOS',categoria:'demolicion',precio:1.5,unidad:'SF',min:220,palabras:['remover piso','alfombra','vinil','baldosa']},
+      {nombre:'Instalación de techo shingle arquitectónico',familia:'TECHOS / ROOFING',categoria:'roofing',precio:320,unidad:'SQ',min:450,palabras:['roof','techo','shingle']},
+      {nombre:'Instalación de siding vinílico o fiber cement',familia:'TECHOS / ROOFING',categoria:'siding',precio:420,unidad:'SQ',min:400,palabras:['siding','revestimiento']},
+      {nombre:'Instalación de drywall, encintado y acabado',familia:'DRYWALL',categoria:'drywall',precio:2.5,unidad:'SF',min:200,palabras:['drywall','sheetrock','yeso']},
+      {nombre:'Pintura interior de paredes y cielos',familia:'PINTURA',categoria:'painting',precio:2,unidad:'SF',min:200,palabras:['pintura','paint','pintar']},
+      {nombre:'Instalación de molduras, crown molding y trim',categoria:'trim',precio:2.5,unidad:'LF',min:180,palabras:['moldura','crown molding','trim']},
+      {nombre:'Demolición de baño y retiro de escombros',categoria:'demolicion',precio:1.75,unidad:'SF',min:250,palabras:['demolición de baño','demolicion de bano']},
+      {nombre:'Demolición de cocina y retiro de gabinetes',categoria:'demolicion',precio:1.75,unidad:'SF',min:250,palabras:['demolición de cocina','demolicion de cocina']},
+      {nombre:'Instalación de gabinetes de cocina',categoria:'trim',precio:68,unidad:'EA',min:180,palabras:['gabinetes']},
+      {nombre:'Instalación de vanity y accesorios de baño',categoria:'trim',precio:180,unidad:'EA',min:180,palabras:['vanity','accesorios de baño']},
+      {nombre:'Instalación de puerta interior prehung',categoria:'trim',precio:225,unidad:'EA',min:225,palabras:['puerta interior','prehung']},
+      {nombre:'Instalación de aislamiento térmico R-13 / R-19',categoria:'drywall',precio:1.9,unidad:'SF',min:200,palabras:['aislamiento','insulation']},
+      {nombre:'Preparación e instalación de backsplash de cocina',familia:'PISOS',categoria:'backsplash',precio:14,unidad:'SF',min:300,palabras:['backsplash de cocina']},
+      {nombre:'Instalación de Drywall 1/2 pulgada (Paredes estándar)',familia:'DRYWALL',categoria:'drywall_half',precio:2.35,unidad:'SF',min:200,palabras:['drywall','1/2','paredes estándar']},
+      {nombre:'Instalación de Drywall 5/8 pulgada (Techos / Fuego Type X)',familia:'DRYWALL',categoria:'drywall_58',precio:2.65,unidad:'SF',min:220,palabras:['drywall','5/8','type x','techos']},
+      {nombre:'Instalación de Drywall antihumedad / Greenboard 1/2 pulgada',familia:'DRYWALL',categoria:'drywall_greenboard',precio:2.8,unidad:'SF',min:220,palabras:['drywall','greenboard','antihumedad']},
+      {nombre:'Tape, Float y Acabado Nivel 4 (Finish)',familia:'DRYWALL',categoria:'drywall_finish',precio:1.85,unidad:'SF',min:180,palabras:['tape','float','nivel 4','finish']},
+      {nombre:'Parche y reparación puntual de Drywall',familia:'DRYWALL',categoria:'drywall_repair',precio:65,unidad:'EA',min:180,palabras:['parche','reparación puntual','drywall repair']},
+      {nombre:'Instalación de Piso LVT pegado (Glue-Down)',familia:'PISOS',categoria:'lvt_glue_formal',precio:3.25,unidad:'SF',min:250,palabras:['piso lvt','glue-down']},
+      {nombre:'Instalación de Piso LVP Click-Lock flotante',familia:'PISOS',categoria:'lvp_click_formal',precio:2.75,unidad:'SF',min:250,palabras:['piso lvp','click-lock']},
+      {nombre:'Instalación de Tile porcelanato 12x12 / 12x24',familia:'PISOS',categoria:'tile_formal',precio:9,unidad:'SF',min:350,palabras:['tile porcelanato','12x12','12x24']},
+      {nombre:'Instalación de Durock / Cement board para piso',familia:'PISOS',categoria:'durock',precio:2.5,unidad:'SF',min:200,palabras:['durock','cement board']},
+      {nombre:'Instalación de Shingles Arquitectónicos 30 años',familia:'TECHOS / ROOFING',categoria:'roof_arch30',precio:320,unidad:'SQ',min:450,palabras:['shingles arquitectónicos','arquitectónicos 30']},
+      {nombre:'Instalación de Shingles 3-Tab estándar',familia:'TECHOS / ROOFING',categoria:'roof_3tab',precio:280,unidad:'SQ',min:400,palabras:['shingles 3-tab','3-tab']},
+      {nombre:'Instalación de Membrana sintética / Ice & Water Shield',familia:'TECHOS / ROOFING',categoria:'roof_membrane',precio:65,unidad:'SQ',min:250,palabras:['membrana sintética','ice & water','water shield']},
+      {nombre:'Solo colgado de Drywall 1/2" en paredes (Hang Only - Sin acabado)',familia:'DRYWALL',categoria:'drywall_hang_half',precio:1.15,unidad:'SF',min:200,palabras:['drywall','chirock','sheetrock','yeso','hang only','1/2']},
+      {nombre:'Solo colgado de Drywall 5/8" en techos / áreas cortafuego (Hang Only)',familia:'DRYWALL',categoria:'drywall_hang_58',precio:1.45,unidad:'SF',min:220,palabras:['drywall','chirock','sheetrock','5/8','hang only','cortafuego']},
+      {nombre:'Tapeado, floteado y masillado Nivel 3 (Tape & Float - Listo para textura)',familia:'DRYWALL',categoria:'drywall_tape_float_3',precio:1.1,unidad:'SF',min:180,palabras:['drywall','chirock','sheetrock','tape','float','nivel 3']},
+      {nombre:'Tapeado, masillado y finichado liso Nivel 4 (Finish - Listo para pintura)',familia:'DRYWALL',categoria:'drywall_finish_4',precio:1.35,unidad:'SF',min:200,palabras:['drywall','chirock','sheetrock','finish','finichado','nivel 4']},
+      {nombre:'Acabado liso premium Nivel 5 / Skim coat completo en muros existentes',familia:'DRYWALL',categoria:'drywall_finish_5',precio:1.85,unidad:'SF',min:250,palabras:['drywall','chirock','sheetrock','nivel 5','skim coat']},
+      {nombre:'Instalación completa de Drywall 1/2" (Colgado + Tapeado + Finichado Nivel 4)',familia:'DRYWALL',categoria:'drywall_complete_half',precio:2.5,unidad:'SF',min:250,palabras:['drywall','chirock','sheetrock','completa','1/2','nivel 4']},
+      {nombre:'Instalación completa de Drywall 5/8" Type X (Colgado + Tapeado + Finichado)',familia:'DRYWALL',categoria:'drywall_complete_58',precio:2.85,unidad:'SF',min:280,palabras:['drywall','chirock','sheetrock','completa','5/8','type x']},
+      {nombre:'Reparación y finichado de parches de Sheetrock (hasta 2x2 ft con cinta y pasta)',familia:'DRYWALL',categoria:'drywall_patch',precio:75,unidad:'EA',min:180,palabras:['drywall','chirock','sheetrock','parche','reparación']},
+      {nombre:'Aplicación de textura a pistola (Orange Peel o Knockdown)',familia:'DRYWALL',categoria:'drywall_texture',precio:.85,unidad:'SF',min:180,palabras:['drywall','chirock','sheetrock','textura','orange peel','knockdown']},
+      {nombre:'Demolición y retiro de Drywall deteriorado con acarreo a botadero',familia:'DRYWALL',categoria:'drywall_demo',precio:1.15,unidad:'SF',min:200,palabras:['drywall','chirock','sheetrock','demolición','retiro']},
+      {nombre:'Pintura interior en paredes a 2 manos (Mano de obra + Material estándar)',familia:'PINTURA',categoria:'paint_interior_walls',precio:1.85,unidad:'SF',min:200,palabras:['pintura','paint','pintar','paredes','interior','2 manos']},
+      {nombre:'Pintura interior en techos / Ceilings blanco mate (2 manos)',familia:'PINTURA',categoria:'paint_interior_ceiling',precio:1.65,unidad:'SF',min:200,palabras:['pintura','paint','pintar','techos','ceilings','2 manos']},
+      {nombre:'Solo mano de obra pintura interior (Cliente suministra pintura)',familia:'PINTURA',categoria:'paint_labor_only',precio:.95,unidad:'SF',min:180,palabras:['pintura','paint','pintar','solo mano de obra','labor only']},
+      {nombre:'Aplicación de Primer / Sellador fijador en Drywall nuevo (1 mano)',familia:'PINTURA',categoria:'paint_primer',precio:.65,unidad:'SF',min:150,palabras:['pintura','paint','primer','sellador','drywall nuevo']},
+      {nombre:'Pintura exterior residencial completa (Lavado, sellado y 2 manos)',familia:'PINTURA',categoria:'paint_exterior',precio:2.45,unidad:'SF',min:450,palabras:['pintura','paint','pintar','exterior','residencial']},
+      {nombre:'Pintura de molduras, zócalos y marcos de puerta (Baseboard / Trim)',familia:'PINTURA',categoria:'paint_trim',precio:1.75,unidad:'LF',min:150,palabras:['pintura','paint','pintar','molduras','zócalos','baseboard','trim']},
+      {nombre:'Pintura esmaltada de puertas interiores (Ambas caras)',familia:'PINTURA',categoria:'paint_doors',precio:45,unidad:'EA',min:150,palabras:['pintura','paint','pintar','puertas','esmalte']},
+      {nombre:'Pintura y preparación de gabinetes de cocina (Desengrase, primer y laca)',familia:'PINTURA',categoria:'paint_cabinets',precio:65,unidad:'EA',min:600,palabras:['pintura','paint','pintar','gabinetes','primer','laca']},
+      {nombre:'Retoque puntual de pintura / Parche de color y masillado',familia:'PINTURA',categoria:'paint_touchup',precio:85,unidad:'EA',min:150,palabras:['pintura','paint','pintar','retoque','parche','color']},
+      {nombre:'Instalación de membrana TPO comercial',familia:'COMERCIAL',categoria:'commercial_tpo',precio:6.5,unidad:'SF',min:600,proyecto:'comercial',palabras:['tpo','membrana comercial']},
+      {nombre:'Instalación de Metal Stud y estructura metálica',familia:'COMERCIAL',categoria:'commercial_metalstud',precio:4.25,unidad:'LF',min:600,proyecto:'comercial',palabras:['metal stud','estructura metálica']},
+      {nombre:'Instalación de piso VCT comercial',familia:'COMERCIAL',categoria:'commercial_vct',precio:4.5,unidad:'SF',min:600,proyecto:'comercial',palabras:['vct','piso comercial']},
+      {nombre:'Instalación de Drop Ceiling / cielo acústico comercial',familia:'COMERCIAL',categoria:'commercial_dropceiling',precio:5.25,unidad:'SF',min:600,proyecto:'comercial',palabras:['drop ceiling','cielo acústico']},
+      {nombre:'Colocación de concreto de 6 pulgadas',familia:'COMERCIAL',categoria:'commercial_concrete',precio:12,unidad:'SF',min:900,proyecto:'comercial',palabras:['concreto 6','concreto de 6','concrete 6']},
+      {nombre:'Construcción de rampa ADA',familia:'COMERCIAL',categoria:'commercial_ada',precio:1800,unidad:'EA',min:1800,proyecto:'comercial',palabras:['rampa ada','ada ramp']}
+    ];
+    const FASE_4_ACABADOS_INTERIORES = [
+      // PISOS
+      { nombre: 'Instalación de piso de vinilo de lujo (LVP) tipo click', familia: 'PISOS', unidad: 'Sq Ft', precio: 2.75 },
+      { nombre: 'Instalación de piso de porcelanato o cerámica 12x24', familia: 'PISOS', unidad: 'Sq Ft', precio: 9.00 },
+      { nombre: 'Instalación de rodapié (baseboard) de 3-1/4 a 5-1/4 pulgadas', familia: 'PISOS', unidad: 'LF', precio: 2.50 },
+
+      // PINTURA
+      { nombre: 'Pintura interior de paredes y cielos a dos manos', familia: 'PINTURA', unidad: 'Sq Ft', precio: 2.00 },
+      { nombre: 'Aplicación de sellador/primer sobre drywall nuevo', familia: 'PINTURA', unidad: 'Sq Ft', precio: 0.65 },
+
+      // CARPINTERÍA Y GABINETES
+      { nombre: 'Instalación de molduras y crown molding', familia: 'CARPINTERIA', unidad: 'LF', precio: 2.50 },
+      { nombre: 'Instalación de puerta interior prehung', familia: 'CARPINTERIA', unidad: 'EA', precio: 225.00 },
+      { nombre: 'Instalación de gabinetes de cocina', familia: 'CARPINTERIA', unidad: 'EA', precio: 680.00 },
+      { nombre: 'Instalación de vanity y accesorios de baño', familia: 'CARPINTERIA', unidad: 'EA', precio: 180.00 }
+    ];
+    const FASE_5_EXTERIOR_Y_ACCESORIOS_FINALES = [
+      // TECHOS Y CANALETAS
+      { nombre: 'Instalacion de teja asfaltica arquitectonica con bajo techo sintetico', familia: 'TECHOS', unidad: 'Sq Ft', precio: 3.85 },
+      { nombre: 'Instalacion de sistema de techo plano SBS autoadherible dos capas', familia: 'TECHOS', unidad: 'Sq Ft', precio: 4.50 },
+      { nombre: 'Reemplazo de tablero OSB o madera contrachapada podrida en techo', familia: 'TECHOS', unidad: 'Sq Ft', precio: 2.30 },
+      { nombre: 'Instalacion de bota de plomo o tapajuntas en penetraciones de techo', familia: 'TECHOS', unidad: 'EA', precio: 48.00 },
+      { nombre: 'Instalacion de canaletas de aluminio sin costura con bajantes', familia: 'TECHOS', unidad: 'LF', precio: 9.50 },
+
+      // FACHADAS, SIDING Y VENTANAS
+      { nombre: 'Instalacion de revestimiento de fibrocemento HardiePlank', familia: 'EXTERIOR', unidad: 'Sq Ft', precio: 4.75 },
+      { nombre: 'Instalacion de revestimiento de vinilo tradicional con aislante', familia: 'EXTERIOR', unidad: 'Sq Ft', precio: 3.80 },
+      { nombre: 'Instalacion de ventana vinilica de doble panel de reemplazo', familia: 'EXTERIOR', unidad: 'EA', precio: 140.00 },
+      { nombre: 'Instalacion de puerta exterior principal con cerradura de seguridad', familia: 'EXTERIOR', unidad: 'EA', precio: 260.00 },
+
+      // ACCESORIOS DE PLOMERIA Y ELECTRICIDAD (TRIM OUT)
+      { nombre: 'Instalacion de inodoro nuevo con anillo de cera y llave de paso', familia: 'PLOMERIA', unidad: 'EA', precio: 145.00 },
+      { nombre: 'Montaje y conexion de mueble de lavamanos vanity y mezcladora', familia: 'PLOMERIA', unidad: 'EA', precio: 260.00 },
+      { nombre: 'Instalacion de tarja de cocina empotrada y grifo monomando', familia: 'PLOMERIA', unidad: 'EA', precio: 195.00 },
+      { nombre: 'Instalacion de triturador de desperdicios de comida en tarja', familia: 'PLOMERIA', unidad: 'EA', precio: 135.00 },
+      { nombre: 'Colocacion de lamparas empotradas LED tipo trim o wafer', familia: 'ELECTRICIDAD', unidad: 'EA', precio: 45.00 },
+      { nombre: 'Instalacion de ventilador de techo o lampara colgante de luz', familia: 'ELECTRICIDAD', unidad: 'EA', precio: 125.00 },
+      { nombre: 'Cambio de receptaculos contactos y tapas de pared', familia: 'ELECTRICIDAD', unidad: 'EA', precio: 18.00 }
+    ];
+
+    // COMBINAR TODAS LAS FASES EN UN CATALOGO MAESTRO
+    const CATALOGO_REMODELACION = [
+      ...FASE_1_ESTRUCTURA_Y_DEMOLICION,
+      ...FASE_2_INSTALACIONES_MECANICAS,
+      ...FASE_3_CERRAMIENTOS_AISLAMIENTO_Y_DRYWALL,
+      ...FASE_4_ACABADOS_INTERIORES,
+      ...FASE_5_EXTERIOR_Y_ACCESORIOS_FINALES
+    ];
+
+    CATALOGO_REMODELACION.forEach(item => {
+      const uNorm = item.unidad === 'Sq Ft' ? 'SF' : item.unidad;
+      const palabras = String(item.nombre).toLowerCase().split(/\s+/).filter(w => w.length > 2);
+      CATALOGO_PREDICTIVO.push({
+        nombre: item.nombre,
+        familia: item.familia,
+        categoria: item.familia.toLowerCase(),
+        precio: item.precio,
+        unidad: uNorm,
+        precioContratista: item.precio,
+        precioSubcontratista: item.precio,
+        min: 0,
+        palabras
+      });
+    });
+
+    function aplicarTarifaPorZip(fila, item) {
+      if (!fila || !item) return;
+      const zipInput = document.getElementById('zipCode') || document.getElementById('zip-code') || document.querySelector("input[name*='zip']") || document.querySelector("input[placeholder*='300']");
+      const zip = zipInput ? zipInput.value.trim() : '';
+      const factor = typeof FACTORES_ZIP !== 'undefined' && FACTORES_ZIP[zip] ? FACTORES_ZIP[zip] : (typeof obtenerFactorMercado === 'function' ? obtenerFactorMercado(zip).factor : 1.0);
+      const precioBase = Number(item.precio ?? item.precioBase ?? 0);
+      const precioFinal = precioBase * factor;
+
+      const inputPrecio = fila.querySelector('.input-precio-unit') || fila.querySelector('.input-precio') || fila.querySelector('.price');
+      const selectUnidad = fila.querySelector('.input-unidad') || fila.querySelector('.select-unidad');
+      const inputCantidad = fila.querySelector('.input-cant') || fila.querySelector('.input-cantidad') || fila.querySelector('.quantity');
+      const inputSubtotal = fila.querySelector('.input-subtotal') || fila.querySelector('.span-subtotal') || fila.querySelector('.row-total');
+
+      if (inputPrecio) inputPrecio.value = precioFinal.toFixed(2);
+      if (selectUnidad) {
+        const u = item.unidad || 'Sq Ft';
+        if (selectUnidad.tagName === 'SELECT') {
+          const targetOpt = [...selectUnidad.options].find(o => o.value.toLowerCase() === u.toLowerCase() || o.textContent.toLowerCase() === u.toLowerCase());
+          if (targetOpt) selectUnidad.value = targetOpt.value;
+        } else {
+          selectUnidad.value = u;
+        }
+      }
+
+      const cant = parseFloat(inputCantidad ? inputCantidad.value : 0) || 0;
+      const sub = cant * precioFinal;
+      if (inputSubtotal) {
+        if (inputSubtotal.tagName === 'INPUT') {
+          inputSubtotal.value = sub.toFixed(2);
+        } else {
+          inputSubtotal.textContent = typeof money !== 'undefined' ? money.format(sub) : '$' + sub.toFixed(2);
+        }
+      }
+
+      if (typeof ejecutarMotorPrecios === 'function') ejecutarMotorPrecios();
+      if (typeof update === 'function') update();
+    }
+
+    document.addEventListener('input', (e) => {
+      if (e.target.matches('.select-item, .input-item-nombre, .description, #zipCode, #zip-code, input[name*="zip"]')) {
+        const fila = e.target.closest('tr') || e.target.closest('.fila-trabajo');
+        const inputNombre = fila ? (fila.querySelector('.select-item') || fila.querySelector('.input-item-nombre') || fila.querySelector('.description')) : null;
+        const valorBusqueda = (inputNombre ? inputNombre.value : '').toLowerCase().trim();
+        
+        if (valorBusqueda && fila) {
+          const item = CATALOGO_REMODELACION.find(p => p.nombre.toLowerCase().includes(valorBusqueda));
+          if (item) {
+            aplicarTarifaPorZip(fila, item);
+          }
+        } else if (e.target.id === 'zipCode' || e.target.id === 'zip-code' || e.target.name?.includes('zip')) {
+          document.querySelectorAll('tr, .fila-trabajo').forEach(f => {
+            const field = f.querySelector('.select-item') || f.querySelector('.input-item-nombre') || f.querySelector('.description');
+            if (field && field.value.trim()) {
+              const match = CATALOGO_REMODELACION.find(p => p.nombre.toLowerCase().includes(field.value.toLowerCase().trim()));
+              if (match) aplicarTarifaPorZip(f, match);
+            }
+          });
+        }
+      }
+    });
+    const catalogoRemodelacion = {
+      demo_drywall_sf:['Demolición','Demolición de drywall y remoción a contenedor','SF',1.65,.65], demo_tile_sf:['Demolición','Demolición de piso cerámico / azulejo','SF',3.5,1.75], demo_bano_completo:['Demolición','Demolición completa de baño (tina, vanity, inodoro, tile)','Unidad',1200,600],
+      framing_paredes_lf:['Framing','Estructura de muro divisorio 2x4 (madera)','LF',28,12], puerta_interior_prehung:['Carpintería','Instalación de puerta interior precolgada y trim','Unidad',220,85], baseboard_lf:['Molduras','Instalación de baseboard / rodapié hasta 5 pulg','LF',4.5,1.8],
+      drywall_hoja_completa:['Drywall','Suministro, instalación de hoja 4x8, tape y acabado nivel 4','Hoja',75,24], drywall_finish_sqft:['Drywall','Solo encintado, empastado y lijado (Finish)','SF',1.4,.5],
+      lvt_flooring_sf:['Pisos','Instalación de piso de vinilo LVT / LVP','SF',4.25,1.75], hardwood_install_sf:['Pisos','Instalación de piso de madera dura (hardwood)','SF',7.5,3], floor_sand_stain_sf:['Pisos','Lijado y tintado/sellado de piso de madera existente','SF',4.5,2.25],
+      tile_shower_sf:['Tile','Instalación de tile en ducha/paredes (incluye backing/waterproof)','SF',16,8.5], tile_backsplash_sf:['Tile','Instalación de backsplash en cocina (mosaico o metro tile)','SF',22,12], shower_pan_liner:['Plomería/Tile','Construcción de plato de ducha tradicional (liner + mortero)','Unidad',850,450],
+      pintura_interior_sf:['Pintura','Pintura de paredes interiores (2 manos de látex)','SF',1.25,.5], pintura_cielos_sf:['Pintura','Pintura de cielo raso / techo','SF',1.1,.45], gabinetes_instalacion_lf:['Cocina','Instalación y nivelación de gabinetes superiores y base','LF',85,35],
+      toilet_reset:['Plomería','Remoción y reinstalación de inodoro (cera nueva y pernos)','Unidad',180,85], vanity_plumbing_install:['Plomería','Instalación de mueble de vanity, grifería y desagüe','Unidad',450,200], recessed_light_install:['Electricidad','Instalación de luz empotrada (wafer LED)','Unidad',120,50]
+    };
+    Object.entries(catalogoRemodelacion).forEach(([key,[familia,nombre,unidad,contratista,subcontratista]])=>{ CATALOGO_PREDICTIVO.push({nombre,familia,categoria:`master_${key}`,precio:contratista,unidad:unidad==='Unidad'?'EA':unidad,precioContratista:contratista,precioSubcontratista:subcontratista,min:0,palabras:String(nombre).toLowerCase().split(/\s+/).filter(word=>word.length>3)}); });
+    CATALOGO_PREDICTIVO.forEach(item=>{ if(!CATALOGO_REGIONAL[item.categoria])CATALOGO_REGIONAL[item.categoria]={basePrecio:item.precio,cargoMinBase:item.min}; });
+    const DIAS_EXPIRACION = 30;
+    const URL_CATALOGO_NUBE = 'https://raw.githubusercontent.com/usuario/repositorio/main/precios.json';
+    let regionalActualizando = false;
+    const FACTOR_COMERCIAL = 1.25;
+    const CARGOS_MINIMOS_MAESTROS = { techo:{gc:450,sub:300}, shingle:{gc:450,sub:300}, drywall:{gc:350,sub:220}, sheetrock:{gc:350,sub:220}, piso:{gc:380,sub:250}, lvt:{gc:380,sub:250}, wood:{gc:450,sub:300}, tile:{gc:450,sub:300}, backsplash:{gc:500,sub:350}, pintura:{gc:300,sub:200}, puerta:{gc:250,sub:150}, framing:{gc:400,sub:250}, defecto:{gc:300,sub:200} };
+    let areaCount = 0;
+    let language = 'es';
+    let docMode = 'invoice';
+    const companyStorageKey = 'solid-remodeling-company-name';
+    const businessProfileStorageKey = 'mi_perfil_negocio';
+    const clientStorageKey = 'solid-remodeling-client-data';
+    const savedClientsStorageKey = 'solid-remodeling-saved-clients';
+    const paymentMethodsStorageKey = 'solid-remodeling-payment-methods';
+    const paymentStorageKey = 'solid-remodeling-payment-data';
+    let paymentState = { paidAmount:'', status:'open', paidDate:'' };
+    const translations = {
+      es: {
+        pageTitle:'Factura | Solid Remodeling', toolbar:'Generador de facturas', specialty:'Especialidad / Servicio', addArea:'+ Añadir área', print:'Imprimir / Guardar en PDF', documentTitle:'FACTURA / INVOICE', subtitle:'Solid Remodeling & Reconstruction LLC', contractor:'Empresa / Contratista', company:'Empresa', representative:'Representante', contact:'Contacto', service:'Servicio', quoteDetails:'Datos de factura / Invoice Details', quote:'Invoice #', date:'Fecha de Emisión', plans:'Planos', status:'Estado', addRow:'+ Fila', removeArea:'Quitar área', addRowLong:'+ Añadir fila', code:'Código / Elemento', description:'Descripción del trabajo', quantity:'Cant.', price:'Precio unit. ($)', subtotal:'Subtotal ($)', terms:'', payment:'Instrucciones de Pago / Payment Instructions', deposit:'Anticipos Pagados', finalPayment:'Saldo Pendiente / Balance Due', labor:'', total:'Total', removeRow:'Quitar fila', footer:'Documento generado con Solid Remodeling & Reconstruction LLC · Todos los valores expresados en USD', notesPlaceholder:'', termsText:''
+      },
+      en: {
+        pageTitle:'Invoice | Solid Remodeling', toolbar:'Invoice Generator', specialty:'Specialty / Service', addArea:'+ Add Area', print:'Print / Save as PDF', documentTitle:'FACTURA / INVOICE', subtitle:'Solid Remodeling & Reconstruction LLC', contractor:'Company / Contractor', company:'Company', representative:'Representative', contact:'Contact', service:'Service', quoteDetails:'Invoice Details', quote:'Invoice #', date:'Issue Date', plans:'Plans', status:'Status', addRow:'+ Row', removeArea:'Remove Area', addRowLong:'+ Add Row', code:'Code / Element', description:'Description of Work', quantity:'Qty', price:'Unit Price ($)', subtotal:'Subtotal ($)', terms:'', payment:'Payment Instructions', deposit:'Payments Received', finalPayment:'Balance Due', labor:'', total:'Total', removeRow:'Remove row', footer:'Document generated by Solid Remodeling & Reconstruction LLC · All amounts shown in USD', notesPlaceholder:'', termsText:''
+      }
+    };
+    const defaultTerms = { es:translations.es.termsText, en:translations.en.termsText };
+    const initialAreas = [
+      { title:'Área de Cocina', titleEn:'Kitchen Area', reference:'PLANO 85999', rows:[['W1242R, W2442','Instalación de Gabinetes de Pared Superiores',3,68],['W372124, WCG97US6HS','Módulos Superiores Especiales / Campana Extractora',2,76],['B21L, B15R, BWB21','Instalación Gabinetes Base / Basurero Extraíble',3,68],['SB36, 3DB36','Gabinete Base Fregadero y Cajonero 36”',2,72],['AW0-30, DW422424L','Torres de Horno Empotrado y Despensa Alta',2,128],['BMWD27, CDT828P2VS','Módulo Base para Microondas y Frente Lavavajillas',2,72]]},
+      { title:'Área de Lavandería', titleEn:'Laundry Area', reference:'ELEVACIÓN EI 6', rows:[['W2742','Gabinetes de Pared Superiores Lavandería (27”x42”)',5,64],['B12L, SB36, B33','Gabinetes Base y Fregadero Lavandería',3,64]]},
+      { title:'Paneles, Remates y Ajustes de Precisión', titleEn:'Panels, Trim & Precision Adjustments', reference:'', rows:[['F3, SLS3, UPP12, TE P24','Corte, ajuste y fijación de Fillers, Remates y Paneles Vistos',1,208],['Ajustes & Herrajes','Nivelación láser, calibración de puertas/cajones y tiradores',1,176]]}
+    ];
+    const serviceTemplates = {
+      cabinetry: { labelEs:'Instalación de Gabinetes & Carpintería', labelEn:'Cabinetry & Trimwork', termsEs:'• Instalación nivelada y anclaje seguro a estructura existente.\n• Ajuste de puertas, cajones, molduras y herrajes incluidos en el alcance.\n• No incluye modificaciones eléctricas, plomería pesada ni daños ocultos.', termsEn:'• Level installation and secure anchoring to the existing structure.\n• Adjustment of doors, drawers, trim, and hardware included in the scope.\n• Heavy plumbing, electrical modifications, and concealed damage are excluded.', areas:initialAreas },
+      bathroom: { labelEs:'Remodelación de Baño', labelEn:'Bathroom Remodeling', termsEs:'• Incluye preparación, instalación y acabado de las superficies descritas.\n• No incluye permisos, plomería pesada, impermeabilización estructural ni daños ocultos detrás de paredes.\n• Cualquier reparación de subfloor o estructura se cotizará por separado.', termsEn:'• Includes preparation, installation, and finishing of the surfaces described.\n• Permits, heavy plumbing, structural waterproofing, and concealed wall damage are excluded.\n• Subfloor or structural repairs will be quoted separately.', areas:[{title:'Área de Ducha',titleEn:'Shower Area',reference:'',rows:[['TILE-SHOWER','Preparación, impermeabilización y colocación de azulejo',1,0,'sqft'],['PLUMB-BASIC','Conexiones de plomería básica y pruebas',1,0,'lot']]},{title:'Acabados de Baño',titleEn:'Bathroom Finishes',reference:'',rows:[['FIXTURES','Instalación de accesorios y sellado final',1,0,'lot']]}] },
+      kitchen: { labelEs:'Remodelación de Cocina', labelEn:'Kitchen Remodeling', termsEs:'• Incluye demolición liviana, preparación y acabados indicados en el alcance.\n• No incluye permisos, reubicación de líneas eléctricas o de gas ni plomería pesada.\n• Daños ocultos en paredes, subfloor o estructura se cotizan por separado.', termsEn:'• Includes light demolition, preparation, and finishes listed in the scope.\n• Permits, relocation of electrical or gas lines, and heavy plumbing are excluded.\n• Concealed damage in walls, subfloor, or structure will be quoted separately.', areas:[{title:'Demolición y Preparación',titleEn:'Demolition & Preparation',reference:'',rows:[['DEMO-KITCHEN','Demolición, protección y retiro de residuos',1,0,'lot'],['BACKSPLASH','Instalación de backsplash y boquilla',1,0,'sqft']]}] },
+      framing: { labelEs:'Framing, Drywall & Pintura', labelEn:'Framing, Drywall & Painting', termsEs:'• Incluye instalación y acabado de materiales descritos en el alcance.\n• No incluye permisos, ingeniería, reparaciones estructurales ni daños ocultos en paredes.\n• Igualación de color y reparaciones extensas se cotizan por separado.', termsEn:'• Includes installation and finishing of materials described in the scope.\n• Permits, engineering, structural repairs, and concealed wall damage are excluded.\n• Color matching and extensive repairs will be quoted separately.', areas:[{title:'Framing y Drywall',titleEn:'Framing & Drywall',reference:'',rows:[['FRAMING','Framing de particiones y refuerzos',1,0,'lf'],['DRYWALL','Instalación, encintado y acabado de drywall',1,0,'sqft']]}] },
+      flooring: { labelEs:'Pisos (LVP, LVT, Madera, Porcelanato)', labelEn:'Flooring (LVP, LVT, Hardwood, Porcelain)', termsEs:'• Incluye instalación sobre superficie lista y preparación menor descrita.\n• No incluye nivelación estructural, remoción de adhesivos difíciles ni reparación de subfloor oculto.\n• Materiales no incluidos salvo indicación expresa.', termsEn:'• Includes installation over a ready surface and minor preparation described in the scope.\n• Structural leveling, difficult adhesive removal, and concealed subfloor repairs are excluded.\n• Materials are excluded unless specifically stated.', areas:[{title:'Instalación de Pisos',titleEn:'Floor Installation',reference:'',rows:[['FLOOR-LVP','Instalación de piso y cortes perimetrales',1,0,'sqft'],['BASEBOARD','Instalación de zócalos y remates',1,0,'lf']]}] },
+      blank: { labelEs:'Presupuesto General en Blanco', labelEn:'Custom Remodeling Scope', termsEs:'• Alcance, materiales y exclusiones deben confirmarse antes de comenzar.\n• Permisos, daños ocultos, reparaciones estructurales y trabajos fuera del alcance no están incluidos salvo indicación escrita.\n• Los cambios aprobados podrán requerir una orden adicional.', termsEn:'• Scope, materials, and exclusions must be confirmed before work begins.\n• Permits, concealed damage, structural repairs, and out-of-scope work are excluded unless stated in writing.\n• Approved changes may require an additional change order.', areas:[{title:'Alcance del Proyecto',titleEn:'Project Scope',reference:'',rows:[['','',1,0,'unit']]}] }
+    };
+    function normalizarCatalogoText(text){ return String(text||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); }
+    function obtenerFamiliaPredictiva(description){ const text=normalizarCatalogoText(description); if(/tpo|metal stud|vct|drop ceiling|concreto|concrete|rampa ada|ada ramp/.test(text))return 'COMERCIAL'; if(/drywall|chirock|greenboard|sheetrock|yeso|tape|float|type x|parche/.test(text))return 'DRYWALL'; if(/pintura|paint|pintar|primer|sellador|laca|esmalte/.test(text))return 'PINTURA'; if(/roof|techo|shingle|membrana|ice|water shield/.test(text))return 'TECHOS / ROOFING'; if(/piso|lvt|lvp|tile|durock|cement board|contrapiso|baseboard|rodapie|rodapi[eé]|backsplash|azulejo/.test(text))return 'PISOS'; return ''; }
+    function buscarMaterialPredictivo(description){ const text=normalizarCatalogoText(description); if(!text)return null; const exact=CATALOGO_PREDICTIVO.find(item=>normalizarCatalogoText(item.nombre)===text); if(exact)return exact; const tokens=text.split(/\s+/).filter(token=>token.length>1); return CATALOGO_PREDICTIVO.filter(item=>item.palabras.some(word=>text.includes(normalizarCatalogoText(word)))||normalizarCatalogoText(item.nombre).includes(text)).sort((a,b)=>{ const score=item=>tokens.reduce((total,token)=>total+(normalizarCatalogoText(item.nombre).includes(token)?1:0),0)+item.palabras.reduce((total,word)=>total+(text.includes(normalizarCatalogoText(word))?2:0),0); return score(b)-score(a); })[0]||null; }
+    function actualizarDatalistPredictivo(description){ const datalist=document.querySelector('#listaSugerenciasMateriales'); if(!datalist)return; const text=normalizarCatalogoText(description); const family=obtenerFamiliaPredictiva(text); const project=document.querySelector('#tipoProyecto')?.value||'residencial'; const rootFamilyKeyword=/^(drywall|chirock|sheetrock|yeso|pintura|paint|pintar)$/i.test(text); const tokens=rootFamilyKeyword?[]:text.split(/\s+/).filter(token=>token.length>1); const filtered=CATALOGO_PREDICTIVO.filter(item=>{ const name=normalizarCatalogoText(item.nombre); if(family&&item.familia!==family)return false; return !tokens.length||tokens.every(token=>name.includes(token)||item.palabras.some(word=>normalizarCatalogoText(word).includes(token)||token.includes(normalizarCatalogoText(word)))); }).sort((a,b)=>{ const priority=item=>project==='comercial'?(item.proyecto==='comercial'?0:1):(/lvp|lvt|drywall|pintura|shingle|baseboard|rodapi/.test(normalizarCatalogoText(item.nombre))?0:(item.proyecto==='comercial'?2:1)); return priority(a)-priority(b); }); datalist.replaceChildren(...filtered.map(item=>{ const option=document.createElement('option'); option.value=item.nombre; return option; })); }
+    function aplicarMinimosProyecto(){ const project=document.querySelector('#tipoProyecto')?.value||'residencial'; Object.values(CATALOGO_REGIONAL).forEach(item=>{ if(item._minResidencial===undefined)item._minResidencial=item.cargoMinBase; item.cargoMinBase=project==='comercial'?Math.max(item._minResidencial,600):item._minResidencial; }); }
+    function actualizarModoProyecto(){ aplicarMinimosProyecto(); document.querySelectorAll('.description').forEach(input=>actualizarDatalistPredictivo(input.value)); ejecutarMotorPrecios(); }
+    const CIUDADES_POR_ESTADO = { AL:[], FL:[['33101','Miami']], GA:[['30060','Marietta'],['30301','Atlanta'],['30269','Peachtree City'],['30263','Newnan'],['30004','Alpharetta'],['30043','Lawrenceville']], NC:[], SC:[], TN:[], TX:[['77001','Houston']], CA:[['90210','Los Angeles']], NY:[], OTRO:[] };
+    function actualizarCiudades(){ const state=document.querySelector('#select-estado'); const city=document.querySelector('#select-ciudad'); if(!state||!city)return; const options=CIUDADES_POR_ESTADO[state.value]||[]; city.innerHTML='<option value="">Seleccionar Ciudad</option>'+options.map(([zip,name])=>`<option value="${zip}">${name}</option>`).join(''); document.querySelector('#zip-code').value=''; ejecutarMotorPrecios(); }
+    function asignarCiudadZIP(){ const city=document.querySelector('#select-ciudad'); const zip=document.querySelector('#zip-code'); if(city&&zip){ zip.value=city.value; ejecutarMotorPrecios(); } }
+    async function buscarPorZip(zip){ const zipLimpio=String(zip||'').replace(/\D/g,'').slice(0,5); const input=document.querySelector('#zip-code'); if(input&&input.value!==zipLimpio)input.value=zipLimpio; if(zipLimpio.length!==5)return; try{ const response=await fetch(`https://api.zippopotam.us/us/${zipLimpio}`); if(!response.ok)return; const data=await response.json(); const place=data.places?.[0]; if(!place)return; const city=document.querySelector('#select-ciudad'); const state=document.querySelector('#select-estado'); const stateCode=place['state abbreviation']; const cityName=place['place name']; if(state){ if(![...state.options].some(option=>option.value===stateCode)){ const option=document.createElement('option'); option.value=stateCode; option.textContent=`${place.state} (${stateCode})`; state.appendChild(option); } state.value=stateCode; } if(city){ city.innerHTML=''; const option=document.createElement('option'); option.value=zipLimpio; option.textContent=`${cityName}, ${stateCode}`; option.selected=true; city.appendChild(option); } ejecutarMotorPrecios(); }catch(error){ console.warn('No se pudo consultar el ZIP Code.',error); } }
+    // Base de datos: precios unitarios base y su unidad
+    const CATALOGO = {
+      "lvp_click": { unidad: "Sq Ft", precioBase: 2.25, nombre: "Piso LVP Click-Lock Flotante" },
+      "piso_ceramica": { unidad: "Sq Ft", precioBase: 4.50, nombre: "Instalación de Tile / Piso Cerámica" },
+      "drywall": { unidad: "Sq Ft", precioBase: 1.80, nombre: "Instalación de Drywall / Tablaroca" }
+    };
+
+    // Factores por Código Postal (Metro Atlanta = 1.05)
+    const FACTORES_ZIP = {
+      '30067': 1.05,
+      '30060': 1.05,
+      '30008': 1.05,
+      'default': 1.00
+    };
+
+    // Se ejecuta cada vez que cambias de material en la tabla
+    document.addEventListener("change", function(e) {
+      if (e.target.matches(".selector-item, .codigo-item")) {
+        const fila = e.target.closest("tr");
+        if (!fila) return;
+        const itemClave = e.target.value;
+        
+        // 1. Lee el código postal actual
+        const zipInput = document.getElementById("zipCode") || document.getElementById("zip-code") || document.querySelector("input[placeholder*='300']");
+        const zip = zipInput ? zipInput.value.trim() : "";
+        const factor = FACTORES_ZIP[zip] || (typeof obtenerFactorMercado === "function" ? obtenerFactorMercado(zip).factor : 1.0);
+
+        // 2. Si el producto existe en la base, calcula y pone el precio unitario
+        if (CATALOGO[itemClave]) {
+          const precioUnitario = CATALOGO[itemClave].precioBase * factor;
+          
+          const inputPrecio = fila.querySelector(".input-precio") || fila.querySelector(".price");
+          const selectUnidad = fila.querySelector(".select-unidad");
+          const inputCantidad = fila.querySelector(".input-cantidad") || fila.querySelector(".quantity");
+          const inputSubtotal = fila.querySelector(".input-subtotal") || fila.querySelector(".span-subtotal") || fila.querySelector(".row-total");
+
+          if (inputPrecio) inputPrecio.value = precioUnitario.toFixed(2);
+          if (selectUnidad) {
+            const u = CATALOGO[itemClave].unidad;
+            const targetOpt = [...selectUnidad.options].find(o => o.value.toLowerCase() === u.toLowerCase() || o.textContent.toLowerCase() === u.toLowerCase());
+            if (targetOpt) selectUnidad.value = targetOpt.value;
+          }
+          
+          // 3. Multiplica por la cantidad si ya la escribiste
+          const cant = parseFloat(inputCantidad ? inputCantidad.value : 0) || 0;
+          const sub = cant * precioUnitario;
+          if (inputSubtotal) {
+            if (inputSubtotal.tagName === "INPUT") {
+              inputSubtotal.value = sub.toFixed(2);
+            } else {
+              inputSubtotal.textContent = money.format(sub);
+            }
+          }
+
+          if (typeof ejecutarMotorPrecios === "function") ejecutarMotorPrecios();
+          if (typeof update === "function") update();
+        }
+      }
+    });
+
+    function aplicarSugerenciaMaterial(row){ const material=buscarMaterialPredictivo(row.querySelector('.description')?.value); if(!material)return null; const unitSelect=row.querySelector('.select-unidad'); if(unitSelect)unitSelect.value=material.unidad; row.dataset.materialCategoria=material.categoria; row.dataset.materialPrecio=String(material.precio); row.dataset.materialMin=String(material.min); return material; }
+    function poblarCatalogoPartidas(row){ const select=row?.querySelector('.codigo-item, .selector-item'); if(!select||select.options.length>1)return; const groups={}; Object.entries(catalogoRemodelacion).forEach(([key,[category,description]])=>{ (groups[category]??=[]).push({key,description}); }); Object.entries(groups).forEach(([category,items])=>{ const group=document.createElement('optgroup'); group.label=category; items.forEach(item=>{ const option=document.createElement('option'); option.value=item.key; option.textContent=item.description; group.appendChild(option); }); select.appendChild(group); }); if (typeof CATALOGO === 'object') { const catGroup = document.createElement('optgroup'); catGroup.label = 'Catálogo Base / Materiales'; Object.entries(CATALOGO).forEach(([key, item]) => { const option = document.createElement('option'); option.value = key; option.textContent = item.nombre || (key.replace('_', ' ').toUpperCase() + ' - $' + item.precioBase + '/' + item.unidad); catGroup.appendChild(option); }); select.appendChild(catGroup); } }
+    function encontrarPartidaEnTarifas(queryCode, queryDesc) {
+      const code = normalizarCatalogoText(queryCode);
+      const desc = normalizarCatalogoText(queryDesc);
+      if (!code && !desc) return null;
+      if (queryCode && CATALOGO[queryCode]) {
+        const item = CATALOGO[queryCode];
+        return { nombre: item.nombre || queryCode, unidad: item.unidad, precio: item.precioBase, precioContratista: item.precioBase, precioSubcontratista: item.precioBase, key: queryCode };
+      }
+      if (code && CATALOGO[code]) {
+        const item = CATALOGO[code];
+        return { nombre: item.nombre || code, unidad: item.unidad, precio: item.precioBase, precioContratista: item.precioBase, precioSubcontratista: item.precioBase, key: code };
+      }
+      if (queryCode && catalogoRemodelacion[queryCode]) {
+        const item = catalogoRemodelacion[queryCode];
+        return { nombre: item[1], unidad: item[2] === 'Unidad' ? 'EA' : item[2], precioContratista: item[3], precioSubcontratista: item[4], key: queryCode };
+      }
+      if (code && catalogoRemodelacion[code]) {
+        const item = catalogoRemodelacion[code];
+        return { nombre: item[1], unidad: item[2] === 'Unidad' ? 'EA' : item[2], precioContratista: item[3], precioSubcontratista: item[4], key: code };
+      }
+      if (desc) {
+        const exactDesc = CATALOGO_PREDICTIVO.find(m => normalizarCatalogoText(m.nombre) === desc);
+        if (exactDesc) return exactDesc;
+      }
+      if (code) {
+        const exactCode = CATALOGO_PREDICTIVO.find(m => (m.categoria && normalizarCatalogoText(m.categoria) === code) || normalizarCatalogoText(m.nombre) === code);
+        if (exactCode) return exactCode;
+      }
+      if (desc) {
+        const entry = Object.entries(catalogoRemodelacion).find(([k, item]) => normalizarCatalogoText(item[1]) === desc || normalizarCatalogoText(k) === desc);
+        if (entry) {
+          return { nombre: entry[1][1], unidad: entry[1][2] === 'Unidad' ? 'EA' : entry[1][2], precioContratista: entry[1][3], precioSubcontratista: entry[1][4], key: entry[0] };
+        }
+      }
+      if (desc) { const mat = buscarMaterialPredictivo(desc); if (mat) return mat; }
+      if (code) { const mat = buscarMaterialPredictivo(code); if (mat) return mat; }
+      return null;
+    }
+    function buscarYAplicarTarifa(row) {
+      if (!row) return;
+      const codeInput = row.querySelector('.code');
+      const codeSelect = row.querySelector('.codigo-item');
+      const descInput = row.querySelector('.description');
+      const priceInput = row.querySelector('.price');
+      const quantityInput = row.querySelector('.input-cantidad') || row.querySelector('.quantity');
+      const unitSelect = row.querySelector('.select-unidad');
+      const codeVal = (codeInput?.value || codeSelect?.value || '').trim();
+      const descVal = (descInput?.value || '').trim();
+      const partida = encontrarPartidaEnTarifas(codeVal, descVal);
+      if (partida) {
+        const rol = modalidadGlobalActual();
+        const factor = obtenerFactorMercado(document.querySelector('#zip-code')?.value.trim()).factor;
+        const scope = row.querySelector('.select-alcance')?.value || 'full';
+        const scopeFactor = { full: 1, labor: 0.45, replace: 1.3, demo: 1 }[scope] || 1;
+        let basePrice = 0;
+        if (rol === 'subcontratista') {
+          basePrice = Number(partida.precioSubcontratista ?? partida.precio ?? 0);
+        } else {
+          basePrice = Number(partida.precioContratista !== undefined ? partida.precioContratista : (partida.precio !== undefined ? partida.precio * FACTOR_GC : 0));
+        }
+        if (!basePrice && partida.precio) basePrice = Number(partida.precio);
+        const calculatedPrice = basePrice * scopeFactor * factor;
+        if (calculatedPrice > 0 && priceInput) {
+          priceInput.value = calculatedPrice.toFixed(2);
+        }
+        if (partida.nombre && descInput && (!descVal || descVal !== partida.nombre)) {
+          if (!descVal || (codeVal && normalizarCatalogoText(descVal) !== normalizarCatalogoText(partida.nombre))) {
+            descInput.value = partida.nombre;
+          }
+        }
+        if ((partida.key || partida.categoria) && codeInput && !codeInput.value) {
+          codeInput.value = (partida.key || partida.categoria).replace(/^master_/, '');
+        }
+        if (partida.unidad && unitSelect) {
+          const u = partida.unidad === 'Unidad' ? 'EA' : partida.unidad;
+          if ([...unitSelect.options].some(opt => opt.value === u)) {
+            unitSelect.value = u;
+          }
+        }
+      }
+      const qty = Number(quantityInput?.value) || 0;
+      const price = Number(priceInput?.value) || 0;
+      const rowSubtotal = qty * price;
+      const rowTotalSpan = row.querySelector('.row-total') || row.querySelector('.span-subtotal');
+      if (rowTotalSpan) {
+        rowTotalSpan.textContent = money.format(rowSubtotal);
+      }
+      ejecutarMotorPrecios();
+      update();
+    }
+    function actualizarPrecioFila(filaOrSelect, productoEncontrado){
+      if (!filaOrSelect) return;
+      if (productoEncontrado) {
+        const fila = filaOrSelect.classList && (filaOrSelect.classList.contains('fila-trabajo') || filaOrSelect.tagName === 'TR') ? filaOrSelect : (filaOrSelect.closest ? filaOrSelect.closest('tr, .fila-trabajo') : filaOrSelect);
+        // 1. Obtener el código postal escrito en el encabezado
+        const zipInput = document.getElementById('zipCode') || document.getElementById('zip-code') || document.querySelector("input[name='zip']") || document.querySelector("input[placeholder*='300']");
+        const zip = zipInput ? zipInput.value.trim() : '';
+        const factor = FACTORES_ZIP[zip] || FACTORES_ZIP['default'] || (typeof obtenerFactorMercado === 'function' ? obtenerFactorMercado(zip).factor : 1.0);
+
+        // 2. Calcular precio unitario ajustado
+        const precioBase = Number(productoEncontrado.precio ?? productoEncontrado.precioBase ?? 0);
+        const precioFinal = precioBase * factor;
+
+        // 3. Escribir precio unitario y unidad en la fila
+        const priceEl = fila.querySelector('.input-precio-unit') || fila.querySelector('.input-precio') || fila.querySelector('.price');
+        const unitEl = fila.querySelector('.input-unidad') || fila.querySelector('.select-unidad');
+        const cantEl = fila.querySelector('.input-cant') || fila.querySelector('.input-cantidad') || fila.querySelector('.quantity');
+        const subtotalEl = fila.querySelector('.input-subtotal') || fila.querySelector('.span-subtotal') || fila.querySelector('.row-total');
+
+        if (priceEl) priceEl.value = precioFinal.toFixed(2);
+        if (unitEl) {
+          const u = productoEncontrado.unidad || 'Sq Ft';
+          if (unitEl.tagName === 'SELECT') {
+            const targetOpt = [...unitEl.options].find(o => o.value.toLowerCase() === u.toLowerCase() || o.textContent.toLowerCase() === u.toLowerCase());
+            if (targetOpt) unitEl.value = targetOpt.value;
+          } else {
+            unitEl.value = u;
+          }
+        }
+
+        // 4. Recalcular subtotal
+        const cantidad = parseFloat(cantEl ? cantEl.value : 0) || 0;
+        const subtotal = cantidad * precioFinal;
+        if (subtotalEl) {
+          if (subtotalEl.tagName === 'INPUT') {
+            subtotalEl.value = subtotal.toFixed(2);
+          } else {
+            subtotalEl.textContent = typeof money !== 'undefined' ? money.format(subtotal) : '$' + subtotal.toFixed(2);
+          }
+        }
+
+        if (typeof ejecutarMotorPrecios === 'function') ejecutarMotorPrecios();
+        if (typeof update === 'function') update();
+        return;
+      }
+
+      const select = filaOrSelect;
+      const row = select?.closest('.fila-trabajo');
+      const item = catalogoRemodelacion[select?.value];
+      if (!row || !item) return;
+      const description = row.querySelector('.description');
+      const unit = row.querySelector('.select-unidad');
+      if (description) description.value = item[1];
+      if (unit) unit.value = item[2] === 'Unidad' ? 'EA' : item[2];
+      row.dataset.catalogoKey = select.value;
+      buscarYAplicarTarifa(row);
+    }
+    const DICCIONARIO_MAESTRO_PRECIOS = Object.fromEntries(Object.entries(catalogoRemodelacion).map(([key,item])=>[key,{gc_completo:item[3],sub_con_material:item[4],sub_solo_labor:Number(item[4])*.45}]));
+    CATALOGO_PREDICTIVO.forEach(item=>{ if(item.categoria?.startsWith('master_')){ const key=item.categoria.slice(7); const master=DICCIONARIO_MAESTRO_PRECIOS[key]; if(master){ item.precioContratista=master.gc_completo; item.precioSubcontratista=master.sub_con_material; item.precioSubSoloLabor=master.sub_solo_labor; } } });
+    const MARGEN_OVERHEAD=.10;
+    const MARGEN_PROFIT=.10;
+    const FACTOR_GC=1+MARGEN_OVERHEAD+MARGEN_PROFIT;
+    function modalidadGlobalActual(){ return document.querySelector('#select-rol')?.value||'contratista'; }
+    function aplicarMargenRol(rolSeleccionado){ const selector=document.querySelector('#select-rol'); if(selector&&rolSeleccionado)selector.value=rolSeleccionado; ejecutarMotorPrecios(); }
+    function cambiarModalidadGlobal(modalidadSeleccionada){ aplicarMargenRol(modalidadSeleccionada==='gc_completo'?'contratista':'subcontratista'); }
+    function precioMaterialPorRol(material,rol){ if(rol==='subcontratista')return Number(material?.precioSubcontratista??material?.precio??0); return Number(material?.precioSubcontratista!==undefined?material.precioSubcontratista*FACTOR_GC:material?.precioContratista??material?.precio??0); }
+    function aplicarCargosMinimosNacionales(){ const aplicar=document.querySelector('#toggleMinimos')?.checked!==false; const rol=modalidadGlobalActual()==='contratista'?'gc':'sub'; const factor=obtenerFactorMercado(document.querySelector('#zip-code')?.value.trim()).factor; let total=0; document.querySelectorAll('.fila-trabajo').forEach(row=>{ const quantity=Number(row.querySelector('.input-cantidad')?.value)||0; const price=Number(row.querySelector('.price')?.value)||0; const subtotal=quantity*price; const text=(row.querySelector('.description')?.value||'').toLowerCase(); const key=Object.keys(CARGOS_MINIMOS_MAESTROS).find(candidate=>text.includes(candidate))||'defecto'; const minimum=CARGOS_MINIMOS_MAESTROS[key][rol]*factor; const effective=aplicar&&quantity>0?Math.max(subtotal,minimum):subtotal; row.dataset.regionalSubtotal=String(effective); const totalCell=row.querySelector('.row-total'); const tag=row.querySelector('.tag-minimo'); if(totalCell)totalCell.textContent=money.format(effective); if(tag){ tag.style.display=effective>subtotal?'inline':'none'; tag.textContent=effective>subtotal?`(Min. regional: ${money.format(minimum)})`:''; } total+=effective; }); const grand=document.querySelector('.summary-line.grand strong'); if(grand)grand.innerHTML=`${money.format(total)}<br>USD`; return total; }
+    function calcularDrywallPorVolumen(cantidad,unidad,modo='solo_mano_obra'){ const cant=parseFloat(cantidad)||0; const totalSqFt=unidad==='Hoja 4x8'?cant*32:cant; let tarifaSqFt; if(totalSqFt>=9600)tarifaSqFt=modo==='solo_mano_obra'?.85:2.10; else if(totalSqFt>=6400)tarifaSqFt=modo==='solo_mano_obra'?.98:2.30; else tarifaSqFt=modo==='solo_mano_obra'?1.18:2.57; const precioUnitario=unidad==='Hoja 4x8'?tarifaSqFt*32:tarifaSqFt; return {sqFtEquivalentes:totalSqFt,precioUnitario:precioUnitario.toFixed(2),subtotal:(cant*precioUnitario).toFixed(2)}; }
+    function obtenerCategoriaRegional(description,unit){ const material=buscarMaterialPredictivo(description); if(material)return material.categoria; const text=String(description||'').toLowerCase(); if(/roof|techo|roofing|shingle/.test(text)||unit==='sq')return 'roofing'; if(/siding|revestimiento/.test(text))return 'siding'; if(/tile|azulejo|baldosa/.test(text))return 'tile'; if(/lvp|vinyl|vinil|piso|floor/.test(text)||unit==='sf'&&/acabado/.test(text))return 'lvp'; if(/drywall|sheetrock|yeso/.test(text))return 'drywall'; if(/paint|pintura/.test(text))return 'painting'; if(/trim|baseboard|zócalo|zocalo|moldura|carpinter/.test(text)||unit==='lf')return 'trim'; if(/demo|demolición|demolicion|preparación|preparacion/.test(text))return 'demolition'; return ''; }
+    function obtenerFactorMercado(zip){ const prefix=parseInt(String(zip||'').slice(0,2),10); if(!Number.isFinite(prefix))return {region:'Promedio Nacional',factor:1}; if(prefix>=90&&prefix<=96)return {region:'California (Mercado Alto)',factor:1.35}; if((prefix>=7&&prefix<=8)||(prefix>=10&&prefix<=14))return {region:'NY / NJ (Mercado Alto)',factor:1.4}; if(prefix>=32&&prefix<=34)return {region:'Florida (Huracanes / Costera)',factor:1.15}; if(prefix>=30&&prefix<=31)return {region:'Georgia (Metro Atlanta)',factor:1.05}; if(prefix>=75&&prefix<=79)return {region:'Texas (Mercado Central)',factor:.95}; return {region:'Promedio Nacional',factor:1}; }
+    function calcularFactorTerritorialNacional(zip){ const limpio=String(zip||'').replace(/\D/g,''); if(limpio.length<2)return 1; const prefijo3=limpio.slice(0,3); const num2=parseInt(limpio.slice(0,2),10); if(prefijo3==='300'||prefijo3==='303')return 1.05; if(prefijo3==='301'||prefijo3==='302')return 1.02; if(prefijo3==='100'||prefijo3==='112')return 1.35; if(prefijo3==='900'||prefijo3==='941')return 1.30; if(prefijo3==='331'||prefijo3==='328')return 1.06; if(prefijo3==='750'||prefijo3==='770')return 1.04; if(num2>=1&&num2<=8)return 1.18; if(num2>=10&&num2<=19)return 1.15; if(num2>=20&&num2<=29)return 1.03; if(num2>=30&&num2<=39)return 1.02; if(num2>=40&&num2<=49)return .98; if(num2>=50&&num2<=59)return .96; if(num2>=60&&num2<=69)return 1.02; if(num2>=70&&num2<=79)return .99; if(num2>=80&&num2<=89)return 1.05; if(num2>=90&&num2<=99)return 1.22; return 1; }
+    function ejecutarMotorPrecios(actualizarTotal=true){ const auto=document.querySelector('#toggleAutoPrecios')?.checked; const minimos=document.querySelector('#toggleMinimos')?.checked; const zip=document.querySelector('#zip-code')?.value.trim(); const badge=document.querySelector('#badgeZonaMercado'); const {region,factor}=obtenerFactorMercado(zip); if(badge){ badge.textContent=`📍 ${region} | Factor: x${factor.toFixed(2)}`; badge.style.background=auto?'#d1e7dd':'#f8d7da'; badge.style.color=auto?'#0f5132':'#842029'; } document.querySelectorAll('.fila-trabajo').forEach(row=>{ const description=row.querySelector('.description')?.value||''; const unit=(row.querySelector('.select-unidad')?.value||'SF').toLowerCase(); const category=obtenerCategoriaRegional(description,unit); const scope=row.querySelector('.select-alcance')?.value||detectarAlcance(description); const scopeFactor={full:1,labor:.45,replace:1.3,demo:1}[scope]||1; const catalog=CATALOGO_REGIONAL[category]||{basePrecio:0,cargoMinBase:0}; const basePrice=scope==='demo'?(unit==='sq'?55:1.75):catalog.basePrecio; const quantity=Number(row.querySelector('.input-cantidad')?.value)||0; const priceInput=row.querySelector('.price'); const finalUnitPrice=basePrice*scopeFactor*factor; if(auto&&basePrice>0)priceInput.value=finalUnitPrice.toFixed(2); const price=Number(priceInput?.value)||0; const subtotal=quantity*price; const minimum=catalog.cargoMinBase*factor; const effective=minimos&&quantity>0&&subtotal<minimum?minimum:subtotal; row.dataset.categoria=category; row.dataset.alcance=scope; row.dataset.factorAlcance=String(scopeFactor); row.dataset.tarifaBase=String(basePrice); row.dataset.factorZip=String(factor); row.dataset.regionalSubtotal=String(effective); const tag=row.querySelector('.tag-minimo'); if(tag){ tag.style.display=effective>subtotal?'inline':'none'; tag.textContent=effective>subtotal?`(Min. regional: ${money.format(minimum)})`:''; } }); if(actualizarTotal&&!regionalActualizando){ regionalActualizando=true; update(); regionalActualizando=false; } }
+    const ejecutarMotorPreciosBase = ejecutarMotorPrecios;
+    ejecutarMotorPrecios = function(actualizarTotal=true){ const result=ejecutarMotorPreciosBase(false); const auto=document.querySelector('#toggleAutoPrecios')?.checked; const {factor}=obtenerFactorMercado(document.querySelector('#zip-code')?.value.trim()); document.querySelectorAll('.fila-trabajo').forEach(row=>{ const category=row.dataset.categoria||''; if(!category.startsWith('drywall'))return; const unit=row.querySelector('.select-unidad')?.value||'SF'; if(unit!=='SF'&&unit!=='Hoja 4x8')return; const quantity=Number(row.querySelector('.input-cantidad')?.value)||0; const scope=row.querySelector('.select-alcance')?.value||'full'; const volume=calcularDrywallPorVolumen(quantity,unit,scope==='labor'?'solo_mano_obra':'material_mano_obra'); const volumePrice=Number(volume.precioUnitario)*factor; if(auto)row.querySelector('.price').value=volumePrice.toFixed(2); const price=Number(row.querySelector('.price')?.value)||0; const subtotal=quantity*price; const catalog=CATALOGO_REGIONAL[category]||{cargoMinBase:200}; const minimum=catalog.cargoMinBase*factor; const effective=document.querySelector('#toggleMinimos')?.checked&&quantity>0&&subtotal<minimum?minimum:subtotal; row.dataset.regionalSubtotal=String(effective); row.dataset.sqFtEquivalentes=String(volume.sqFtEquivalentes); const tag=row.querySelector('.tag-minimo'); if(tag){ tag.style.display=effective>subtotal?'inline':'none'; tag.textContent=effective>subtotal?`(Min. regional: ${money.format(minimum)})`:''; } }); if(actualizarTotal&&!regionalActualizando){ regionalActualizando=true; update(); regionalActualizando=false; } return result; };
+    const ejecutarMotorConRol = ejecutarMotorPrecios;
+    ejecutarMotorPrecios = function(actualizarTotal=true){ const result=ejecutarMotorConRol(false); const auto=document.querySelector('#toggleAutoPrecios')?.checked; const minimos=document.querySelector('#toggleMinimos')?.checked; const {factor}=obtenerFactorMercado(document.querySelector('#zip-code')?.value.trim()); const modalidad=modalidadGlobalActual(); document.querySelectorAll('.fila-trabajo').forEach(row=>{ const material=buscarMaterialPredictivo(row.querySelector('.description')?.value||''); if(!material?.precioContratista)return; const scope=row.querySelector('.select-alcance')?.value||'full'; const scopeFactor={full:1,labor:.45,replace:1.3,demo:1}[scope]||1; const quantity=Number(row.querySelector('.input-cantidad')?.value)||0; const base=precioMaterialPorRol(material,modalidad); const unitPrice=base*scopeFactor*factor; if(auto)row.querySelector('.price').value=unitPrice.toFixed(2); const price=Number(row.querySelector('.price')?.value)||0; const subtotal=quantity*price; const minimum=minimos&&quantity>0&&material.min?material.min*factor:0; const effective=subtotal<minimum?minimum:subtotal; row.dataset.rolTarifa=modalidad; row.dataset.tarifaBase=String(base); row.dataset.factorZip=String(factor); row.dataset.regionalSubtotal=String(effective); const tag=row.querySelector('.tag-minimo'); if(tag){ tag.style.display=effective>subtotal?'inline':'none'; tag.textContent=effective>subtotal?`(Min. regional: ${money.format(minimum)})`:''; } }); if(actualizarTotal&&!regionalActualizando){ regionalActualizando=true; update(); regionalActualizando=false; } return result; };
+    const ejecutarMotorOBase=ejecutarMotorPrecios;
+    ejecutarMotorPrecios=function(actualizarTotal=true){ const result=ejecutarMotorOBase(false); const rol=modalidadGlobalActual(); const auto=document.querySelector('#toggleAutoPrecios')?.checked; const factor=obtenerFactorMercado(document.querySelector('#zip-code')?.value.trim()).factor; document.querySelectorAll('.fila-trabajo').forEach(row=>{ const material=buscarMaterialPredictivo(row.querySelector('.description')?.value||''); if(row.dataset.catalogoKey||material?.precioContratista)return; const input=row.querySelector('.price'); const quantity=Number(row.querySelector('.input-cantidad')?.value)||0; if(!input)return; if(row.dataset.precioDirecto===undefined)row.dataset.precioDirecto=String((Number(input.value)||0)/FACTOR_GC); const direct=Number(row.dataset.precioDirecto)||0; const final=direct*(rol==='contratista'?FACTOR_GC:1)*factor; if(auto)input.value=final.toFixed(2); row.dataset.rolTarifa=rol; row.dataset.regionalSubtotal=String(quantity*final); }); if(actualizarTotal&&!regionalActualizando){ regionalActualizando=true; update(); regionalActualizando=false; } return result; };
+    const ejecutarMotorConMinimos = ejecutarMotorPrecios;
+    ejecutarMotorPrecios = function(actualizarTotal=true){ const result=ejecutarMotorConMinimos(actualizarTotal); aplicarCargosMinimosNacionales(); return result; };
+    function detectarAlcance(description){ const text=String(description||'').toLowerCase(); if(/solo\s+demolici[oó]n|\bdemo\b|demolition|tear\s*off|remove\s+only|arrancar/.test(text))return 'demo'; if(/arrancar\s+y\s+poner|remove\s*(?:&|and)?\s*replace|replace|reemplaz/.test(text))return 'replace'; if(/solo\s+mano\s+de\s+obra|mano\s+de\s+obra|labor\s+only|labor\s+only|\blabor\b/.test(text))return 'labor'; return 'full'; }
+    function addRow(area, data=['','',1,0,'SF',0]) { const fragment=rowTemplate.content.cloneNode(true); area.querySelector('tbody').appendChild(fragment); const row=area.querySelector('tbody').lastElementChild; row.querySelector('.code').value=data[0]; row.querySelector('.description').value=data[1]; row.querySelector('.input-cantidad').value=data[2]; row.querySelector('.price').value=data[3]; const unitValue=String(data[4]||'SF'); row.querySelector('.select-unidad').value=['SF','Hoja 4x8','LF','SQ','EA'].includes(unitValue)?unitValue:'SF'; if(row.querySelector('.select-alcance'))row.querySelector('.select-alcance').value=['full','labor','replace','demo'].includes(data[6])?data[6]:detectarAlcance(data[1]); row.querySelector('.tax').value=data[5]??0; aplicarSugerenciaMaterial(row); actualizarDatalistPredictivo(data[1]); const descInput=row.querySelector('.description'); const codeInput=row.querySelector('.code'); const codeSelect=row.querySelector('.codigo-item'); const procesarCambioPartida=(e)=>{ if(e.target.classList.contains('description')){ const description=descInput.value; actualizarDatalistPredictivo(description); const material=aplicarSugerenciaMaterial(row); if(row.querySelector('.select-alcance'))row.querySelector('.select-alcance').value=detectarAlcance(description); if(material&&normalizarCatalogoText(material.nombre)===normalizarCatalogoText(description))descInput.blur(); } else if(e.target.classList.contains('codigo-item')&&codeSelect.value){ actualizarPrecioFila(codeSelect); } buscarYAplicarTarifa(row); }; ['input','change'].forEach(evt=>{ if(descInput)descInput.addEventListener(evt,procesarCambioPartida); if(codeInput)codeInput.addEventListener(evt,procesarCambioPartida); if(codeSelect)codeSelect.addEventListener(evt,procesarCambioPartida); }); row.querySelector('.remove-row').addEventListener('click',()=>{ row.remove(); update(); }); row.querySelector('.remove-row').title=translations[language].removeRow; row.querySelector('.remove-row').setAttribute('aria-label',translations[language].removeRow); row.querySelectorAll('input,select').forEach(input=>input.addEventListener('input',update)); }
+    function addArea(data={title:'Nueva Área',reference:'',rows:[['','',1,0,'unit']]}) { areaCount++; const fragment=areaTemplate.content.cloneNode(true); areas.appendChild(fragment); const area=areas.lastElementChild; area.dataset.titleEs=data.title; area.dataset.titleEn=data.titleEn||data.title; area.querySelector('.area-index').textContent=areaCount+'.'; area.querySelector('.area-title').value=language==='en'?(data.titleEn||data.title):data.title; area.querySelector('.area-reference').value=data.reference; area.querySelector('.add-row-btn').addEventListener('click',()=>addRow(area)); area.querySelector('.add-row').addEventListener('click',()=>addRow(area)); area.querySelector('.remove-area-btn').addEventListener('click',()=>{area.remove();renumber();update();}); area.querySelectorAll('.area-title,.area-reference').forEach(input=>input.addEventListener('input',update)); data.rows.forEach(row=>addRow(area,row)); update(); }
+    function renumber(){ areaCount=0; document.querySelectorAll('.area').forEach(area=>area.querySelector('.area-index').textContent=(++areaCount)+'.'); }
+    function parsePaymentAmount(value,total){ const raw=String(value||'').trim(); if(!raw)return 0; if(raw.endsWith('%'))return total*(Number(raw.slice(0,-1).replace(',','.'))||0)/100; return Math.max(Number(raw.replace(/[$,\s]/g,''))||0,0); }
+    function savePaymentState(){ localStorage.setItem(paymentStorageKey,JSON.stringify(paymentState)); }
+    function markPaidIfNeeded(balance,total){ if(total>0 && balance<=0 && paymentState.status!=='paid'){ paymentState.status='paid'; paymentState.paidDate=paymentState.paidDate||new Date().toISOString().slice(0,10); document.querySelector('#status').value='paid'; savePaymentState(); } }
+    function update(){ const paymentWasFocused=document.activeElement?.id==='paidAmount'; let grand=0; const lines=[]; document.querySelectorAll('.area').forEach((area,index)=>{ let subtotal=0; area.querySelectorAll('tbody tr').forEach(row=>{const quantity=Number(row.querySelector('.quantity').value)||0;const price=Number(row.querySelector('.price').value)||0;const total=quantity*price;subtotal+=total;row.querySelector('.row-total').textContent=money.format(total);}); grand+=subtotal; const title=area.querySelector('.area-title').value||`${language==='en'?'Area':'Área'} ${index+1}`; lines.push({title,subtotal}); }); const paid=Math.max(Number(paymentState.paidAmount)||0,0); const balance=Math.max(grand-paid,0); markPaidIfNeeded(balance,grand); const isPaid=paymentState.status==='paid'||(grand>0&&balance<=0); document.querySelector('#summary').innerHTML=lines.map(line=>`<div class="summary-line"><span>${line.title.replace(/^Área de /i,'').replace(/^Area of /i,'')}</span><strong>${money.format(line.subtotal)}</strong></div>`).join('')+`<div class="payment-tracking"><div class="field-row"><label for="paidAmount">Monto Pagado / Amount Paid</label><input id="paidAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="${paymentState.paidAmount}"></div><div class="payment-quick-actions"><button class="btn" type="button" data-payment-action="half">50% Depósito</button><button class="btn" type="button" data-payment-action="full">100% Pagado</button></div></div><div class="summary-line grand"><span>${translations[language].total}</span><strong>${money.format(grand)}<br>USD</strong></div><div class="summary-line"><span id="depositLabel">${translations[language].deposit}</span><strong>${money.format(paid)} USD</strong></div><div class="summary-line balance"><span id="finalPaymentLabel">${translations[language].finalPayment}</span><strong>${money.format(balance)} USD</strong></div>`; const paymentInput=document.querySelector('#paidAmount'); paymentInput.addEventListener('input',event=>{ paymentState.paidAmount=event.target.value; paymentState.status='open'; paymentState.paidDate=''; savePaymentState(); update(); }); document.querySelectorAll('[data-payment-action]').forEach(button=>button.addEventListener('click',()=>{ paymentState.paidAmount=(button.dataset.paymentAction==='half'?grand/2:grand).toFixed(2); paymentState.status=button.dataset.paymentAction==='full'?'paid':'open'; paymentState.paidDate=paymentState.status==='paid'?new Date().toISOString().slice(0,10):''; savePaymentState(); update(); })); document.querySelector('#paidStamp').hidden=!isPaid||docMode!=='invoice'; document.querySelector('#paidDate').textContent=paymentState.paidDate?'Paid date / Fecha: '+paymentState.paidDate:''; if(paymentWasFocused) paymentInput.focus(); }
+    function renderMode(nextMode){ docMode=nextMode; const isInvoice=docMode==='invoice'; const isContract=docMode==='contract'; const title=isInvoice?'FACTURA / INVOICE':isContract?'CONTRATO DE TRABAJO / CONTRACT AGREEMENT':'ESTIMADO / ESTIMATE'; document.querySelector('#documentTitle').textContent=title; document.title=title+' | Solid Remodeling'; document.querySelector('#itemsHeading').textContent=isInvoice?'DETALLE DE FACTURACIÓN / INVOICE ITEMS':'ALCANCE DEL TRABAJO / SCOPE OF WORK'; document.querySelector('#legalTerms').hidden=isInvoice; document.querySelector('#signatures').hidden=!isContract; document.querySelector('#dueDateRow').hidden=!isInvoice; document.querySelector('.bill-to').hidden=!isInvoice; document.querySelector('.payments').hidden=!isInvoice; document.querySelector('.summary').classList.toggle('invoice-summary',isInvoice); document.querySelector('.invoice-thanks').hidden=!isInvoice; document.querySelector('#paidStamp').hidden=!isInvoice; document.querySelector('#termsHeading').textContent='CLÁUSULAS Y EXCLUSIONES / LEGAL TERMS'; document.querySelector('#docMode').value=docMode; if(isInvoice && document.querySelector('#areas').children.length) update(); }
+    function setupSignature(canvas){ const context=canvas.getContext('2d'); let drawing=false; const point=event=>{ const rect=canvas.getBoundingClientRect(); return { x:(event.clientX-rect.left)*canvas.width/rect.width, y:(event.clientY-rect.top)*canvas.height/rect.height }; }; canvas.addEventListener('pointerdown',event=>{ drawing=true; canvas.setPointerCapture(event.pointerId); const start=point(event); context.beginPath(); context.moveTo(start.x,start.y); }); canvas.addEventListener('pointermove',event=>{ if(!drawing)return; const next=point(event); context.lineTo(next.x,next.y); context.strokeStyle='#19385f'; context.lineWidth=2; context.lineCap='round'; context.stroke(); }); canvas.addEventListener('pointerup',()=>{ drawing=false; }); canvas.addEventListener('pointercancel',()=>{ drawing=false; }); }
+    function setLanguage(nextLanguage){ language=nextLanguage; const t=translations[language]; document.documentElement.lang=language; document.title=t.pageTitle; document.querySelector('.toolbar h1').textContent=t.toolbar; document.querySelector('#addArea').textContent=t.addArea; document.querySelector('#printButton').textContent=t.print; document.querySelector('#documentTitle').textContent=t.documentTitle; document.querySelector('#documentSubtitle').textContent=t.subtitle; document.querySelector('#contractorHeading').textContent=t.contractor; document.querySelector('#companyLabel').textContent=t.company; document.querySelector('#representativeLabel').textContent=t.representative; document.querySelector('#contactLabel').textContent=t.contact; document.querySelector('#serviceLabel').textContent=t.service; document.querySelector('#quoteHeading').textContent=t.quoteDetails; document.querySelector('#quoteLabel').textContent=t.quote; document.querySelector('#dateLabel').textContent=t.date; document.querySelector('#plans').previousElementSibling.textContent=t.plans; document.querySelector('#statusLabel').textContent=t.status; document.querySelector('#termsHeading').textContent=t.terms; document.querySelector('#paymentHeading').textContent=t.payment; document.querySelector('#depositLabel').textContent=t.deposit; document.querySelector('#finalPaymentLabel').textContent=t.finalPayment; document.querySelector('.footer-note').textContent=t.footer; document.querySelectorAll('.code-heading').forEach(el=>el.textContent=t.code); document.querySelectorAll('.description-heading').forEach(el=>el.textContent=t.description); document.querySelectorAll('.quantity-heading').forEach(el=>el.textContent=t.quantity); document.querySelectorAll('.price-heading').forEach(el=>el.textContent=t.price); document.querySelectorAll('.subtotal-heading').forEach(el=>el.textContent=t.subtotal); document.querySelectorAll('.add-row-btn').forEach(el=>el.textContent=t.addRow); document.querySelectorAll('.add-row').forEach(el=>el.textContent=t.addRowLong); document.querySelectorAll('.remove-area-btn').forEach(el=>el.textContent=t.removeArea); document.querySelectorAll('.remove-row').forEach(el=>{el.title=t.removeRow;el.setAttribute('aria-label',t.removeRow);}); const terms=document.querySelector('#terms'); if(terms.value===defaultTerms[language==='en'?'es':'en']||Object.values(defaultTerms).includes(terms.value)===false) terms.value=t.termsText; document.querySelectorAll('.area').forEach(area=>{ const current=area.querySelector('.area-title'); if(current.value===area.dataset.titleEs||current.value===area.dataset.titleEn) current.value=language==='en'?area.dataset.titleEn:area.dataset.titleEs; }); update(); }
+    const originalSetLanguage = setLanguage;
+    function populateSpecialties(){ const selector=document.querySelector('#specialty'); const current=selector.value||'cabinetry'; const labels=Object.entries(serviceTemplates).map(([key,template])=>`<option value="${key}">${language==='en'?template.labelEn:template.labelEs}</option>`).join(''); selector.innerHTML=labels; selector.value=current; selector.setAttribute('aria-label',translations[language].specialty); }
+    function loadSpecialty(key){ const template=serviceTemplates[key]||serviceTemplates.blank; areas.innerHTML=''; areaCount=0; template.areas.forEach(area=>addArea({title:area.title,titleEn:area.titleEn,reference:area.reference,rows:area.rows.map(row=>row.slice())})); document.querySelector('#terms').value=language==='en'?template.termsEn:template.termsEs; update(); }
+    function syncCompanyName(){ const companyName=document.querySelector('#company').value.trim(); const displayName=companyName||'NOMBRE DE SU EMPRESA / COMPANY NAME'; document.querySelector('#companyBanner').textContent=displayName; document.querySelector('#documentSubtitle').textContent=displayName; localStorage.setItem(companyStorageKey,companyName); }
+    function getBusinessProfile(){ return { name:document.querySelector('#businessName').value.trim(), representative:document.querySelector('#businessRepresentative').value.trim(), email:document.querySelector('#businessEmail').value.trim(), phone:document.querySelector('#businessPhone').value.trim(), service:document.querySelector('#businessService').value.trim() }; }
+    function applyBusinessProfile(profile){ if(!profile)return; document.querySelector('#company').value=profile.name||''; document.querySelector('#representative').value=profile.representative||''; document.querySelector('#email').value=profile.email||''; document.querySelector('#companyPhone').value=profile.phone||''; document.querySelector('#service').value=profile.service||''; syncCompanyName(); }
+    function openBusinessProfile(){ const saved=JSON.parse(localStorage.getItem(businessProfileStorageKey)||'null')||{name:document.querySelector('#company').value,representative:document.querySelector('#representative').value,email:document.querySelector('#email').value,phone:document.querySelector('#companyPhone').value,service:document.querySelector('#service').value}; Object.entries({businessName:saved.name,businessRepresentative:saved.representative,businessEmail:saved.email,businessPhone:saved.phone,businessService:saved.service}).forEach(([id,value])=>document.querySelector('#'+id).value=value||''); document.querySelector('#businessModal').hidden=false; document.querySelector('#businessName').focus(); }
+    function saveBusinessProfile(){ const profile={name:document.querySelector('#businessName').value.trim(),representative:document.querySelector('#businessRepresentative').value.trim(),email:document.querySelector('#businessEmail').value.trim(),phone:document.querySelector('#businessPhone').value.trim(),service:document.querySelector('#businessService').value.trim()}; localStorage.setItem(businessProfileStorageKey,JSON.stringify(profile)); applyBusinessProfile(profile); document.querySelector('#businessModal').hidden=true; }
+    function syncClientData(){ const clientData={ name:document.querySelector('#clientName').value, email:document.querySelector('#clientEmail').value, phone:document.querySelector('#clientPhone').value, street:document.querySelector('#clientStreet').value, city:document.querySelector('#clientCity').value, state:document.querySelector('#clientState').value, zip:document.querySelector('#clientZip').value }; localStorage.setItem(clientStorageKey,JSON.stringify(clientData)); const contact=[clientData.name,clientData.email,clientData.phone].map(value=>value.trim()).filter(Boolean).join(' | '); const address=[clientData.street.trim(),clientData.city.trim(),[clientData.state,clientData.zip.trim()].filter(Boolean).join(' ')].filter(Boolean); document.querySelector('#clientPrintContact').textContent=contact; document.querySelector('#clientPrintLine').textContent=address.join(', '); }
+    function updatePaymentMethods(){ const selected={}; document.querySelectorAll('.payment-method-toggle').forEach(toggle=>{ selected[toggle.dataset.paymentMethod]=toggle.checked; const card=document.querySelector(`[data-payment-card="${toggle.dataset.paymentMethod}"]`); if(card) card.style.display=toggle.checked?'':'none'; }); localStorage.setItem(paymentMethodsStorageKey,JSON.stringify(selected)); }
+    function getClientData(){ return { name:document.querySelector('#clientName').value.trim(), email:document.querySelector('#clientEmail').value.trim(), phone:document.querySelector('#clientPhone').value.trim(), street:document.querySelector('#clientStreet').value.trim(), city:document.querySelector('#clientCity').value.trim(), state:document.querySelector('#clientState').value, zip:document.querySelector('#clientZip').value.trim() }; }
+    function loadSavedClients(){ const clients=JSON.parse(localStorage.getItem(savedClientsStorageKey)||'[]'); const selector=document.querySelector('#selectorClientes'); selector.innerHTML='<option value="">-- Clientes guardados --</option>'+clients.map((client,index)=>`<option value="${index}">${client.name||client.email||client.phone||'Cliente '+(index+1)}</option>`).join(''); }
+    function saveCurrentClient(){ const client=getClientData(); if(!client.name&&!client.email&&!client.phone&&!client.street&&!client.city&&!client.zip)return; const clients=JSON.parse(localStorage.getItem(savedClientsStorageKey)||'[]'); const existingIndex=clients.findIndex(saved=>saved.email&&client.email&&saved.email.toLowerCase()===client.email.toLowerCase()); if(existingIndex>=0) clients[existingIndex]=client; else clients.push(client); localStorage.setItem(savedClientsStorageKey,JSON.stringify(clients)); loadSavedClients(); document.querySelector('#selectorClientes').value=String(existingIndex>=0?existingIndex:clients.length-1); }
+    function fillClient(client){ Object.entries({clientName:client.name,clientEmail:client.email,clientPhone:client.phone,clientStreet:client.street,clientCity:client.city,clientState:client.state,clientZip:client.zip}).forEach(([id,value])=>{ if(value!==undefined&&value!==null) document.querySelector('#'+id).value=value; }); syncClientData(); }
+    function nextInvoiceNumber(value){ const match=String(value||'').match(/^(.*?)(\d{4})$/); if(!match)return 'INV-'+new Date().getFullYear()+'-0001'; return match[1]+String(Number(match[2])+1).padStart(4,'0'); }
+    function createNewInvoice(){ document.querySelector('#quote').value=nextInvoiceNumber(document.querySelector('#quote').value); document.querySelector('#date').value=new Date().toISOString().slice(0,10); ['clientName','clientEmail','clientPhone','clientStreet','clientCity','clientZip'].forEach(id=>document.querySelector('#'+id).value=''); document.querySelector('#clientState').value='GA'; document.querySelector('#dueDate').value=''; paymentState={paidAmount:'',status:'open',paidDate:''}; document.querySelector('#status').value='open'; savePaymentState(); areas.innerHTML=''; areaCount=0; addArea({title:'Nuevo Trabajo',titleEn:'New Work',reference:'',rows:[['','',1,0,'unit']]}); syncClientData(); const profile=JSON.parse(localStorage.getItem(businessProfileStorageKey)||'null'); if(profile) applyBusinessProfile(profile); document.querySelector('#paidStamp').hidden=true; }
+    function exportFilename(){ return (document.querySelector('#quote').value||'factura').replace(/[^a-z0-9_-]+/gi,'_'); }
+    async function captureInvoice(){ if(typeof html2canvas!=='function') throw new Error('html2canvas no está disponible'); const invoice=document.querySelector('.document'); invoice.classList.add('export-clean'); try { return await html2canvas(invoice,{backgroundColor:'#fff',scale:2,useCORS:true,logging:false}); } finally { invoice.classList.remove('export-clean'); } }
+    function downloadCanvas(canvas){ const link=document.createElement('a'); link.download=exportFilename()+'.png'; link.href=canvas.toDataURL('image/png'); link.click(); }
+    function canvasBlob(canvas){ return new Promise(resolve=>canvas.toBlob(resolve,'image/png')); }
+    async function downloadInvoiceImage(){ try { const canvas=await captureInvoice(); downloadCanvas(canvas); document.querySelector('#exportModal').hidden=true; } catch(error) { alert('No se pudo crear la imagen de la factura.'); console.error(error); } }
+    async function shareInvoiceImage(){ try { const canvas=await captureInvoice(); const blob=await canvasBlob(canvas); const file=new File([blob],exportFilename()+'.png',{type:'image/png'}); if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({title:document.querySelector('#quote').value,text:'Factura '+document.querySelector('#quote').value,files:[file]}); } else { downloadCanvas(canvas); window.open('https://web.whatsapp.com/send?text='+encodeURIComponent('Factura '+document.querySelector('#quote').value),'_blank'); } document.querySelector('#exportModal').hidden=true; } catch(error) { if(error.name!=='AbortError') { alert('No se pudo compartir la imagen; se iniciará una descarga.'); console.error(error); } } }
+    function emailInvoice(){ const invoiceNumber=document.querySelector('#quote').value; const summary=document.querySelector('#summary').innerText.replace(/\n+/g,' | '); const subject=encodeURIComponent('Factura '+invoiceNumber); const body=encodeURIComponent('Hola,\n\nAdjunto/resumen de la factura '+invoiceNumber+'.\n\n'+summary+'\n\nSaludos.'); window.location.href='mailto:?subject='+subject+'&body='+body; document.querySelector('#exportModal').hidden=true; }
+    let reportPreviewUrl='';
+    function clearTechnicalPreview(){ if(reportPreviewUrl){ URL.revokeObjectURL(reportPreviewUrl); reportPreviewUrl=''; } const container=document.querySelector('#technicalDiagram'); document.querySelector('#technicalDiagramContent').replaceChildren(); container.classList.remove('has-content'); }
+    function showTechnicalPreview(element,message){ const content=document.querySelector('#technicalDiagramContent'); content.replaceChildren(element); if(message){ const note=document.createElement('p'); note.textContent=message; content.appendChild(note); } document.querySelector('#technicalDiagram').classList.add('has-content'); }
+    function extractMeasurement(xmlDocument,patterns){ let result=null; const nodes=[...xmlDocument.getElementsByTagName('*')]; for(const node of nodes){ const attributes=[...node.attributes||[]].map(attribute=>attribute.name+' '+attribute.value).join(' '); const label=(node.tagName+' '+attributes+' '+(node.children.length?'':node.textContent||'')).toLowerCase(); if(patterns.some(pattern=>pattern.test(label))){ const match=label.match(/-?\d+(?:[.,]\d+)?/); if(match){ result=Number(match[0].replace(',','.')); break; } } } return result; }
+    function importMeasurements(xmlTexts){ const parser=new DOMParser(); const totals={roofSquares:0,ridge:0,dripEdge:0,valleys:0}; const found={roofSquares:false,ridge:false,dripEdge:false,valleys:false}; xmlTexts.forEach(xmlText=>{ const xml=parser.parseFromString(xmlText,'application/xml'); const measurements={roofSquares:[/roof\s*squares?/i,/roofsquare/i,/squares/i],ridge:[/ridge/i],dripEdge:[/drip\s*edge/i,/dripedge/i],valleys:[/valley/i]}; Object.entries(measurements).forEach(([key,patterns])=>{ const value=extractMeasurement(xml,patterns); if(value!==null&&!found[key]){ totals[key]=value; found[key]=true; } }); }); const rows=[['ROOF','Roof Squares',totals.roofSquares,0,'unit',0],['RIDGE','Ridge',totals.ridge,0,'lf',0],['DRIP-EDGE','Drip Edge',totals.dripEdge,0,'lf',0],['VALLEYS','Valleys',totals.valleys,0,'lf',0]].filter((row,index)=>found[Object.keys(found)[index]]); if(!rows.length)return 0; addArea({title:'Medición de Techo / Exterior',titleEn:'Roof / Exterior Measurement',reference:'IMPORTADO',rows}); return rows.length; }
+    async function showImagePreview(file){ const reader=new FileReader(); reader.onload=()=>{ const image=document.createElement('img'); image.alt='Plano o croquis técnico importado'; image.src=reader.result; showTechnicalPreview(image,'Imagen importada: '+file.name); }; reader.readAsDataURL(file); }
+    async function extractPdfText(file){ const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise; const pages=[]; for(let pageNumber=1;pageNumber<=pdf.numPages;pageNumber++){ const page=await pdf.getPage(pageNumber); const content=await page.getTextContent(); pages.push(content.items.map(item=>item.str).join(' ')); } return pages.join('\n'); }
+    function normalizePdfText(text){ return String(text||'').toLowerCase().replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim(); }
+    function extractUniversalMeasurements(text){ const normalized=normalizePdfText(text); const definitions=[
+      {unit:'SF',selectUnit:'sf',expression:/([a-záéíóúñ][a-záéíóúñ /&(),'"-]{1,90}?)\s+(\d+(?:[.,]\d+)?)\s*(?:sq\s*ft|sqft|sf|sq|pies\s+cuadrados|m2)\b/gi},
+      {unit:'LF',selectUnit:'lf',expression:/([a-záéíóúñ][a-záéíóúñ /&(),'"-]{1,90}?)\s+(\d+(?:[.,]\d+)?)\s*(?:lf|lin\s*ft|linear\s*ft|pies\s+lineales)\b/gi},
+      {unit:'EA',selectUnit:'ea',expression:/([a-záéíóúñ][a-záéíóúñ /&(),'"-]{1,90}?)\s+(\d+(?:[.,]\d+)?)\s*(?:ea|each|pcs|pza|unidades?)\b/gi}
+    ]; const results=[]; const seen=new Set(); definitions.forEach(definition=>{ let match; while((match=definition.expression.exec(normalized))){ const description=match[1].replace(/^[\s:;|/.-]+|[\s:;|/.-]+$/g,'').replace(/^(?:sq\s*ft|sqft|sf|sq|lf|lin\s*ft|linear\s*ft|ea|each|pcs|pza|unidades?)\s+/i,'').trim(); const quantity=Number(match[2].replace(',','.')); const key=description+'|'+quantity+'|'+definition.unit; if(description.length>=2&&!seen.has(key)){ seen.add(key); results.push({description,quantity,unit:definition.unit,selectUnit:definition.selectUnit}); } } }); return results; }
+    function universalFallbackRows(){ return [['GEN-01','Demolición y Preparación de Área',1,'0','global',0],['GEN-02','Instalación de Acabados Principales (Pisos / Paredes)',0,'0','sf',0],['GEN-03','Accesorios y Carpintería / Trim',0,'0','lf',0]]; }
+    function replaceWithUniversalRows(rows,fileName){ areas.innerHTML=''; areaCount=0; addArea({title:'Medidas Extraídas del PDF',titleEn:'PDF Extracted Measurements',reference:fileName,rows:rows.map((row,index)=>[row.code||`GEN-${String(index+1).padStart(2,'0')}`,row.description,row.quantity,0,row.selectUnit,0])}); update(); }
+    async function showPdfPreview(file,message){ clearTechnicalPreview(); reportPreviewUrl=URL.createObjectURL(file); const frame=document.createElement('iframe'); frame.src=reportPreviewUrl; frame.title='Vista previa completa del reporte PDF'; showTechnicalPreview(frame,message||'Reporte PDF adjunto: '+file.name); }
+    async function importEsx(file){ if(typeof JSZip!=='function')throw new Error('JSZip no está disponible'); clearTechnicalPreview(); const zip=await JSZip.loadAsync(file); const xmlTexts=[]; let imageFile=null; for(const entry of Object.values(zip.files)){ if(entry.dir)continue; const lower=entry.name.toLowerCase(); if(lower.endsWith('.xml'))xmlTexts.push(await entry.async('string')); if(!imageFile&&/\.(jpg|jpeg|png|gif|webp)$/i.test(lower))imageFile=entry; } const rowCount=importMeasurements(xmlTexts); if(imageFile){ const imageBlob=await imageFile.async('blob'); reportPreviewUrl=URL.createObjectURL(imageBlob); const image=document.createElement('img'); image.alt='Croquis técnico extraído del reporte ESX'; image.src=reportPreviewUrl; showTechnicalPreview(image,rowCount?'Mediciones y croquis extraídos de '+file.name:'Croquis extraído de '+file.name); } else if(rowCount){ const note=document.createElement('p'); note.textContent='Mediciones extraídas de '+file.name+'. No se encontró una imagen de croquis dentro del archivo.'; showTechnicalPreview(note); } else { alert('No se encontraron mediciones reconocibles dentro del archivo ESX.'); } }
+    async function importReport(file){ const extension=file.name.split('.').pop().toLowerCase(); try { if(extension==='esx')await importEsx(file); else if(extension==='xml') { clearTechnicalPreview(); const xml=await file.text(); const rowCount=importMeasurements([xml]); if(rowCount) { const note=document.createElement('p'); note.textContent='Mediciones XML importadas: '+file.name; showTechnicalPreview(note); } else alert('No se encontraron mediciones reconocibles en el XML.'); } else if(extension==='pdf') { const extractedText=await extractPdfText(file); const measurements=extractUniversalMeasurements(extractedText); const rows=measurements.length?measurements:universalFallbackRows(); replaceWithUniversalRows(rows,file.name); const message=measurements.length?'PDF analizado: '+measurements.length+' partida(s) detectada(s).':'PDF sin texto detallado: se crearon 3 partidas base universales.'; await showPdfPreview(file,message); } else if(['jpg','jpeg','png'].includes(extension))await showImagePreview(file); } catch(error){ alert('No se pudo procesar el reporte técnico.'); console.error(error); } finally { document.querySelector('#reportFileInput').value=''; } }
+    function update(){ const paymentWasFocused=document.activeElement?.id==='paidAmount'; let subtotalTotal=0; let taxTotal=0; const lines=[]; document.querySelectorAll('.area').forEach((area,index)=>{ let areaSubtotal=0; area.querySelectorAll('tbody tr').forEach(row=>{ const quantity=Number(row.querySelector('.quantity').value)||0; const price=Number(row.querySelector('.price').value)||0; const taxRate=Math.max(Number(row.querySelector('.tax').value)||0,0); const lineSubtotal=quantity*price; const lineTax=lineSubtotal*taxRate/100; areaSubtotal+=lineSubtotal; subtotalTotal+=lineSubtotal; taxTotal+=lineTax; row.querySelector('.row-total').textContent=money.format(lineSubtotal); }); const title=area.querySelector('.area-title').value||`${language==='en'?'Area':'Área'} ${index+1}`; lines.push({title,subtotal:areaSubtotal}); }); const grand=subtotalTotal+taxTotal; const paid=Math.max(Number(paymentState.paidAmount)||0,0); const balance=Math.max(grand-paid,0); markPaidIfNeeded(balance,grand); const isPaid=paymentState.status==='paid'||(grand>0&&balance<=0); const averageTax=subtotalTotal?taxTotal/subtotalTotal*100:0; document.querySelector('#summary').innerHTML=lines.map(line=>`<div class="summary-line"><span>${line.title.replace(/^Área de /i,'').replace(/^Area of /i,'')}</span><strong>${money.format(line.subtotal)}</strong></div>`).join('')+`<div class="payment-tracking"><div class="field-row"><label for="paidAmount">Monto Pagado / Amount Paid</label><input id="paidAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="${paymentState.paidAmount}"></div><div class="payment-quick-actions"><button class="btn" type="button" data-payment-action="half">50% Depósito</button><button class="btn" type="button" data-payment-action="full">100% Pagado</button></div></div><div class="summary-line"><span>Subtotal</span><strong>${money.format(subtotalTotal)} USD</strong></div><div class="summary-line"><span>Tasas / Impuestos (Tax) <small>(${averageTax.toFixed(2)}%)</small></span><strong>${money.format(taxTotal)} USD</strong></div><div class="summary-line grand"><span>Total General</span><strong>${money.format(grand)}<br>USD</strong></div><div class="summary-line"><span id="depositLabel">${translations[language].deposit}</span><strong>${money.format(paid)} USD</strong></div><div class="summary-line balance"><span id="finalPaymentLabel">${translations[language].finalPayment}</span><strong>${money.format(balance)} USD</strong></div>`; const paymentInput=document.querySelector('#paidAmount'); paymentInput.addEventListener('input',event=>{ paymentState.paidAmount=event.target.value; paymentState.status='open'; paymentState.paidDate=''; savePaymentState(); update(); }); document.querySelectorAll('[data-payment-action]').forEach(button=>button.addEventListener('click',()=>{ paymentState.paidAmount=(button.dataset.paymentAction==='half'?grand/2:grand).toFixed(2); paymentState.status=button.dataset.paymentAction==='full'?'paid':'open'; paymentState.paidDate=paymentState.status==='paid'?new Date().toISOString().slice(0,10):''; savePaymentState(); update(); })); document.querySelector('#paidStamp').hidden=!isPaid||docMode!=='invoice'; document.querySelector('#paidDate').textContent=paymentState.paidDate?'Paid date / Fecha: '+paymentState.paidDate:''; if(paymentWasFocused) paymentInput.focus(); }
+    function configurarMotorPrecios(){ ['zip-code','toggleAutoPrecios','toggleMinimos'].forEach(id=>{ const element=document.querySelector('#'+id); if(element)element.addEventListener(element.type==='text'?'input':'change',()=>{ if(id==='zip-code'){ const city=document.querySelector('#select-ciudad'); const state=document.querySelector('#select-estado'); if(city&&city.value!==element.value)city.value=''; if(state&&city&&!city.value)state.value=''; } ejecutarMotorPrecios(); }); }); document.addEventListener('change',event=>{ if(event.target.matches('.select-rol,#select-rol'))ejecutarMotorPrecios(); }); }
+    async function verificarActualizacionMensual(){ const fechaGuardada=localStorage.getItem('fecha_actualizacion_precios'); const cache=localStorage.getItem('catalogo_precios_cache'); const badge=document.querySelector('#badgeEstadoSync'); const hoy=new Date(); const dias=fechaGuardada?(hoy-new Date(fechaGuardada))/86400000:DIAS_EXPIRACION; if(dias<DIAS_EXPIRACION&&cache){ Object.assign(CATALOGO_REGIONAL,JSON.parse(cache)); if(badge)badge.textContent=`Vigente (expira en ${Math.ceil(DIAS_EXPIRACION-dias)}d)`; return; } if(!navigator.onLine)return; try{ const response=await fetch(URL_CATALOGO_NUBE); if(!response.ok)throw new Error('Catálogo no disponible'); const remote=await response.json(); Object.keys(CATALOGO_REGIONAL).forEach(key=>{ if(remote[key])Object.assign(CATALOGO_REGIONAL[key],remote[key]); }); localStorage.setItem('catalogo_precios_cache',JSON.stringify(remote)); localStorage.setItem('fecha_actualizacion_precios',hoy.toISOString()); if(badge)badge.textContent='✔ Actualizado este mes'; ejecutarMotorPrecios(); }catch(error){ if(badge)badge.textContent='Modo offline (Precios locales)'; } }
+    document.querySelector('#specialty').addEventListener('change',event=>loadSpecialty(event.target.value));
+    document.querySelector('#addArea').addEventListener('click',()=>addArea());
+    document.querySelector('#importReportButton').addEventListener('click',()=>document.querySelector('#reportFileInput').click());
+    document.querySelector('#reportFileInput').addEventListener('change',event=>{ const file=event.target.files[0]; if(file)importReport(file); });
+    document.querySelector('#exportButton').addEventListener('click',()=>document.querySelector('#exportModal').hidden=false);
+    document.querySelector('#closeExportButton').addEventListener('click',()=>document.querySelector('#exportModal').hidden=true);
+    document.querySelector('#downloadImageButton').addEventListener('click',downloadInvoiceImage);
+    document.querySelector('#shareImageButton').addEventListener('click',shareInvoiceImage);
+    document.querySelector('#exportPdfButton').addEventListener('click',()=>{ document.querySelector('#exportModal').hidden=true; window.print(); });
+    document.querySelector('#emailInvoiceButton').addEventListener('click',emailInvoice);
+    document.querySelector('#newInvoiceButton').addEventListener('click',createNewInvoice);
+    document.querySelector('#businessProfileButton').addEventListener('click',openBusinessProfile);
+    document.querySelector('#cancelBusinessButton').addEventListener('click',()=>document.querySelector('#businessModal').hidden=true);
+    document.querySelector('#businessForm').addEventListener('submit',event=>{ event.preventDefault(); saveBusinessProfile(); });
+    document.querySelector('#saveClientButton').addEventListener('click',saveCurrentClient);
+    document.querySelector('#selectorClientes').addEventListener('change',event=>{ if(!event.target.value)return; const clients=JSON.parse(localStorage.getItem(savedClientsStorageKey)||'[]'); if(clients[event.target.value]) fillClient(clients[event.target.value]); });
+    const savedPaymentMethods=JSON.parse(localStorage.getItem(paymentMethodsStorageKey)||'null');
+    if(savedPaymentMethods) document.querySelectorAll('.payment-method-toggle').forEach(toggle=>{ if(savedPaymentMethods[toggle.dataset.paymentMethod]!==undefined) toggle.checked=savedPaymentMethods[toggle.dataset.paymentMethod]; });
+    document.querySelectorAll('.payment-method-toggle').forEach(toggle=>toggle.addEventListener('change',updatePaymentMethods));
+    updatePaymentMethods();
+    document.querySelector('#language').addEventListener('change',event=>setLanguage(event.target.value));
+    const savedCompanyName=localStorage.getItem(companyStorageKey);
+    if(savedCompanyName!==null) document.querySelector('#company').value=savedCompanyName;
+    const savedBusinessProfile=JSON.parse(localStorage.getItem(businessProfileStorageKey)||'null');
+    if(savedBusinessProfile) applyBusinessProfile(savedBusinessProfile);
+    document.querySelector('#company').addEventListener('input',syncCompanyName);
+    const savedClientData=JSON.parse(localStorage.getItem(clientStorageKey)||'null');
+    if(savedClientData){ Object.entries({clientName:savedClientData.name,clientEmail:savedClientData.email,clientPhone:savedClientData.phone,clientStreet:savedClientData.street,clientCity:savedClientData.city,clientState:savedClientData.state,clientZip:savedClientData.zip}).forEach(([id,value])=>{ if(value!==undefined && value!==null) document.querySelector('#'+id).value=value; }); }
+    document.querySelectorAll('#clientName,#clientEmail,#clientPhone,#clientStreet,#clientCity,#clientZip').forEach(field=>field.addEventListener('input',syncClientData));
+    document.querySelector('#clientState').addEventListener('change',syncClientData);
+    const savedPaymentState=JSON.parse(localStorage.getItem(paymentStorageKey)||'null');
+    if(savedPaymentState){ paymentState={...paymentState,...savedPaymentState,paidAmount:savedPaymentState.paidAmount??savedPaymentState.amountInput??''}; document.querySelector('#status').value=paymentState.status; }
+    document.querySelector('#status').addEventListener('change',event=>{ paymentState.status=event.target.value; paymentState.paidDate=paymentState.status==='paid'?(paymentState.paidDate||new Date().toISOString().slice(0,10)):''; savePaymentState(); update(); });
+    document.querySelector('#docMode').addEventListener('change',event=>renderMode(event.target.value));
+    document.querySelector('#qrUpload').addEventListener('change',event=>{ const file=event.target.files[0]; const preview=document.querySelector('#qrPreview'); if(!file){ preview.removeAttribute('src'); preview.style.display='none'; return; } preview.src=URL.createObjectURL(file); preview.style.display='block'; });
+    document.querySelectorAll('.signature-canvas').forEach(setupSignature);
+    document.querySelector('#date').value=new Date().toISOString().slice(0,10);
+    document.querySelector('#specialty').value='cabinetry';
+    loadSavedClients();
+    initialAreas.forEach(addArea);
+    document.querySelectorAll('.fila-trabajo').forEach(poblarCatalogoPartidas);
+    new MutationObserver(mutations=>mutations.forEach(mutation=>mutation.addedNodes.forEach(node=>{ if(node.nodeType===1){ if(node.matches('.fila-trabajo'))poblarCatalogoPartidas(node); node.querySelectorAll?.('.fila-trabajo').forEach(poblarCatalogoPartidas); } }))).observe(areas,{childList:true,subtree:true});
+    syncClientData();
+    setLanguage('es');
+    actualizarCiudades();
+    aplicarMinimosProyecto();
+    configurarMotorPrecios();
+    verificarActualizacionMensual();
+    ejecutarMotorPrecios();
+    if(!savedBusinessProfile) openBusinessProfile();
+  </script>
+</body>
+</html>
