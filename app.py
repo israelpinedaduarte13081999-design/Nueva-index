@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 ssl._create_default_https_context = ssl._create_unverified_context
-from flask import Flask, Response, request, jsonify, send_file
+from flask import Flask, Response, request, jsonify, send_file, render_template
 from flask_cors import CORS
 from dotenv import load_dotenv
 from google import genai
@@ -16,9 +16,10 @@ from google.genai import types
 
 load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder=".")
 CORS(app)
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024
+COOKIE_CONTRATISTA = "contratista_token"
 client = genai.Client()
 TABLA_CATALOGO = "catalogo_items"
 TABLA_FACTORES = "factores_regionales_usa"
@@ -132,7 +133,12 @@ def _motor_uszipcode():
 @app.route("/cotizador")
 @app.route("/historial")
 def home():
-    return send_file("index.html")
+    nombre = _nombre_empresa_sesion()
+    return render_template(
+        "index.html",
+        nombre_empresa=nombre,
+        nombre_empresa_visible=nombre or "Your company",
+    )
 
 
 def _texto_zipcode(result, *attrs):
@@ -1977,7 +1983,37 @@ def _token_contratista_solicitud():
     auth = str(request.headers.get("Authorization") or "").strip()
     if auth.lower().startswith("bearer "):
         return auth[7:].strip()
-    return str(request.headers.get("X-Contratista-Token") or "").strip()
+    header = str(request.headers.get("X-Contratista-Token") or "").strip()
+    if header:
+        return header
+    cookie = str(request.cookies.get(COOKIE_CONTRATISTA) or "").strip()
+    if cookie:
+        return cookie
+    return str(request.args.get("token") or "").strip()
+
+
+def _nombre_empresa_sesion():
+    token = _token_contratista_solicitud()
+    if not token:
+        return ""
+    try:
+        row = contratista_por_token(token)
+    except Exception:
+        return ""
+    return str((row or {}).get("nombre_empresa") or "").strip()
+
+
+def _adjuntar_sesion_contratista(respuesta, token):
+    if token:
+        respuesta.set_cookie(
+            COOKIE_CONTRATISTA,
+            token,
+            max_age=60 * 60 * 24 * 400,
+            httponly=True,
+            samesite="Lax",
+            path="/",
+        )
+    return respuesta
 
 
 def _error_sin_funcion_tenant(err):
@@ -2443,12 +2479,13 @@ def api_contratistas():
         if not row or not row.get("token"):
             return jsonify({"error": _SQL_MULTITENANT}), 503
         print(f"--> contratista registrado id={row.get('id')}")
-        return jsonify({
+        resp = jsonify({
             "id": row.get("id"),
             "email": row.get("email"),
             "nombre_empresa": row.get("nombre_empresa"),
             "token": row.get("token"),
         })
+        return _adjuntar_sesion_contratista(resp, row.get("token"))
     contratista, error = _exigir_contratista()
     if error:
         return error
@@ -2462,7 +2499,8 @@ def api_contratistas():
         return _respuesta_tenant(err)
     if not row:
         return jsonify({"error": "Contractor not authorized"}), 403
-    return jsonify(row)
+    resp = jsonify(row)
+    return _adjuntar_sesion_contratista(resp, contratista.get("token"))
 
 
 @app.route("/api/contratistas/yo", methods=["GET"])
@@ -2470,11 +2508,12 @@ def api_contratista_actual():
     contratista, error = _exigir_contratista()
     if error:
         return error
-    return jsonify({
+    resp = jsonify({
         "id": contratista.get("id"),
         "email": contratista.get("email"),
         "nombre_empresa": contratista.get("nombre_empresa"),
     })
+    return _adjuntar_sesion_contratista(resp, contratista.get("token"))
 
 
 @app.route("/api/historial", methods=["GET", "POST"])
@@ -3804,10 +3843,20 @@ def _imagen_a_pdf(png_bytes):
     return salida.getvalue()
 
 
+def _html_marca_blanca(html, nombre_empresa=""):
+    texto = str(html or "")
+    texto = re.sub(r"Zipnova", "", texto, flags=re.I)
+    marca = re.sub(r"[\r\n]+", " ", str(nombre_empresa or "")).strip()
+    if marca:
+        texto = re.sub(r"Solid Remodeling(?:\s*&\s*Reconstruction\s*LLC)?", marca, texto, flags=re.I)
+    return texto
+
+
 def _pdf_desde_solicitud(data):
     html = str((data or {}).get("html") or "").strip()
     if html:
-        html = _traducir_servicio_en_html_pdf(html)
+        nombre = str((data or {}).get("nombre_empresa") or (data or {}).get("company") or "").strip()
+        html = _html_marca_blanca(_traducir_servicio_en_html_pdf(html), nombre)
         return _html_a_pdf_navegador(html)
     imagen = _bytes_imagen_pdf((data or {}).get("image") or (data or {}).get("png") or (data or {}).get("dataUrl") or "")
     if imagen:

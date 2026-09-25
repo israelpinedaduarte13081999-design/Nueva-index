@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Flask==3.1.3
 flask-cors==6.0.5
 python-dotenv==1.2.3
@@ -15,3 +16,6 @@ PyPDF2==3.0.1
 PyMuPDF==1.28.2
 pdfminer.six==20260107
 gunicorn==26.2.0
+=======
+
+>>>>>>> 2c736358fcdc6e8666e582cec12d959dedade0b4

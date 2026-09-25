@@ -6,7 +6,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=Great+Vibes&display=swap" rel="stylesheet">
-  <title>Invoice | Solid Remodeling</title>
+  <title>{{ nombre_empresa_visible }} | Documents</title>
   <style>
     :root { --navy:#19385f; --blue:#2d70ad; --blue-soft:#edf5fb; --ink:#1d2b3b; --muted:#627083; --line:#d7e0e8; --gold:#dba72b; --green:#27834e; --green-soft:#effaf2; --paper:#fff; --canvas:#eef2f6; }
     * { box-sizing:border-box; }
@@ -69,7 +69,12 @@
     .badge { padding:4px 10px; border-radius:999px; font-size:.8rem; font-weight:600; display:inline-block; }
     .badge-pending { background-color:#fef3c7; color:#b45309; }
     .badge-paid { background-color:#dcfce7; color:#15803d; }
-    .btn-sm { background-color:#0284c7; color:#ffffff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:.85rem; }
+    .signup-card { margin-top:18px; padding:16px 18px; border:1px solid #e2e8f0; border-radius:12px; background:#fff; max-width:420px; }
+    .signup-card h3 { margin:0 0 6px; color:#0f172a; font-size:1.05rem; }
+    .signup-card p { margin:0 0 12px; color:#64748b; font-size:.9rem; }
+    .signup-card label { display:block; font-size:.8rem; font-weight:700; color:#334155; margin:8px 0 4px; }
+    .signup-card input { width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:8px 10px; background:#fff; }
+    .signup-card button { margin-top:12px; }
     .btn-sm:hover { background-color:#0369a1; }
     button,input,textarea { font:inherit; }
     button { cursor:pointer; }
@@ -466,9 +471,9 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
-<body>
+<body data-nombre-empresa="{{ nombre_empresa }}">
   <nav class="app-navbar no-print" aria-label="Main navigation">
-    <div class="brand-title">Solid Remodeling</div>
+    <div class="brand-title" data-brand-name>{{ nombre_empresa_visible }}</div>
     <div class="nav-links">
       <button class="nav-btn active" type="button" data-view="home" data-i18n="nav.home">Home</button>
       <button class="nav-btn" type="button" data-view="quote" data-i18n="nav.quote">Quote</button>
@@ -479,6 +484,16 @@
     <div class="hero-card">
       <h2 data-i18n="home.title">Work dashboard</h2>
       <p data-i18n="home.lead">Create estimates, invoices, and review document history from one place.</p>
+      <form class="signup-card" id="registroContratistaForm">
+        <h3>Contractor account</h3>
+        <p>Enter your company name. Clients will only see this name on estimates and contracts.</p>
+        <label for="registroNombreEmpresa">Company name</label>
+        <input id="registroNombreEmpresa" name="nombre_empresa" required maxlength="120" placeholder="Your remodeling company LLC" value="{{ nombre_empresa }}">
+        <label for="registroEmail">Email</label>
+        <input id="registroEmail" name="email" type="email" required placeholder="you@company.com">
+        <button class="btn btn-primary" type="submit">Save company</button>
+        <p id="registroContratistaStatus" hidden></p>
+      </form>
       <div class="action-cards-grid">
         <div class="action-card main-doc-card">
           <div class="card-top">
@@ -670,9 +685,9 @@
     <div class="save-toast no-print" id="saveToast" hidden>Saved successfully</div>
     <section class="document" aria-label="Work estimate">
       <header class="brand">
-        <h2 id="companyBanner">SOLID REMODELING &amp; RECONSTRUCTION LLC</h2>
+        <h2 id="companyBanner" data-brand-name>{{ nombre_empresa_visible }}</h2>
         <p id="documentTitle" data-i18n="documentTitleInvoice">INVOICE</p>
-        <small id="documentSubtitle" data-i18n="subtitle">Solid Remodeling &amp; Reconstruction LLC</small>
+        <small id="documentSubtitle" data-brand-name data-i18n="subtitle">{{ nombre_empresa_visible }}</small>
         <div class="brand-folio">
           <label for="quote" id="quoteLabel">Document No.</label>
           <input id="quote" value="INV-2026-#0001" spellcheck="false">
@@ -682,7 +697,7 @@
       <div class="tech-grid">
         <section class="tech-card">
           <h3 id="contractorHeading" data-i18n="contractor">Contractor</h3>
-          <div class="field-row"><label for="company" id="companyLabel" data-i18n="company">Company</label><input id="company" value="Solid Remodeling &amp; Reconstruction LLC"></div>
+          <div class="field-row"><label for="company" id="companyLabel" data-i18n="company">Company</label><input id="company" value="{{ nombre_empresa }}"></div>
           <div class="field-row"><label for="representative" id="representativeLabel" data-i18n="representative">Representative</label><input id="representative" value="Israel Pineda"></div>
           <div class="field-row"><label for="email" id="contactLabel" data-i18n="contact">Contact</label><input id="email" value="israelpinedaurte13081999@gmail.com"></div>
           <div class="field-row"><label for="companyPhone" data-i18n="phone">Phone</label><input id="companyPhone"></div>
@@ -796,7 +811,7 @@
             <div class="payment-grid">
               <div class="payment" data-payment-card="zelle"><b>Zelle</b><div class="field-row"><label for="zellePhone">Registered phone</label><input id="zellePhone" value=""></div><div class="field-row"><label for="zelleEmail">Registered email</label><input id="zelleEmail" value=""></div><div class="field-row"><label for="zelleName">Account name</label><input id="zelleName" value=""></div></div>
               <div class="payment" data-payment-card="online"><b>Online payment</b><div class="field-row"><label for="onlinePaymentUrl">Payment link</label><input id="onlinePaymentUrl" value="https://"></div><label class="btn" for="qrUpload">Upload QR code</label><input class="sr-only" id="qrUpload" type="file" accept="image/*"><img class="qr-preview" id="qrPreview" alt="QR code"></div>
-              <div class="payment" data-payment-card="check"><b>Check</b><div class="field-row"><label for="checkPayee">Make check payable to</label><input id="checkPayee" value="Solid Remodeling &amp; Reconstruction LLC"></div><div class="field-row"><label for="checkAddress">Address</label><input id="checkAddress" value="Mailing address for checks"></div></div>
+              <div class="payment" data-payment-card="check"><b>Check</b><div class="field-row"><label for="checkPayee">Make check payable to</label><input id="checkPayee" value="{{ nombre_empresa }}"></div><div class="field-row"><label for="checkAddress">Address</label><input id="checkAddress" value="Mailing address for checks"></div></div>
               <div class="payment" data-payment-card="bank"><b>Bank transfer</b><div class="field-row"><label for="bankName">Bank</label><input id="bankName" value=""></div><div class="field-row"><label for="routingNumber">Routing number</label><input id="routingNumber" value=""></div><div class="field-row"><label for="accountNumber">Account</label><input id="accountNumber" value=""></div></div>
             </div>
           </div>
@@ -804,7 +819,7 @@
         <div class="summary" id="summary" aria-live="polite" aria-atomic="true"></div>
       </section>
       <div class="invoice-thanks">Thank you for your business!</div>
-      <div class="footer-note">Document generated by Solid Remodeling &amp; Reconstruction LLC · Amounts in USD</div>
+      <div class="footer-note" data-brand-footer>Document generated by {{ nombre_empresa_visible }} · Amounts in USD</div>
     </section>
   </main>
   </section>
@@ -1012,7 +1027,7 @@
     <option value="Paquete de reparación menor (precio cerrado / lump sum)"></option>
   </datalist>
   <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    window.__NOMBRE_EMPRESA__=String(document.body?.getAttribute('data-nombre-empresa')||'').trim();
     const areas = document.querySelector('#areas');
     const areaTemplate = document.querySelector('#areaTemplate');
     const rowTemplate = document.querySelector('#rowTemplate');
@@ -1307,6 +1322,26 @@
     let documentoHistorialId = null;
     const contratistaTokenKey = 'contratista_sesion';
     const contratistaIdKey = 'contratista_id';
+    function nombreEmpresaActiva(){
+      const campo=String(document.getElementById('company')?.value||'').trim();
+      const inyectada=String(window.__NOMBRE_EMPRESA__||'').trim();
+      return campo||inyectada||'Your company';
+    }
+    function aplicarMarcaBlanca(nombre){
+      const n=String(nombre||nombreEmpresaActiva()||'Your company').trim()||'Your company';
+      window.__NOMBRE_EMPRESA__=n;
+      document.querySelectorAll('[data-brand-name]').forEach(el=>{ el.textContent=n; });
+      const company=document.getElementById('company');
+      if(company&&(!company.value.trim()||/solid remodeling|zipnova/i.test(company.value))) company.value=n;
+      const payee=document.getElementById('checkPayee');
+      if(payee&&(!payee.value.trim()||/solid remodeling|zipnova/i.test(payee.value))) payee.value=n;
+      const footer=document.querySelector('[data-brand-footer]')||document.querySelector('.footer-note');
+      if(footer) footer.textContent='Document generated by '+n+' · Amounts in USD';
+      const titulo=document.getElementById('documentTitle')?.textContent||'Document';
+      document.title=titulo+' | '+n;
+      const registro=document.getElementById('registroNombreEmpresa');
+      if(registro&&!registro.value.trim()) registro.value=n;
+    }
     function headersContratista(extra){
       const headers=Object.assign({Accept:'application/json'}, extra||{});
       const token=localStorage.getItem(contratistaTokenKey)||'';
@@ -1326,6 +1361,7 @@
       }
       const json=await res.json().catch(()=>null);
       if(json&&json.id) localStorage.setItem(contratistaIdKey, json.id);
+      if(json&&json.nombre_empresa) aplicarMarcaBlanca(json.nombre_empresa);
       return json;
     }
     async function asegurarContratista(){
@@ -1351,6 +1387,7 @@
       }
       localStorage.setItem(contratistaTokenKey, json.token);
       if(json.id) localStorage.setItem(contratistaIdKey, json.id);
+      if(json.nombre_empresa) aplicarMarcaBlanca(json.nombre_empresa);
       return json;
     }
     function perteneceAlContratista(item){
@@ -1364,7 +1401,7 @@
     let paymentState = { paidAmount:'', status:'open', paidDate:'' };
     const translations = {
       en: {
-        pageTitle:'Invoice | Solid Remodeling', specialty:'Trade type', deposit:'Payments received', finalPayment:'Balance due', total:'Total'
+        pageTitle:'Invoice', specialty:'Trade type', deposit:'Payments received', finalPayment:'Balance due', total:'Total'
       }
     };
     const initialAreas = [
@@ -2877,7 +2914,7 @@
     function savePaymentState(){ localStorage.setItem(paymentStorageKey,JSON.stringify(paymentState)); }
     function markPaidIfNeeded(balance,total){ if(total>0 && balance<=0 && paymentState.status!=='paid'){ paymentState.status='paid'; paymentState.paidDate=paymentState.paidDate||new Date().toISOString().slice(0,10); document.querySelector('#status').value='paid'; savePaymentState(); } }
     function update(){ const paymentWasFocused=document.activeElement?.id==='paidAmount'; let grand=0; const lines=[]; document.querySelectorAll('.area').forEach((area,index)=>{ let subtotal=0; area.querySelectorAll('tbody tr').forEach(row=>{const total=recalcularSubtotalFila(row);subtotal+=total;}); grand+=subtotal; const title=area.querySelector('.area-title').value||`Area ${index+1}`; lines.push({title,subtotal}); }); const paid=Math.max(Number(paymentState.paidAmount)||0,0); const balance=Math.max(grand-paid,0); markPaidIfNeeded(balance,grand); const isPaid=paymentState.status==='paid'||(grand>0&&balance<=0); document.querySelector('#summary').innerHTML=lines.map(line=>`<div class="summary-line"><span>${line.title.replace(/^Área de /i,'').replace(/^Area of /i,'')}</span><strong>${money.format(line.subtotal)}</strong></div>`).join('')+`<div class="payment-tracking"><div class="field-row"><label for="paidAmount">Amount paid</label><input id="paidAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="${paymentState.paidAmount}"></div>${htmlBotonesDeposito()}</div><div class="summary-line grand"><span>${translations[language].total}</span><strong>${money.format(grand)}<br>USD</strong></div><div class="summary-line"><span id="depositLabel">${translations[language].deposit}</span><strong>${money.format(paid)} USD</strong></div><div class="summary-line balance"><span id="finalPaymentLabel">${translations[language].finalPayment}</span><strong>${money.format(balance)} USD</strong></div>`; const paymentInput=document.querySelector('#paidAmount'); paymentInput.addEventListener('input',event=>{ paymentState.paidAmount=event.target.value; paymentState.status='open'; paymentState.paidDate=''; savePaymentState(); update(); }); document.querySelectorAll('[data-payment-action]').forEach(button=>button.addEventListener('click',()=>{ aplicarPagoRapido(button.dataset.paymentAction,grand); })); document.querySelector('#paidStamp').hidden=!isPaid||docMode!=='invoice'; document.querySelector('#paidDate').textContent=paymentState.paidDate?'Paid date: '+paymentState.paidDate:''; if(paymentWasFocused) paymentInput.focus(); }
-    function renderMode(nextMode){ docMode=nextMode; const isInvoice=docMode==='invoice'; const isContract=docMode==='contract'; const title=isInvoice?'INVOICE':isContract?'WORK CONTRACT':'ESTIMATE'; document.querySelector('#documentTitle').textContent=title; document.title=title+' | Solid Remodeling'; document.querySelector('#itemsHeading').textContent=isInvoice?'INVOICE ITEMS':'SCOPE OF WORK'; document.querySelector('#legalTerms').hidden=isInvoice; const signatures=document.querySelector('#signatures'); if(signatures){ signatures.hidden=!isContract; signatures.setAttribute('aria-hidden', isContract?'false':'true'); } document.documentElement.classList.toggle('is-contract', isContract); document.querySelector('#dueDateRow').hidden=!isInvoice; const billTo=document.querySelector('.bill-to'); if(billTo)billTo.hidden=!isInvoice; document.querySelector('.payments').hidden=!isInvoice; document.querySelector('.summary').classList.toggle('invoice-summary',isInvoice); document.querySelector('.invoice-thanks').hidden=!isInvoice; document.querySelector('#paidStamp').hidden=!isInvoice; document.querySelector('#termsHeading').textContent='TERMS AND EXCLUSIONS'; document.querySelector('#docMode').value=docMode; if(typeof aplicarFolioEnPantalla==='function')aplicarFolioEnPantalla(document.getElementById('quote')?.value); if(isInvoice && document.querySelector('#areas').children.length) update(); }
+    function renderMode(nextMode){ docMode=nextMode; const isInvoice=docMode==='invoice'; const isContract=docMode==='contract'; const title=isInvoice?'INVOICE':isContract?'WORK CONTRACT':'ESTIMATE'; document.querySelector('#documentTitle').textContent=title; document.title=title+' | '+nombreEmpresaActiva(); document.querySelector('#itemsHeading').textContent=isInvoice?'INVOICE ITEMS':'SCOPE OF WORK'; document.querySelector('#legalTerms').hidden=isInvoice; const signatures=document.querySelector('#signatures'); if(signatures){ signatures.hidden=!isContract; signatures.setAttribute('aria-hidden', isContract?'false':'true'); } document.documentElement.classList.toggle('is-contract', isContract); document.querySelector('#dueDateRow').hidden=!isInvoice; const billTo=document.querySelector('.bill-to'); if(billTo)billTo.hidden=!isInvoice; document.querySelector('.payments').hidden=!isInvoice; document.querySelector('.summary').classList.toggle('invoice-summary',isInvoice); document.querySelector('.invoice-thanks').hidden=!isInvoice; document.querySelector('#paidStamp').hidden=!isInvoice; document.querySelector('#termsHeading').textContent='TERMS AND EXCLUSIONS'; document.querySelector('#docMode').value=docMode; if(typeof aplicarFolioEnPantalla==='function')aplicarFolioEnPantalla(document.getElementById('quote')?.value); if(isInvoice && document.querySelector('#areas').children.length) update(); }
     function puntoFirma(canvas,event){
       const t=(event.touches&&event.touches[0])||(event.changedTouches&&event.changedTouches[0])||event;
       const rect=canvas.getBoundingClientRect();
@@ -3071,7 +3108,7 @@
     function setLanguage(){
       language='en';
       document.documentElement.lang='en';
-      document.title='Invoice | Solid Remodeling';
+      document.title='Invoice | '+nombreEmpresaActiva();
     }
     function populateSpecialties(){ const selector=document.querySelector('#select-categoria-trabajo')||document.querySelector('#specialty'); if(!selector)return; selector.setAttribute('aria-label',translations[language].specialty); }
     function servicioComercialIngles(categoria){
@@ -3109,7 +3146,7 @@
       if(key&&typeof loadSpecialty==='function')loadSpecialty(key);
     }
     function loadSpecialty(key){ const template=serviceTemplates[key]||serviceTemplates.blank; areas.innerHTML=''; areaCount=0; template.areas.forEach(area=>addArea({title:area.title,titleEn:area.titleEn,reference:area.reference,rows:area.rows.map(row=>row.slice())})); document.querySelector('#terms').value=template.termsEn; update(); }
-    function syncCompanyName(){ const companyName=document.querySelector('#company').value.trim(); const displayName=companyName||'YOUR COMPANY NAME'; document.querySelector('#companyBanner').textContent=displayName; document.querySelector('#documentSubtitle').textContent=displayName; localStorage.setItem(companyStorageKey,companyName); }
+    function syncCompanyName(){ const companyName=document.querySelector('#company').value.trim(); const displayName=companyName||nombreEmpresaActiva()||'YOUR COMPANY NAME'; if(document.querySelector('#companyBanner'))document.querySelector('#companyBanner').textContent=displayName; if(document.querySelector('#documentSubtitle'))document.querySelector('#documentSubtitle').textContent=displayName; localStorage.setItem(companyStorageKey,companyName); aplicarMarcaBlanca(displayName); }
     function getBusinessProfile(){ return { name:document.querySelector('#businessName').value.trim(), representative:document.querySelector('#businessRepresentative').value.trim(), email:document.querySelector('#businessEmail').value.trim(), phone:document.querySelector('#businessPhone').value.trim(), service:document.querySelector('#businessService').value.trim() }; }
     function applyBusinessProfile(profile){ if(!profile)return; document.querySelector('#company').value=profile.name||''; document.querySelector('#representative').value=profile.representative||''; document.querySelector('#email').value=profile.email||''; document.querySelector('#companyPhone').value=profile.phone||''; document.querySelector('#service').value=servicioComercialIngles(profile.service||''); syncCompanyName(); }
     function openBusinessProfile(){ const saved=JSON.parse(localStorage.getItem(businessProfileStorageKey)||'null')||{name:document.querySelector('#company').value,representative:document.querySelector('#representative').value,email:document.querySelector('#email').value,phone:document.querySelector('#companyPhone').value,service:document.querySelector('#service').value}; Object.entries({businessName:saved.name,businessRepresentative:saved.representative,businessEmail:saved.email,businessPhone:saved.phone,businessService:saved.service}).forEach(([id,value])=>document.querySelector('#'+id).value=value||''); document.querySelector('#businessModal').hidden=false; document.querySelector('#businessName').focus(); }
@@ -4081,10 +4118,15 @@
       const origen=document.querySelector('.document');
       if(!origen)throw new Error('Document not found');
       const clone=materializarDocumentoImpresion(origen);
+      const marca=nombreEmpresaActiva();
+      clone.querySelectorAll('#companyBanner,#documentSubtitle,[data-brand-name]').forEach(el=>{ el.textContent=marca; });
       const estilos=[...document.querySelectorAll('style')].map(n=>n.textContent||'').join('\n');
       const contrato=document.documentElement.classList.contains('is-contract')?' is-contract':'';
       const titulo=exportFilename();
-      return `<!DOCTYPE html><html lang="en" class="print-document${contrato}"><head><meta charset="UTF-8"><title>${titulo}</title><style>${estilos}</style></head><body>${clone.outerHTML}</body></html>`;
+      let html=`<!DOCTYPE html><html lang="en" class="print-document${contrato}"><head><meta charset="UTF-8"><title>${titulo}</title><style>${estilos}</style></head><body>${clone.outerHTML}</body></html>`;
+      html=html.replace(/Zipnova/gi,'');
+      html=html.replace(/Solid Remodeling(?:\s*&\s*Reconstruction\s*LLC)?/gi, marca);
+      return html;
     }
     async function captureInvoice(){ if(typeof html2canvas!=='function') throw new Error('html2canvas no está disponible'); const invoice=document.querySelector('.document'); invoice.classList.add('export-clean'); try { return await html2canvas(invoice,{backgroundColor:'#fff',scale:2,useCORS:true,logging:false}); } finally { invoice.classList.remove('export-clean'); } }
     function downloadCanvas(canvas){ const link=document.createElement('a'); link.download=exportFilename()+'.png'; link.href=canvas.toDataURL('image/png'); link.click(); }
@@ -4095,7 +4137,7 @@
       const res=await fetch('/api/generar-pdf',{
         method:'POST',
         headers:{'Content-Type':'application/json','Accept':'application/pdf'},
-        body:JSON.stringify({html,filename,preview:!!preview})
+        body:JSON.stringify({html,filename,preview:!!preview,nombre_empresa:nombreEmpresaActiva(),company:nombreEmpresaActiva()})
       });
       if(!res.ok){
         let detalle='';
@@ -4164,6 +4206,7 @@
             folio,
             type:tipo,
             company,
+            nombre_empresa:company,
             contact,
             id:documentoHistorialId||undefined
           })
@@ -5125,6 +5168,40 @@
     const savedBusinessProfile=JSON.parse(localStorage.getItem(businessProfileStorageKey)||'null');
     if(savedBusinessProfile) applyBusinessProfile(savedBusinessProfile);
     document.querySelector('#company').addEventListener('input',syncCompanyName);
+    aplicarMarcaBlanca(window.__NOMBRE_EMPRESA__||document.getElementById('company')?.value||'');
+    leerContratistaActual().then(row=>{
+      if(row&&row.nombre_empresa) aplicarMarcaBlanca(row.nombre_empresa);
+      const form=document.getElementById('registroContratistaForm');
+      if(form&&row&&row.id) form.hidden=true;
+      const mail=document.getElementById('registroEmail');
+      if(mail&&row&&row.email&&!mail.value) mail.value=row.email;
+    }).catch(()=>{});
+    document.getElementById('registroContratistaForm')?.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const status=document.getElementById('registroContratistaStatus');
+      const email=String(document.getElementById('registroEmail')?.value||document.getElementById('email')?.value||'').trim();
+      const nombre=String(document.getElementById('registroNombreEmpresa')?.value||'').trim();
+      if(status){ status.hidden=false; status.textContent='Saving…'; }
+      try{
+        const token=localStorage.getItem(contratistaTokenKey)||'';
+        const res=await fetch('/api/contratistas',{
+          method:token?'PATCH':'POST',
+          headers:headersContratista({'Content-Type':'application/json'}),
+          body:JSON.stringify({email, nombre_empresa:nombre})
+        });
+        const json=await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(json.error||'Could not save company');
+        if(json.token) localStorage.setItem(contratistaTokenKey, json.token);
+        if(json.id) localStorage.setItem(contratistaIdKey, json.id);
+        aplicarMarcaBlanca(json.nombre_empresa||nombre);
+        const company=document.getElementById('company');
+        if(company) company.value=json.nombre_empresa||nombre;
+        syncCompanyName();
+        if(status) status.textContent='Company saved. Client documents will show this name.';
+      }catch(err){
+        if(status) status.textContent=err.message||'Could not save company';
+      }
+    });
     const savedClientData=JSON.parse(localStorage.getItem(clientStorageKey)||'null');
     if(savedClientData){ Object.entries({clientName:savedClientData.name,clientEmail:savedClientData.email,clientPhone:savedClientData.phone,clientStreet:savedClientData.street,clientCity:savedClientData.city,clientState:savedClientData.state,clientZip:savedClientData.zip}).forEach(([id,value])=>{ if(value!==undefined && value!==null) document.querySelector('#'+id).value=value; }); }
     document.querySelectorAll('#clientName,#clientEmail,#clientPhone,#clientStreet,#clientCity,#clientZip').forEach(field=>field.addEventListener('input',syncClientData));

@@ -437,3 +437,44 @@ grant execute on function public.guardar_historial_tenant(text, jsonb) to anon, 
 grant execute on function public.leer_contrato_publico(text) to anon, authenticated, service_role;
 grant execute on function public.marcar_contrato_aceptado(text) to anon, authenticated, service_role;
 grant execute on function public.revertir_aceptacion_contrato(text, text) to anon, authenticated, service_role;
+
+-- Perfiles opcionales (Supabase Auth). La marca blanca operativa usa contratistas.nombre_empresa.
+create table if not exists public.perfiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text,
+  nombre_empresa text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.perfiles enable row level security;
+
+create or replace function public.handle_nuevo_usuario()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.perfiles (id, email, nombre_empresa)
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data->>'nombre_empresa', '')
+  )
+  on conflict (id) do update
+    set email = excluded.email,
+        nombre_empresa = case
+          when excluded.nombre_empresa <> '' then excluded.nombre_empresa
+          else public.perfiles.nombre_empresa
+        end,
+        updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_nuevo_usuario();
+
