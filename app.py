@@ -3630,6 +3630,41 @@ def process_pdf():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/import-past-estimate", methods=["POST"])
+def import_past_estimate():
+    archivo = request.files.get("file") or request.files.get("pdf")
+    if archivo is None:
+        return jsonify({"success": False, "error": "No PDF was uploaded"}), 400
+    nombre = str(getattr(archivo, "filename", "") or "")
+    if nombre and not nombre.lower().endswith(".pdf"):
+        return jsonify({"success": False, "error": "Upload a PDF file"}), 400
+    pdf_bytes = archivo.read()
+    if not pdf_bytes:
+        return jsonify({"success": False, "error": "The PDF is empty"}), 400
+    try:
+        from estimate_pdf_parser import extraer_partidas_estimado
+
+        payload = extraer_partidas_estimado(pdf_bytes)
+        items = payload.get("items") or []
+        if not items:
+            resp = jsonify({
+                "success": False,
+                "error": "No SCOPE OF WORK line items were found in this PDF.",
+                "items": [],
+                "areas": [],
+                "count": 0,
+            })
+            resp.headers["Access-Control-Allow-Origin"] = "*"
+            return resp, 422
+        resp = jsonify(payload)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp, 200
+    except Exception as e:
+        resp = jsonify({"success": False, "error": f"Could not parse the estimate PDF: {e}"})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp, 500
+
+
 def _buscar_navegador_pdf():
     import shutil
     candidatos = []
