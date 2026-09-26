@@ -26,6 +26,10 @@ STOP_RE = re.compile(
 )
 HEADER_RE = re.compile(r"^(code|action|work|description|qty|quantity|unit|price|tax|subtotal|\(\$?\)|%\))$", re.I)
 SCOPE_RE = re.compile(r"scope\s+of\s+work|invoice\s+items|alcance\s+del\s+trabajo", re.I)
+ROW_NUM_RE = re.compile(
+    r"^(\d+)\.\s+(.+?)\s+(\d{1,5}(?:,\d{3})*(?:\.\d{1,2})?)\s+(SQ|SF|LF|EA|HR|BF|SY)\s+(\d{1,4}(?:,\d{3})*(?:\.\d{2})?)",
+    re.I,
+)
 
 
 def _norm(text: str) -> str:
@@ -462,3 +466,93 @@ def _fallback_text_parse(pdf_bytes: bytes) -> list[dict[str, Any]]:
             }
         )
     return items
+
+
+def extraer_texto_pdf(pdf_bytes: bytes) -> str:
+    try:
+        import fitz
+
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        try:
+            return "\n".join(page.get_text() or "" for page in doc)
+        finally:
+            doc.close()
+    except Exception:
+        pass
+    try:
+        from pdfminer.high_level import extract_text
+
+        return extract_text(io.BytesIO(pdf_bytes)) or ""
+    except Exception:
+        return ""
+
+
+def es_tabla_scope_of_work(texto: str) -> bool:
+    blob = re.sub(r"\s+", " ", str(texto or "")).upper()
+    return (
+        "SCOPE OF WORK" in blob
+        and re.search(r"\bCODE\b", blob) is not None
+        and re.search(r"\bACTION\b", blob) is not None
+        and "WORK DESCRIPTION" in blob
+    )
+
+
+def extraer_partidas_numeradas(texto: str) -> dict[str, Any]:
+    raw = [_norm(line) for line in str(texto or "").splitlines() if _norm(line)]
+    fused: list[str] = []
+    i = 0
+    while i < len(raw):
+        line = raw[i]
+        consumed = i
+        if re.match(r"^\d+\.\s+", line) and not ROW_NUM_RE.match(line):
+            combined = line
+            for j in range(i + 1, min(i + 5, len(raw))):
+                combined = f"{combined} {raw[j]}"
+                if ROW_NUM_RE.match(combined):
+                    line = combined
+                    consumed = j
+                    break
+        fused.append(line)
+        i = consumed + 1
+    items: list[dict[str, Any]] = []
+    for line in fused:
+        if re.match(
+            r"^(totals?|recap|summary|overhead|profit|net claim|material sales tax|subtotal|line item totals)",
+            line,
+            re.I,
+        ):
+            continue
+        if re.search(r"totals?:|O&P|Replacement Cost|Coverage", line, re.I):
+            continue
+        match = ROW_NUM_RE.match(line)
+        if not match:
+            continue
+        qty = float(str(match.group(3)).replace(",", "")) if match.group(3) else 1.0
+        price = float(str(match.group(5)).replace(",", "")) if match.group(5) else 0.0
+        items.append(
+            {
+                "code": match.group(1),
+                "action": "install",
+                "description": match.group(2).strip(),
+                "qty": qty,
+                "unit": match.group(4).upper(),
+                "unit_price": price,
+            }
+        )
+    return {"success": True, "items": items, "lines": fused, "count": len(items)}
+
+
+def enrutar_importacion_pdf(pdf_bytes: bytes) -> dict[str, Any] | None:
+    """Pick SCOPE OF WORK table parser vs numbered Xactimate-style lines. None = unknown format."""
+    texto = extraer_texto_pdf(pdf_bytes)
+    if es_tabla_scope_of_work(texto):
+        payload = extraer_partidas_estimado(pdf_bytes)
+        payload["parser"] = "scope_of_work"
+        payload["document_type"] = "past_estimate"
+        return payload
+    numeradas = extraer_partidas_numeradas(texto)
+    if numeradas.get("items"):
+        numeradas["parser"] = "numbered_items"
+        numeradas["document_type"] = "numbered_items"
+        return numeradas
+    return None

@@ -3549,6 +3549,14 @@ def process_pdf():
     pdf_bytes = file.read()
 
     try:
+        from estimate_pdf_parser import enrutar_importacion_pdf
+
+        enrutado = enrutar_importacion_pdf(pdf_bytes)
+        if enrutado is not None:
+            resp = jsonify(enrutado)
+            resp.headers["Access-Control-Allow-Origin"] = "*"
+            return resp, 200
+
         from roof_parser import es_reporte_roofr, payload_http_cotizador, procesar_reporte_roofr
 
         oficio_form = str(request.form.get("oficio") or request.form.get("project_type") or "")
@@ -3642,23 +3650,19 @@ def import_past_estimate():
     if not pdf_bytes:
         return jsonify({"success": False, "error": "The PDF is empty"}), 400
     try:
-        from estimate_pdf_parser import extraer_partidas_estimado
+        from estimate_pdf_parser import enrutar_importacion_pdf
 
-        payload = extraer_partidas_estimado(pdf_bytes)
-        items = payload.get("items") or []
-        if not items:
-            resp = jsonify({
-                "success": False,
-                "error": "No SCOPE OF WORK line items were found in this PDF.",
-                "items": [],
-                "areas": [],
-                "count": 0,
-            })
-            resp.headers["Access-Control-Allow-Origin"] = "*"
-            return resp, 422
+        payload = enrutar_importacion_pdf(pdf_bytes) or {
+            "success": False,
+            "parser": "unknown",
+            "error": "No line items were found in this PDF.",
+            "items": [],
+            "count": 0,
+        }
+        status = 200 if payload.get("items") else 422
         resp = jsonify(payload)
         resp.headers["Access-Control-Allow-Origin"] = "*"
-        return resp, 200
+        return resp, status
     except Exception as e:
         resp = jsonify({"success": False, "error": f"Could not parse the estimate PDF: {e}"})
         resp.headers["Access-Control-Allow-Origin"] = "*"
