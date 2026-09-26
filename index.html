@@ -612,9 +612,7 @@
         <button class="btn" id="exportButton" type="button" data-i18n="export">📤 Share</button>
         <button class="btn" id="importReportButton" type="button" data-i18n="importPdf">Import measurements from PDF</button>
         <input class="sr-only" id="input-pdf-upload" type="file" accept="application/pdf" onchange="procesarPDFImportado(this)">
-        <button class="btn" type="button" onclick="document.getElementById('input-pdf-upload').click()" data-i18n="importItems">📄 Import line items from PDF</button>
-        <input class="sr-only" id="input-past-estimate" type="file" accept="application/pdf">
-        <button class="btn" type="button" id="importPastEstimateButton">📋 Import from Past Estimate</button>
+        <button class="btn" type="button" id="importLineItemsButton" onclick="document.getElementById('input-pdf-upload').click()" data-i18n="importItems">📄 Import line items from PDF</button>
         <input class="sr-only" id="reportFileInput" type="file" accept=".esx,.pdf,.xml,.jpg,.jpeg,.png">
         <button class="btn" id="newInvoiceButton" type="button" data-i18n="newInvoice">+ New invoice</button>
         <button class="btn" id="saveDraftButton" type="button">💾 Save draft</button>
@@ -4953,44 +4951,64 @@
     async function procesarPDFImportado(inputElement){
       const file=inputElement&&inputElement.files&&inputElement.files[0];
       if(!file||(file.type&&file.type!=='application/pdf'&&!/\.pdf$/i.test(file.name))){
-        alert('Por favor selecciona un archivo PDF válido.');
+        alert('Please select a valid PDF file.');
         return;
       }
+      const btn=document.getElementById('importLineItemsButton');
+      if(btn)btn.disabled=true;
       try{
-        const lineas=await extraerLineasDePdf(file);
-        const n=insertarLineasEnTabla(lineas);
-        if(!n)alert('No se encontraron partidas numeradas (ej. "1. Remove... 1.58 SQ 63.53"). El PDF debe tener texto seleccionable.');
-        else if(typeof showPdfPreview==='function')await showPdfPreview(file,'PDF importado: '+n+' partida(s) detectada(s).');
+        const form=new FormData();
+        form.append('file',file);
+        const apiUrl=(location.origin&&location.origin.indexOf('http')===0)?(location.origin+'/api/import-line-items'):'http://127.0.0.1:5000/api/import-line-items';
+        const response=await fetch(apiUrl,{method:'POST',body:form});
+        const payload=await response.json().catch(()=>({}));
+        const items=Array.isArray(payload.items)?payload.items:(Array.isArray(payload)?payload:[]);
+        if(!response.ok||payload.success===false||!items.length){
+          throw new Error(payload.error||'The AI did not return line items from this PDF.');
+        }
+        const n=poblarEstimadorDesdeEstimadoPasado({items,areas:[{title:'Imported line items',items}]});
+        if(n&&typeof showPdfPreview==='function')await showPdfPreview(file,'Imported '+n+' line item(s).');
         if(typeof showAppView==='function')showAppView('quote');
       }catch(error){
         console.error(error);
-        alert('No se pudo leer el PDF.');
+        alert(error&&error.message?error.message:'Could not import line items. Is the server running?');
       }finally{
+        if(btn)btn.disabled=false;
         if(inputElement)inputElement.value='';
       }
     }
-    function apiUrlEstimadoPasado(){
-      return (location.origin&&location.origin.indexOf('http')===0)?(location.origin+'/api/import-past-estimate'):'http://127.0.0.1:5000/api/import-past-estimate';
+    function valorPartidaImportada(row, keys, fallback){
+      if(!row||typeof row!=='object')return fallback;
+      for(const key of keys){
+        if(row[key]!=null&&row[key]!=='')return row[key];
+      }
+      return fallback;
+    }
+    function dineroPartidaImportada(val){
+      if(typeof val==='number'&&Number.isFinite(val))return val;
+      const n=Number(String(val==null?'':val).replace(/[^0-9.-]/g,''));
+      return Number.isFinite(n)?n:NaN;
     }
     function aplicarFilaEstimadoPasado(area, row){
-      const desc=String(row.description||row.descripcion||'').trim();
+      const desc=String(valorPartidaImportada(row,['WORK DESCRIPTION','work description','description','descripcion'],'')).trim();
       if(!desc)return false;
-      const qty=Number(row.qty!=null?row.qty:row.quantity);
-      const unit=(typeof unidadImportadaPdf==='function'?unidadImportadaPdf(row.unit||row.unidad||'SF'):String(row.unit||'SF').toUpperCase())||'SF';
-      let unitPrice=Number(row.unit_price!=null?row.unit_price:row.precio_unitario);
-      const subtotal=Number(row.subtotal);
+      const qty=dineroPartidaImportada(valorPartidaImportada(row,['QTY','qty','quantity'],1));
+      const unit=(typeof unidadImportadaPdf==='function'?unidadImportadaPdf(valorPartidaImportada(row,['UNIT','unit','unidad'],'SF')):String(valorPartidaImportada(row,['UNIT','unit'],'SF')).toUpperCase())||'SF';
+      let unitPrice=dineroPartidaImportada(valorPartidaImportada(row,['UNIT PRICE','unit_price','UNIT_PRICE','precio_unitario'],NaN));
+      const subtotal=dineroPartidaImportada(valorPartidaImportada(row,['SUBTOTAL','subtotal'],NaN));
       if(!Number.isFinite(unitPrice)&&Number.isFinite(subtotal)&&qty)unitPrice=subtotal/qty;
       if(!Number.isFinite(unitPrice)||unitPrice<0)unitPrice=0;
       const tax=Number(row.tax)||0;
-      const action=String(row.action||'replace');
-      const code=String(row.code||row.codigo||'');
-      addRow(area,[code, desc, Number.isFinite(qty)&&qty>0?qty:1, unitPrice, unit, tax, action]);
+      const action=String(row.action||valorPartidaImportada(row,['ACTION','action'],'replace'));
+      const actionKey=['replace','replace_material','install_material','install','labor','demo','material'].includes(action)?action:(/demo|demolition/i.test(action)?'demo':/install plus/i.test(action)?'install_material':/install only/i.test(action)?'install':/material only/i.test(action)?'material':/remove/i.test(action)?'replace':'replace');
+      const code=String(valorPartidaImportada(row,['CODE','code','codigo'],''));
+      addRow(area,[code, desc, Number.isFinite(qty)&&qty>0?qty:1, unitPrice, unit, tax, actionKey]);
       const tr=area.querySelector('tbody tr:last-child');
       if(!tr)return true;
       tr.dataset.descManual='1';
       tr.dataset.unidadManual='1';
       tr.dataset.precioImportado='1';
-      tr.dataset.accion=action;
+      tr.dataset.accion=actionKey;
       tr.dataset.precioMatLabor=String(unitPrice);
       if(typeof asegurarOpcionUnidad==='function')asegurarOpcionUnidad(tr.querySelector('.select-unidad'),unit);
       const qtyInput=tr.querySelector('.input-cantidad')||tr.querySelector('.quantity');
@@ -4998,17 +5016,17 @@
       const actionSelect=tr.querySelector('.item-action');
       if(qtyInput)qtyInput.value=String(Number.isFinite(qty)&&qty>0?qty:1);
       if(priceInput)priceInput.value=Number(unitPrice).toFixed(2);
-      if(actionSelect&&['replace','replace_material','install_material','install','labor','demo','material'].includes(action))actionSelect.value=action;
+      if(actionSelect)actionSelect.value=actionKey;
       if(typeof recalcularSubtotalFila==='function')recalcularSubtotalFila(tr);
       return true;
     }
     function poblarEstimadorDesdeEstimadoPasado(payload){
       const areasData=Array.isArray(payload&&payload.areas)?payload.areas.filter(a=>a&&(a.items||[]).length):[];
       const items=Array.isArray(payload&&payload.items)?payload.items:[];
-      const grupos=areasData.length?areasData:[{title:'Imported from past estimate',items:items}];
+      const grupos=areasData.length?areasData:[{title:'Imported line items',items:items}];
       let n=0;
       grupos.forEach((grupo,index)=>{
-        const titulo=String(grupo.title||grupo.titulo||'Imported from past estimate').trim()||'Imported from past estimate';
+        const titulo=String(grupo.title||grupo.titulo||'Imported line items').trim()||'Imported line items';
         const vacia=[...document.querySelectorAll('#areas .area')].find(a=>[...a.querySelectorAll('tbody tr')].every(tr=>typeof filaImportadaVacia==='function'?filaImportadaVacia(tr):false));
         let area;
         if(index===0&&vacia){
@@ -5016,11 +5034,11 @@
           area.querySelector('.area-title').value=titulo;
           area.dataset.titleEs=titulo;
           area.dataset.titleEn=titulo;
-          if(area.querySelector('.area-reference'))area.querySelector('.area-reference').value='Past estimate';
+          if(area.querySelector('.area-reference'))area.querySelector('.area-reference').value='PDF';
           const tabla=area.querySelector('tbody');
           if(tabla)tabla.replaceChildren();
         }else{
-          addArea({title:titulo,titleEn:titulo,reference:'Past estimate',rows:[]});
+          addArea({title:titulo,titleEn:titulo,reference:'PDF',rows:[]});
           area=document.querySelector('#areas .area:last-of-type');
           const tabla=area&&area.querySelector('tbody');
           if(tabla)tabla.replaceChildren();
@@ -5029,34 +5047,6 @@
       });
       if(typeof update==='function')update();
       return n;
-    }
-    async function importarEstimadoPasado(file){
-      if(!file||(file.type&&file.type!=='application/pdf'&&!/\.pdf$/i.test(file.name))){
-        alert('Please select a valid PDF of a previous estimate.');
-        return;
-      }
-      const btn=document.getElementById('importPastEstimateButton');
-      if(btn)btn.disabled=true;
-      try{
-        const form=new FormData();
-        form.append('file',file);
-        const response=await fetch(apiUrlEstimadoPasado(),{method:'POST',body:form});
-        const payload=await response.json().catch(()=>({}));
-        if(!response.ok||payload.success===false){
-          throw new Error(payload.error||('Import failed ('+response.status+')'));
-        }
-        const n=poblarEstimadorDesdeEstimadoPasado(payload);
-        if(!n)alert('The PDF was read, but no SCOPE OF WORK rows were found.');
-        else if(typeof showPdfPreview==='function')await showPdfPreview(file,'Past estimate imported: '+n+' line item(s).');
-        if(typeof showAppView==='function')showAppView('quote');
-      }catch(error){
-        console.error(error);
-        alert(error&&error.message?error.message:'Could not import the past estimate PDF. Is the server running?');
-      }finally{
-        if(btn)btn.disabled=false;
-        const input=document.getElementById('input-past-estimate');
-        if(input)input.value='';
-      }
     }
     async function extractPdfText(file){ const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise; const pages=[]; for(let pageNumber=1;pageNumber<=pdf.numPages;pageNumber++){ const page=await pdf.getPage(pageNumber); const content=await page.getTextContent(); pages.push(content.items.map(item=>item.str).join(' ')); } return pages.join('\n'); }
     function normalizePdfText(text){ return String(text||'').toLowerCase().replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim(); }
@@ -5118,8 +5108,6 @@
     document.querySelector('#addArea').addEventListener('click',()=>addArea());
     document.querySelector('#importReportButton').addEventListener('click',()=>document.querySelector('#reportFileInput').click());
     document.querySelector('#reportFileInput').addEventListener('change',event=>{ const file=event.target.files[0]; if(file)importReport(file); });
-    document.getElementById('importPastEstimateButton')?.addEventListener('click',()=>document.getElementById('input-past-estimate')?.click());
-    document.getElementById('input-past-estimate')?.addEventListener('change',event=>{ const file=event.target.files[0]; if(file)importarEstimadoPasado(file); });
     document.querySelector('#exportButton').addEventListener('click',()=>document.querySelector('#exportModal').hidden=false);
     document.querySelector('#closeExportButton').addEventListener('click',()=>document.querySelector('#exportModal').hidden=true);
     document.querySelector('#downloadImageButton').addEventListener('click',downloadInvoiceImage);

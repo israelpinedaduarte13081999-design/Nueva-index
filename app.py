@@ -398,6 +398,15 @@ BASURA_REPORTE = re.compile(
     re.I,
 )
 
+PROMPT_IMPORT_LINE_ITEMS = (
+    "Eres un estimador experto de Solid Remodeling & Reconstruction LLC. "
+    "Analiza este texto de un presupuesto en PDF. Extrae todas las partidas "
+    "(ignorando totales generales) y adáptalas a nuestro formato de SCOPE OF WORK. "
+    "Devuelve ÚNICAMENTE un JSON válido que sea un arreglo de objetos. "
+    "Cada objeto debe tener exactamente estas claves: CODE, ACTION, WORK DESCRIPTION, "
+    "QTY, UNIT, UNIT PRICE, y SUBTOTAL."
+)
+
 PROMPT_PDF = """
 Analiza este PDF de construcción.
 
@@ -3549,14 +3558,6 @@ def process_pdf():
     pdf_bytes = file.read()
 
     try:
-        from estimate_pdf_parser import enrutar_importacion_pdf
-
-        enrutado = enrutar_importacion_pdf(pdf_bytes)
-        if enrutado is not None:
-            resp = jsonify(enrutado)
-            resp.headers["Access-Control-Allow-Origin"] = "*"
-            return resp, 200
-
         from roof_parser import es_reporte_roofr, payload_http_cotizador, procesar_reporte_roofr
 
         oficio_form = str(request.form.get("oficio") or request.form.get("project_type") or "")
@@ -3638,8 +3639,9 @@ def process_pdf():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/import-line-items", methods=["POST"])
 @app.route("/api/import-past-estimate", methods=["POST"])
-def import_past_estimate():
+def import_line_items_ia():
     archivo = request.files.get("file") or request.files.get("pdf")
     if archivo is None:
         return jsonify({"success": False, "error": "No PDF was uploaded"}), 400
@@ -3650,23 +3652,144 @@ def import_past_estimate():
     if not pdf_bytes:
         return jsonify({"success": False, "error": "The PDF is empty"}), 400
     try:
-        from estimate_pdf_parser import enrutar_importacion_pdf
+        from estimate_pdf_parser import extraer_texto_pdf
 
-        payload = enrutar_importacion_pdf(pdf_bytes) or {
-            "success": False,
-            "parser": "unknown",
-            "error": "No line items were found in this PDF.",
-            "items": [],
-            "count": 0,
+        texto = extraer_texto_pdf(pdf_bytes)
+        if not str(texto or "").strip():
+            resp = jsonify({"success": False, "error": "The PDF has no extractable text.", "items": []})
+            resp.headers["Access-Control-Allow-Origin"] = "*"
+            return resp, 422
+        parsed = None
+        ultimo = None
+        for modelo in ("gemini-2.5-flash", "gemini-flash-latest", "gemini-3.6-flash"):
+            try:
+                response = client.models.generate_content(
+                    model=modelo,
+                    contents=f"{PROMPT_IMPORT_LINE_ITEMS}\n\n--- PDF TEXT ---\n{texto[:120000]}",
+                    config=types.GenerateContentConfig(response_mime_type="application/json"),
+                )
+                parsed = extraer_json(getattr(response, "text", None) or "")
+                if parsed is not None:
+                    break
+            except Exception as err:
+                ultimo = err
+                print(f"--> import line items Gemini {modelo}: {err}")
+                continue
+        if parsed is None:
+            raise ultimo or RuntimeError("The AI did not return JSON")
+        items = _normalizar_partidas_ia(parsed)
+        payload = {
+            "success": True,
+            "items": items,
+            "count": len(items),
+            "source": "gemini",
         }
-        status = 200 if payload.get("items") else 422
+        status = 200 if items else 422
+        if not items:
+            payload["success"] = False
+            payload["error"] = "The AI did not find line items in this PDF."
         resp = jsonify(payload)
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp, status
     except Exception as e:
-        resp = jsonify({"success": False, "error": f"Could not parse the estimate PDF: {e}"})
+        resp = jsonify({"success": False, "error": f"Could not import line items: {e}", "items": []})
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp, 500
+
+
+def _dinero_partida_ia(valor):
+    if valor is None or valor == "":
+        return 0.0
+    if isinstance(valor, (int, float)):
+        return float(valor)
+    raw = re.sub(r"[^\d.,-]", "", str(valor)).replace(",", "")
+    try:
+        return float(raw) if raw else 0.0
+    except ValueError:
+        return 0.0
+
+
+def _accion_partida_ia(valor):
+    blob = re.sub(r"\s+", " ", str(valor or "")).strip().lower()
+    mapa = {
+        "remove, install plus materials": "replace_material",
+        "remove and install": "replace",
+        "install plus materials": "install_material",
+        "install only": "install",
+        "demolition only": "demo",
+        "material only": "material",
+        "replace_material": "replace_material",
+        "replace": "replace",
+        "install_material": "install_material",
+        "install": "install",
+        "demo": "demo",
+        "material": "material",
+        "labor": "labor",
+    }
+    if blob in mapa:
+        return mapa[blob]
+    if "demolition" in blob or "demo" in blob:
+        return "demo"
+    if "material only" in blob:
+        return "material"
+    if "install plus" in blob:
+        return "install_material"
+    if "install only" in blob:
+        return "install"
+    if "remove" in blob and "install" in blob:
+        return "replace_material" if "material" in blob else "replace"
+    return "replace"
+
+
+def _normalizar_partidas_ia(parsed):
+    filas = parsed
+    if isinstance(parsed, dict):
+        filas = parsed.get("items") or parsed.get("partidas") or parsed.get("data") or []
+    if not isinstance(filas, list):
+        return []
+    items = []
+    for row in filas:
+        if not isinstance(row, dict):
+            continue
+        desc = str(
+            row.get("WORK DESCRIPTION")
+            or row.get("work description")
+            or row.get("description")
+            or row.get("descripcion")
+            or ""
+        ).strip()
+        if not desc:
+            continue
+        qty = _dinero_partida_ia(row.get("QTY") if row.get("QTY") is not None else row.get("qty", row.get("quantity", 1)))
+        unit = str(row.get("UNIT") or row.get("unit") or "SF").strip().upper() or "SF"
+        unit_price = _dinero_partida_ia(
+            row.get("UNIT PRICE") if row.get("UNIT PRICE") is not None else row.get("unit_price", row.get("UNIT_PRICE"))
+        )
+        subtotal = _dinero_partida_ia(
+            row.get("SUBTOTAL") if row.get("SUBTOTAL") is not None else row.get("subtotal")
+        )
+        if unit_price <= 0 and subtotal and qty:
+            unit_price = round(subtotal / qty, 2)
+        if subtotal <= 0 and qty and unit_price:
+            subtotal = round(qty * unit_price, 2)
+        action_raw = row.get("ACTION") or row.get("action") or ""
+        items.append({
+            "CODE": str(row.get("CODE") or row.get("code") or "").strip(),
+            "ACTION": str(action_raw).strip() or "Remove and install",
+            "WORK DESCRIPTION": desc,
+            "QTY": qty if qty else 1.0,
+            "UNIT": unit,
+            "UNIT PRICE": unit_price,
+            "SUBTOTAL": subtotal,
+            "code": str(row.get("CODE") or row.get("code") or "").strip(),
+            "action": _accion_partida_ia(action_raw),
+            "description": desc,
+            "qty": qty if qty else 1.0,
+            "unit": unit,
+            "unit_price": unit_price,
+            "subtotal": subtotal,
+        })
+    return items
 
 
 def _buscar_navegador_pdf():
