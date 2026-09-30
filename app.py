@@ -1627,9 +1627,9 @@ def _filtro_or_flexible(q):
     partes = []
     vistos = set()
 
-    def _add(campo, valor):
+    def _add(campo, valor, minimo=2):
         limpio = re.sub(r"[,*%()]", "", str(valor or "")).strip()[:80]
-        if not limpio or len(limpio) < 3:
+        if not limpio or len(limpio) < minimo:
             return
         clave = f"{campo}:{limpio.lower()}"
         if clave in vistos:
@@ -1641,11 +1641,15 @@ def _filtro_or_flexible(q):
     _add("descripcion_es", termino)
     _add("descripcion_en", termino)
     _add("description", termino)
-    _add("description_en", termino)
-    _add("codigo", termino)
+    _add("work_description", termino)
+    _add("codigo", termino, 1)
+    _add("code", termino, 1)
+    _add("accion", termino)
+    _add("action", termino)
     compacto = _codigo_catalogo_compacto(termino)
     if compacto and compacto.lower() != termino.lower():
-        _add("codigo", compacto)
+        _add("codigo", compacto, 1)
+        _add("code", compacto, 1)
     for token in _tokens_busqueda_catalogo(termino):
         if token in _STOP_BUSQUEDA_CATALOGO:
             continue
@@ -1654,8 +1658,8 @@ def _filtro_or_flexible(q):
         _add("descripcion", token)
         _add("descripcion_es", token)
         _add("descripcion_en", token)
-        _add("codigo", token)
-    return ",".join(partes[:18])
+        _add("codigo", token, 1)
+    return ",".join(partes[:24])
 
 
 def _puntaje_catalogo_zip(row, zona):
@@ -2975,6 +2979,7 @@ def api_direcciones():
     return jsonify({"items": unicos[:8], "errors": errores[:2]})
 
 
+@app.route("/api/search-catalog", methods=["GET"])
 @app.route("/api/buscar-catalogo", methods=["GET"])
 def buscar_catalogo():
     q = request.args.get("q", "").strip()
@@ -2987,34 +2992,53 @@ def buscar_catalogo():
     if idioma not in IDIOMAS_CATALOGO:
         idioma = "es"
     zona = _zona_mercado_por_zip(zip_q)
+    campo = str(request.args.get("campo") or request.args.get("field") or "").strip().lower()
     print(f"--> Término buscado: '{q}' nucleo='{_nucleo_busqueda_catalogo(q_norm)}' oficio={oficio} ui={oficio_ui} ZIP={zona.get('zip')} {zona.get('ciudad')} {zona.get('estado')} factor={zona.get('factor')}")
     try:
-        if supabase is None:
+        client = _supabase_client()
+        if client is None:
             raise RuntimeError("Cliente supabase es None (revisa SUPABASE_URL y SUPABASE_KEY en .env)")
         q_match = _nucleo_busqueda_catalogo(q_norm) or q_norm
         filas = []
+        ultimo_err = None
         if q_match:
-            filtros = [
+            termino = _limpiar_termino_catalogo(q_match)
+            compacto = _codigo_catalogo_compacto(q_match)
+            filtros = []
+            if campo in ("code", "codigo"):
+                filtros.append(f"codigo.ilike.%{termino}%")
+                if compacto and compacto.lower() != termino.lower():
+                    filtros[-1] += f",codigo.ilike.%{compacto}%"
+            elif campo in ("action", "accion"):
+                filtros.append(_filtro_or_flexible(q_match) or f"descripcion.ilike.%{termino}%")
+            filtros.extend([
                 _filtro_or_flexible(q_match),
-                f"descripcion.ilike.%{_limpiar_termino_catalogo(q_match)}%,codigo.ilike.%{_limpiar_termino_catalogo(q_match)}%",
-            ]
-            ultimo_err = None
+                f"descripcion.ilike.%{termino}%,codigo.ilike.%{termino}%",
+                f"codigo.ilike.%{termino}%",
+                f"descripcion.ilike.%{termino}%",
+            ])
             for filtro in filtros:
                 if not filtro:
                     continue
                 try:
-                    res = supabase.table(TABLA_CATALOGO).select("*").or_(filtro).limit(200).execute()
+                    res = client.table(TABLA_CATALOGO).select("*").or_(filtro).limit(200).execute()
                     filas = list(res.data or [])
                     ultimo_err = None
-                    break
+                    if filas:
+                        break
                 except Exception as err:
                     ultimo_err = err
                     print(f"--> buscar-catalogo filtro: {err}")
-            if ultimo_err and not filas:
-                raise ultimo_err
+            if not filas:
+                try:
+                    filas = list(buscar_filas_catalogo(q_match) or [])
+                except Exception as err:
+                    ultimo_err = ultimo_err or err
         else:
-            res = supabase.table(TABLA_CATALOGO).select("*").limit(200).execute()
+            res = client.table(TABLA_CATALOGO).select("*").limit(200).execute()
             filas = list(res.data or [])
+        if ultimo_err and not filas:
+            raise ultimo_err
         tokens = _tokens_busqueda_catalogo(q_match)
         unidad_q = (request.args.get("unidad") or request.args.get("unit") or "").upper()
         if oficio:
@@ -3038,7 +3062,7 @@ def buscar_catalogo():
             filas = techo or residenciales
             if not unidad_q:
                 unidad_q = "LF"
-        umbral = 6
+        umbral = 4 if campo in ("code", "codigo") else 6
         def _orden_catalogo(row):
             score = _puntaje_coincidencia_catalogo(row, q_match, tokens, unidad_q) + _puntaje_catalogo_zip(row, zona)
             precio = _num_catalogo(row, "precio_base", "precio_unitario", "precio", "price")
@@ -3066,10 +3090,15 @@ def buscar_catalogo():
         print(f"--> catálogo supabase q='{q_match}' filas={len(filas)} items={len(items)}")
         if not items and str(request.args.get("registrar_faltante") or "") in ("1", "true", "si", "yes"):
             registrar_item_faltante(q, oficio, zona.get("zip") or zip_q)
-        return jsonify(items)
+        payload = {"success": True, "items": items, "count": len(items)}
+        resp = jsonify(payload)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp
     except Exception as e:
         print(f"ERROR SUPABASE DETALLADO: {e}")
-        return jsonify({"error": str(e)}), 500
+        resp = jsonify({"success": False, "error": str(e), "items": []})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp, 500
 
 
 @app.route("/api/sugerir-precios-ia", methods=["POST"])
