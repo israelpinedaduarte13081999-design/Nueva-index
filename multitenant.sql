@@ -9,6 +9,9 @@ create table if not exists public.contratistas (
   updated_at timestamptz not null default now()
 );
 
+-- white-label: historial_estimados stores line-item WORK DESCRIPTION in jsonb
+-- (items, areas, snapshot) — unlimited text, not VARCHAR.
+
 create table if not exists public.historial_estimados (
   id uuid primary key default gen_random_uuid(),
   contratista_id uuid not null references public.contratistas(id),

@@ -1,5 +1,15 @@
 -- Tabla base del historial.
+-- Las descripciones de partidas se guardan dentro de items/areas/snapshot (jsonb),
+-- que no tiene límite VARCHAR: el texto largo del WORK DESCRIPTION se persiste completo.
 -- Después de crearla, ejecuta multitenant.sql (contratista_id, RLS y funciones).
+--
+-- Si alguna instalación antigua usó VARCHAR corto en un campo de descripción:
+--   alter table public.historial_estimados
+--     alter column items type jsonb using items::jsonb,
+--     alter column areas type jsonb using areas::jsonb,
+--     alter column snapshot type jsonb using snapshot::jsonb,
+--     alter column notas type text,
+--     alter column terminos type text;
 create table if not exists public.historial_estimados (
   id uuid primary key default gen_random_uuid(),
   folio text,

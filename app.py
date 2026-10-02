@@ -1803,7 +1803,7 @@ create table if not exists public.historial_estimados (
   total numeric,
   estado text default 'pending',
   cliente jsonb,
-  items jsonb,
+  items jsonb, -- partidas: descripcion TEXT ilimitado dentro del JSON
   areas jsonb,
   snapshot jsonb,
   notas text,
@@ -1928,6 +1928,62 @@ def documento_desde_fila_historial(row):
     }
 
 
+def _texto_descripcion_partida(item):
+    if not isinstance(item, dict):
+        return ""
+    meta = item.get("meta") if isinstance(item.get("meta"), dict) else {}
+    cands = [
+        item.get("descCustom"),
+        meta.get("descCustom"),
+        item.get("descripcion"),
+        item.get("description"),
+        item.get("desc"),
+        item.get("WORK DESCRIPTION"),
+        item.get("work description"),
+    ]
+    return max((str(x if x is not None else "") for x in cands), key=len)
+
+
+def _preservar_descripcion_partida(item):
+    if not isinstance(item, dict):
+        return item
+    desc = _texto_descripcion_partida(item)
+    row = dict(item)
+    row["descripcion"] = desc
+    row["description"] = desc
+    row["desc"] = desc
+    row["descCustom"] = desc
+    meta = dict(row.get("meta") or {}) if isinstance(row.get("meta"), dict) else {}
+    meta["descManual"] = "1"
+    meta["descCustom"] = desc
+    row["meta"] = meta
+    return row
+
+
+def _preservar_descripciones_items(items):
+    if not isinstance(items, list):
+        return items
+    return [_preservar_descripcion_partida(it) if isinstance(it, dict) else it for it in items]
+
+
+def _preservar_descripciones_areas(areas):
+    if not isinstance(areas, list):
+        return areas
+    out = []
+    for area in areas:
+        if not isinstance(area, dict):
+            out.append(area)
+            continue
+        copia = dict(area)
+        rows = copia.get("rows")
+        if isinstance(rows, list):
+            copia["rows"] = [
+                _preservar_descripcion_partida(r) if isinstance(r, dict) else r for r in rows
+            ]
+        out.append(copia)
+    return out
+
+
 def _fila_historial_desde_body(body):
     data = body if isinstance(body, dict) else {}
     snapshot = data.get("snapshot") if isinstance(data.get("snapshot"), dict) else {}
@@ -1970,6 +2026,11 @@ def _fila_historial_desde_body(body):
         total = None
     payload = dict(data)
     ident = data.get("id")
+    items = _preservar_descripciones_items(data.get("items") or [])
+    areas = _preservar_descripciones_areas(data.get("areas") or snapshot.get("areas") or [])
+    if isinstance(snapshot, dict) and snapshot.get("areas"):
+        snapshot = dict(snapshot)
+        snapshot["areas"] = _preservar_descripciones_areas(snapshot.get("areas") or [])
     fila = {
         "folio": folio or None,
         "tipo": tipo or "estimate",
@@ -1978,8 +2039,8 @@ def _fila_historial_desde_body(body):
         "total": total,
         "estado": data.get("status") or data.get("estado") or "pending",
         "cliente": cliente,
-        "items": data.get("items") or [],
-        "areas": data.get("areas") or snapshot.get("areas") or [],
+        "items": items,
+        "areas": areas,
         "snapshot": snapshot or None,
         "notas": notas or None,
         "terminos": terminos or None,
