@@ -395,21 +395,50 @@
       .brand p { font-size:12pt; }
       .brand-folio label { font-size:10pt; }
       .brand-folio input, .brand-folio .print-value { border:0; background:transparent; color:#fff; padding:0; font-size:13pt; max-width:none; font-weight:800; }
-      .section-title { margin:14px 0 8px; font-size:12pt; }
-      .tech-grid { grid-template-columns:1fr 1fr; gap:16px; }
-      .tech-card { padding:10px 12px; background:#fff; }
+      .section-title, #itemsHeading {
+        margin:10px 0 4px !important;
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+        page-break-before: auto !important;
+        break-before: auto !important;
+      }
+      .tech-grid { grid-template-columns:1fr 1fr; gap:16px; break-inside:auto; page-break-inside:auto; }
+      .tech-card { padding:10px 12px; background:#fff; min-height:0 !important; }
       .tech-card h3 { font-size:10pt; }
       .field-row { margin:4px 0; grid-template-columns:96px 1fr; }
       .field-row label, .field-row .print-value, .field-row input, .field-row select { font-size:11pt !important; }
       .client-details-card .client-address-grid { display:grid; }
-      .area { margin-top:12px; overflow:visible !important; }
-      .area-header { padding:8px 10px; min-width:0 !important; }
+      #areas, .area, .area table {
+        margin-top:8px;
+        overflow:visible !important;
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+        page-break-before: auto !important;
+        break-before: auto !important;
+        page-break-after: auto !important;
+        break-after: auto !important;
+      }
+      .area { margin-top:8px !important; }
+      .area-header {
+        padding:8px 10px;
+        min-width:0 !important;
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
       .area-name input, .area-name .print-value { font-size:11pt; color:#fff; }
       .area table {
         width:100% !important;
         min-width:0 !important;
         table-layout:auto !important;
         font-size:11pt !important;
+      }
+      .area thead { display:table-header-group; }
+      .area tbody { display:table-row-group; }
+      .area tbody tr, .area thead tr {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
       }
       .area tbody tr, .area th, .area td {
         overflow:visible !important;
@@ -490,11 +519,37 @@
       background:#fff !important;
       box-shadow:none !important;
     }
+    html.print-document .section-title,
+    html.print-document #itemsHeading {
+      margin:10px 0 4px !important;
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+      page-break-before: auto !important;
+      break-before: auto !important;
+    }
+    html.print-document #areas,
+    html.print-document .area,
+    html.print-document .area table {
+      page-break-inside: auto !important;
+      break-inside: auto !important;
+      page-break-before: auto !important;
+      break-before: auto !important;
+      page-break-after: auto !important;
+      break-after: auto !important;
+      overflow: visible !important;
+    }
+    html.print-document .area { margin-top:8px !important; }
     html.print-document .area table {
       width:100% !important;
       min-width:0 !important;
       table-layout:auto !important;
       font-size:11pt !important;
+    }
+    html.print-document .area thead { display:table-header-group; }
+    html.print-document .area tbody tr,
+    html.print-document .area thead tr {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
     }
     html.print-document .area tbody tr,
     html.print-document .area td {
