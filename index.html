@@ -2003,6 +2003,10 @@
         unit:(row&&row.dataset.catalogoUnit)||(row&&row.querySelector('.select-unidad')?.value)||''
       };
     }
+    function descripcionEsTextoPersonalizado(texto){
+      const v=String(texto==null?'':texto);
+      return /[\n\r]/.test(v) || v.trim().length>80;
+    }
     function preservarContextoMaterialEnEdicion(row,texto){
       if(!row||row.dataset.updatingDesc==='1')return;
       const v=String(texto==null?'':texto);
@@ -2012,13 +2016,13 @@
         delete row.dataset.materialLock;
         delete row.dataset.nucleoDesc;
         delete row.dataset.descCustom;
+        delete row.dataset.descManual;
         return;
       }
       row.dataset.descManual='1';
-      row.dataset.descCustom=v;
       if(row.dataset.materialLock==='1')return;
-      const nucleo=nucleoDescripcion(v);
-      if(nucleo)row.dataset.nucleoDesc=nucleo;
+      const nucleo=nucleoDescripcion(v.split(/\n/)[0]);
+      if(nucleo&&nucleo.length<=160)row.dataset.nucleoDesc=nucleo;
     }
     function armarDescripcionAccion(accion,nucleo){ const core=nucleoDescripcion(nucleo).replace(/^(instalaci[oó]n de|instalacion de|installation of|suministro de|supply of|demolici[oó]n de|demolicion de|demolition of|retiro de|removal of)\s+/i,'').trim(); if(!core)return nucleo||''; if(accion==='replace')return 'Remove and install '+core; if(accion==='replace_material')return 'Remove, install plus materials: '+core; if(accion==='install_material')return 'Install plus materials: '+core; if(accion==='install')return 'Installation of '+core; if(accion==='labor')return 'Labor only: '+core; if(accion==='demo')return 'Demolition of '+core; if(accion==='material')return 'Material supply: '+core; return nucleo; }
     function factorLaborPorRubro(text,category){ const t=normalizarCatalogoText(text+' '+(category||'')); if(/pintura|paint/.test(t))return .55; if(/drywall|sheetrock|yeso/.test(t))return .55; if(/roof|techo|shingle|siding/.test(t))return .48; if(/piso|lvt|lvp|tile|azulejo/.test(t))return .55; if(/trim|moldura|baseboard|rodapi/.test(t))return .58; if(/gabinete|puerta|ventana/.test(t))return .55; if(/aislamiento|insulation/.test(t))return .45; return .55; }
@@ -2225,8 +2229,9 @@
     function actualizarDescripcionPorAccion(row){
       if(!row)return;
       if(row.dataset.traduciendo==='1'||document.documentElement.dataset.printEnglish==='1')return;
-      if(row.dataset.descManual==='1')return;
       const input=row.querySelector('.item-desc')||row.querySelector('.description')||row.querySelector('td.desc-cell input, td.desc-cell textarea');
+      const actual=input?String(input.value||''):'';
+      if(row.dataset.descManual==='1'||descripcionEsTextoPersonalizado(actual))return;
       if(!input)return;
       const lang=typeof idiomaEstimadoActual==='function'?idiomaEstimadoActual():'es';
       const textoCatalogo=typeof descripcionCatalogoEnFila==='function'?descripcionCatalogoEnFila(row,lang):'';
@@ -2966,12 +2971,17 @@
         const input=e.target;
         if(!esCampoCatalogoVivo(input))return;
         if(input.closest('.fila-trabajo')?.dataset.updatingDesc==='1')return;
+        if(input.matches('.item-desc, .description')&&descripcionEsTextoPersonalizado(input.value)){
+          cerrarMenusTareas();
+          return;
+        }
         clearTimeout(buscaTimer);
         buscaTimer=setTimeout(()=>buscarYMostrarCatalogo(input),160);
       });
       document.addEventListener('focusin',e=>{
         const input=e.target;
         if(!esCampoCatalogoVivo(input))return;
+        if(input.matches('.item-desc, .description')&&descripcionEsTextoPersonalizado(input.value))return;
         const texto=(input.value||'').trim()||(input.tagName==='SELECT'&&input.selectedOptions[0]?input.selectedOptions[0].textContent.trim():'');
         if(texto)buscarYMostrarCatalogo(input);
       });
@@ -2991,6 +3001,7 @@
         if(e.key!=='ArrowDown'&&e.key!=='ArrowUp'&&e.key!=='Enter')return;
         const cur=items.findIndex(i=>i.classList.contains('is-active'));
         if(e.key==='Enter'){
+          if(input.tagName==='TEXTAREA' && (cur<0 || descripcionEsTextoPersonalizado(input.value)))return;
           e.preventDefault();
           (items[cur]||items[0]).click();
           return;
@@ -3516,6 +3527,7 @@
       ['codigoBase','itemGroup','nucleoDesc','precioBase','precioDemo','precioMatLabor','precioMaterial','precioLabor','precioReplace','catalogoRama','origenPrecio','precioCatalogo','measureKey','skipZipFactor','skipMinimo','materialLock','descManual','unidadManual','precioImportado','accion','descCustom','descEs','descEn'].forEach(k=>{
         if(row.dataset[k])meta[k]=row.dataset[k];
       });
+      delete meta.descCustom;
       const desc=descripcionVisibleFila(row);
       meta.descManual='1';
       meta.descCustom=desc;
@@ -3857,8 +3869,8 @@
       });
     }
     function construirRegistroHistorialActual(){
-      if(typeof update==='function')update();
       const items=extraerItemsPresupuestoActual();
+      if(typeof update==='function')update();
       const nombre=nombreClienteEnPantalla();
       const total=totalGeneralEnPantalla();
       const quoteEl=document.getElementById('quote');
@@ -5422,8 +5434,8 @@
         const en=info.descripcion_en||textos.en||(idioma==='en'?info.descripcion||info.desc:'')||'';
         if(es)row.dataset.descEs=es;
         if(en)row.dataset.descEn=en;
-        if(row.dataset.descManual==='1')return;
         const input=row.querySelector('.item-desc, .description')||row.querySelector('td.desc-cell input, td.desc-cell textarea');
+        if(row.dataset.descManual==='1'||descripcionEsTextoPersonalizado((input&&input.value)||''))return;
         if(!input)return;
         const texto=idioma==='en'?(en||info.descripcion||info.desc||''):(es||info.descripcion||'');
         if(!String(texto).trim())return;

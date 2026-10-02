@@ -1881,6 +1881,9 @@ def documento_desde_fila_historial(row):
     items = _json_campo(row.get("items")) or payload.get("items") or []
     areas = _json_campo(row.get("areas")) or payload.get("areas") or []
     snapshot = _json_campo(row.get("snapshot")) or payload.get("snapshot") or {}
+    if isinstance(snapshot, dict) and snapshot.get("areas"):
+        snapshot = dict(snapshot)
+        snapshot["areas"] = _preservar_descripciones_areas(snapshot.get("areas") or [])
     firmas = _json_campo(row.get("firmas")) or payload.get("firmas") or {}
     tipo = str(row.get("tipo") or payload.get("tipo") or payload.get("type") or payload.get("docMode") or "estimate")
     folio = row.get("folio") or payload.get("folio") or payload.get("number") or payload.get("quote") or payload.get("invoice")
@@ -1913,8 +1916,8 @@ def documento_desde_fila_historial(row):
         "fecha": row.get("fecha") or payload.get("fecha"),
         "total": row.get("total") if row.get("total") is not None else payload.get("total"),
         "status": row.get("estado") or payload.get("status") or "pending",
-        "items": items if isinstance(items, list) else [],
-        "areas": areas if isinstance(areas, list) else [],
+        "items": _preservar_descripciones_items(items if isinstance(items, list) else []),
+        "areas": _preservar_descripciones_areas(areas if isinstance(areas, list) else []),
         "snapshot": snapshot if isinstance(snapshot, dict) else {},
         "firmas": firmas if isinstance(firmas, dict) else {},
         "projectNotes": notas or "",
