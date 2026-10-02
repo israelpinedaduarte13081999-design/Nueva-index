@@ -155,15 +155,25 @@
     .brand-folio input:hover,.brand-folio input:focus { background:#fff; color:var(--navy); }
     .section-title { display:flex; align-items:center; gap:8px; margin:22px 0 8px; color:var(--navy); font-size:15px; text-transform:uppercase; }
     .section-title::before { content:""; width:5px; height:22px; background:var(--gold); }
-    .tech-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:24px; margin-bottom:10px; align-items:stretch; }
+    .tech-grid { display:grid; grid-template-columns:minmax(280px,1.15fr) minmax(240px,1fr); gap:24px; margin-bottom:10px; align-items:stretch; }
     .solo-interno { display:block; }
-    .tech-card { border:1px solid var(--line); border-radius:5px; background:#fbfcfd; padding:16px 18px; min-height:100%; }
+    .tech-card { border:1px solid var(--line); border-radius:5px; background:#fbfcfd; padding:16px 18px; min-height:100%; overflow:visible; min-width:0; }
     .tech-card h3 { margin:0 0 8px; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--line); padding-bottom:6px; }
-    .field-row { display:grid; grid-template-columns:112px 1fr; align-items:center; gap:8px; margin:6px 0; }
+    .field-row { display:grid; grid-template-columns:112px minmax(0,1fr); align-items:center; gap:8px; margin:6px 0; min-width:0; }
     .field-row label { font-size:12px; font-weight:700; }
     input,textarea { width:100%; border:1px solid transparent; border-radius:3px; color:var(--ink); background:transparent; padding:5px 6px; }
     input:hover,textarea:hover,input:focus,textarea:focus { border-color:var(--line); background:#fff; outline:0; }
-    .field-row input { font-weight:600; }
+    .field-row input { font-weight:600; min-width:0; width:100%; max-width:none; box-sizing:border-box; }
+    #company, #companyBanner, #documentSubtitle {
+      width:100%;
+      min-width:100%;
+      max-width:none;
+      overflow:visible;
+      white-space:normal;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+    }
+    #company { min-width:100%; field-sizing:content; }
     .area { margin-top:18px; break-inside:avoid; }
     .area-header { display:flex; justify-content:space-between; align-items:center; gap:10px; background:var(--blue); color:#fff; padding:8px 10px; }
     .area-name { display:flex; align-items:center; gap:8px; flex:1; font-weight:700; }
@@ -179,7 +189,7 @@
     .area th { background:#f6f9fc; color:var(--navy); font-size:10px; text-align:left; text-transform:uppercase; letter-spacing:.03em; border-bottom:1px solid var(--line); }
     .area td { border-bottom:1px solid #e4e9ee; }
     .area tbody tr:nth-child(even) { background:#fafbfd; }
-    .area th:nth-child(1),.area td:nth-child(1) { width:11%; } .area th:nth-child(2),.area td:nth-child(2) { width:15%; } .area th:nth-child(3),.area td:nth-child(3) { width:30%; } .area th:nth-child(4),.area td:nth-child(4) { width:7%; text-align:center; } .area th:nth-child(5),.area td:nth-child(5) { width:8%; } .area th:nth-child(6),.area td:nth-child(6) { width:10%; } .area th:nth-child(7),.area td:nth-child(7) { width:5%; } .area th:nth-child(8),.area td:nth-child(8) { width:11%; } .area th:nth-child(9),.area td:nth-child(9) { width:3%; }
+    .area th:nth-child(1),.area td:nth-child(1) { width:10%; } .area th:nth-child(2),.area td:nth-child(2) { width:14%; } .area th:nth-child(3),.area td:nth-child(3) { width:28%; } .area th:nth-child(4),.area td:nth-child(4) { width:7%; text-align:center; } .area th:nth-child(5),.area td:nth-child(5) { width:8%; } .area th:nth-child(6),.area td:nth-child(6) { width:10%; } .area th:nth-child(7),.area td:nth-child(7) { width:5%; } .area th:nth-child(8),.area td:nth-child(8), .area td.subtotal-cell { width:14%; min-width:6.5rem; overflow:visible; } .area th:nth-child(9),.area td:nth-child(9) { width:4%; }
     .area td input,.area td select,.area td textarea { max-width:100%; box-sizing:border-box; }
     .area td input { padding:5px 2px; }
     .area td:nth-child(1) input,.area td:nth-child(3) input,.area td:nth-child(3) textarea,.area td:nth-child(6) input,.area td:nth-child(7) input { width:100%; }
@@ -231,15 +241,15 @@
     .quantity-cell .quantity { width:100%!important; min-width:45px; max-width:70px; text-align:center; }
     .unit-select { width:100%; border:1px solid #ced4da; border-radius:4px; background:#fff; color:var(--muted); padding:5px 2px; font-size:11px; }
     .unit-select:focus,.unit-select:hover { border-color:var(--line); background:#fff; outline:0; }
-    .row-total { display:block; text-align:right; font-weight:700; white-space:normal; overflow-wrap:anywhere; }
+    .row-total { display:block; text-align:right; font-weight:700; white-space:nowrap; overflow:visible; overflow-wrap:normal; }
     .remove-row { width:100%; border:0; background:transparent; color:#9ba8b5; font-size:16px; padding:0 2px; }
     .remove-row:hover { color:#c33; }
     .add-row { margin-top:8px; color:var(--blue); border:1px dashed #a8c5df; background:#f6fbff; padding:6px 10px; border-radius:3px; font-size:12px; font-weight:700; }
     .add-row:hover { background:#eaf4fc; }
     .bottom-grid { display:grid; grid-template-columns:1.25fr .85fr; gap:26px; align-items:start; margin-top:22px; }
-    .terms { border:1px solid #b9deca; border-radius:5px; background:var(--green-soft); padding:14px 16px; }
+    .terms { border:1px solid #b9deca; border-radius:5px; background:var(--green-soft); padding:14px 16px; overflow:visible; }
     .terms h3 { margin:0 0 8px; color:#236c43; font-size:12px; text-transform:uppercase; }
-    .terms textarea { min-height:92px; line-height:1.55; resize:vertical; background:transparent; padding:0; }
+    .terms textarea, #terms, #projectNotes { min-height:92px; line-height:1.55; resize:vertical; background:transparent; padding:0; overflow:auto; white-space:pre-wrap; }
     .terms .project-notes { margin-top:10px; padding-top:9px; border-top:1px solid #d5eadc; min-height:58px; }
     .summary { font-size:12px; }
     .summary-line { display:flex; justify-content:space-between; gap:15px; border-bottom:1px solid #e1e7ed; padding:7px 9px; font-weight:700; }
@@ -415,7 +425,21 @@
         break-inside: avoid !important;
       }
       .brand { margin-bottom:14px; padding:16px 18px; }
-      .brand h2 { font-size:18pt; }
+      .brand h2, #companyBanner, #documentSubtitle {
+        font-size:18pt;
+        width:100% !important;
+        max-width:none !important;
+        white-space:normal !important;
+        overflow:visible !important;
+        overflow-wrap:anywhere !important;
+      }
+      #company, .tech-card #company, .field-row #company {
+        width:100% !important;
+        min-width:100% !important;
+        max-width:none !important;
+        overflow:visible !important;
+        white-space:normal !important;
+      }
       .brand p { font-size:12pt; }
       .brand-folio label { font-size:10pt; }
       .brand-folio input, .brand-folio .print-value { border:0; background:transparent; color:#fff; padding:0; font-size:13pt; max-width:none; font-weight:800; }
@@ -514,8 +538,16 @@
       html:not(.is-contract) .sign-type-field { display:none !important; }
       .typed-signature-preview { min-height:48px; font-size:28pt; padding:4px 0 0; }
       .bottom-grid { margin-top:14px; gap:14px; }
-      .terms, .payments { padding:10px 12px; }
-      .terms textarea, .terms .print-value { min-height:0; font-size:11pt; }
+      .terms, .payments { padding:10px 12px; overflow:visible !important; }
+      .terms textarea, .terms .print-value, #terms, #projectNotes {
+        min-height:0 !important;
+        max-height:none !important;
+        height:auto !important;
+        overflow:visible !important;
+        white-space:pre-wrap !important;
+        word-wrap:break-word !important;
+        font-size:11pt;
+      }
       .footer-note { margin-top:10px; font-size:9pt; }
       input, textarea, select, .print-value {
         border-color:transparent !important;
@@ -866,7 +898,7 @@
       <div class="tech-grid">
         <section class="tech-card">
           <h3 id="contractorHeading" data-i18n="contractor">Contractor</h3>
-          <div class="field-row"><label for="company" id="companyLabel" data-i18n="company">Company</label><input id="company" value="{{ nombre_empresa }}"></div>
+          <div class="field-row"><label for="company" id="companyLabel" data-i18n="company">Company</label><input id="company" value="{{ nombre_empresa }}" size="48" autocomplete="organization"></div>
           <div class="field-row"><label for="representative" id="representativeLabel" data-i18n="representative">Representative</label><input id="representative" value="Israel Pineda"></div>
           <div class="field-row"><label for="email" id="contactLabel" data-i18n="contact">Contact</label><input id="email" value="israelpinedaurte13081999@gmail.com"></div>
           <div class="field-row"><label for="companyPhone" data-i18n="phone">Phone</label><input id="companyPhone"></div>
@@ -1021,7 +1053,7 @@
   </section>
   <template id="areaTemplate"><section class="area"><div class="area-header"><div class="area-name"><span class="area-index"></span><input class="area-title" value="Kitchen area"><span>(</span><input class="area-reference" value="PLANO 85999"><span>)</span></div><div class="area-actions"><button class="icon-btn add-row-btn" type="button">+ Row</button><button class="icon-btn remove-area-btn" type="button">Remove area</button></div></div><table><thead><tr><th class="code-heading">Code</th><th class="action-heading">Action</th><th class="description-heading">Work description</th><th class="quantity-heading">Qty</th><th class="unit-heading">Unit</th><th class="price-heading">Unit price ($)</th><th class="tax-heading">TAX (%)</th><th class="subtotal-heading">Subtotal ($)</th><th></th></tr></thead><tbody></tbody></table><button class="add-row" type="button">+ Add row</button></section></template>
     <template id="rowTemplate"><tr class="fila-trabajo"><td><input class="code" value=""></td><td><select class="item-action" aria-label="Action" onchange="recalcularPrecioPorAccion(this)"><option value="replace" selected>Remove and install</option><option value="replace_material">Remove, install plus materials</option><option value="install_material">Install plus materials</option><option value="install">Install only</option><option value="demo">Demolition only</option><option value="material">Material only</option></select></td><td class="desc-cell"><div class="task-autocomplete-container"><textarea class="item-desc description" data-line-desc="1" rows="1" autocomplete="off"></textarea><div class="task-dropdown-menu" role="listbox" aria-label="Trades and tasks"></div></div></td><td><div class="quantity-cell"><input type="number" class="input-cantidad quantity" value="1" min="0" step="any" placeholder="0" style="width: 70px; padding: 4px; border: 1px solid #ced4da; border-radius: 4px; text-align: center; font-weight: bold;" oninput="recalcularSubtotalFila(this.closest('tr')); if(typeof update==='function')update();"></div></td><td><select class="select-unidad unit-select item-unit" aria-label="Unit"><option value="SQ">SQ (Squares, 100 sq ft)</option><option value="SF" selected>SF (Square Feet)</option><option value="LF">LF (Linear Feet)</option><option value="EA">EA (Each)</option>
-            <option value="PC">PC (Piece, 10 ft)</option><option value="HR">HR (Hours)</option><option value="CY">CY (Cubic Yards)</option><option value="BAG">BAG (Bag)</option><option value="LS">LS (Lump Sum)</option></select></td><td class="price-cell"><div class="price-ia-wrap"><input class="price number-input input-precio" type="number" min="0" step="0.01" value="0"><button type="button" class="btn-ia-precio no-print" hidden title="Suggest market price with AI">IA</button><div class="ia-precio-menu no-print" hidden></div></div></td><td><input class="tax number-input" type="number" min="0" step="0.01" value="0" aria-label="TAX (%)"></td><td><span class="row-total span-subtotal input-subtotal">$0.00</span><small class="minimum-tag tag-minimo"></small></td><td><button class="remove-row" type="button" aria-label="Remove row">×</button></td></tr></template>
+            <option value="PC">PC (Piece, 10 ft)</option><option value="HR">HR (Hours)</option><option value="CY">CY (Cubic Yards)</option><option value="BAG">BAG (Bag)</option><option value="LS">LS (Lump Sum)</option></select></td><td class="price-cell"><div class="price-ia-wrap"><input class="price number-input input-precio" type="number" min="0" step="0.01" value="0"><button type="button" class="btn-ia-precio no-print" hidden title="Suggest market price with AI">IA</button><div class="ia-precio-menu no-print" hidden></div></div></td><td><input class="tax number-input" type="number" min="0" step="0.01" value="0" aria-label="TAX (%)"></td><td class="subtotal-cell"><span class="row-total span-subtotal input-subtotal">$0.00</span><small class="minimum-tag tag-minimo"></small></td><td><button class="remove-row" type="button" aria-label="Remove row">×</button></td></tr></template>
   <datalist id="listaSugerenciasMateriales">
     <option value="Instalación de piso Luxury Vinyl Tile (LVT) pegado (Glue-down)"></option>
     <option value="Instalación de piso Luxury Vinyl Plank (LVP) Click-Lock flotante"></option>
