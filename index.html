@@ -389,7 +389,31 @@
         box-shadow:none !important;
         border:0 !important;
       }
-      .document { padding:0 !important; }
+      .document { padding:0 !important; min-height:0 !important; }
+      textarea, input {
+        overflow: visible !important;
+        white-space: pre-wrap !important;
+        word-wrap: break-word !important;
+        height: auto !important;
+        border: none !important;
+        resize: none !important;
+        -webkit-appearance: none;
+        box-shadow: none !important;
+      }
+      .table-container, table, #areas, .area, .area table {
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+        page-break-before: auto !important;
+        break-before: auto !important;
+        page-break-after: auto !important;
+        break-after: auto !important;
+        overflow: visible !important;
+        min-height: 0 !important;
+      }
+      tr {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
       .brand { margin-bottom:14px; padding:16px 18px; }
       .brand h2 { font-size:18pt; }
       .brand p { font-size:12pt; }
@@ -408,7 +432,7 @@
       .field-row { margin:4px 0; grid-template-columns:96px 1fr; }
       .field-row label, .field-row .print-value, .field-row input, .field-row select { font-size:11pt !important; }
       .client-details-card .client-address-grid { display:grid; }
-      #areas, .area, .area table {
+      #areas, .area, .area table, .table-container {
         margin-top:8px;
         overflow:visible !important;
         page-break-inside: auto !important;
@@ -527,6 +551,19 @@
       page-break-before: auto !important;
       break-before: auto !important;
     }
+    html.print-document textarea,
+    html.print-document input {
+      overflow: visible !important;
+      white-space: pre-wrap !important;
+      word-wrap: break-word !important;
+      height: auto !important;
+      border: none !important;
+      resize: none !important;
+      -webkit-appearance: none;
+      box-shadow: none !important;
+    }
+    html.print-document .table-container,
+    html.print-document table,
     html.print-document #areas,
     html.print-document .area,
     html.print-document .area table {
@@ -537,6 +574,11 @@
       page-break-after: auto !important;
       break-after: auto !important;
       overflow: visible !important;
+      min-height: 0 !important;
+    }
+    html.print-document tr {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
     }
     html.print-document .area { margin-top:8px !important; }
     html.print-document .area table {
@@ -871,7 +913,7 @@
         <span class="regional-sync" id="badgeEstadoSync">Catalog: local base</span>
       </section>
       <h2 class="section-title" id="itemsHeading" data-i18n="itemsHeadingInvoice">INVOICE ITEMS</h2>
-      <div id="areas"></div>
+      <div id="areas" class="table-container"></div>
       <section class="terms mode-block" id="legalTerms" hidden>
         <h3 id="termsHeading" data-i18n="terms">TERMS AND EXCLUSIONS</h3>
         <textarea id="terms">• Hidden damage, permits, and work outside this scope are quoted separately.
@@ -1357,6 +1399,7 @@
     });
 
     function aplicarTarifaPorZip(fila, item) {
+      if (isLoadingEstimate) return;
       if (!fila || !item || filaPrecioFijo(fila)) return;
       const zipInput = document.getElementById('zipCode') || document.getElementById('zip-code') || document.querySelector("input[name*='zip']") || document.querySelector("input[placeholder*='300']");
       const zip = zipInput ? zipInput.value.trim() : '';
@@ -1525,6 +1568,7 @@
     }
     let historialRemotoCache = [];
     let cargandoDocumentoHistorial = false;
+    let isLoadingEstimate = false;
     let paymentState = { paidAmount:'', status:'open', paidDate:'' };
     const translations = {
       en: {
@@ -1554,7 +1598,7 @@
     const NOMBRES_ESTADO_USA = {AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',CO:'Colorado',CT:'Connecticut',DE:'Delaware',DC:'District of Columbia',FL:'Florida',GA:'Georgia',HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming'};
     let sincronizandoZip = false;
     function nombreEstadoUSA(code){ return NOMBRES_ESTADO_USA[String(code||'').toUpperCase()]||String(code||'').toUpperCase(); }
-    function actualizarCiudades(){ if(sincronizandoZip)return; const state=document.querySelector('#select-estado'); const city=document.querySelector('#select-ciudad'); if(!state||!city)return; const options=CIUDADES_POR_ESTADO[state.value]||[]; city.innerHTML='<option value="">Select city</option>'; options.forEach(([z,n])=>{ const option=document.createElement('option'); option.value=n; option.textContent=n; option.dataset.zip=z; city.appendChild(option); }); const zipInput=document.querySelector('#zip-code'); if(zipInput)zipInput.value=''; ejecutarMotorPrecios(); }
+    function actualizarCiudades(){ if(sincronizandoZip)return; const state=document.querySelector('#select-estado'); const city=document.querySelector('#select-ciudad'); if(!state||!city)return; const options=CIUDADES_POR_ESTADO[state.value]||[]; const zipInput=document.querySelector('#zip-code'); const zipPrev=zipInput?zipInput.value:''; city.innerHTML='<option value="">Select city</option>'; options.forEach(([z,n])=>{ const option=document.createElement('option'); option.value=n; option.textContent=n; option.dataset.zip=z; city.appendChild(option); }); if(zipInput&&!isLoadingEstimate)zipInput.value=''; else if(zipInput&&zipPrev)zipInput.value=zipPrev; if(!isLoadingEstimate)ejecutarMotorPrecios(); }
     function asignarCiudadZIP(){ if(sincronizandoZip)return; const city=document.querySelector('#select-ciudad'); const zip=document.querySelector('#zip-code'); const opt=city&&city.selectedOptions&&city.selectedOptions[0]; const zipCiudad=(opt&&opt.dataset.zip)||''; if(city&&zip&&zipCiudad){ zip.value=zipCiudad; if(typeof consultarFactorZipNacional==='function')consultarFactorZipNacional(zipCiudad); } }
     const RANGOS_ZIP_USA = [
       { state:'CA', stateName:'California', from:90000, to:96199, factor:1.38 },
@@ -1664,6 +1708,7 @@
       if(typeof update==='function')update();
     }
     async function consultarFactorZipNacional(zip){
+      if(isLoadingEstimate)return;
       const zipLimpio=String(zip||'').replace(/\D/g,'').slice(0,5);
       const input=document.querySelector('#zip-code');
       if(input)input.value=zipLimpio;
@@ -1754,6 +1799,7 @@
       return document.querySelector('#toggleAutoPrecios')?.checked===true;
     }
     function aplicarFactorZIP(factorForzado){
+      if(isLoadingEstimate)return;
       const auto=preciosAutomaticosActivos();
       const factor=Number.isFinite(Number(factorForzado))&&Number(factorForzado)>0?Number(factorForzado):factorZipActual();
       const aplicar=auto&&Number.isFinite(factor)&&factor>0;
@@ -2414,6 +2460,7 @@
       return filas.map(row=>typeof mapearItemCatalogoApi==='function'?mapearItemCatalogoApi(row):row).filter(Boolean);
     }
     async function consultarVariantesYAplicar(row){
+      if(isLoadingEstimate)return;
       if(!row)return;
       const seq=String(Number(row.dataset.variantesSeq||0)+1);
       row.dataset.variantesSeq=seq;
@@ -2438,6 +2485,7 @@
       }
     }
     async function consultarYAplicarPrecioSupabase(row,asignarUnidad,opts){
+      if(isLoadingEstimate)return;
       return consultarVariantesYAplicar(row);
     }
     function aplicarPrecioItemSupabase(row,item,asignarUnidad,opts){
@@ -2464,6 +2512,7 @@
       select.value=u;
     }
     function aplicarPrecioAutomaticoFila(row,asignarUnidad=true){
+      if(isLoadingEstimate)return;
       if(!row)return;
       if(row.dataset.precioImportado==='1')return;
       const skipDesc=row.dataset.descManual==='1';
@@ -2641,7 +2690,7 @@
     const ejecutarMotorOBase=ejecutarMotorPrecios;
     ejecutarMotorPrecios=function(actualizarTotal=true){ return ejecutarMotorOBase(actualizarTotal); };
     const ejecutarMotorConMinimos = ejecutarMotorPrecios;
-    ejecutarMotorPrecios = function(actualizarTotal=true){ const result=ejecutarMotorConMinimos(false); document.querySelectorAll('.fila-trabajo').forEach(row=>aplicarPrecioAutomaticoFila(row,false)); if(typeof aplicarFactorZIP==='function')aplicarFactorZIP(); aplicarCargosMinimosNacionales(); if(actualizarTotal&&!regionalActualizando){ regionalActualizando=true; update(); regionalActualizando=false; } return result; };
+    ejecutarMotorPrecios = function(actualizarTotal=true){ if(isLoadingEstimate){ if(actualizarTotal&&typeof update==='function')update(); return; } const result=ejecutarMotorConMinimos(false); document.querySelectorAll('.fila-trabajo').forEach(row=>aplicarPrecioAutomaticoFila(row,false)); if(typeof aplicarFactorZIP==='function')aplicarFactorZIP(); aplicarCargosMinimosNacionales(); if(actualizarTotal&&!regionalActualizando){ regionalActualizando=true; update(); regionalActualizando=false; } return result; };
     function detectarAlcance(description){ const text=String(description||'').toLowerCase(); if(/solo\s+demolici[oó]n|\bdemo\b|demolition|tear\s*off|remove\s+only|arrancar/.test(text))return 'demo'; if(/arrancar\s+y\s+poner|remove\s*(?:&|and)?\s*replace|replace|reemplaz/.test(text))return 'replace'; if(/solo\s+mano\s+de\s+obra|mano\s+de\s+obra|labor\s+only|labor\s+only|\blabor\b/.test(text))return 'labor'; return 'full'; }
     function colocarCursorEnClic(input, clientX){ const val=input.value||''; const style=getComputedStyle(input); const mirror=document.createElement('span'); mirror.style.cssText=`position:absolute;left:-9999px;white-space:pre;font:${style.font};letter-spacing:${style.letterSpacing}`; document.body.appendChild(mirror); const x=clientX-input.getBoundingClientRect().left-(parseFloat(style.paddingLeft)||0)-(parseFloat(style.borderLeftWidth)||0)+input.scrollLeft; let lo=0,hi=val.length; while(lo<hi){ const mid=Math.ceil((lo+hi)/2); mirror.textContent=val.slice(0,mid); if(mirror.offsetWidth<=x)lo=mid; else hi=mid-1; } mirror.remove(); input.setSelectionRange(lo,lo); }
     const CATALOGO_TRABAJOS = {};
@@ -2895,6 +2944,7 @@
       posicionarMenuTareas(input,menu);
     }
     async function buscarYMostrarCatalogo(input){
+      if(isLoadingEstimate)return;
       if(!input||!input.isConnected)return;
       const fila=input.closest('.fila-trabajo')||input.closest('tr');
       let texto=(input.value||'').trim();
@@ -2958,6 +3008,7 @@
     buscarYMostrarCatalogo._seq=0;
     buscarYMostrarCatalogo._faltanteTimer=0;
     function aplicarItemCatalogoTrabajos(inputElement, item){
+      if(isLoadingEstimate)return;
       if(!item)return;
       item=enriquecerItemSugerencia(item)||item;
       const precioBase=Number(item.precio_zona??item.precio_base??item.precio_unitario??item.price??0)||0;
@@ -3099,26 +3150,25 @@
       return document.querySelectorAll('#areas textarea.item-desc, #areas textarea.description, td.desc-cell textarea, .area td:nth-child(3) textarea');
     }
     window.addEventListener('beforeprint', function(){
-      textareasDescripcionTrabajo().forEach(el=>{
-        el.style.height='auto';
-        const alto=Math.max(el.scrollHeight, el.offsetHeight, 36);
-        el.style.setProperty('height', alto+'px', 'important');
-        el.style.setProperty('overflow', 'visible', 'important');
-        el.style.setProperty('white-space', 'pre-wrap', 'important');
-        el.style.setProperty('word-wrap', 'break-word', 'important');
-        el.style.setProperty('resize', 'none', 'important');
-        el.style.setProperty('border', '0', 'important');
+      document.querySelectorAll('textarea').forEach(tx=>{
+        tx.style.height='auto';
+        tx.style.height=(tx.scrollHeight)+'px';
+        tx.style.setProperty('overflow','visible','important');
+        tx.style.setProperty('white-space','pre-wrap','important');
+        tx.style.setProperty('word-wrap','break-word','important');
+        tx.style.setProperty('resize','none','important');
+        tx.style.setProperty('border','none','important');
       });
     });
     window.addEventListener('afterprint', function(){
-      textareasDescripcionTrabajo().forEach(el=>{
+      document.querySelectorAll('textarea').forEach(el=>{
         el.style.removeProperty('height');
         el.style.removeProperty('overflow');
         el.style.removeProperty('white-space');
         el.style.removeProperty('word-wrap');
         el.style.removeProperty('resize');
         el.style.removeProperty('border');
-        autoAjustarAlturaDescripcion(el);
+        if(typeof autoAjustarAlturaDescripcion==='function')autoAjustarAlturaDescripcion(el);
       });
     });
 
@@ -3677,8 +3727,36 @@
         else delete row.dataset[k];
       });
     }
+    function numeroPartidaGuardada(val){
+      if(typeof val==='number'&&Number.isFinite(val))return val;
+      const n=Number(String(val==null?'':val).replace(/[^0-9.-]/g,''));
+      return Number.isFinite(n)?n:NaN;
+    }
+    function aplicarPrecioYSubtotalGuardados(tr,r){
+      if(!tr)return;
+      const qty=numeroPartidaGuardada(r&&(r.qty??r.cantidad??r.QTY??r.quantity));
+      const price=numeroPartidaGuardada(r&&(r.price??r.precio_unitario??r.unit_price??r['UNIT PRICE']??r.precio));
+      const sub=numeroPartidaGuardada(r&&(r.subtotal??r.total??r.importe));
+      const qtyEl=tr.querySelector('.input-cantidad, .quantity');
+      const priceEl=tr.querySelector('.price, .input-precio');
+      const cell=tr.querySelector('.row-total, .span-subtotal, .input-subtotal');
+      if(qtyEl&&Number.isFinite(qty))qtyEl.value=String(qty);
+      if(priceEl&&Number.isFinite(price))priceEl.value=Number(price).toFixed(2);
+      const q=Number(qtyEl&&qtyEl.value)||0;
+      const p=Number(priceEl&&priceEl.value)||0;
+      const subtotal=Number.isFinite(sub)?sub:q*p;
+      if(cell){
+        if(cell.tagName==='INPUT')cell.value=Number(subtotal).toFixed(2);
+        else cell.textContent=(typeof money!=='undefined'&&money.format)?money.format(subtotal):('$'+Number(subtotal).toFixed(2));
+      }
+      tr.dataset.precioImportado='1';
+      tr.dataset.unidadManual='1';
+    }
     function restaurarBorradorEstimado(data){
       if(!data)return;
+      const startedHere=!isLoadingEstimate;
+      isLoadingEstimate=true;
+      try{
       const setVal=(id,val)=>{ const el=document.getElementById(id); if(el&&val!=null)el.value=val; };
       if(data.docMode&&typeof renderMode==='function')renderMode(data.docMode);
       setVal('quote', data.quote);
@@ -3740,14 +3818,26 @@
           }
           tr.dataset.descManual='1';
           tr.dataset.descCustom=desc;
+          aplicarPrecioYSubtotalGuardados(tr, r);
           if(typeof autoAjustarAlturaDescripcion==='function'&&descEl)autoAjustarAlturaDescripcion(descEl);
         });
       });
-      if(typeof actualizarModoProyecto==='function')actualizarModoProyecto();
       if(typeof update==='function')update();
       reinyectarDescripcionesEstimado(data);
-      if(data.zip&&typeof consultarFactorZipNacional==='function')consultarFactorZipNacional(data.zip);
+      reinyectarPreciosEstimado(data);
       if(data.firmas) restaurarFirmasDocumento(data.firmas);
+      }finally{
+        if(startedHere)isLoadingEstimate=false;
+      }
+    }
+    function reinyectarPreciosEstimado(data){
+      const areasData=(data&&Array.isArray(data.areas))?data.areas:[];
+      [...document.querySelectorAll('#areas .area')].forEach((area,ai)=>{
+        const rows=(areasData[ai]&&areasData[ai].rows)||[];
+        [...area.querySelectorAll('tbody tr.fila-trabajo')].forEach((tr,i)=>{
+          aplicarPrecioYSubtotalGuardados(tr, rows[i]||{});
+        });
+      });
     }
     function reinyectarDescripcionesEstimado(data){
       const areasData=(data&&Array.isArray(data.areas))?data.areas:[];
@@ -4211,6 +4301,9 @@
       try{ return new URLSearchParams(location.search||'').get('id')||''; }catch(_){ return ''; }
     }
     function aplicarDocumentoEnFormulario(reg,id){
+      const startedHere=!isLoadingEstimate;
+      isLoadingEstimate=true;
+      try{
       const data=registroHistorialAFormulario(reg);
       documentoHistorialId=id||reg.id||documentoHistorialId||null;
       showAppView('quote',{mode:data.docMode,reset:false});
@@ -4220,12 +4313,17 @@
       if(data.terms!=null){ const t=document.getElementById('terms'); if(t)t.value=data.terms; }
       if(typeof update==='function')update();
       reinyectarDescripcionesEstimado(data);
+      reinyectarPreciosEstimado(data);
       return data;
+      }finally{
+        if(startedHere)isLoadingEstimate=false;
+      }
     }
     async function cargarDocumentoPorId(id){
       const ident=String(id||'').trim();
       if(!ident)throw new Error('Document not found');
       cargandoDocumentoHistorial=true;
+      isLoadingEstimate=true;
       try{
         let remoto=null;
         try{
@@ -4242,6 +4340,7 @@
         return data;
       }finally{
         cargandoDocumentoHistorial=false;
+        isLoadingEstimate=false;
       }
     }
     async function abrirRegistroHistorial(id){
