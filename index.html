@@ -694,7 +694,47 @@
     html.print-document .sign-type-field,
     html.print-document .solo-interno { display:none !important; }
     html.print-document .print-value { display:inline-block; min-height:1em; font-weight:600; }
-    @media print { input { min-width: 350px !important; width: 100% !important; } textarea { height: auto !important; overflow: visible !important; } }
+    .print-textarea-clone { display:none; }
+    .print-input-clone { display:none; }
+    @media print {
+      .print-textarea-clone {
+        display:block !important;
+        width:100% !important;
+        height:auto !important;
+        max-height:none !important;
+        overflow:visible !important;
+        white-space:pre-wrap !important;
+        word-wrap:break-word !important;
+        overflow-wrap:anywhere !important;
+        font:inherit !important;
+        line-height:1.5 !important;
+        padding:2px 0 !important;
+        page-break-inside:auto !important;
+        break-inside:auto !important;
+      }
+      .print-input-clone {
+        display:block !important;
+        width:auto !important;
+        min-width:0 !important;
+        max-width:none !important;
+        white-space:normal !important;
+        overflow:visible !important;
+        overflow-wrap:anywhere !important;
+        font-weight:600 !important;
+      }
+      .contractor-info .field-row { grid-template-columns:90px minmax(0,1fr) !important; }
+    }
+    html.print-document .contractor-info .print-value,
+    html.print-document .print-textarea-clone {
+      display:block !important;
+      width:auto !important;
+      min-width:0 !important;
+      max-width:none !important;
+      white-space:pre-wrap !important;
+      overflow:visible !important;
+      overflow-wrap:anywhere !important;
+    }
+    html.print-document .contractor-info .field-row { grid-template-columns:90px minmax(0,1fr) !important; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -4619,17 +4659,10 @@
       });
       clone.querySelectorAll('input,textarea,select').forEach(el=>{
         if(el.type==='hidden'||el.classList.contains('payment-method-toggle')){ el.remove(); return; }
-        const span=document.createElement('span');
-        span.className='print-value';
+        const esTextarea=el.tagName==='TEXTAREA';
+        const span=document.createElement(esTextarea?'div':'span');
+        span.className=esTextarea?'print-value print-textarea-clone':'print-value';
         span.textContent=valorCampoImpresion(el);
-        if(el.tagName==='TEXTAREA'){
-          span.style.whiteSpace='pre-wrap';
-          span.style.wordWrap='break-word';
-          span.style.overflow='visible';
-          span.style.height='auto';
-          span.style.minHeight=(el.scrollHeight+20)+'px';
-          span.style.display='block';
-        }
         el.replaceWith(span);
       });
       clone.querySelectorAll('.no-print,.area-actions,.add-row,.remove-row,.payment-method-controls,.payment-quick-actions,.payment-tracking,.task-dropdown-menu,.address-autocomplete-menu,.btn-ia-precio,.ia-precio-menu,.signature-mode-toggle,.signature-clear,.sign-type-field,.solo-interno,.btn,.icon-btn').forEach(el=>el.remove());
@@ -4639,6 +4672,7 @@
     function construirHtmlDocumentoImpresion(){
       const origen=document.querySelector('.document');
       if(!origen)throw new Error('Document not found');
+      if(typeof window.recalcularSubtotalesAgresivo==='function')window.recalcularSubtotalesAgresivo();
       const clone=materializarDocumentoImpresion(origen);
       const marca=nombreEmpresaActiva();
       clone.querySelectorAll('#companyBanner,#documentSubtitle,[data-brand-name]').forEach(el=>{ el.textContent=marca; });
@@ -4647,7 +4681,7 @@
       const titulo=exportFilename();
       let html=`<!DOCTYPE html><html lang="en" class="print-document${contrato}"><head><meta charset="UTF-8"><title>${titulo}</title><style>${estilos}</style></head><body>${clone.outerHTML}</body></html>`;
       html=html.replace(/Zipnova/gi,'');
-      html=html.replace(/Solid Remodeling(?:\s*&\s*Reconstruction\s*LLC)?/gi, marca);
+      html=html.replace(/Solid Remodeling(?:\s*(?:&amp;|&)\s*Reconstruction\s*LLC)?/gi, marca);
       return html;
     }
     async function captureInvoice(){ if(typeof html2canvas!=='function') throw new Error('html2canvas no está disponible'); const invoice=document.querySelector('.document'); invoice.classList.add('export-clean'); try { return await html2canvas(invoice,{backgroundColor:'#fff',scale:2,useCORS:true,logging:false}); } finally { invoice.classList.remove('export-clean'); } }
@@ -5978,6 +6012,72 @@
     <option value="Instalación de Tile / Piso Cerámica"></option>
     <option value="Instalación de Drywall / Tablaroca"></option>
   </datalist>
-<script> window.addEventListener('beforeprint', function() { document.querySelectorAll('textarea').forEach(tx => { tx.style.height = 'auto'; tx.style.height = (tx.scrollHeight + 20) + 'px'; }); }); function forzarSubtotales() { document.querySelectorAll('tbody tr').forEach(fila => { let inputs = fila.querySelectorAll('input[type="number"]'); if(inputs.length >= 2) { let subtotal = ((parseFloat(inputs[0].value)||0) * (parseFloat(inputs[1].value)||0)).toFixed(2); fila.querySelectorAll('td').forEach(td => { if(td.textContent.includes('$')) td.textContent = '$' + subtotal; }); } }); } document.addEventListener('input', forzarSubtotales); window.addEventListener('beforeprint', forzarSubtotales); </script>
+<script>
+(function(){
+  function numeroDe(el){
+    if(!el)return 0;
+    const raw=(el.value!=null&&el.value!=='')?el.value:el.textContent;
+    const n=parseFloat(String(raw||'').replace(/[^0-9.\-]/g,''));
+    return Number.isFinite(n)?n:0;
+  }
+  function formatoDolar(valor){
+    return '$'+Number(valor||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+  function celdaTotalDeFila(fila){
+    return fila.querySelector('td.subtotal-cell')
+      ||(fila.querySelector('.row-total, .span-subtotal, .input-subtotal')||{}).closest?.('td')
+      ||fila.children[7]
+      ||null;
+  }
+  function recalcularSubtotalesAgresivo(){
+    document.querySelectorAll('#areas tbody tr').forEach(fila=>{
+      const qtyEl=fila.querySelector('.input-cantidad, .quantity');
+      const priceEl=fila.querySelector('.price, .input-precio');
+      if(!qtyEl||!priceEl)return;
+      const celda=celdaTotalDeFila(fila);
+      if(!celda)return;
+      const tag=celda.querySelector('.tag-minimo, .minimum-tag');
+      const minimoVisible=!!(tag&&tag.textContent.trim()&&tag.style.display!=='none');
+      const minimo=Number(fila.dataset.regionalSubtotal);
+      const subtotal=(minimoVisible&&Number.isFinite(minimo))?minimo:numeroDe(qtyEl)*numeroDe(priceEl);
+      const tagHtml=minimoVisible?'<small class="minimum-tag tag-minimo" style="display:inline">'+tag.textContent+'</small>':'<small class="minimum-tag tag-minimo" style="display:none"></small>';
+      celda.innerHTML='<span class="row-total span-subtotal input-subtotal">'+formatoDolar(subtotal)+'</span>'+tagHtml;
+    });
+  }
+  function expandirCamposParaImprimir(){
+    restaurarCamposDespuesDeImprimir();
+    document.querySelectorAll('textarea').forEach(tx=>{
+      const div=document.createElement('div');
+      div.className='print-textarea-clone';
+      div.textContent=tx.value;
+      tx.dataset.printDisplay=tx.style.display||'';
+      tx.style.display='none';
+      tx.insertAdjacentElement('afterend',div);
+    });
+    document.querySelectorAll('.contractor-info input, #company').forEach(inp=>{
+      if(inp.dataset.printDisplay!==undefined)return;
+      const span=document.createElement('span');
+      span.className='print-input-clone';
+      span.textContent=inp.value;
+      inp.dataset.printDisplay=inp.style.display||'';
+      inp.style.display='none';
+      inp.insertAdjacentElement('afterend',span);
+    });
+  }
+  function restaurarCamposDespuesDeImprimir(){
+    document.querySelectorAll('.print-textarea-clone, .print-input-clone').forEach(el=>el.remove());
+    document.querySelectorAll('textarea[data-print-display], input[data-print-display]').forEach(el=>{
+      el.style.display=el.dataset.printDisplay;
+      delete el.dataset.printDisplay;
+    });
+  }
+  window.recalcularSubtotalesAgresivo=recalcularSubtotalesAgresivo;
+  window.addEventListener('beforeprint',function(){
+    recalcularSubtotalesAgresivo();
+    expandirCamposParaImprimir();
+  });
+  window.addEventListener('afterprint',restaurarCamposDespuesDeImprimir);
+})();
+</script>
 </body>
 </html>

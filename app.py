@@ -4103,7 +4103,7 @@ def _html_marca_blanca(html, nombre_empresa=""):
     texto = re.sub(r"Zipnova", "", texto, flags=re.I)
     marca = re.sub(r"[\r\n]+", " ", str(nombre_empresa or "")).strip()
     if marca:
-        texto = re.sub(r"Solid Remodeling(?:\s*&\s*Reconstruction\s*LLC)?", marca, texto, flags=re.I)
+        texto = re.sub(r"Solid Remodeling(?:\s*(?:&amp;|&)\s*Reconstruction\s*LLC)?", marca, texto, flags=re.I)
     return texto
 
 
