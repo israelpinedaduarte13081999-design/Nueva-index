@@ -694,6 +694,7 @@
     html.print-document .sign-type-field,
     html.print-document .solo-interno { display:none !important; }
     html.print-document .print-value { display:inline-block; min-height:1em; font-weight:600; }
+    @media print { input { min-width: 350px !important; width: 100% !important; } textarea { height: auto !important; overflow: visible !important; } }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -5977,5 +5978,6 @@
     <option value="Instalación de Tile / Piso Cerámica"></option>
     <option value="Instalación de Drywall / Tablaroca"></option>
   </datalist>
+<script> window.addEventListener('beforeprint', function() { document.querySelectorAll('textarea').forEach(tx => { tx.style.height = 'auto'; tx.style.height = (tx.scrollHeight + 20) + 'px'; }); }); function forzarSubtotales() { document.querySelectorAll('tbody tr').forEach(fila => { let inputs = fila.querySelectorAll('input[type="number"]'); if(inputs.length >= 2) { let subtotal = ((parseFloat(inputs[0].value)||0) * (parseFloat(inputs[1].value)||0)).toFixed(2); fila.querySelectorAll('td').forEach(td => { if(td.textContent.includes('$')) td.textContent = '$' + subtotal; }); } }); } document.addEventListener('input', forzarSubtotales); window.addEventListener('beforeprint', forzarSubtotales); </script>
 </body>
 </html>
