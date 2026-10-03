@@ -6079,5 +6079,55 @@
   window.addEventListener('afterprint',restaurarCamposDespuesDeImprimir);
 })();
 </script>
+<!-- CÓDIGO DEFINITIVO PARA PDF -->
+<script>
+  window.addEventListener('beforeprint', function() {
+      // 1. Convertir textareas a texto normal temporalmente para que no se corten
+      document.querySelectorAll('textarea').forEach(function(tx) {
+          const div = document.createElement('div');
+          div.textContent = tx.value;
+          div.className = 'temp-print-div';
+          div.style.whiteSpace = 'pre-wrap';
+          div.style.wordBreak = 'break-word';
+          div.style.width = '100%';
+          div.style.fontFamily = window.getComputedStyle(tx).fontFamily;
+          div.style.fontSize = window.getComputedStyle(tx).fontSize;
+          
+          tx.style.display = 'none';
+          tx.parentNode.insertBefore(div, tx);
+      });
+  
+      // 2. Forzar cálculo matemático de los subtotales en la tabla
+      document.querySelectorAll('tbody tr').forEach(function(fila) {
+          const inputs = fila.querySelectorAll('input[type="number"]');
+          if (inputs.length >= 2) {
+              const cantidad = parseFloat(inputs[0].value) || 0;
+              const precio = parseFloat(inputs[1].value) || 0;
+              const subtotal = (cantidad * precio).toFixed(2);
+              
+              fila.querySelectorAll('td').forEach(function(td) {
+                  if (td.textContent.includes('$')) {
+                      td.textContent = '$' + subtotal;
+                  }
+              });
+          }
+      });
+  });
+  
+  window.addEventListener('afterprint', function() {
+      // Restaurar los textareas después de cerrar la ventana de impresión
+      document.querySelectorAll('.temp-print-div').forEach(function(div) {
+          div.remove();
+      });
+      document.querySelectorAll('textarea').forEach(function(tx) {
+          tx.style.display = '';
+      });
+  });
+  </script>
 </body>
 </html>
+
+
+
+            
+            
