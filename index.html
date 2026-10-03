@@ -6046,14 +6046,6 @@
   }
   function expandirCamposParaImprimir(){
     restaurarCamposDespuesDeImprimir();
-    document.querySelectorAll('textarea').forEach(tx=>{
-      const div=document.createElement('div');
-      div.className='print-textarea-clone';
-      div.textContent=tx.value;
-      tx.dataset.printDisplay=tx.style.display||'';
-      tx.style.display='none';
-      tx.insertAdjacentElement('afterend',div);
-    });
     document.querySelectorAll('.contractor-info input, #company').forEach(inp=>{
       if(inp.dataset.printDisplay!==undefined)return;
       const span=document.createElement('span');
@@ -6082,6 +6074,7 @@
 <!-- CÓDIGO DEFINITIVO PARA PDF -->
 <script>
   window.addEventListener('beforeprint', function() {
+      document.querySelectorAll('.temp-print-div').forEach(d => d.remove());
       // 1. Convertir textareas a texto normal temporalmente para que no se corten
       document.querySelectorAll('textarea').forEach(function(tx) {
           const div = document.createElement('div');
