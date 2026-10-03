@@ -173,7 +173,21 @@
       overflow-wrap:anywhere;
       word-break:break-word;
     }
-    #company { min-width:100%; field-sizing:content; }
+    #company { min-width:300px !important; max-width:none !important; overflow:visible !important; }
+    .contractor-info .field-row { grid-template-columns:90px minmax(300px,1fr) !important; }
+    input[value*="solid Remodeling"], .contractor-info input {
+      width: 100% !important;
+      min-width: 300px !important;
+      text-overflow: clip !important;
+      white-space: normal !important;
+    }
+    #company, .contractor-info #company {
+      width: 100% !important;
+      min-width: 300px !important;
+      text-overflow: clip !important;
+      white-space: normal !important;
+      overflow: visible !important;
+    }
     .area { margin-top:18px; break-inside:avoid; }
     .area-header { display:flex; justify-content:space-between; align-items:center; gap:10px; background:var(--blue); color:#fff; padding:8px 10px; }
     .area-name { display:flex; align-items:center; gap:8px; flex:1; font-weight:700; }
@@ -440,6 +454,20 @@
         overflow:visible !important;
         white-space:normal !important;
       }
+      input[value*="solid Remodeling"], .contractor-info input {
+        width: 100% !important;
+        min-width: 300px !important;
+        text-overflow: clip !important;
+        white-space: normal !important;
+      }
+      #company, .contractor-info #company, .contractor-info .print-value {
+        width: 100% !important;
+        min-width: 300px !important;
+        text-overflow: clip !important;
+        white-space: normal !important;
+        overflow: visible !important;
+      }
+      .contractor-info .field-row { grid-template-columns:90px minmax(300px,1fr) !important; }
       .brand p { font-size:12pt; }
       .brand-folio label { font-size:10pt; }
       .brand-folio input, .brand-folio .print-value { border:0; background:transparent; color:#fff; padding:0; font-size:13pt; max-width:none; font-weight:800; }
@@ -542,7 +570,6 @@
       .terms textarea, .terms .print-value, #terms, #projectNotes {
         min-height:0 !important;
         max-height:none !important;
-        height:auto !important;
         overflow:visible !important;
         white-space:pre-wrap !important;
         word-wrap:break-word !important;
@@ -896,7 +923,7 @@
       </header>
       <div class="paid-stamp" id="paidStamp" role="status" aria-live="polite" hidden><span data-i18n="paid">PAID</span><small id="paidDate"></small></div>
       <div class="tech-grid">
-        <section class="tech-card">
+        <section class="tech-card contractor-info">
           <h3 id="contractorHeading" data-i18n="contractor">Contractor</h3>
           <div class="field-row"><label for="company" id="companyLabel" data-i18n="company">Company</label><input id="company" value="{{ nombre_empresa }}" size="48" autocomplete="organization"></div>
           <div class="field-row"><label for="representative" id="representativeLabel" data-i18n="representative">Representative</label><input id="representative" value="Israel Pineda"></div>
@@ -1898,23 +1925,66 @@
       document.querySelectorAll('.fila-trabajo').forEach(row=>suma+=valorRealFila(row));
       return suma;
     }
+    function numeroCampoFila(el){
+      if(!el)return 0;
+      const n=Number(String(el.value==null?'':el.value).replace(/[$,\s]/g,''));
+      return Number.isFinite(n)?n:0;
+    }
+    function formatoSubtotalFila(valor){
+      return '$'+Number(valor||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    }
+    function pintarSubtotalFila(row, valor){
+      if(!row)return;
+      const qty=numeroCampoFila(row.querySelector('.input-cantidad')||row.querySelector('.quantity'));
+      const unitPrice=numeroCampoFila(row.querySelector('.price')||row.querySelector('.input-precio'));
+      const monto=Number.isFinite(Number(valor))?Number(valor):(qty*unitPrice);
+      const texto='$'+(qty*unitPrice).toFixed(2);
+      const celdas=row.querySelectorAll('.row-total, .span-subtotal, .input-subtotal, td.subtotal-cell');
+      (celdas.length?celdas:[row.querySelector('td:nth-child(8)')]).forEach(celdaSubtotal=>{
+        if(!celdaSubtotal)return;
+        if(celdaSubtotal.tagName==='INPUT'){
+          celdaSubtotal.value=monto.toFixed(2);
+        }else if(celdaSubtotal.matches('td.subtotal-cell')){
+          const inner=celdaSubtotal.querySelector('.row-total, .span-subtotal, .input-subtotal');
+          if(inner){
+            if(inner.tagName==='INPUT')inner.value=monto.toFixed(2);
+            else inner.textContent='$'+(qty*unitPrice).toFixed(2);
+          }else{
+            celdaSubtotal.textContent='$'+(qty*unitPrice).toFixed(2);
+          }
+        }else{
+          celdaSubtotal.textContent='$'+(qty*unitPrice).toFixed(2);
+        }
+      });
+    }
     function recalcularSubtotalFila(row){
       if(!row)return 0;
-      const qty=Number(row.querySelector('.input-cantidad')?.value||row.querySelector('.quantity')?.value)||0;
-      const price=Number(row.querySelector('.price')?.value||row.querySelector('.input-precio')?.value)||0;
-      const raw=qty*price;
-      const text=((row.querySelector('.item-desc')||row.querySelector('.description'))?.value||'')+' '+(row.querySelector('.code')?.value||'');
-      const minimum=cargoMinimoOficio(text);
-      row.dataset.cargoMinimo=String(minimum);
-      const toggleOn=document.querySelector('#toggleMinimos')?.checked===true;
-      const superaUmbral500=sumaValorRealProyecto()>=UMBRAL_CARGO_MINIMO_PROYECTO;
-      const tienePartida=text.trim().length>2;
-      const aplicarMinimo=!filaPrecioFijo(row)&&toggleOn&&!superaUmbral500&&tienePartida&&qty>0&&raw<minimum;
-      const effective=aplicarMinimo?minimum:raw;
-      const cell=row.querySelector('.row-total')||row.querySelector('.span-subtotal')||row.querySelector('.input-subtotal');
-      if(cell){ if(cell.tagName==='INPUT')cell.value=effective.toFixed(2); else cell.textContent=money.format(effective); }
+      const qty=numeroCampoFila(row.querySelector('.input-cantidad')||row.querySelector('.quantity'));
+      const unitPrice=numeroCampoFila(row.querySelector('.price')||row.querySelector('.input-precio'));
+      const raw=qty*unitPrice;
+      const celdaSubtotal=row.querySelector('.row-total')||row.querySelector('.span-subtotal')||row.querySelector('.input-subtotal');
+      if(celdaSubtotal){
+        if(celdaSubtotal.tagName==='INPUT')celdaSubtotal.value=(qty*unitPrice).toFixed(2);
+        else celdaSubtotal.textContent='$'+(qty*unitPrice).toFixed(2);
+      }
+      pintarSubtotalFila(row, raw);
+      let effective=raw;
+      let aplicarMinimo=false;
+      try{
+        const text=((row.querySelector('.item-desc')||row.querySelector('.description'))?.value||'')+' '+(row.querySelector('.code')?.value||'');
+        const minimum=cargoMinimoOficio(text);
+        row.dataset.cargoMinimo=String(minimum);
+        const toggleOn=document.querySelector('#toggleMinimos')?.checked===true;
+        const superaUmbral500=sumaValorRealProyecto()>=UMBRAL_CARGO_MINIMO_PROYECTO;
+        const tienePartida=text.trim().length>2;
+        aplicarMinimo=!filaPrecioFijo(row)&&toggleOn&&!superaUmbral500&&tienePartida&&qty>0&&Number.isFinite(minimum)&&raw<minimum;
+        effective=aplicarMinimo?minimum:raw;
+      }catch(error){
+        console.error('Minimum charge check failed', error);
+      }
+      pintarSubtotalFila(row, effective);
       const tag=row.querySelector('.tag-minimo')||row.querySelector('.minimum-tag');
-      if(tag){ const show=aplicarMinimo; tag.style.display=show?'inline':'none'; tag.textContent=show?'(Minimum service charge applied)':''; }
+      if(tag){ tag.style.display=aplicarMinimo?'inline':'none'; tag.textContent=aplicarMinimo?'(Minimum service charge applied)':''; }
       row.dataset.regionalSubtotal=String(effective);
       if(typeof sincronizarBotonIaPrecio==='function')sincronizarBotonIaPrecio(row);
       return effective;
@@ -3181,15 +3251,11 @@
     function textareasDescripcionTrabajo(){
       return document.querySelectorAll('#areas textarea.item-desc, #areas textarea.description, td.desc-cell textarea, .area td:nth-child(3) textarea');
     }
-    window.addEventListener('beforeprint', function(){
-      document.querySelectorAll('textarea').forEach(tx=>{
-        tx.style.height='auto';
-        tx.style.height=(tx.scrollHeight)+'px';
-        tx.style.setProperty('overflow','visible','important');
-        tx.style.setProperty('white-space','pre-wrap','important');
-        tx.style.setProperty('word-wrap','break-word','important');
-        tx.style.setProperty('resize','none','important');
-        tx.style.setProperty('border','none','important');
+    window.addEventListener('beforeprint', function() {
+      document.querySelectorAll('textarea').forEach(tx => {
+        tx.style.height = 'auto';
+        tx.style.height = (tx.scrollHeight + 20) + 'px'; /* +20px extra de margen de seguridad */
+        tx.style.overflow = 'visible';
       });
     });
     window.addEventListener('afterprint', function(){
@@ -3204,7 +3270,7 @@
       });
     });
 
-    function addRow(area, data=['','',1,0,'SF',0]) { const fragment=rowTemplate.content.cloneNode(true); area.querySelector('tbody').appendChild(fragment); const row=area.querySelector('tbody').lastElementChild; row.querySelector('.code').value=data[0]; (row.querySelector('.item-desc')||row.querySelector('.description')).value=data[1]; row.querySelector('.input-cantidad').value=data[2]; row.querySelector('.price').value=data[3]; const unitValue=normalizarUnidad(data[4]||'SF'); row.querySelector('.select-unidad').value=['SQ','SF','LF','EA','HR','CY','LS','BAG','PC'].includes(unitValue)?unitValue:'SF'; const actionSelect=row.querySelector('.item-action'); const accionInicial=['replace','replace_material','install_material','install','labor','demo','material'].includes(data[6])?data[6]:(detectarAlcance(data[1])==='demo'?'demo':detectarAlcance(data[1])==='labor'?'labor':detectarAlcance(data[1])==='replace'?'replace':'replace'); if(actionSelect)actionSelect.value=accionInicial; if(row.querySelector('.select-alcance'))row.querySelector('.select-alcance').value=['full','labor','replace','demo'].includes(data[6])?data[6]:detectarAlcance(data[1]); row.querySelector('.tax').value=data[5]??0; if(data[1])row.dataset.nucleoDesc=nucleoDescripcion(data[1]); const descInput=row.querySelector('.item-desc')||row.querySelector('.description'); const codeInput=row.querySelector('.code'); habilitarSelectorRamas(descInput); habilitarSelectorRamas(codeInput); if(typeof autoAjustarAlturaDescripcion==='function')autoAjustarAlturaDescripcion(descInput); if(descInput&&descInput.tagName!=='TEXTAREA'){ descInput.addEventListener('mousedown',e=>{ if(e.button===0)descInput.dataset.clickX=String(e.clientX); }); descInput.addEventListener('mouseup',e=>{ if(e.button!==0||e.detail!==1)return; if(Math.abs(e.clientX-Number(descInput.dataset.clickX||e.clientX))>3)return; const val=descInput.value; if(!val||descInput.selectionStart!==0||descInput.selectionEnd!==val.length)return; colocarCursorEnClic(descInput,e.clientX); }); } const procesarCambioPartida=()=>{ if(descInput)preservarContextoMaterialEnEdicion(row,descInput.value); update(); }; ['input','change'].forEach(evt=>{ if(descInput)descInput.addEventListener(evt,procesarCambioPartida); if(codeInput)codeInput.addEventListener(evt,procesarCambioPartida); }); actionSelect?.addEventListener('change',()=>{ actualizarDescripcionPorAccion(row); if(typeof recalcularPrecioPorAccion==='function')recalcularPrecioPorAccion(row); else { aplicarPrecioAutomaticoFila(row,false); update(); } }); row.querySelector('.select-unidad')?.addEventListener('change',()=>{ row.dataset.unidadManual='1'; if(row.querySelector('.select-unidad').value==='LS')aplicarUnidadLS(row); if(!filaPrecioFijo(row))aplicarPrecioAutomaticoFila(row,false); update(); }); ['.input-cantidad','.quantity','.price','.tax'].forEach(sel=>{ row.querySelector(sel)?.addEventListener('input',()=>{ recalcularSubtotalFila(row); update(); }); }); row.querySelector('.remove-row').addEventListener('click',()=>{ row.remove(); update(); }); row.querySelector('.remove-row').title=translations[language].removeRow; row.querySelector('.remove-row').setAttribute('aria-label',translations[language].removeRow); if(typeof sincronizarBotonIaPrecio==='function')sincronizarBotonIaPrecio(row); }
+    function addRow(area, data=['','',1,0,'SF',0]) { const fragment=rowTemplate.content.cloneNode(true); area.querySelector('tbody').appendChild(fragment); const row=area.querySelector('tbody').lastElementChild; row.querySelector('.code').value=data[0]; (row.querySelector('.item-desc')||row.querySelector('.description')).value=data[1]; row.querySelector('.input-cantidad').value=data[2]; row.querySelector('.price').value=data[3]; const unitValue=normalizarUnidad(data[4]||'SF'); row.querySelector('.select-unidad').value=['SQ','SF','LF','EA','HR','CY','LS','BAG','PC'].includes(unitValue)?unitValue:'SF'; const actionSelect=row.querySelector('.item-action'); const accionInicial=['replace','replace_material','install_material','install','labor','demo','material'].includes(data[6])?data[6]:(detectarAlcance(data[1])==='demo'?'demo':detectarAlcance(data[1])==='labor'?'labor':detectarAlcance(data[1])==='replace'?'replace':'replace'); if(actionSelect)actionSelect.value=accionInicial; if(row.querySelector('.select-alcance'))row.querySelector('.select-alcance').value=['full','labor','replace','demo'].includes(data[6])?data[6]:detectarAlcance(data[1]); row.querySelector('.tax').value=data[5]??0; if(data[1])row.dataset.nucleoDesc=nucleoDescripcion(data[1]); const descInput=row.querySelector('.item-desc')||row.querySelector('.description'); const codeInput=row.querySelector('.code'); habilitarSelectorRamas(descInput); habilitarSelectorRamas(codeInput); if(typeof autoAjustarAlturaDescripcion==='function')autoAjustarAlturaDescripcion(descInput); if(descInput&&descInput.tagName!=='TEXTAREA'){ descInput.addEventListener('mousedown',e=>{ if(e.button===0)descInput.dataset.clickX=String(e.clientX); }); descInput.addEventListener('mouseup',e=>{ if(e.button!==0||e.detail!==1)return; if(Math.abs(e.clientX-Number(descInput.dataset.clickX||e.clientX))>3)return; const val=descInput.value; if(!val||descInput.selectionStart!==0||descInput.selectionEnd!==val.length)return; colocarCursorEnClic(descInput,e.clientX); }); } const procesarCambioPartida=()=>{ if(descInput)preservarContextoMaterialEnEdicion(row,descInput.value); update(); }; ['input','change'].forEach(evt=>{ if(descInput)descInput.addEventListener(evt,procesarCambioPartida); if(codeInput)codeInput.addEventListener(evt,procesarCambioPartida); }); actionSelect?.addEventListener('change',()=>{ actualizarDescripcionPorAccion(row); if(typeof recalcularPrecioPorAccion==='function')recalcularPrecioPorAccion(row); else { aplicarPrecioAutomaticoFila(row,false); update(); } }); row.querySelector('.select-unidad')?.addEventListener('change',()=>{ row.dataset.unidadManual='1'; if(row.querySelector('.select-unidad').value==='LS')aplicarUnidadLS(row); if(!filaPrecioFijo(row))aplicarPrecioAutomaticoFila(row,false); update(); }); ['.input-cantidad','.quantity','.price','.tax'].forEach(sel=>{ row.querySelector(sel)?.addEventListener('input',()=>{ recalcularSubtotalFila(row); update(); }); }); row.querySelector('.remove-row').addEventListener('click',()=>{ row.remove(); update(); }); row.querySelector('.remove-row').title=translations[language].removeRow; row.querySelector('.remove-row').setAttribute('aria-label',translations[language].removeRow); if(typeof sincronizarBotonIaPrecio==='function')sincronizarBotonIaPrecio(row); if(typeof recalcularSubtotalFila==='function'){ const qty=Number(row.querySelector('.input-cantidad')?.value||row.querySelector('.quantity')?.value)||0; const unitPrice=Number(row.querySelector('.price')?.value||row.querySelector('.input-precio')?.value)||0; const celdaSubtotal=row.querySelector('.row-total')||row.querySelector('.span-subtotal')||row.querySelector('.input-subtotal'); if(celdaSubtotal){ if(celdaSubtotal.tagName==='INPUT')celdaSubtotal.value=(qty*unitPrice).toFixed(2); else celdaSubtotal.textContent='$'+(qty*unitPrice).toFixed(2); } recalcularSubtotalFila(row); } }
     function addArea(data={title:'New area',titleEn:'New area',reference:'',rows:[['','',1,0,'unit']]}) { areaCount++; const fragment=areaTemplate.content.cloneNode(true); areas.appendChild(fragment); const area=areas.lastElementChild; area.dataset.titleEs=data.title; area.dataset.titleEn=data.titleEn||data.title; area.querySelector('.area-index').textContent=areaCount+'.'; area.querySelector('.area-title').value=data.titleEn||data.title; area.querySelector('.area-reference').value=data.reference; area.querySelector('.add-row-btn').addEventListener('click',()=>addRow(area)); area.querySelector('.add-row').addEventListener('click',()=>addRow(area)); area.querySelector('.remove-area-btn').addEventListener('click',()=>{area.remove();renumber();update();}); area.querySelectorAll('.area-title,.area-reference').forEach(input=>input.addEventListener('input',update)); data.rows.forEach(row=>addRow(area,row)); update(); }
     function renumber(){ areaCount=0; document.querySelectorAll('.area').forEach(area=>area.querySelector('.area-index').textContent=(++areaCount)+'.'); }
     function parsePaymentAmount(value,total){ const raw=String(value||'').trim(); if(!raw)return 0; if(raw.endsWith('%'))return total*(Number(raw.slice(0,-1).replace(',','.'))||0)/100; return Math.max(Number(raw.replace(/[$,\s]/g,''))||0,0); }
@@ -4555,11 +4621,12 @@
         const span=document.createElement('span');
         span.className='print-value';
         span.textContent=valorCampoImpresion(el);
-        if(el.tagName==='TEXTAREA'&&(el.classList.contains('item-desc')||el.classList.contains('description')||el.closest('td.desc-cell'))){
+        if(el.tagName==='TEXTAREA'){
           span.style.whiteSpace='pre-wrap';
           span.style.wordWrap='break-word';
           span.style.overflow='visible';
           span.style.height='auto';
+          span.style.minHeight=(el.scrollHeight+20)+'px';
           span.style.display='block';
         }
         el.replaceWith(span);
