@@ -3320,7 +3320,10 @@ CONTEXTO_ESTIMADOR_PRECIOS = (
     "3. Si la acción es 'Demolition only' o 'Remove', el precio debe cubrir solo la labor de desmantelamiento y bote. NUNCA es 0.\n"
     "4. 'Install plus materials' SIEMPRE debe ser matemáticamente mayor que 'Install only'.\n"
     "5. 'Remove, install plus materials' debe ser la suma coherente de las partes individuales.\n"
-    "6. Ajusta los promedios nacionales al mercado específico del código postal/estado proporcionado en la solicitud."
+    "6. Ajusta los promedios nacionales al mercado específico del código postal/estado proporcionado en la solicitud.\n"
+    "REGLA CRÍTICA: Si la acción solicitada es 'Material only' o 'Demolition only', IGNORA palabras como "
+    "'Instalación' o 'Colocación' en la descripción del ítem. Enfócate en el material base (ej. Pisos Vinilo, Loseta) "
+    "y devuelve el costo de mercado exclusivo para esa acción. JAMÁS devuelvas 0. Si dudas, devuelve el promedio nacional del material crudo."
 )
 
 
@@ -3414,10 +3417,15 @@ def _precio_json_por_accion(accion, parsed):
     labor = _num_catalogo(parsed, "labor", "mano_obra", "precio_labor")
     material = _num_catalogo(parsed, "material", "precio_material")
     demolicion = _num_catalogo(parsed, "demolicion", "demo", "demolition", "precio_demo")
+    precio_directo = _num_catalogo(parsed, "precio", "price", "precio_unitario")
     if accion == "material":
-        precio = material if material > 0 else 0.0
+        precio = material if material > 0 else precio_directo
+        if precio > 0 and material <= 0:
+            material = precio
     elif accion == "demo":
-        precio = demolicion if demolicion > 0 else 0.0
+        precio = demolicion if demolicion > 0 else precio_directo
+        if precio > 0 and demolicion <= 0:
+            demolicion = precio
     elif accion in ("install", "labor"):
         precio = labor if labor > 0 else 0.0
     elif accion == "install_material":
@@ -3428,6 +3436,8 @@ def _precio_json_por_accion(accion, parsed):
         precio = demolicion + labor + material if demolicion > 0 and labor > 0 and material > 0 else 0.0
     else:
         precio = 0.0
+    if precio <= 0 and precio_directo > 0:
+        precio = precio_directo
     if precio <= 0:
         return None, None
     return round(precio, 2), {
@@ -3512,11 +3522,13 @@ def precio_accion():
     except Exception as err:
         print(f"--> precio-accion Supabase: {err}")
         precio_base, item, referencias = None, None, {"unidad": unidad}
-    try:
-        precio_ia, desglose = _precio_gemini_por_accion(mercado, accion, accion_texto, descripcion, unidad, referencias)
-    except Exception as err:
-        print(f"--> precio-accion Gemini: {err}")
-        precio_ia, desglose = None, None
+    precio_ia, desglose = None, None
+    if not precio_base:
+        try:
+            precio_ia, desglose = _precio_gemini_por_accion(mercado, accion, accion_texto, descripcion, unidad, referencias)
+        except Exception as err:
+            print(f"--> precio-accion Gemini: {err}")
+            precio_ia, desglose = None, None
     if precio_ia:
         return jsonify({
             "success": True,
