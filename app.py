@@ -3309,22 +3309,37 @@ def _factor_ubicacion(ubicacion):
 _RE_FILA_DEMOLICION = re.compile(r"demolici|retiro|remov|tear|arranc|desmont|raspado", re.I)
 
 
+CONTEXTO_ESTIMADOR_PRECIOS = (
+    "Eres un estimador experto de construcción y ajustador de seguros en Estados Unidos. "
+    "Tu motor de cálculo opera EXCLUSIVAMENTE utilizando la lógica de las Bases de Datos de Precios por Partida "
+    "(Line-Item Pricing Databases), los Manuales de Costos de Construcción (Construction Cost Data / RSMeans) y "
+    "los Estándares de Tabuladores de Reclamaciones de Seguros (Insurance Claim Pricing Standards) tipo Xactimate.\n"
+    "Para cada solicitud de precio, aplica estas reglas inviolables de mercado:\n"
+    "1. Divide estrictamente el valor entre Labor y Material según los estándares de RSMeans.\n"
+    "2. Si la acción es 'Material only', el precio debe reflejar solo el costo del insumo, sin mano de obra. NUNCA es 0.\n"
+    "3. Si la acción es 'Demolition only' o 'Remove', el precio debe cubrir solo la labor de desmantelamiento y bote. NUNCA es 0.\n"
+    "4. 'Install plus materials' SIEMPRE debe ser matemáticamente mayor que 'Install only'.\n"
+    "5. 'Remove, install plus materials' debe ser la suma coherente de las partes individuales.\n"
+    "6. Ajusta los promedios nacionales al mercado específico del código postal/estado proporcionado en la solicitud."
+)
+
+
 def _precio_roles_por_accion(install, demo, material, labor, accion):
     if accion == "demo":
-        return demo
+        return demo if demo > 0 else 0.0
     if accion == "material":
-        return material
+        return material if material > 0 else 0.0
     if accion == "labor":
-        return labor
+        return labor if labor > 0 else 0.0
     if accion == "install":
-        return install
+        return install if install > 0 else 0.0
     if accion == "install_material":
-        return install + material if install > 0 else 0.0
+        return install + material if install > 0 and material > 0 else 0.0
     if accion == "replace":
         return demo + install if demo > 0 and install > 0 else 0.0
     if accion == "replace_material":
-        return demo + install + material if demo > 0 and install > 0 else 0.0
-    return install
+        return demo + install + material if demo > 0 and install > 0 and material > 0 else 0.0
+    return install if install > 0 else 0.0
 
 
 def _precio_supabase_por_accion(descripcion, unidad, accion):
@@ -3366,33 +3381,102 @@ def _precio_supabase_por_accion(descripcion, unidad, accion):
             continue
         destino = demolicion if _RE_FILA_DEMOLICION.search(item.get("descripcion") or "") else trabajo
         destino.append((puntaje, item))
-    if accion == "demo":
-        trabajo = []
     principal = max(trabajo, key=lambda c: c[0])[1] if trabajo else None
     fila_demo = max(demolicion, key=lambda c: c[0])[1] if demolicion else None
     install = _num((principal or {}).get("precio_unitario"))
     demo = _num((principal or {}).get("precio_demo")) or _num((fila_demo or {}).get("precio_unitario"))
     material = _num((principal or {}).get("precio_material"))
     labor = _num((principal or {}).get("precio_labor"))
+    referencias = {"unidad": unidad}
+    if install > 0:
+        referencias["precio_unitario_catalogo"] = round(install, 2)
+    if material > 0:
+        referencias["precio_material"] = round(material, 2)
+    if labor > 0:
+        referencias["precio_mano_obra"] = round(labor, 2)
+    if demo > 0:
+        referencias["precio_demolicion"] = round(demo, 2)
+    if principal:
+        referencias["codigo"] = principal.get("codigo") or ""
+        referencias["descripcion_catalogo"] = (principal.get("descripcion") or "")[:180]
+    if fila_demo:
+        referencias["codigo_demolicion"] = fila_demo.get("codigo") or ""
+        referencias["descripcion_demolicion"] = (fila_demo.get("descripcion") or "")[:180]
     precio = _precio_roles_por_accion(install, demo, material, labor, accion)
+    return (precio if precio > 0 else None), (principal or fila_demo), referencias
+
+
+def _precio_json_por_accion(accion, parsed):
+    if isinstance(parsed, list) and parsed:
+        parsed = parsed[0]
+    if not isinstance(parsed, dict):
+        return None, None
+    labor = _num_catalogo(parsed, "labor", "mano_obra", "precio_labor")
+    material = _num_catalogo(parsed, "material", "precio_material")
+    demolicion = _num_catalogo(parsed, "demolicion", "demo", "demolition", "precio_demo")
+    if accion == "material":
+        precio = material if material > 0 else 0.0
+    elif accion == "demo":
+        precio = demolicion if demolicion > 0 else 0.0
+    elif accion in ("install", "labor"):
+        precio = labor if labor > 0 else 0.0
+    elif accion == "install_material":
+        precio = labor + material if labor > 0 and material > 0 and (labor + material) > labor else 0.0
+    elif accion == "replace":
+        precio = demolicion + labor if demolicion > 0 and labor > 0 else 0.0
+    elif accion == "replace_material":
+        precio = demolicion + labor + material if demolicion > 0 and labor > 0 and material > 0 else 0.0
+    else:
+        precio = 0.0
     if precio <= 0:
         return None, None
-    return precio, (principal or fila_demo)
+    return round(precio, 2), {
+        "labor": round(labor, 2),
+        "material": round(material, 2),
+        "demolicion": round(demolicion, 2),
+    }
 
 
-def _precio_gemini_por_accion(ubicacion, accion_texto, descripcion, unidad):
-    prompt = (
-        f"Dame el precio unitario promedio de mercado en el código postal/estado {ubicacion} "
-        f"para la acción de {accion_texto} del ítem {descripcion} medido por {unidad}. "
-        'Responde estrictamente con un JSON válido en este formato: {"precio": numero_decimal} sin texto adicional.'
+def _mensaje_precio_gemini(ubicacion, accion_texto, descripcion, unidad, referencias):
+    refs = {
+        clave: valor
+        for clave, valor in (referencias or {}).items()
+        if valor not in (None, "", 0, 0.0)
+    }
+    return (
+        "Solicitud de precio:\n"
+        f"- acción: {accion_texto}\n"
+        f"- ítem: {descripcion}\n"
+        f"- unidad: {unidad}\n"
+        f"- código postal/estado: {ubicacion}\n\n"
+        "Precios de referencia que ya existen en Supabase. Son promedios nacionales, anteriores al ajuste de zona. "
+        "Si un componente no aparece aquí, no existe en el catálogo y debes estimarlo. "
+        "Nunca respondas 0 cuando la acción exija material o demolición.\n"
+        + json.dumps(refs, ensure_ascii=False)
+        + "\n\n"
+        "Responde estrictamente con un JSON válido, sin texto adicional, en este formato: "
+        '{"labor": numero_decimal, "material": numero_decimal, "demolicion": numero_decimal, "precio": numero_decimal}. '
+        "labor, material y demolicion van ya ajustados al código postal/estado. "
+        "precio es el de la acción pedida en ese mismo mercado: "
+        "Material only = material; Demolition only o Remove = demolicion; Install only = labor; "
+        "Install plus materials = labor + material, y debe ser mayor que labor; "
+        "Remove and install = demolicion + labor; "
+        "Remove, install plus materials = demolicion + labor + material."
     )
+
+
+def _precio_gemini_por_accion(ubicacion, accion, accion_texto, descripcion, unidad, referencias):
+    prompt = _mensaje_precio_gemini(ubicacion, accion_texto, descripcion, unidad, referencias)
     ultimo_error = None
     for modelo in ("gemini-2.5-flash", "gemini-3.6-flash", "gemini-flash-latest"):
         try:
             response = client.models.generate_content(
                 model=modelo,
                 contents=prompt,
-                config=types.GenerateContentConfig(response_mime_type="application/json"),
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    system_instruction=CONTEXTO_ESTIMADOR_PRECIOS,
+                ),
             )
         except Exception as err:
             ultimo_error = err
@@ -3400,14 +3484,12 @@ def _precio_gemini_por_accion(ubicacion, accion_texto, descripcion, unidad):
             if any(t in texto for t in ("503", "unavailable", "high demand", "overloaded", "429", "404", "not_found", "not found")):
                 continue
             raise
-        parsed = extraer_json(getattr(response, "text", None) or "")
-        if isinstance(parsed, list) and parsed:
-            parsed = parsed[0]
-        precio = _num_catalogo(parsed, "precio", "price", "precio_unitario") if isinstance(parsed, dict) else 0.0
-        return precio if precio > 0 else None
+        precio, desglose = _precio_json_por_accion(accion, extraer_json(getattr(response, "text", None) or ""))
+        if precio:
+            return precio, desglose
     if ultimo_error:
         raise ultimo_error
-    return None
+    return None, None
 
 
 @app.route("/api/precio-accion", methods=["POST"])
@@ -3424,11 +3506,28 @@ def precio_accion():
         return jsonify({"success": False, "error": "Falta la descripción del ítem"}), 400
 
     factor, zona = _factor_ubicacion(ubicacion)
+    mercado = ubicacion or "Estados Unidos (promedio nacional)"
     try:
-        precio_base, item = _precio_supabase_por_accion(descripcion, unidad, accion)
+        precio_base, item, referencias = _precio_supabase_por_accion(descripcion, unidad, accion)
     except Exception as err:
         print(f"--> precio-accion Supabase: {err}")
-        precio_base, item = None, None
+        precio_base, item, referencias = None, None, {"unidad": unidad}
+    try:
+        precio_ia, desglose = _precio_gemini_por_accion(mercado, accion, accion_texto, descripcion, unidad, referencias)
+    except Exception as err:
+        print(f"--> precio-accion Gemini: {err}")
+        precio_ia, desglose = None, None
+    if precio_ia:
+        return jsonify({
+            "success": True,
+            "fuente": "gemini",
+            "precio": round(precio_ia, 2),
+            "labor": (desglose or {}).get("labor"),
+            "material": (desglose or {}).get("material"),
+            "demolicion": (desglose or {}).get("demolicion"),
+            "ubicacion": ubicacion,
+            "estado": zona.get("estado"),
+        })
     if precio_base:
         return jsonify({
             "success": True,
@@ -3440,21 +3539,7 @@ def precio_accion():
             "ubicacion": ubicacion,
             "estado": zona.get("estado"),
         })
-
-    try:
-        precio_ia = _precio_gemini_por_accion(ubicacion or "Estados Unidos (promedio nacional)", accion_texto, descripcion, unidad)
-    except Exception as err:
-        print(f"--> precio-accion Gemini: {err}")
-        return jsonify({"success": False, "error": "No hay precio en Supabase y Gemini no respondió"}), 502
-    if not precio_ia:
-        return jsonify({"success": False, "error": "No se encontró precio en Supabase ni en Gemini"}), 404
-    return jsonify({
-        "success": True,
-        "fuente": "gemini",
-        "precio": round(precio_ia, 2),
-        "ubicacion": ubicacion,
-        "estado": zona.get("estado"),
-    })
+    return jsonify({"success": False, "error": "No hay precio en Supabase y Gemini no respondió"}), 502
 
 
 @app.route("/api/test-db")
