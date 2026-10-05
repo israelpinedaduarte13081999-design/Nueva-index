@@ -239,6 +239,9 @@
     .task-dropdown-item { padding:8px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; font-size:13px; color:#333333; border:0; border-bottom:1px solid #f2f5f8; width:100%; background:#fff; text-align:left; font-family:inherit; transition:background .15s ease; }
     .task-dropdown-item:hover, .task-dropdown-item.is-active { background:#eef5fc; color:#19385f; }
     .task-dropdown-item .item-meta { font-size:11px; color:#627d98; background:#e2e8f0; padding:2px 6px; border-radius:4px; margin-left:8px; white-space:nowrap; }
+    .sugerencia-desc-menu { position:absolute; top:100%; left:0; right:0; z-index:6000; margin:2px 0 0; padding:4px 0; background:#fff; border:1px solid #d0d7e2; border-radius:8px; box-shadow:0 10px 24px rgba(15,23,42,.16); max-height:220px; overflow-y:auto; }
+    .sugerencia-desc-item { display:block; width:100%; border:0; background:#fff; text-align:left; padding:8px 12px; font:13px/1.35 inherit; color:#1e293b; cursor:pointer; }
+    .sugerencia-desc-item:hover, .sugerencia-desc-item:focus { background:#eef5fc; color:#19385f; outline:0; }
     .price-ia-wrap { position:relative; display:flex; align-items:center; gap:4px; overflow:visible; z-index:5; }
     .price-ia-wrap .price { flex:1; min-width:0; }
     .price.precio-cargando { color:transparent; background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%) 0 0/200% 100% !important; animation:precioCargando 1s linear infinite; }
@@ -688,6 +691,7 @@
     html.print-document .payment-quick-actions,
     html.print-document .payment-tracking,
     html.print-document .task-dropdown-menu,
+    html.print-document .sugerencia-desc-menu,
     html.print-document .address-autocomplete-menu,
     html.print-document .btn-ia-precio,
     html.print-document .ia-precio-menu,
@@ -3363,6 +3367,84 @@
       });
     }
     iniciarBuscadorCatalogoGlobal();
+
+    function cerrarSugerenciasDescripcion(){
+      document.querySelectorAll('.sugerencia-desc-menu').forEach(menu=>menu.remove());
+    }
+    function pintarSugerenciasDescripcion(input, sugerencias){
+      cerrarSugerenciasDescripcion();
+      if(!input||!input.isConnected||!sugerencias||!sugerencias.length)return;
+      const host=input.closest('.task-autocomplete-container')||input.parentElement;
+      if(!host)return;
+      if(typeof cerrarMenusTareas==='function')cerrarMenusTareas();
+      const menu=document.createElement('div');
+      menu.className='sugerencia-desc-menu no-print';
+      menu.setAttribute('role','listbox');
+      menu._input=input;
+      sugerencias.forEach(texto=>{
+        const boton=document.createElement('button');
+        boton.type='button';
+        boton.className='sugerencia-desc-item';
+        boton.setAttribute('role','option');
+        boton.textContent=texto;
+        boton.addEventListener('mousedown',evento=>{
+          evento.preventDefault();
+          aplicarSugerenciaDescripcion(input, texto);
+        });
+        menu.appendChild(boton);
+      });
+      host.appendChild(menu);
+    }
+    function aplicarSugerenciaDescripcion(input, texto){
+      cerrarSugerenciasDescripcion();
+      if(!input)return;
+      const fila=input.closest('tr.fila-trabajo, .fila-trabajo');
+      input.value=texto;
+      if(fila)fila.dataset.descManual='1';
+      if(typeof autoAjustarAlturaDescripcion==='function')autoAjustarAlturaDescripcion(input);
+      input.dispatchEvent(new Event('change',{bubbles:true}));
+      const accion=fila&&fila.querySelector('.item-action');
+      if(accion&&typeof onCambioAccionPartida==='function')onCambioAccionPartida(accion);
+    }
+    let temporizadorSugerenciaDesc=0;
+    let secuenciaSugerenciaDesc=0;
+    document.addEventListener('input',evento=>{
+      const input=evento.target;
+      if(!input||!input.matches||!input.matches('.fila-trabajo .item-desc, .fila-trabajo .description, tr .item-desc, tr .description'))return;
+      if(input.closest('.fila-trabajo')?.dataset.updatingDesc==='1')return;
+      clearTimeout(temporizadorSugerenciaDesc);
+      const texto=(input.value||'').trim();
+      if(texto.length<3){
+        cerrarSugerenciasDescripcion();
+        return;
+      }
+      const solicitud=++secuenciaSugerenciaDesc;
+      temporizadorSugerenciaDesc=setTimeout(async()=>{
+        if(solicitud!==secuenciaSugerenciaDesc||!input.isConnected)return;
+        if((input.value||'').trim()!==texto)return;
+        try{
+          const res=await fetch('/api/sugerir_descripcion',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({query:texto})
+          });
+          const data=await res.json().catch(()=>({}));
+          if(solicitud!==secuenciaSugerenciaDesc||(input.value||'').trim()!==texto)return;
+          const lista=(data.sugerencias||[]).map(item=>String(item||'').trim()).filter(Boolean).slice(0,4);
+          if(res.ok&&lista.length)pintarSugerenciasDescripcion(input, lista);
+          else cerrarSugerenciasDescripcion();
+        }catch(error){
+          if(solicitud===secuenciaSugerenciaDesc)cerrarSugerenciasDescripcion();
+        }
+      },500);
+    });
+    document.addEventListener('pointerdown',evento=>{
+      const menu=document.querySelector('.sugerencia-desc-menu');
+      if(!menu)return;
+      if(evento.target.closest('.sugerencia-desc-menu'))return;
+      if(menu._input&&evento.target===menu._input)return;
+      cerrarSugerenciasDescripcion();
+    });
 
     function autoAjustarAlturaDescripcion(el){
       if(!el||el.tagName!=='TEXTAREA')return;

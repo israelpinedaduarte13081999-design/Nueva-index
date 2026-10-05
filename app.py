@@ -3554,6 +3554,86 @@ def precio_accion():
     return jsonify({"success": False, "error": "No hay precio en Supabase y Gemini no respondió"}), 502
 
 
+PROMPT_SUGERIR_DESCRIPCION = (
+    "Eres un experto en estándares de construcción y ajustador de seguros (Xactimate). "
+    "El usuario está tecleando la descripción de un material de construcción (puede tener faltas de ortografía, "
+    "ej. 'LBT' en lugar de 'LVT', o descripciones muy básicas como 'techo asfáltico').\n"
+    "Tu tarea es predecir y sugerir de 3 a 4 descripciones técnicas, limpias, altamente profesionales y "
+    "estandarizadas para cotizaciones. Las sugerencias DEBEN ser solo sustantivos (el material y sus especificaciones). "
+    "NUNCA incluyas verbos (como instalar, remover).\n"
+    'Devuelve ESTRICTAMENTE un JSON válido con este formato: {"sugerencias": ["Opción 1", "Opción 2", "Opción 3"]}'
+)
+_RE_PREFIJO_ACCION_DESC = re.compile(
+    r"^(?:instalaci[oó]n(?:\s+de)?|instalar|install(?:ation)?(?:\s+of)?|remover(?:\s+e\s+instalar)?|"
+    r"remove(?:\s+and\s+install)?|demolici[oó]n(?:\s+de)?|demolition(?:\s+of)?|colocaci[oó]n(?:\s+de)?|"
+    r"colocar|suministro(?:\s+e\s+instalaci[oó]n)?(?:\s+de)?)\s+",
+    re.I,
+)
+
+
+def _limpiar_sugerencia_descripcion(texto):
+    limpio = re.sub(r"\s+", " ", str(texto or "")).strip(" \t-–:.")
+    for _ in range(3):
+        siguiente = _RE_PREFIJO_ACCION_DESC.sub("", limpio).strip(" \t-–:.")
+        if not siguiente or siguiente == limpio:
+            break
+        limpio = siguiente
+    return limpio[:180]
+
+
+def _sugerencias_descripcion_desde_json(parsed):
+    if isinstance(parsed, list) and parsed and isinstance(parsed[0], dict):
+        parsed = parsed[0]
+    crudas = parsed.get("sugerencias") if isinstance(parsed, dict) else parsed
+    if isinstance(crudas, str):
+        crudas = [crudas]
+    if not isinstance(crudas, list):
+        return []
+    sugerencias = []
+    for item in crudas:
+        if isinstance(item, dict):
+            item = item.get("texto") or item.get("descripcion") or item.get("text") or ""
+        texto = _limpiar_sugerencia_descripcion(item)
+        if texto and texto not in sugerencias:
+            sugerencias.append(texto)
+        if len(sugerencias) == 4:
+            break
+    return sugerencias
+
+
+@app.route("/api/sugerir_descripcion", methods=["POST"])
+def sugerir_descripcion():
+    payload = request.get_json(silent=True) or {}
+    query = re.sub(r"\s+", " ", str(payload.get("query") or "")).strip()[:200]
+    if len(query) < 3:
+        return jsonify({"sugerencias": []})
+    ultimo_error = None
+    for modelo in ("gemini-2.5-flash", "gemini-3.6-flash", "gemini-flash-latest"):
+        try:
+            response = client.models.generate_content(
+                model=modelo,
+                contents=f"Texto parcial del usuario: {query}",
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    system_instruction=PROMPT_SUGERIR_DESCRIPCION,
+                ),
+            )
+        except Exception as err:
+            ultimo_error = err
+            texto = str(err).lower()
+            if any(t in texto for t in ("503", "unavailable", "high demand", "overloaded", "429", "404", "not_found", "not found")):
+                continue
+            print(f"--> sugerir-descripcion Gemini: {err}")
+            return jsonify({"sugerencias": []}), 502
+        sugerencias = _sugerencias_descripcion_desde_json(extraer_json(getattr(response, "text", None) or ""))
+        if sugerencias:
+            return jsonify({"sugerencias": sugerencias})
+    if ultimo_error:
+        print(f"--> sugerir-descripcion Gemini: {ultimo_error}")
+        return jsonify({"sugerencias": []}), 502
+    return jsonify({"sugerencias": []})
+
+
 @app.route("/api/test-db")
 def test_db():
     try:
