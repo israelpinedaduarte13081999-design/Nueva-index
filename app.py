@@ -3283,6 +3283,180 @@ JSON únicamente:
     })
 
 
+ACCIONES_PRECIO = {
+    "replace": "remover e instalar",
+    "replace_material": "remover, instalar más materiales",
+    "install_material": "instalar más materiales",
+    "install": "solo instalar",
+    "labor": "solo mano de obra",
+    "demo": "solo demolición",
+    "material": "solo material",
+}
+
+
+def _factor_ubicacion(ubicacion):
+    texto = str(ubicacion or "").strip()
+    digitos = re.sub(r"\D", "", texto)[:5]
+    if len(digitos) == 5:
+        zona = _zona_mercado_por_zip(digitos)
+        return float(zona.get("factor") or 1.0), zona
+    estado = texto.upper()[:2] if re.fullmatch(r"[A-Za-z]{2}", texto) else ""
+    if estado:
+        return float(FACTORES_POR_ESTADO.get(estado, FACTOR_ESTADO_DEFAULT)), {"estado": estado}
+    return 1.0, {}
+
+
+_RE_FILA_DEMOLICION = re.compile(r"demolici|retiro|remov|tear|arranc|desmont|raspado", re.I)
+
+
+def _precio_roles_por_accion(install, demo, material, labor, accion):
+    if accion == "demo":
+        return demo
+    if accion == "material":
+        return material
+    if accion == "labor":
+        return labor
+    if accion == "install":
+        return install
+    if accion == "install_material":
+        return install + material if install > 0 else 0.0
+    if accion == "replace":
+        return demo + install if demo > 0 and install > 0 else 0.0
+    if accion == "replace_material":
+        return demo + install + material if demo > 0 and install > 0 else 0.0
+    return install
+
+
+def _precio_supabase_por_accion(descripcion, unidad, accion):
+    client = _supabase_client()
+    if client is None:
+        raise RuntimeError("Cliente supabase es None (revisa SUPABASE_URL y SUPABASE_KEY en .env)")
+    nucleo = _nucleo_busqueda_catalogo(_corregir_typos_catalogo(descripcion)) or descripcion
+    termino = _limpiar_termino_catalogo(nucleo)
+    categoria = re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{4,}", nucleo.split(" - ", 1)[0])
+    palabras = list(dict.fromkeys(categoria + sorted(
+        re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{4,}", nucleo), key=lambda p: (-len(p), p.lower())
+    )))
+    filtros = [f"descripcion.ilike.%{termino}%,codigo.ilike.%{termino}%"]
+    filtros += [f"descripcion.ilike.%{p}%" for p in palabras[:4]]
+    filas, vistos = [], set()
+    for filtro in filtros:
+        try:
+            datos = client.table(TABLA_CATALOGO).select("*").or_(filtro).limit(200).execute().data or []
+        except Exception as err:
+            print(f"--> precio-accion filtro: {err}")
+            continue
+        for row in datos:
+            clave = row.get("id") or row.get("codigo")
+            if clave not in vistos:
+                vistos.add(clave)
+                filas.append(row)
+    if not filas:
+        filas = list(buscar_filas_catalogo(nucleo) or [])
+    tokens = _tokens_busqueda_catalogo(nucleo)
+    trabajo, demolicion = [], []
+    for row in filas:
+        item = normalizar_item_catalogo(row)
+        if not item or _num(item.get("precio_unitario")) <= 0:
+            continue
+        if unidad and str(item.get("unidad") or "").upper() != unidad:
+            continue
+        puntaje = _puntaje_coincidencia_catalogo(row, nucleo, tokens, unidad)
+        if puntaje < 6:
+            continue
+        destino = demolicion if _RE_FILA_DEMOLICION.search(item.get("descripcion") or "") else trabajo
+        destino.append((puntaje, item))
+    if accion == "demo":
+        trabajo = []
+    principal = max(trabajo, key=lambda c: c[0])[1] if trabajo else None
+    fila_demo = max(demolicion, key=lambda c: c[0])[1] if demolicion else None
+    install = _num((principal or {}).get("precio_unitario"))
+    demo = _num((principal or {}).get("precio_demo")) or _num((fila_demo or {}).get("precio_unitario"))
+    material = _num((principal or {}).get("precio_material"))
+    labor = _num((principal or {}).get("precio_labor"))
+    precio = _precio_roles_por_accion(install, demo, material, labor, accion)
+    if precio <= 0:
+        return None, None
+    return precio, (principal or fila_demo)
+
+
+def _precio_gemini_por_accion(ubicacion, accion_texto, descripcion, unidad):
+    prompt = (
+        f"Dame el precio unitario promedio de mercado en el código postal/estado {ubicacion} "
+        f"para la acción de {accion_texto} del ítem {descripcion} medido por {unidad}. "
+        'Responde estrictamente con un JSON válido en este formato: {"precio": numero_decimal} sin texto adicional.'
+    )
+    ultimo_error = None
+    for modelo in ("gemini-2.5-flash", "gemini-3.6-flash", "gemini-flash-latest"):
+        try:
+            response = client.models.generate_content(
+                model=modelo,
+                contents=prompt,
+                config=types.GenerateContentConfig(response_mime_type="application/json"),
+            )
+        except Exception as err:
+            ultimo_error = err
+            texto = str(err).lower()
+            if any(t in texto for t in ("503", "unavailable", "high demand", "overloaded", "429", "404", "not_found", "not found")):
+                continue
+            raise
+        parsed = extraer_json(getattr(response, "text", None) or "")
+        if isinstance(parsed, list) and parsed:
+            parsed = parsed[0]
+        precio = _num_catalogo(parsed, "precio", "price", "precio_unitario") if isinstance(parsed, dict) else 0.0
+        return precio if precio > 0 else None
+    if ultimo_error:
+        raise ultimo_error
+    return None
+
+
+@app.route("/api/precio-accion", methods=["POST"])
+def precio_accion():
+    payload = request.get_json(silent=True) or {}
+    accion = str(payload.get("accion") or "replace").strip().lower()
+    if accion not in ACCIONES_PRECIO:
+        accion = "replace"
+    accion_texto = str(payload.get("accion_texto") or "").strip() or ACCIONES_PRECIO[accion]
+    descripcion = re.sub(r"\s+", " ", str(payload.get("descripcion") or "")).strip()[:300]
+    unidad = str(payload.get("unidad") or "SF").strip().upper()[:6]
+    ubicacion = re.sub(r"[^\w\s-]", "", str(payload.get("ubicacion") or "")).strip()[:20]
+    if not descripcion:
+        return jsonify({"success": False, "error": "Falta la descripción del ítem"}), 400
+
+    factor, zona = _factor_ubicacion(ubicacion)
+    try:
+        precio_base, item = _precio_supabase_por_accion(descripcion, unidad, accion)
+    except Exception as err:
+        print(f"--> precio-accion Supabase: {err}")
+        precio_base, item = None, None
+    if precio_base:
+        return jsonify({
+            "success": True,
+            "fuente": "supabase",
+            "precio": round(precio_base * factor, 2),
+            "precio_base": round(precio_base, 2),
+            "factor": round(factor, 4),
+            "codigo": (item or {}).get("codigo") or "",
+            "ubicacion": ubicacion,
+            "estado": zona.get("estado"),
+        })
+
+    try:
+        precio_ia = _precio_gemini_por_accion(ubicacion or "Estados Unidos (promedio nacional)", accion_texto, descripcion, unidad)
+    except Exception as err:
+        print(f"--> precio-accion Gemini: {err}")
+        return jsonify({"success": False, "error": "No hay precio en Supabase y Gemini no respondió"}), 502
+    if not precio_ia:
+        return jsonify({"success": False, "error": "No se encontró precio en Supabase ni en Gemini"}), 404
+    return jsonify({
+        "success": True,
+        "fuente": "gemini",
+        "precio": round(precio_ia, 2),
+        "ubicacion": ubicacion,
+        "estado": zona.get("estado"),
+    })
+
+
 @app.route("/api/test-db")
 def test_db():
     try:

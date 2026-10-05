@@ -241,6 +241,8 @@
     .task-dropdown-item .item-meta { font-size:11px; color:#627d98; background:#e2e8f0; padding:2px 6px; border-radius:4px; margin-left:8px; white-space:nowrap; }
     .price-ia-wrap { position:relative; display:flex; align-items:center; gap:4px; overflow:visible; z-index:5; }
     .price-ia-wrap .price { flex:1; min-width:0; }
+    .price.precio-cargando { color:transparent; background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%) 0 0/200% 100% !important; animation:precioCargando 1s linear infinite; }
+    @keyframes precioCargando { to { background-position:-200% 0; } }
     .btn-ia-precio { flex:none; border:1px solid #7c3aed; background:#f5f3ff; color:#5b21b6; border-radius:4px; padding:3px 6px; font-size:10px; font-weight:800; letter-spacing:.02em; }
     .btn-ia-precio:hover, .btn-ia-precio:focus { background:#ede9fe; }
     .btn-ia-precio:disabled { opacity:.55; cursor:wait; }
@@ -1120,7 +1122,7 @@
     </div>
   </section>
   <template id="areaTemplate"><section class="area"><div class="area-header"><div class="area-name"><span class="area-index"></span><input class="area-title" value="Kitchen area"><span>(</span><input class="area-reference" value="PLANO 85999"><span>)</span></div><div class="area-actions"><button class="icon-btn add-row-btn" type="button">+ Row</button><button class="icon-btn remove-area-btn" type="button">Remove area</button></div></div><table><thead><tr><th class="code-heading">Code</th><th class="action-heading">Action</th><th class="description-heading">Work description</th><th class="quantity-heading">Qty</th><th class="unit-heading">Unit</th><th class="price-heading">Unit price ($)</th><th class="tax-heading">TAX (%)</th><th class="subtotal-heading">Subtotal ($)</th><th></th></tr></thead><tbody></tbody></table><button class="add-row" type="button">+ Add row</button></section></template>
-    <template id="rowTemplate"><tr class="fila-trabajo"><td><input class="code" value=""></td><td><select class="item-action" aria-label="Action" onchange="recalcularPrecioPorAccion(this)"><option value="replace" selected>Remove and install</option><option value="replace_material">Remove, install plus materials</option><option value="install_material">Install plus materials</option><option value="install">Install only</option><option value="demo">Demolition only</option><option value="material">Material only</option></select></td><td class="desc-cell"><div class="task-autocomplete-container"><textarea class="item-desc description" data-line-desc="1" rows="1" autocomplete="off"></textarea><div class="task-dropdown-menu" role="listbox" aria-label="Trades and tasks"></div></div></td><td><div class="quantity-cell"><input type="number" class="input-cantidad quantity" value="1" min="0" step="any" placeholder="0" style="width: 70px; padding: 4px; border: 1px solid #ced4da; border-radius: 4px; text-align: center; font-weight: bold;" oninput="recalcularSubtotalFila(this.closest('tr')); if(typeof update==='function')update();"></div></td><td><select class="select-unidad unit-select item-unit" aria-label="Unit"><option value="SQ">SQ (Squares, 100 sq ft)</option><option value="SF" selected>SF (Square Feet)</option><option value="LF">LF (Linear Feet)</option><option value="EA">EA (Each)</option>
+    <template id="rowTemplate"><tr class="fila-trabajo"><td><input class="code" value=""></td><td><select class="item-action" aria-label="Action" onchange="recalcularPrecioPorAccion(this);onCambioAccionPartida(this)"><option value="replace" selected>Remove and install</option><option value="replace_material">Remove, install plus materials</option><option value="install_material">Install plus materials</option><option value="install">Install only</option><option value="demo">Demolition only</option><option value="material">Material only</option></select></td><td class="desc-cell"><div class="task-autocomplete-container"><textarea class="item-desc description" data-line-desc="1" rows="1" autocomplete="off"></textarea><div class="task-dropdown-menu" role="listbox" aria-label="Trades and tasks"></div></div></td><td><div class="quantity-cell"><input type="number" class="input-cantidad quantity" value="1" min="0" step="any" placeholder="0" style="width: 70px; padding: 4px; border: 1px solid #ced4da; border-radius: 4px; text-align: center; font-weight: bold;" oninput="recalcularSubtotalFila(this.closest('tr')); if(typeof update==='function')update();"></div></td><td><select class="select-unidad unit-select item-unit" aria-label="Unit"><option value="SQ">SQ (Squares, 100 sq ft)</option><option value="SF" selected>SF (Square Feet)</option><option value="LF">LF (Linear Feet)</option><option value="EA">EA (Each)</option>
             <option value="PC">PC (Piece, 10 ft)</option><option value="HR">HR (Hours)</option><option value="CY">CY (Cubic Yards)</option><option value="BAG">BAG (Bag)</option><option value="LS">LS (Lump Sum)</option></select></td><td class="price-cell"><div class="price-ia-wrap"><input class="price number-input input-precio" type="number" min="0" step="0.01" value="0"><button type="button" class="btn-ia-precio no-print" hidden title="Suggest market price with AI">IA</button><div class="ia-precio-menu no-print" hidden></div></div></td><td><input class="tax number-input" type="number" min="0" step="0.01" value="0" aria-label="TAX (%)"></td><td class="subtotal-cell"><span class="row-total span-subtotal input-subtotal">$0.00</span><small class="minimum-tag tag-minimo"></small></td><td><button class="remove-row" type="button" aria-label="Remove row">×</button></td></tr></template>
   <datalist id="listaSugerenciasMateriales">
     <option value="Instalación de piso Luxury Vinyl Tile (LVT) pegado (Glue-down)"></option>
@@ -2470,6 +2472,71 @@
       return subtotal;
     }
     window.recalcularPrecioPorAccion=recalcularPrecioPorAccion;
+    function ubicacionClienteDesdeDom(){
+      const zipCliente=String(document.getElementById('clientZip')?.value||'').replace(/\D/g,'').slice(0,5);
+      if(zipCliente.length===5)return zipCliente;
+      const zipObra=String(document.getElementById('zip-code')?.value||'').replace(/\D/g,'').slice(0,5);
+      if(zipObra.length===5)return zipObra;
+      return String(document.getElementById('clientState')?.value||'').trim().toUpperCase();
+    }
+    function marcarPrecioIa(priceInput, esIa){
+      if(!priceInput)return;
+      if(esIa){
+        priceInput.style.backgroundColor='#FFFACD';
+        priceInput.title='AI market estimate';
+        priceInput.addEventListener('input',()=>marcarPrecioIa(priceInput,false),{once:true});
+      }else{
+        priceInput.style.backgroundColor='';
+        priceInput.removeAttribute('title');
+      }
+    }
+    let secuenciaPrecioAccion=0;
+    async function onCambioAccionPartida(select){
+      const row=select&&select.closest?select.closest('tr.fila-trabajo, .fila-trabajo'):null;
+      if(!row)return;
+      const descripcion=((row.querySelector('.item-desc')||row.querySelector('.description'))?.value||'').trim();
+      const priceInput=row.querySelector('.price')||row.querySelector('.input-precio');
+      if(!descripcion||!priceInput)return;
+      const ubicacionCliente=ubicacionClienteDesdeDom();
+      const accion=normalizarAccion(select.value);
+      const accionTexto=String(select.options[select.selectedIndex]?.text||accion).trim();
+      const unidad=String(row.querySelector('.select-unidad')?.value||'SF').toUpperCase();
+      const solicitud=++secuenciaPrecioAccion;
+      row.dataset.precioAccionReq=String(solicitud);
+      priceInput.classList.add('precio-cargando');
+      priceInput.setAttribute('aria-busy','true');
+      const controller=new AbortController();
+      const timeout=setTimeout(()=>controller.abort(),25000);
+      try{
+        const res=await fetch('/api/precio-accion',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({accion,accion_texto:accionTexto,descripcion,unidad,ubicacion:ubicacionCliente}),
+          signal:controller.signal
+        });
+        const data=await res.json().catch(()=>({}));
+        if(row.dataset.precioAccionReq!==String(solicitud))return;
+        if(!res.ok||!data.success)throw new Error(data.error||('HTTP '+res.status));
+        const precio=Number(data.precio);
+        if(!Number.isFinite(precio)||precio<=0)throw new Error('Invalid price');
+        priceInput.value=precio.toFixed(2);
+        row.dataset.precioCatalogo='1';
+        row.dataset.origenPrecio=data.fuente==='gemini'?'gemini':'supabase';
+        marcarPrecioIa(priceInput,data.fuente==='gemini');
+        if(typeof recalcularSubtotalFila==='function')recalcularSubtotalFila(row);
+        if(typeof update==='function')update();
+      }catch(error){
+        if(row.dataset.precioAccionReq===String(solicitud))console.warn('Price lookup failed; keeping the current price.',error);
+      }finally{
+        clearTimeout(timeout);
+        if(row.dataset.precioAccionReq===String(solicitud)){
+          priceInput.classList.remove('precio-cargando');
+          priceInput.removeAttribute('aria-busy');
+          if(typeof cerrarMenusTareas==='function')cerrarMenusTareas();
+        }
+      }
+    }
+    window.onCambioAccionPartida=onCambioAccionPartida;
     function actualizarDescripcionPorAccion(row){
       if(!row)return;
       if(row.dataset.traduciendo==='1'||document.documentElement.dataset.printEnglish==='1')return;
@@ -5235,7 +5302,7 @@
         const unit = String(f.unit||'LF').toUpperCase();
         return '<tr class="fila-trabajo" data-precio-importado="1" data-precio-catalogo="1" data-material-lock="1" data-desc-manual="1" data-unidad-manual="1" data-skip-zip-factor="1" data-catalogo-rama="TECHO" data-item-group="'+esc(group)+'" data-codigo-base="'+esc(f.codigoBase||codigo)+'" data-nucleo-desc="'+esc(nucleo)+'" data-precio-base="'+esc(f.unitPrice)+'" data-measure-key="'+esc(f.measureKey)+'" data-precio-demo="'+esc(f.precioDemo||0)+'" data-precio-mat-labor="'+esc(f.precioInstall||f.unitPrice)+'"'+(skipMinimos?' data-skip-minimo="1"':'')+'>'
           +'<td><input class="code" value="'+esc(codigo)+'"></td>'
-          +'<td><select class="item-action" aria-label="Action" onchange="recalcularPrecioPorAccion(this)"><option value="replace"'+(f.action==='replace'?' selected':'')+'>Remove and install</option><option value="replace_material"'+(f.action==='replace_material'?' selected':'')+'>Remove, install plus materials</option><option value="install_material"'+(f.action==='install_material'?' selected':'')+'>Install plus materials</option><option value="install"'+(f.action==='install'?' selected':'')+'>Install only</option><option value="demo"'+(f.action==='demo'?' selected':'')+'>Demolition only</option><option value="material"'+(f.action==='material'?' selected':'')+'>Material only</option></select></td>'
+          +'<td><select class="item-action" aria-label="Action" onchange="recalcularPrecioPorAccion(this);onCambioAccionPartida(this)"><option value="replace"'+(f.action==='replace'?' selected':'')+'>Remove and install</option><option value="replace_material"'+(f.action==='replace_material'?' selected':'')+'>Remove, install plus materials</option><option value="install_material"'+(f.action==='install_material'?' selected':'')+'>Install plus materials</option><option value="install"'+(f.action==='install'?' selected':'')+'>Install only</option><option value="demo"'+(f.action==='demo'?' selected':'')+'>Demolition only</option><option value="material"'+(f.action==='material'?' selected':'')+'>Material only</option></select></td>'
           +'<td class="desc-cell"><div class="task-autocomplete-container"><textarea class="item-desc description" data-line-desc="1" rows="1">'+esc(f.desc)+'</textarea></div></td>'
           +'<td><input type="number" class="input-cantidad quantity" value="'+esc(f.qty)+'" min="0" step="any"></td>'
           +'<td><select class="select-unidad"><option value="SQ"'+(unit==='SQ'?' selected':'')+'>SQ</option><option value="SF"'+(unit==='SF'?' selected':'')+'>SF</option><option value="LF"'+(unit==='LF'?' selected':'')+'>LF</option><option value="EA"'+(unit==='EA'?' selected':'')+'>EA</option></select></td>'
