@@ -37,6 +37,7 @@ def _crear_cliente_gemini(api_key=None):
 
 if not _gemini_ssl_verificado():
     print("--> AVISO: Gemini sin verificación SSL (GEMINI_SSL_VERIFY=0). Solo para desarrollo local.")
+print("--> Cache de precios IA vacia al arrancar (llave: descripcion + accion + ZIP). Search Grounding activo.")
 client = _crear_cliente_gemini()
 TABLA_CATALOGO = "catalogo_items"
 TABLA_FACTORES = "factores_regionales_usa"
@@ -3325,6 +3326,10 @@ _RE_FILA_DEMOLICION = re.compile(r"demolici|retiro|remov|tear|arranc|desmont|ras
 
 
 CONTEXTO_ESTIMADOR_PRECIOS = (
+    "Lee la ACCIÓN y la DESCRIPCIÓN. Si necesitas el costo del material, DEBES usar la herramienta de búsqueda de Google "
+    "para buscar el precio de venta actual de ese producto en tiendas de EE. UU. (ej. Home Depot, Lowe's). "
+    "Devuelve tu cálculo basándote ESTRICTAMENTE en los resultados de búsqueda web en tiempo real. "
+    "No recicles un precio de demolición, instalación u otra acción anterior: cada acción se cotiza por separado.\n"
     "Eres un estimador experto de construcción y ajustador de seguros en Estados Unidos. "
     "Tu motor de cálculo opera EXCLUSIVAMENTE utilizando la lógica de las Bases de Datos de Precios por Partida "
     "(Line-Item Pricing Databases), los Manuales de Costos de Construcción (Construction Cost Data / RSMeans) y "
@@ -3514,11 +3519,18 @@ def _precio_json_por_accion(accion, parsed):
     if faltantes:
         # Con un solo componente, el total del modelo es ese componente; en acciones combinadas no hay forma de saber qué falta.
         if len(requeridos) == 1 and precio_modelo > 0:
+            otros = [componentes[c] for c in componentes if c != requeridos[0] and componentes[c] > 0]
+            if any(abs(precio_modelo - otro) < 0.01 for otro in otros):
+                print(f"--> Gemini reuso un componente ajeno ({precio_modelo}) como '{requeridos[0]}'; se descarta.")
+                return None, None
             componentes[requeridos[0]] = precio_modelo
         else:
             print(f"--> Gemini omitio {faltantes} para '{accion}': {str(parsed)[:300]}".encode("ascii", "replace").decode("ascii"))
             return None, None
     precio = round(sum(componentes[c] for c in requeridos), 2)
+    if accion == "material" and componentes["remocion"] > 0 and abs(precio - componentes["remocion"]) < 0.01:
+        print("--> Gemini devolvio el precio de demolicion como Material only; se descarta.")
+        return None, None
     if precio <= 0:
         return None, None
     if precio_modelo > 0 and abs(precio_modelo - precio) > 0.01:
@@ -3579,6 +3591,9 @@ def _mensaje_precio_gemini(ubicacion, accion, accion_texto, descripcion, unidad,
         f"después aplica el ALCANCE DE COBRO EXACTO '{accion_texto}'.\n"
         f"Estás OBLIGADO a devolver precio_unitario = {formula}. "
         "Nunca devuelvas un precio inferior a la suma de estos componentes.\n"
+        "Lee la ACCIÓN y la DESCRIPCIÓN. Si necesitas el costo del material, DEBES usar la herramienta de búsqueda de Google "
+        "para buscar el precio de venta actual de ese producto en tiendas de EE. UU. (ej. Home Depot, Lowe's). "
+        "Devuelve tu cálculo basándote ESTRICTAMENTE en los resultados de búsqueda web en tiempo real.\n"
         f"Componentes que esta acción suma: {', '.join(requeridos)}.\n"
         f"Componentes que esta acción NO suma (reporta igual su valor base): {', '.join(excluidos) or 'ninguno'}.\n\n"
         "Precios de referencia que ya existen en Supabase. Son promedios nacionales, anteriores al ajuste de zona, "
@@ -3593,23 +3608,30 @@ def _mensaje_precio_gemini(ubicacion, accion, accion_texto, descripcion, unidad,
 
 _CACHE_PRECIO_IA = {}
 _cache_precio_lock = threading.Lock()
+HERRAMIENTA_BUSQUEDA_GOOGLE = types.Tool(google_search=types.GoogleSearch())
 
 
-def _clave_cache_precio(ubicacion, accion, descripcion, unidad):
+def _zip_cache_precio(ubicacion):
+    digitos = re.sub(r"\D", "", str(ubicacion or ""))[:5]
+    if len(digitos) == 5:
+        return digitos
+    return str(ubicacion or "").strip().upper() or "US"
+
+
+def _clave_cache_precio(descripcion, accion, ubicacion):
     return (
         _limpiar_termino_catalogo(descripcion).lower(),
-        accion,
-        str(unidad or "").upper(),
-        str(ubicacion or "").strip().upper(),
+        str(accion or "").strip().lower(),
+        _zip_cache_precio(ubicacion),
     )
 
 
 def _precio_gemini_por_accion(ubicacion, accion, accion_texto, descripcion, unidad, referencias):
-    clave = _clave_cache_precio(ubicacion, accion, descripcion, unidad)
+    clave = _clave_cache_precio(descripcion, accion, ubicacion)
     with _cache_precio_lock:
         guardado = _CACHE_PRECIO_IA.get(clave)
     if guardado:
-        print(f"--> precio IA en cache {clave} = ${guardado[0]}".encode("ascii", "replace").decode("ascii"))
+        print(f"--> precio IA en cache desc+accion+zip {clave} = ${guardado[0]}".encode("ascii", "replace").decode("ascii"))
         return guardado[0], dict(guardado[1])
     precio, desglose = _precio_gemini_consulta(ubicacion, accion, accion_texto, descripcion, unidad, referencias)
     if precio:
@@ -3618,19 +3640,38 @@ def _precio_gemini_por_accion(ubicacion, accion, accion_texto, descripcion, unid
     return precio, desglose
 
 
+def _config_gemini_precio(con_json=True):
+    kwargs = {
+        "system_instruction": CONTEXTO_ESTIMADOR_PRECIOS,
+        "tools": [HERRAMIENTA_BUSQUEDA_GOOGLE],
+    }
+    if con_json:
+        kwargs["response_mime_type"] = "application/json"
+    return types.GenerateContentConfig(**kwargs)
+
+
 def _precio_gemini_consulta(ubicacion, accion, accion_texto, descripcion, unidad, referencias):
     prompt = _mensaje_precio_gemini(ubicacion, accion, accion_texto, descripcion, unidad, referencias)
     ultimo_error = None
     for modelo in ("gemini-2.5-flash", "gemini-3.6-flash", "gemini-flash-latest"):
         try:
-            response = client.models.generate_content(
-                model=modelo,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    system_instruction=CONTEXTO_ESTIMADOR_PRECIOS,
-                ),
-            )
+            try:
+                response = client.models.generate_content(
+                    model=modelo,
+                    contents=prompt,
+                    config=_config_gemini_precio(True),
+                )
+            except Exception as err_json:
+                texto_json = str(err_json).lower()
+                if any(t in texto_json for t in ("tool", "mime", "json", "grounding", "search", "invalid argument", "400")):
+                    print(f"--> Gemini {modelo}: reintento con Search y sin JSON forzado ({err_json})")
+                    response = client.models.generate_content(
+                        model=modelo,
+                        contents=prompt,
+                        config=_config_gemini_precio(False),
+                    )
+                else:
+                    raise
         except Exception as err:
             ultimo_error = err
             texto = str(err).lower()
