@@ -3338,8 +3338,39 @@ CONTEXTO_ESTIMADOR_PRECIOS = (
     "6. Ajusta los promedios nacionales al mercado específico del código postal/estado proporcionado en la solicitud.\n"
     "REGLA CRÍTICA: Si la acción solicitada es 'Material only' o 'Demolition only', IGNORA palabras como "
     "'Instalación' o 'Colocación' en la descripción del ítem. Enfócate en el material base (ej. Pisos Vinilo, Loseta) "
-    "y devuelve el costo de mercado exclusivo para esa acción. JAMÁS devuelvas 0. Si dudas, devuelve el promedio nacional del material crudo."
+    "y devuelve el costo de mercado exclusivo para esa acción. JAMÁS devuelvas 0. Si dudas, devuelve el promedio nacional del material crudo.\n\n"
+    "PROCESO OBLIGATORIO (Chain of Thought). Razona paso a paso ANTES de dar cualquier precio:\n"
+    "PASO 1 - Análisis estricto de la acción. Lee la acción palabra por palabra y decide qué componentes incluye:\n"
+    "  - Si contiene 'Remove', 'Remover', 'Demolition' o 'Demolición': incluye el costo de REMOCIÓN "
+    "(desmantelamiento, retiro, carga y desecho/bote del material existente).\n"
+    "  - Si contiene 'materials', 'materiales' o 'Material': incluye el costo de MATERIAL "
+    "(precio promedio en tienda del producto en EE. UU., tipo Home Depot / Lowe's / distribuidor, por unidad solicitada, "
+    "incluyendo desperdicio normal y consumibles).\n"
+    "  - Si contiene 'install', 'instalar' o 'Labor': incluye el costo de INSTALACIÓN (tarifa de mano de obra).\n"
+    "  - Todo componente que la acción NO menciona vale 0. Todo componente que la acción SÍ menciona es mayor que 0.\n"
+    "PASO 2 - Contexto geográfico. Usa exclusivamente tarifas del mercado de construcción de Estados Unidos, "
+    "basadas en estándares tipo RSMeans y Xactimate, y ajústalas al código postal/estado indicado.\n"
+    "PASO 3 - Costeo por componente. Estima por separado, en USD por la unidad solicitada: "
+    "remocion, material e instalacion.\n"
+    "PASO 4 - Suma final. Calcula internamente precio_unitario = remocion + material + instalacion "
+    "(solo los componentes incluidos en el PASO 1). Ese total es el 'Unit Price'.\n"
+    "Verificación antes de responder: si la acción combina varios componentes, precio_unitario NUNCA puede ser igual "
+    "a uno solo de ellos. Ejemplo: 'Remove, install plus materials' de piso LVT = remoción + material LVT + instalación; "
+    "devolver solo la mano de obra (≈ $2/SF) es un ERROR.\n"
+    "Responde SIEMPRE con un único JSON válido, sin texto fuera del JSON, con este formato exacto: "
+    '{"analisis": "razonamiento breve de los pasos 1 a 4", "componentes_incluidos": ["remocion", "material", "instalacion"], '
+    '"remocion": numero_decimal, "material": numero_decimal, "instalacion": numero_decimal, "precio_unitario": numero_decimal}'
 )
+
+COMPONENTES_POR_ACCION = {
+    "replace": ("remocion", "instalacion"),
+    "replace_material": ("remocion", "material", "instalacion"),
+    "install_material": ("material", "instalacion"),
+    "install": ("instalacion",),
+    "labor": ("instalacion",),
+    "demo": ("remocion",),
+    "material": ("material",),
+}
 
 
 def _precio_roles_por_accion(install, demo, material, labor, accion):
@@ -3429,69 +3460,70 @@ def _precio_json_por_accion(accion, parsed):
         parsed = parsed[0]
     if not isinstance(parsed, dict):
         return None, None
-    labor = _num_catalogo(parsed, "labor", "mano_obra", "precio_labor")
-    material = _num_catalogo(parsed, "material", "precio_material")
-    demolicion = _num_catalogo(parsed, "demolicion", "demo", "demolition", "precio_demo")
-    precio_directo = _num_catalogo(parsed, "precio", "price", "precio_unitario")
-    if accion == "material":
-        precio = material if material > 0 else precio_directo
-        if precio > 0 and material <= 0:
-            material = precio
-    elif accion == "demo":
-        precio = demolicion if demolicion > 0 else precio_directo
-        if precio > 0 and demolicion <= 0:
-            demolicion = precio
-    elif accion in ("install", "labor"):
-        precio = labor if labor > 0 else 0.0
-    elif accion == "install_material":
-        precio = labor + material if labor > 0 and material > 0 and (labor + material) > labor else 0.0
-    elif accion == "replace":
-        precio = demolicion + labor if demolicion > 0 and labor > 0 else 0.0
-    elif accion == "replace_material":
-        precio = demolicion + labor + material if demolicion > 0 and labor > 0 and material > 0 else 0.0
-    else:
-        precio = 0.0
-    if precio <= 0 and precio_directo > 0:
-        precio = precio_directo
+    componentes = {
+        "remocion": _num_catalogo(parsed, "remocion", "demolicion", "demo", "demolition", "precio_demo"),
+        "material": _num_catalogo(parsed, "material", "precio_material"),
+        "instalacion": _num_catalogo(parsed, "instalacion", "labor", "mano_obra", "precio_labor"),
+    }
+    precio_modelo = _num_catalogo(parsed, "precio_unitario", "precio", "price", "unit_price")
+    requeridos = COMPONENTES_POR_ACCION.get(accion, COMPONENTES_POR_ACCION["replace"])
+    faltantes = [c for c in requeridos if componentes[c] <= 0]
+    if faltantes:
+        # Con un solo componente, el total del modelo es ese componente; en acciones combinadas no hay forma de saber qué falta.
+        if len(requeridos) == 1 and precio_modelo > 0:
+            componentes[requeridos[0]] = precio_modelo
+        else:
+            print(f"--> Gemini omitio {faltantes} para '{accion}': {str(parsed)[:300]}".encode("ascii", "replace").decode("ascii"))
+            return None, None
+    precio = round(sum(componentes[c] for c in requeridos), 2)
     if precio <= 0:
         return None, None
-    return round(precio, 2), {
-        "labor": round(labor, 2),
-        "material": round(material, 2),
-        "demolicion": round(demolicion, 2),
+    if precio_modelo > 0 and abs(precio_modelo - precio) > 0.01:
+        print(f"--> Gemini sumo {precio_modelo} pero los componentes de '{accion}' suman {precio}; se usa la suma.")
+    return precio, {
+        "labor": round(componentes["instalacion"], 2),
+        "material": round(componentes["material"], 2),
+        "demolicion": round(componentes["remocion"], 2),
+        "analisis": str(parsed.get("analisis") or "")[:600],
     }
 
 
-def _mensaje_precio_gemini(ubicacion, accion_texto, descripcion, unidad, referencias):
+_ETIQUETAS_REFERENCIA_PRECIO = {
+    "precio_unitario_catalogo": "instalacion_catalogo (solo instalación/mano de obra, sin material ni remoción)",
+    "precio_mano_obra": "mano_obra_catalogo",
+    "precio_material": "material_catalogo",
+    "precio_demolicion": "remocion_catalogo",
+}
+
+
+def _mensaje_precio_gemini(ubicacion, accion, accion_texto, descripcion, unidad, referencias):
     refs = {
-        clave: valor
+        _ETIQUETAS_REFERENCIA_PRECIO.get(clave, clave): valor
         for clave, valor in (referencias or {}).items()
         if valor not in (None, "", 0, 0.0)
     }
+    requeridos = COMPONENTES_POR_ACCION.get(accion, COMPONENTES_POR_ACCION["replace"])
+    excluidos = [c for c in ("remocion", "material", "instalacion") if c not in requeridos]
     return (
         "Solicitud de precio:\n"
         f"- acción: {accion_texto}\n"
         f"- ítem: {descripcion}\n"
         f"- unidad: {unidad}\n"
         f"- código postal/estado: {ubicacion}\n\n"
-        "Precios de referencia que ya existen en Supabase. Son promedios nacionales, anteriores al ajuste de zona. "
-        "Si un componente no aparece aquí, no existe en el catálogo y debes estimarlo. "
-        "Nunca respondas 0 cuando la acción exija material o demolición.\n"
+        f"Componentes que esta acción incluye (cada uno > 0): {', '.join(requeridos)}.\n"
+        f"Componentes que esta acción NO incluye (fuera de la suma): {', '.join(excluidos) or 'ninguno'}.\n\n"
+        "Precios de referencia que ya existen en Supabase. Son promedios nacionales, anteriores al ajuste de zona, "
+        "y cada uno cubre SOLO el componente que indica su nombre. "
+        "Si un componente no aparece aquí, no existe en el catálogo y debes estimarlo con tarifas de mercado de EE. UU.\n"
         + json.dumps(refs, ensure_ascii=False)
         + "\n\n"
-        "Responde estrictamente con un JSON válido, sin texto adicional, en este formato: "
-        '{"labor": numero_decimal, "material": numero_decimal, "demolicion": numero_decimal, "precio": numero_decimal}. '
-        "labor, material y demolicion van ya ajustados al código postal/estado. "
-        "precio es el de la acción pedida en ese mismo mercado: "
-        "Material only = material; Demolition only o Remove = demolicion; Install only = labor; "
-        "Install plus materials = labor + material, y debe ser mayor que labor; "
-        "Remove and install = demolicion + labor; "
-        "Remove, install plus materials = demolicion + labor + material."
+        "Sigue los PASOS 1 a 4 del proceso obligatorio. remocion, material e instalacion van en USD por "
+        f"{unidad}, ya ajustados al código postal/estado; precio_unitario es la suma de los componentes incluidos."
     )
 
 
 def _precio_gemini_por_accion(ubicacion, accion, accion_texto, descripcion, unidad, referencias):
-    prompt = _mensaje_precio_gemini(ubicacion, accion_texto, descripcion, unidad, referencias)
+    prompt = _mensaje_precio_gemini(ubicacion, accion, accion_texto, descripcion, unidad, referencias)
     ultimo_error = None
     for modelo in ("gemini-2.5-flash", "gemini-3.6-flash", "gemini-flash-latest"):
         try:
@@ -3511,6 +3543,8 @@ def _precio_gemini_por_accion(ubicacion, accion, accion_texto, descripcion, unid
             raise
         precio, desglose = _precio_json_por_accion(accion, extraer_json(getattr(response, "text", None) or ""))
         if precio:
+            linea = f"--> Gemini {modelo} '{accion}' {descripcion} = ${precio} | {desglose.get('analisis')}"
+            print(linea.encode("ascii", "replace").decode("ascii"))
             return precio, desglose
     if ultimo_error:
         raise ultimo_error
