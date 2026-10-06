@@ -3347,19 +3347,34 @@ CONTEXTO_ESTIMADOR_PRECIOS = (
     "(precio promedio en tienda del producto en EE. UU., tipo Home Depot / Lowe's / distribuidor, por unidad solicitada, "
     "incluyendo desperdicio normal y consumibles).\n"
     "  - Si contiene 'install', 'instalar' o 'Labor': incluye el costo de INSTALACIÓN (tarifa de mano de obra).\n"
-    "  - Todo componente que la acción NO menciona vale 0. Todo componente que la acción SÍ menciona es mayor que 0.\n"
+    "  - Los componentes que la acción NO menciona quedan fuera de la suma, pero igual debes declarar su valor base (PASO 3).\n"
     "PASO 2 - Contexto geográfico. Usa exclusivamente tarifas del mercado de construcción de Estados Unidos, "
-    "basadas en estándares tipo RSMeans y Xactimate, y ajústalas al código postal/estado indicado.\n"
-    "PASO 3 - Costeo por componente. Estima por separado, en USD por la unidad solicitada: "
-    "remocion, material e instalacion.\n"
-    "PASO 4 - Suma final. Calcula internamente precio_unitario = remocion + material + instalacion "
-    "(solo los componentes incluidos en el PASO 1). Ese total es el 'Unit Price'.\n"
-    "Verificación antes de responder: si la acción combina varios componentes, precio_unitario NUNCA puede ser igual "
-    "a uno solo de ellos. Ejemplo: 'Remove, install plus materials' de piso LVT = remoción + material LVT + instalación; "
-    "devolver solo la mano de obra (≈ $2/SF) es un ERROR.\n"
+    "basadas en estándares RSMeans (y tabuladores tipo Xactimate), y ajústalas al código postal/estado indicado.\n"
+    "PASO 3 - Declaración de valores base (anclaje de precios). ANTES de calcular cualquier total, fija internamente "
+    "UN costo fijo por unidad para cada componente del ítem, independiente de la acción solicitada:\n"
+    "  - material: costo fijo del material en tienda.\n"
+    "  - instalacion: costo fijo de la mano de obra de instalación.\n"
+    "  - remocion: costo fijo de remoción y desecho.\n"
+    "  Los tres valores base son SIEMPRE mayores que 0 y se reportan SIEMPRE, sea cual sea la acción. "
+    "Son los mismos números para cualquier acción sobre el mismo ítem, unidad y ubicación: la acción solo decide cuáles se suman.\n"
+    "PASO 4 - Lógica aditiva estricta. precio_unitario = suma exacta de los valores base de los componentes incluidos en el PASO 1:\n"
+    "  - Material only = material. Install only = instalacion. Demolition only = remocion.\n"
+    "  - Install plus materials = material + instalacion.\n"
+    "  - Remove and install = remocion + instalacion.\n"
+    "  - Remove, install plus materials = remocion + material + instalacion.\n"
+    "  Ese total es el 'Unit Price'. No apliques descuentos, redondeos de paquete ni ajustes adicionales a la suma.\n"
+    "PASO 5 - Bloqueo de incongruencias. Antes de responder, verifica:\n"
+    "  - Bajo NINGUNA circunstancia una acción combinada (ej. Install plus materials) puede costar menos que el material por sí solo, "
+    "ni menos que la instalación por sí sola.\n"
+    "  - Si la acción combina varios componentes, precio_unitario NUNCA puede ser igual a uno solo de ellos. "
+    "Ejemplo: 'Remove, install plus materials' de piso LVT = remoción + material LVT + instalación; "
+    "devolver solo la mano de obra (≈ $2/SF) es un ERROR. Si 'Material only' de un LVT comercial es $2.40/SF, "
+    "'Install plus materials' tiene que ser $2.40 + instalación, nunca $1.85.\n"
+    "  - Si alguna verificación falla, corrige los valores base y vuelve a sumar.\n"
     "Responde SIEMPRE con un único JSON válido, sin texto fuera del JSON, con este formato exacto: "
-    '{"analisis": "razonamiento breve de los pasos 1 a 4", "componentes_incluidos": ["remocion", "material", "instalacion"], '
-    '"remocion": numero_decimal, "material": numero_decimal, "instalacion": numero_decimal, "precio_unitario": numero_decimal}'
+    '{"analisis": "razonamiento breve de los pasos 1 a 5", "componentes_incluidos": ["remocion", "material", "instalacion"], '
+    '"remocion": numero_decimal, "material": numero_decimal, "instalacion": numero_decimal, "precio_unitario": numero_decimal}. '
+    "remocion, material e instalacion son los valores base del PASO 3 (los tres > 0)."
 )
 
 COMPONENTES_POR_ACCION = {
@@ -3510,19 +3525,63 @@ def _mensaje_precio_gemini(ubicacion, accion, accion_texto, descripcion, unidad,
         f"- ítem: {descripcion}\n"
         f"- unidad: {unidad}\n"
         f"- código postal/estado: {ubicacion}\n\n"
-        f"Componentes que esta acción incluye (cada uno > 0): {', '.join(requeridos)}.\n"
-        f"Componentes que esta acción NO incluye (fuera de la suma): {', '.join(excluidos) or 'ninguno'}.\n\n"
+        f"Componentes que esta acción suma: {', '.join(requeridos)}.\n"
+        f"Componentes que esta acción NO suma (reporta igual su valor base): {', '.join(excluidos) or 'ninguno'}.\n\n"
         "Precios de referencia que ya existen en Supabase. Son promedios nacionales, anteriores al ajuste de zona, "
         "y cada uno cubre SOLO el componente que indica su nombre. "
         "Si un componente no aparece aquí, no existe en el catálogo y debes estimarlo con tarifas de mercado de EE. UU.\n"
         + json.dumps(refs, ensure_ascii=False)
         + "\n\n"
-        "Sigue los PASOS 1 a 4 del proceso obligatorio. remocion, material e instalacion van en USD por "
-        f"{unidad}, ya ajustados al código postal/estado; precio_unitario es la suma de los componentes incluidos."
+        "Sigue los PASOS 1 a 5 del proceso obligatorio. remocion, material e instalacion son los valores base en USD por "
+        f"{unidad}, ya ajustados al código postal/estado; precio_unitario es la suma de los componentes que la acción suma."
     )
 
 
+_BASES_PRECIO_IA = {}
+_bases_precio_lock = threading.Lock()
+
+
+def _clave_bases_precio(ubicacion, descripcion, unidad):
+    return (_limpiar_termino_catalogo(descripcion).lower(), str(unidad or "").upper(), str(ubicacion or "").strip().upper())
+
+
+def _precio_desde_bases(accion, bases):
+    requeridos = COMPONENTES_POR_ACCION.get(accion, COMPONENTES_POR_ACCION["replace"])
+    if not bases or any(_num(bases.get(c)) <= 0 for c in requeridos):
+        return None, None
+    precio = round(sum(_num(bases[c]) for c in requeridos), 2)
+    return precio, {
+        "labor": round(_num(bases.get("instalacion")), 2),
+        "material": round(_num(bases.get("material")), 2),
+        "demolicion": round(_num(bases.get("remocion")), 2),
+        "analisis": "valores base anclados de una consulta anterior",
+    }
+
+
 def _precio_gemini_por_accion(ubicacion, accion, accion_texto, descripcion, unidad, referencias):
+    clave = _clave_bases_precio(ubicacion, descripcion, unidad)
+    with _bases_precio_lock:
+        bases = dict(_BASES_PRECIO_IA.get(clave) or {})
+    precio, desglose = _precio_desde_bases(accion, bases)
+    if precio:
+        print(f"--> precio IA anclado '{accion}' = ${precio} {bases}".encode("ascii", "replace").decode("ascii"))
+        return precio, desglose
+    precio, desglose = _precio_gemini_consulta(ubicacion, accion, accion_texto, descripcion, unidad, referencias)
+    if precio:
+        nuevas = {"instalacion": desglose.get("labor"), "material": desglose.get("material"), "remocion": desglose.get("demolicion")}
+        with _bases_precio_lock:
+            actuales = _BASES_PRECIO_IA.setdefault(clave, {})
+            for c, valor in nuevas.items():
+                if _num(valor) > 0 and _num(actuales.get(c)) <= 0:
+                    actuales[c] = round(_num(valor), 2)
+            bases = dict(actuales)
+        anclado, desglose_anclado = _precio_desde_bases(accion, bases)
+        if anclado:
+            return anclado, dict(desglose_anclado, analisis=desglose.get("analisis"))
+    return precio, desglose
+
+
+def _precio_gemini_consulta(ubicacion, accion, accion_texto, descripcion, unidad, referencias):
     prompt = _mensaje_precio_gemini(ubicacion, accion, accion_texto, descripcion, unidad, referencias)
     ultimo_error = None
     for modelo in ("gemini-2.5-flash", "gemini-3.6-flash", "gemini-flash-latest"):
