@@ -244,6 +244,8 @@
     .sugerencia-desc-item:hover, .sugerencia-desc-item:focus { background:#eef5fc; color:#19385f; outline:0; }
     .price-ia-wrap { position:relative; display:flex; align-items:center; gap:4px; overflow:visible; z-index:5; }
     .price-ia-wrap .price { flex:1; min-width:0; }
+    .price.precio-sin-ia { background:#fde2e2 !important; border-color:#e5a3a3; }
+    .price.precio-sin-ia::placeholder { color:#9b2c2c; }
     .price.precio-cargando { color:transparent; background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%) 0 0/200% 100% !important; animation:precioCargando 1s linear infinite; }
     @keyframes precioCargando { to { background-position:-200% 0; } }
     .btn-ia-precio { flex:none; border:1px solid #7c3aed; background:#f5f3ff; color:#5b21b6; border-radius:4px; padding:3px 6px; font-size:10px; font-weight:800; letter-spacing:.02em; }
@@ -2056,6 +2058,7 @@
       const row=el&&el.closest&&el.closest('tr.fila-trabajo, .fila-trabajo');
       if(!row)return;
       if(el.matches('.price, .input-precio')){
+        if(el.classList.contains('precio-sin-ia')){ el.classList.remove('precio-sin-ia'); el.placeholder=''; el.removeAttribute('title'); }
         ocultarBadgePrecioIa(row);
         row.dataset.precioDesdeApi='1';
         row.dataset.skipZipFactor='1';
@@ -2541,6 +2544,7 @@
       const precioAnterior=priceInput.value;
       const solicitud=++secuenciaPrecioAccion;
       delete row.dataset.iaCatalogo;
+      priceInput.classList.remove('precio-sin-ia');
       row.dataset.precioAccionReq=String(solicitud);
       row.dataset.precioAccionPendiente='1';
       delete row.dataset.origenPrecio;
@@ -2599,9 +2603,18 @@
           priceInput.placeholder='';
           delete row.dataset.precioDesdeApi;
           delete row.dataset.precioAccionPendiente;
-          console.warn('Price lookup failed; falling back to the local catalog price.',error);
-          if(typeof recalcularPrecioPorAccion==='function')recalcularPrecioPorAccion(row,{silent:true,skipDesc:true});
-          if(!(Number(priceInput.value)>0))priceInput.value=precioAnterior;
+          if(['replace','replace_material','install_material'].includes(accion)){
+            console.warn('Price lookup failed for a combined action; leaving the price empty instead of a partial local price.',error);
+            row.dataset.precioDesdeApi='1';
+            priceInput.value='';
+            priceInput.placeholder='AI unavailable – retry';
+            priceInput.title='Could not price this combined action. Re-select the action to retry or enter the price manually.';
+            priceInput.classList.add('precio-sin-ia');
+          }else{
+            console.warn('Price lookup failed; falling back to the local catalog price.',error);
+            if(typeof recalcularPrecioPorAccion==='function')recalcularPrecioPorAccion(row,{silent:true,skipDesc:true});
+            if(!(Number(priceInput.value)>0))priceInput.value=precioAnterior;
+          }
           if(typeof recalcularSubtotalFila==='function')recalcularSubtotalFila(row);
         }
       }finally{

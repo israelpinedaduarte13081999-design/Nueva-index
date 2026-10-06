@@ -3339,8 +3339,22 @@ CONTEXTO_ESTIMADOR_PRECIOS = (
     "REGLA CRÍTICA: Si la acción solicitada es 'Material only' o 'Demolition only', IGNORA palabras como "
     "'Instalación' o 'Colocación' en la descripción del ítem. Enfócate en el material base (ej. Pisos Vinilo, Loseta) "
     "y devuelve el costo de mercado exclusivo para esa acción. JAMÁS devuelvas 0. Si dudas, devuelve el promedio nacional del material crudo.\n\n"
+    "FORMATO DE LA SOLICITUD. Cada solicitud trae dos campos que debes correlacionar:\n"
+    "  - MATERIAL Y TRABAJO A EVALUAR: el material/partida (la descripción del trabajo).\n"
+    "  - ALCANCE DE COBRO EXACTO: la acción que define QUÉ se cobra.\n"
+    "RAZONAMIENTO CRUZADO (obligatorio y en este orden):\n"
+    "  a) Lee PRIMERO el MATERIAL Y TRABAJO A EVALUAR para identificar el [MATERIAL] y sus costos de mercado "
+    "(material, mano de obra de instalación y demolición). Las palabras de la descripción como 'Instalación', 'Colocación' "
+    "o 'Remover' NO definen el cobro: solo sirven para identificar el material.\n"
+    "  b) Lee DESPUÉS el ALCANCE DE COBRO EXACTO para decidir qué componentes sumar. El alcance SIEMPRE manda sobre la descripción.\n"
+    "Si el ALCANCE DE COBRO dice 'Remove, install plus materials', estás OBLIGADO a sumar: "
+    "(Costo de demolición de [MATERIAL]) + (Costo del [MATERIAL]) + (Costo de mano de obra para instalar [MATERIAL]). "
+    "Nunca devuelvas un precio inferior a la suma de estos componentes.\n"
+    "Ejemplo: MATERIAL Y TRABAJO A EVALUAR = 'Instalación de piso vinílico de lujo (LVT)' y ALCANCE DE COBRO EXACTO = "
+    "'Remove, install plus materials' -> demolición de LVT + material LVT + instalación de LVT. "
+    "Devolver solo la instalación (≈ $2.36/SF) es un ERROR GRAVE.\n\n"
     "PROCESO OBLIGATORIO (Chain of Thought). Razona paso a paso ANTES de dar cualquier precio:\n"
-    "PASO 1 - Análisis estricto de la acción. Lee la acción palabra por palabra y decide qué componentes incluye:\n"
+    "PASO 1 - Análisis estricto de la acción (ALCANCE DE COBRO EXACTO). Lee la acción palabra por palabra y decide qué componentes incluye:\n"
     "  - Si contiene 'Remove', 'Remover', 'Demolition' o 'Demolición': incluye el costo de REMOCIÓN "
     "(desmantelamiento, retiro, carga y desecho/bote del material existente).\n"
     "  - Si contiene 'materials', 'materiales' o 'Material': incluye el costo de MATERIAL "
@@ -3549,12 +3563,22 @@ def _mensaje_precio_gemini(ubicacion, accion, accion_texto, descripcion, unidad,
     }
     requeridos = COMPONENTES_POR_ACCION.get(accion, COMPONENTES_POR_ACCION["replace"])
     excluidos = [c for c in ("remocion", "material", "instalacion") if c not in requeridos]
+    material = _descripcion_catalogo_normalizada(descripcion) or descripcion
+    terminos = {
+        "remocion": f"(Costo de demolición de {material})",
+        "material": f"(Costo del {material})",
+        "instalacion": f"(Costo de mano de obra para instalar {material})",
+    }
+    formula = " + ".join(terminos[c] for c in ("remocion", "material", "instalacion") if c in requeridos)
     return (
-        "Solicitud de precio:\n"
-        f"- acción: {accion_texto}\n"
-        f"- ítem: {descripcion}\n"
-        f"- unidad: {unidad}\n"
-        f"- código postal/estado: {ubicacion}\n\n"
+        f"MATERIAL Y TRABAJO A EVALUAR: {descripcion}\n"
+        f"ALCANCE DE COBRO EXACTO: {accion_texto}\n"
+        f"UNIDAD: {unidad}\n"
+        f"CÓDIGO POSTAL/ESTADO: {ubicacion}\n\n"
+        f"Razonamiento cruzado: primero identifica el material ({material}) y sus costos de mercado; "
+        f"después aplica el ALCANCE DE COBRO EXACTO '{accion_texto}'.\n"
+        f"Estás OBLIGADO a devolver precio_unitario = {formula}. "
+        "Nunca devuelvas un precio inferior a la suma de estos componentes.\n"
         f"Componentes que esta acción suma: {', '.join(requeridos)}.\n"
         f"Componentes que esta acción NO suma (reporta igual su valor base): {', '.join(excluidos) or 'ninguno'}.\n\n"
         "Precios de referencia que ya existen en Supabase. Son promedios nacionales, anteriores al ajuste de zona, "
@@ -3567,47 +3591,30 @@ def _mensaje_precio_gemini(ubicacion, accion, accion_texto, descripcion, unidad,
     )
 
 
-_BASES_PRECIO_IA = {}
-_bases_precio_lock = threading.Lock()
+_CACHE_PRECIO_IA = {}
+_cache_precio_lock = threading.Lock()
 
 
-def _clave_bases_precio(ubicacion, descripcion, unidad):
-    return (_limpiar_termino_catalogo(descripcion).lower(), str(unidad or "").upper(), str(ubicacion or "").strip().upper())
-
-
-def _precio_desde_bases(accion, bases):
-    requeridos = COMPONENTES_POR_ACCION.get(accion, COMPONENTES_POR_ACCION["replace"])
-    if not bases or any(_num(bases.get(c)) <= 0 for c in requeridos):
-        return None, None
-    precio = round(sum(_num(bases[c]) for c in requeridos), 2)
-    return precio, {
-        "labor": round(_num(bases.get("instalacion")), 2),
-        "material": round(_num(bases.get("material")), 2),
-        "demolicion": round(_num(bases.get("remocion")), 2),
-        "analisis": "valores base anclados de una consulta anterior",
-    }
+def _clave_cache_precio(ubicacion, accion, descripcion, unidad):
+    return (
+        _limpiar_termino_catalogo(descripcion).lower(),
+        accion,
+        str(unidad or "").upper(),
+        str(ubicacion or "").strip().upper(),
+    )
 
 
 def _precio_gemini_por_accion(ubicacion, accion, accion_texto, descripcion, unidad, referencias):
-    clave = _clave_bases_precio(ubicacion, descripcion, unidad)
-    with _bases_precio_lock:
-        bases = dict(_BASES_PRECIO_IA.get(clave) or {})
-    precio, desglose = _precio_desde_bases(accion, bases)
-    if precio:
-        print(f"--> precio IA anclado '{accion}' = ${precio} {bases}".encode("ascii", "replace").decode("ascii"))
-        return precio, desglose
+    clave = _clave_cache_precio(ubicacion, accion, descripcion, unidad)
+    with _cache_precio_lock:
+        guardado = _CACHE_PRECIO_IA.get(clave)
+    if guardado:
+        print(f"--> precio IA en cache {clave} = ${guardado[0]}".encode("ascii", "replace").decode("ascii"))
+        return guardado[0], dict(guardado[1])
     precio, desglose = _precio_gemini_consulta(ubicacion, accion, accion_texto, descripcion, unidad, referencias)
     if precio:
-        nuevas = {"instalacion": desglose.get("labor"), "material": desglose.get("material"), "remocion": desglose.get("demolicion")}
-        with _bases_precio_lock:
-            actuales = _BASES_PRECIO_IA.setdefault(clave, {})
-            for c, valor in nuevas.items():
-                if _num(valor) > 0 and _num(actuales.get(c)) <= 0:
-                    actuales[c] = round(_num(valor), 2)
-            bases = dict(actuales)
-        anclado, desglose_anclado = _precio_desde_bases(accion, bases)
-        if anclado:
-            return anclado, dict(desglose_anclado, analisis=desglose.get("analisis"))
+        with _cache_precio_lock:
+            _CACHE_PRECIO_IA[clave] = (precio, dict(desglose))
     return precio, desglose
 
 
