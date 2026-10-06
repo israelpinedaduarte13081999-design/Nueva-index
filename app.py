@@ -20,7 +20,24 @@ app = Flask(__name__, template_folder=".")
 CORS(app)
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024
 COOKIE_CONTRATISTA = "contratista_token"
-client = genai.Client()
+
+
+def _gemini_ssl_verificado():
+    return (os.getenv("GEMINI_SSL_VERIFY") or "1").strip().lower() not in ("0", "false", "no", "off")
+
+
+def _crear_cliente_gemini(api_key=None):
+    kwargs = {"api_key": api_key} if api_key else {}
+    if not _gemini_ssl_verificado():
+        # google-genai sustituye verify=False por su propio contexto; hay que pasar un SSLContext.
+        ctx = ssl._create_unverified_context()
+        kwargs["http_options"] = types.HttpOptions(client_args={"verify": ctx})
+    return genai.Client(**kwargs)
+
+
+if not _gemini_ssl_verificado():
+    print("--> AVISO: Gemini sin verificación SSL (GEMINI_SSL_VERIFY=0). Solo para desarrollo local.")
+client = _crear_cliente_gemini()
 TABLA_CATALOGO = "catalogo_items"
 TABLA_FACTORES = "factores_regionales_usa"
 TABLA_FALTANTES = "items_faltantes"
@@ -320,9 +337,7 @@ def get_zip_factor(zip_code):
     print(f"--> ZIP {zona.get('zip')}: ciudad={payload['ciudad']} estado={payload['estado']} factor={payload['factor']}")
     return jsonify(payload)
 
-client = genai.Client(
-    api_key=os.environ.get("GCP_API_KEY") or os.environ.get("GEMINI_API_KEY")
-)
+client = _crear_cliente_gemini(os.environ.get("GCP_API_KEY") or os.environ.get("GEMINI_API_KEY"))
 
 # Tarifas de mano de obra de techo por ZIP (USD). Claves alineadas con las partidas generadas.
 PRECIOS_TECHO_POR_ZIP = {
@@ -2704,7 +2719,7 @@ def _traducir_lote_gemini(pendientes):
     key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or "").strip()
     if not key:
         raise RuntimeError("Falta GEMINI_API_KEY")
-    ia = genai.Client(api_key=key)
+    ia = _crear_cliente_gemini(key)
     user = (
         "Traduce cada línea al inglés técnico de construcción en Georgia. "
         "Devuelve JSON únicamente con la misma cantidad y orden: "
@@ -3552,6 +3567,133 @@ def precio_accion():
             "estado": zona.get("estado"),
         })
     return jsonify({"success": False, "error": "No hay precio en Supabase y Gemini no respondió"}), 502
+
+
+def _descripcion_catalogo_normalizada(descripcion):
+    texto = re.sub(r"\s+", " ", _corregir_typos_catalogo(descripcion)).strip()
+    for _ in range(4):
+        nuevo = _PREFIJO_ACCION_CATALOGO.sub("", texto).strip()
+        if nuevo == texto:
+            break
+        texto = nuevo
+    texto = texto.strip(" \t-–:.")[:180]
+    return texto[:1].upper() + texto[1:]
+
+
+_aviso_rls_catalogo = False
+_SQL_POLITICA_CATALOGO_IA = (
+    "create policy \"catalogo_items insert IA\" on public.catalogo_items\n"
+    "  for insert to anon, authenticated with check (codigo like 'IA %');"
+)
+
+
+def _codigo_catalogo_ia(descripcion, unidad, sufijo=""):
+    import hashlib
+
+    base = f"{_limpiar_termino_catalogo(descripcion).lower()}|{unidad}"
+    return f"IA {hashlib.sha1(base.encode('utf-8')).hexdigest()[:6].upper()}{sufijo}"
+
+
+def _fila_catalogo_existe(sb, codigo, descripcion, unidad):
+    por_codigo = sb.table(TABLA_CATALOGO).select("id").eq("codigo", codigo).limit(1).execute().data
+    if por_codigo:
+        return True
+    patron = re.sub(r"([%_\\])", r"\\\1", descripcion)
+    por_desc = (
+        sb.table(TABLA_CATALOGO).select("id")
+        .ilike("descripcion", patron).eq("unidad", unidad).limit(1).execute().data
+    )
+    return bool(por_desc)
+
+
+@app.route("/api/catalogo/guardar-ia", methods=["POST"])
+def guardar_precio_ia_catalogo():
+    payload = request.get_json(silent=True) or {}
+    global _aviso_rls_catalogo
+    items = payload.get("items") if isinstance(payload.get("items"), list) else [payload]
+    sb = _supabase_client()
+    if sb is None:
+        return jsonify({"success": False, "error": "Cliente supabase es None"}), 503
+    resultados = []
+    for raw in items[:50]:
+        if not isinstance(raw, dict):
+            continue
+        descripcion = _descripcion_catalogo_normalizada(raw.get("descripcion"))
+        unidad = str(raw.get("unidad") or "SF").strip().upper()[:6]
+        accion = str(raw.get("accion") or "").strip().lower()
+        if accion not in ACCIONES_PRECIO:
+            accion = "replace"
+        clave = raw.get("clave")
+        if len(descripcion) < 3:
+            resultados.append({"clave": clave, "estado": "omitido", "motivo": "descripción vacía"})
+            continue
+        factor, _zona = _factor_ubicacion(re.sub(r"[^\w\s-]", "", str(raw.get("ubicacion") or ""))[:20])
+        factor = factor if factor > 0 else 1.0
+        precio = _num(raw.get("precio")) / factor
+        labor = _num(raw.get("labor")) / factor
+        material = _num(raw.get("material")) / factor
+        demolicion = _num(raw.get("demolicion")) / factor
+        if accion == "material" and material <= 0:
+            material = precio
+        elif accion == "demo" and demolicion <= 0:
+            demolicion = precio
+        elif accion in ("install", "labor") and labor <= 0:
+            labor = precio
+        elif accion == "install_material" and labor <= 0 and material <= 0:
+            labor = precio
+
+        categoria = re.sub(r"[^A-ZÁÉÍÓÚÜÑ_ ]", "", descripcion.split(" - ", 1)[0].upper()).strip()
+        categoria = categoria if 0 < len(categoria) <= 24 else "GENERAL"
+        filas = []
+        if labor > 0:
+            filas.append({
+                "categoria": categoria,
+                "codigo": _codigo_catalogo_ia(descripcion, unidad),
+                "descripcion": descripcion,
+                "unidad": unidad,
+                "precio_base": round(labor, 2),
+                "precio_mano_obra": round(labor, 2),
+                "precio_material": round(max(material, 0.0), 2),
+            })
+        if demolicion > 0:
+            desc_demo = f"{descripcion} - Retiro / demolición"[:200]
+            filas.append({
+                "categoria": categoria,
+                "codigo": _codigo_catalogo_ia(descripcion, unidad, "D"),
+                "descripcion": desc_demo,
+                "unidad": unidad,
+                "precio_base": round(demolicion, 2),
+                "precio_mano_obra": round(demolicion, 2),
+                "precio_material": 0.0,
+            })
+        if not filas:
+            resultados.append({"clave": clave, "estado": "omitido", "motivo": "sin componentes de precio guardables"})
+            continue
+        insertadas, existentes, error = 0, 0, None
+        for fila in filas:
+            try:
+                if _fila_catalogo_existe(sb, fila["codigo"], fila["descripcion"], unidad):
+                    existentes += 1
+                    continue
+                sb.table(TABLA_CATALOGO).insert(fila).execute()
+                insertadas += 1
+                print(f"--> catálogo IA: insertado {fila['codigo']} '{fila['descripcion']}' {unidad} ${fila['precio_base']}")
+            except Exception as err:
+                error = str(err)[:300]
+                print(f"--> catálogo IA: error insertando '{fila['descripcion']}': {err}")
+                if not _aviso_rls_catalogo and re.search(r"row-level security|42501", error, re.I):
+                    _aviso_rls_catalogo = True
+                    print("--> catalogo_items bloquea inserts (RLS). Revisa que exista esta política:")
+                    print(_SQL_POLITICA_CATALOGO_IA)
+        if error and not insertadas:
+            estado = "error"
+        elif insertadas:
+            estado = "guardado"
+        else:
+            estado = "existente"
+        resultados.append({"clave": clave, "estado": estado, "insertadas": insertadas, "existentes": existentes, "error": error})
+    ok = any(r.get("estado") in ("guardado", "existente") for r in resultados)
+    return jsonify({"success": ok or not resultados, "resultados": resultados}), (200 if ok or not resultados else 502)
 
 
 PROMPT_SUGERIR_DESCRIPCION = (
