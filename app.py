@@ -3348,33 +3348,47 @@ CONTEXTO_ESTIMADOR_PRECIOS = (
     "incluyendo desperdicio normal y consumibles).\n"
     "  - Si contiene 'install', 'instalar' o 'Labor': incluye el costo de INSTALACIÓN (tarifa de mano de obra).\n"
     "  - Los componentes que la acción NO menciona quedan fuera de la suma, pero igual debes declarar su valor base (PASO 3).\n"
-    "PASO 2 - Contexto geográfico. Usa exclusivamente tarifas del mercado de construcción de Estados Unidos, "
-    "basadas en estándares RSMeans (y tabuladores tipo Xactimate), y ajústalas al código postal/estado indicado.\n"
-    "PASO 3 - Declaración de valores base (anclaje de precios). ANTES de calcular cualquier total, fija internamente "
-    "UN costo fijo por unidad para cada componente del ítem, independiente de la acción solicitada:\n"
-    "  - material: costo fijo del material en tienda.\n"
-    "  - instalacion: costo fijo de la mano de obra de instalación.\n"
-    "  - remocion: costo fijo de remoción y desecho.\n"
+    "PASO 2 - Contexto geográfico. Usa exclusivamente tarifas actuales del mercado de construcción de Estados Unidos "
+    "(ej. Georgia/Atlanta), basadas en estándares RSMeans y en la metodología de estructuración por partidas de Xactimate, "
+    "y ajústalas al código postal/estado indicado.\n"
+    "PASO 3 - Desglose de componentes base (anclaje de precios). ANTES de calcular cualquier total, asigna internamente "
+    "un valor realista por unidad a 3 variables independientes, sin importar la acción solicitada:\n"
+    "  - material: costo de material en tienda CON factor de desperdicio estándar del oficio "
+    "(ej. pisos 10%, azulejo 10-15%, drywall 10-12%, teja 10-15%, pintura según rendimiento por galón).\n"
+    "  - instalacion: costo de mano de obra de instalación (incluye el prorrateo de líneas suplementarias del PASO 4).\n"
+    "  - remocion: costo de demolición, retiro y desecho/bote del material existente.\n"
     "  Los tres valores base son SIEMPRE mayores que 0 y se reportan SIEMPRE, sea cual sea la acción. "
     "Son los mismos números para cualquier acción sobre el mismo ítem, unidad y ubicación: la acción solo decide cuáles se suman.\n"
-    "PASO 4 - Lógica aditiva estricta. precio_unitario = suma exacta de los valores base de los componentes incluidos en el PASO 1:\n"
+    "PASO 4 - Líneas suplementarias (maximizador de estimación). Actúa como un contratista experto: identifica los pasos "
+    "previos o complementarios obligatorios que el cliente suele olvidar para este ítem. Ejemplos:\n"
+    "  - Piso LVT/LVP/laminado: preparación y nivelación del subsuelo (FCW PREP) e instalación de molduras/zapatillas (FNC BSHOE).\n"
+    "  - Pintura interior: enmascarillado y protección de pisos y muebles.\n"
+    "  - Azulejo: membrana/impermeabilización y preparación de superficie. Drywall: cinta, compuesto y lijado.\n"
+    "  Como cada fila solo admite un precio unitario, NO devuelvas líneas aparte: prorratea un porcentaje pequeño y realista "
+    "del costo de esas líneas (normalmente 5-15% de la instalación) DENTRO del valor base de instalacion, para que el contratista "
+    "no pierda dinero. Si la acción no incluye instalación, no prorrateas nada. "
+    "Lista las líneas consideradas en lineas_suplementarias.\n"
+    "PASO 5 - Lógica aditiva estricta. precio_unitario = suma exacta de los valores base de los componentes incluidos en el PASO 1:\n"
     "  - Material only = material. Install only = instalacion. Demolition only = remocion.\n"
     "  - Install plus materials = material + instalacion.\n"
     "  - Remove and install = remocion + instalacion.\n"
     "  - Remove, install plus materials = remocion + material + instalacion.\n"
     "  Ese total es el 'Unit Price'. No apliques descuentos, redondeos de paquete ni ajustes adicionales a la suma.\n"
-    "PASO 5 - Bloqueo de incongruencias. Antes de responder, verifica:\n"
-    "  - Bajo NINGUNA circunstancia una acción combinada (ej. Install plus materials) puede costar menos que el material por sí solo, "
-    "ni menos que la instalación por sí sola.\n"
+    "PASO 6 - Restricción de integridad. Valida tu propia suma antes de devolver el JSON:\n"
+    "  - 'Material + Instalación' (Install plus materials) JAMÁS puede ser igual o menor que 'Material solo'; "
+    "debe ser exactamente material + instalacion, con instalacion > 0.\n"
+    "  - Ninguna acción combinada puede costar igual o menos que cualquiera de sus componentes por separado.\n"
+    "  - precio_unitario debe coincidir al centavo con la suma de los componentes incluidos.\n"
     "  - Si la acción combina varios componentes, precio_unitario NUNCA puede ser igual a uno solo de ellos. "
     "Ejemplo: 'Remove, install plus materials' de piso LVT = remoción + material LVT + instalación; "
     "devolver solo la mano de obra (≈ $2/SF) es un ERROR. Si 'Material only' de un LVT comercial es $2.40/SF, "
     "'Install plus materials' tiene que ser $2.40 + instalación, nunca $1.85.\n"
     "  - Si alguna verificación falla, corrige los valores base y vuelve a sumar.\n"
     "Responde SIEMPRE con un único JSON válido, sin texto fuera del JSON, con este formato exacto: "
-    '{"analisis": "razonamiento breve de los pasos 1 a 5", "componentes_incluidos": ["remocion", "material", "instalacion"], '
+    '{"analisis": "razonamiento breve de los pasos 1 a 6", "componentes_incluidos": ["remocion", "material", "instalacion"], '
+    '"lineas_suplementarias": [{"codigo": "FCW PREP", "descripcion": "texto", "prorrateo_instalacion": numero_decimal}], '
     '"remocion": numero_decimal, "material": numero_decimal, "instalacion": numero_decimal, "precio_unitario": numero_decimal}. '
-    "remocion, material e instalacion son los valores base del PASO 3 (los tres > 0)."
+    "remocion, material e instalacion son los valores base del PASO 3 (los tres > 0); instalacion ya incluye el prorrateo."
 )
 
 COMPONENTES_POR_ACCION = {
@@ -3500,7 +3514,23 @@ def _precio_json_por_accion(accion, parsed):
         "material": round(componentes["material"], 2),
         "demolicion": round(componentes["remocion"], 2),
         "analisis": str(parsed.get("analisis") or "")[:600],
+        "suplementarias": _lineas_suplementarias_json(parsed.get("lineas_suplementarias")),
     }
+
+
+def _lineas_suplementarias_json(crudas):
+    if not isinstance(crudas, list):
+        return []
+    lineas = []
+    for linea in crudas[:6]:
+        if isinstance(linea, dict):
+            texto = " ".join(str(linea.get(k) or "").strip() for k in ("codigo", "descripcion")).strip()
+            prorrateo = _num(linea.get("prorrateo_instalacion"))
+            if texto:
+                lineas.append(f"{texto} (+${prorrateo:.2f})" if prorrateo > 0 else texto)
+        elif str(linea or "").strip():
+            lineas.append(str(linea).strip())
+    return [l[:160] for l in lineas]
 
 
 _ETIQUETAS_REFERENCIA_PRECIO = {
@@ -3532,7 +3562,7 @@ def _mensaje_precio_gemini(ubicacion, accion, accion_texto, descripcion, unidad,
         "Si un componente no aparece aquí, no existe en el catálogo y debes estimarlo con tarifas de mercado de EE. UU.\n"
         + json.dumps(refs, ensure_ascii=False)
         + "\n\n"
-        "Sigue los PASOS 1 a 5 del proceso obligatorio. remocion, material e instalacion son los valores base en USD por "
+        "Sigue los PASOS 1 a 6 del proceso obligatorio. remocion, material e instalacion son los valores base en USD por "
         f"{unidad}, ya ajustados al código postal/estado; precio_unitario es la suma de los componentes que la acción suma."
     )
 
@@ -3602,7 +3632,10 @@ def _precio_gemini_consulta(ubicacion, accion, accion_texto, descripcion, unidad
             raise
         precio, desglose = _precio_json_por_accion(accion, extraer_json(getattr(response, "text", None) or ""))
         if precio:
-            linea = f"--> Gemini {modelo} '{accion}' {descripcion} = ${precio} | {desglose.get('analisis')}"
+            linea = (
+                f"--> Gemini {modelo} '{accion}' {descripcion} = ${precio} | {desglose.get('analisis')}"
+                f" | suplementarias: {'; '.join(desglose.get('suplementarias') or []) or 'ninguna'}"
+            )
             print(linea.encode("ascii", "replace").decode("ascii"))
             return precio, desglose
     if ultimo_error:
@@ -3645,6 +3678,7 @@ def precio_accion():
             "labor": (desglose or {}).get("labor"),
             "material": (desglose or {}).get("material"),
             "demolicion": (desglose or {}).get("demolicion"),
+            "suplementarias": (desglose or {}).get("suplementarias") or [],
             "ubicacion": ubicacion,
             "estado": zona.get("estado"),
         })
