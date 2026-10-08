@@ -363,6 +363,29 @@
     .pdf-extract-table .unit { text-align:center; font-weight:700; color:var(--navy); }
     .pdf-extract-table .trade { font-weight:700; color:#0369a1; white-space:nowrap; }
     .pdf-extract-foot { display:flex; justify-content:flex-end; padding:10px 12px; background:#f0f4f8; color:var(--navy); font-weight:800; }
+    .plans-panel { margin:0 0 18px; padding:16px 18px; border:1px solid var(--line); border-radius:10px; background:#f8fafc; }
+    .plans-panel-head { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:10px 16px; margin-bottom:12px; }
+    .plans-panel-head h3 { margin:0; color:var(--navy); font-size:14px; text-transform:uppercase; letter-spacing:.03em; }
+    .plans-panel-meta { margin:4px 0 0; color:var(--muted); font-size:12px; font-weight:600; }
+    .plans-summary { margin:0 0 14px; padding:12px 14px; border:1px solid #e2e8f0; border-radius:8px; background:#fff; }
+    .plans-summary h4 { margin:0 0 6px; font-size:13px; color:#0f172a; }
+    .plans-summary p { margin:0; color:#334155; font-size:13px; line-height:1.45; }
+    .plans-notes { display:grid; gap:10px; margin:0 0 14px; }
+    .plans-note-card, .plans-table-card { border:1px solid #e2e8f0; border-radius:8px; background:#fff; overflow:hidden; }
+    .plans-note-card h4, .plans-table-card h4 { margin:0; padding:10px 14px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-size:13px; color:var(--navy); }
+    .plans-note-card ul { margin:0; padding:8px 14px 12px 32px; }
+    .plans-note-card li { margin:6px 0; color:#334155; font-size:13px; }
+    .plans-table-toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 14px; border-bottom:1px solid #f1f5f9; }
+    .plans-table-wrap { overflow:auto; max-height:320px; }
+    .plans-extract-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .plans-extract-table th { position:sticky; top:0; background:#f8fafc; color:#19385f; font-size:11px; text-transform:uppercase; letter-spacing:.02em; text-align:left; padding:8px 10px; border-bottom:2px solid #e2e8f0; white-space:nowrap; }
+    .plans-extract-table td { padding:7px 10px; border-bottom:1px solid #f1f5f9; color:#334155; vertical-align:top; }
+    .plans-extract-table tbody tr:hover { background:#eef5fc; }
+    .plans-extract-table tbody tr.is-selected { background:#e0f2fe; }
+    .plans-status { color:var(--muted); font-size:12px; font-weight:600; }
+    .plans-status.is-error { color:#b91c1c; }
+    .plans-status.is-ok { color:#15803d; }
+    .plans-empty { margin:0; padding:12px 4px; color:#64748b; font-size:13px; }
     .regional-control { display:flex; align-items:center; gap:7px; }
     .regional-control label { color:var(--navy); font-size:13px; font-weight:700; }
     .regional-control input[type="text"] { width:95px; padding:5px 8px; border:1px solid #ced4da; background:#fff; font-weight:700; text-align:center; }
@@ -802,6 +825,11 @@
               </div>
             </a>
           </div>
+          <label class="home-pdf-drop" id="home-plans-drop" for="home-plans-file" tabindex="0">
+            <strong>Import architectural plans</strong>
+            <small>Claude Vision reads schedules, architect notes, and demolition scope from drawing sheets.</small>
+          </label>
+          <input class="sr-only" id="home-plans-file" type="file" accept="application/pdf">
         </div>
         <a href="/historial" class="action-card history-card" data-view-link="history">
           <div class="card-top">
@@ -890,6 +918,8 @@
         <button class="btn" id="importReportButton" type="button" data-i18n="importPdf">Import measurements from PDF</button>
         <input class="sr-only" id="input-pdf-upload" type="file" accept="application/pdf" onchange="procesarPDFImportado(this)">
         <button class="btn" type="button" id="importLineItemsButton" onclick="document.getElementById('input-pdf-upload').click()" data-i18n="importItems">📄 Import line items from PDF</button>
+        <button class="btn" type="button" id="importPlansButton">📐 Import architectural plans</button>
+        <input class="sr-only" id="plansFileInput" type="file" accept="application/pdf">
         <input class="sr-only" id="reportFileInput" type="file" accept=".esx,.pdf,.xml,.jpg,.jpeg,.png">
         <button class="btn" id="newInvoiceButton" type="button" data-i18n="newInvoice">+ New invoice</button>
         <button class="btn" id="saveDraftButton" type="button">💾 Save draft</button>
@@ -1021,6 +1051,22 @@
         <span class="regional-sync" id="badgeEstadoSync">Catalog: local base</span>
       </section>
       <h2 class="section-title" id="itemsHeading" data-i18n="itemsHeadingInvoice">INVOICE ITEMS</h2>
+      <section class="plans-panel no-print" id="plans-panel" hidden>
+        <div class="plans-panel-head">
+          <div>
+            <h3>Architectural plans</h3>
+            <p class="plans-panel-meta" id="plans-panel-meta"></p>
+          </div>
+          <div>
+            <span class="plans-status" id="plans-status"></span>
+            <button class="btn" type="button" id="plans-add-all">Add all to estimate</button>
+            <button class="btn" type="button" id="plans-hide">Hide</button>
+          </div>
+        </div>
+        <div id="plans-summary" class="plans-summary" hidden></div>
+        <div id="plans-notes" class="plans-notes"></div>
+        <div id="plans-tables"></div>
+      </section>
       <div id="areas" class="table-container"></div>
       <section class="terms mode-block" id="legalTerms" hidden>
         <h3 id="termsHeading" data-i18n="terms">TERMS AND EXCLUSIONS</h3>
@@ -5831,6 +5877,331 @@
         if(inputElement)inputElement.value='';
       }
     }
+    function apiUrlPlanos(){
+      return (location.origin&&location.origin.indexOf('http')===0)?(location.origin+'/api/import-planos'):'http://127.0.0.1:5000/api/import-planos';
+    }
+    function textoCeldaPlano(valor){
+      if(valor==null||valor==='')return '';
+      if(Array.isArray(valor))return valor.map(textoCeldaPlano).filter(Boolean).join(', ');
+      if(typeof valor==='object')return Object.values(valor).map(textoCeldaPlano).filter(Boolean).join(' · ');
+      return String(valor);
+    }
+    function itemPlanoAFila(item){
+      const code=String(item.codigo||item.code||item.CODE||'');
+      const desc=String(item.description||item.descripcion||item['WORK DESCRIPTION']||'').trim();
+      const qty=Number(item.qty||item.quantity||item.QTY||1)||1;
+      const unit=String(item.unit||item.unidad||item.UNIT||'EA').toUpperCase();
+      const price=Number(item.unit_price||item['UNIT PRICE']||0)||0;
+      const action=String(item.action||'install_material');
+      const actionKey=['replace','replace_material','install_material','install','labor','demo','material'].includes(action)?action:'install_material';
+      return [code, desc, qty, price, unit, 0, actionKey];
+    }
+    function asegurarAreaPlano(titulo){
+      const nombre=String(titulo||'Architectural plans').trim()||'Architectural plans';
+      const vacia=[...document.querySelectorAll('#areas .area')].find(a=>[...a.querySelectorAll('tbody tr')].every(tr=>typeof filaImportadaVacia==='function'?filaImportadaVacia(tr):!((tr.querySelector('.item-desc')||tr.querySelector('.description'))?.value||'').trim()));
+      if(vacia){
+        vacia.querySelector('.area-title').value=nombre;
+        vacia.dataset.titleEs=nombre;
+        vacia.dataset.titleEn=nombre;
+        if(vacia.querySelector('.area-reference'))vacia.querySelector('.area-reference').value='Plans';
+        const tabla=vacia.querySelector('tbody');
+        if(tabla&&!tabla.querySelector('tr')){ /* keep */ }
+        return vacia;
+      }
+      addArea({title:nombre,titleEn:nombre,reference:'Plans',rows:[]});
+      const area=document.querySelector('#areas .area:last-of-type');
+      const tabla=area&&area.querySelector('tbody');
+      if(tabla)tabla.replaceChildren();
+      return area;
+    }
+    function aplicarFilaPlanoEnArea(area, item){
+      if(!area||!item)return false;
+      const fila=itemPlanoAFila(item);
+      if(!fila[1])return false;
+      addRow(area, fila);
+      const tr=area.querySelector('tbody tr:last-child');
+      if(!tr)return false;
+      tr.dataset.descManual='1';
+      tr.dataset.unidadManual='1';
+      tr.dataset.accion=fila[6];
+      if(typeof asegurarOpcionUnidad==='function')asegurarOpcionUnidad(tr.querySelector('.select-unidad'),fila[4]);
+      const price=Number(fila[3])||0;
+      if(price>0){
+        tr.dataset.precioCatalogo='1';
+        tr.dataset.origenPrecio='supabase';
+        tr.setAttribute('data-precio-base',price.toFixed(2));
+      }else{
+        const sel=tr.querySelector('.item-action');
+        if(sel&&typeof onCambioAccionPartida==='function')onCambioAccionPartida(sel);
+      }
+      return true;
+    }
+    function agregarItemsPlanoACotizacion(items, titulo){
+      const lista=(items||[]).filter(it=>it&&(it.description||it.descripcion||it.text||it['WORK DESCRIPTION']));
+      if(!lista.length){
+        alert('Select at least one item from the plans.');
+        return 0;
+      }
+      if(typeof showAppView==='function')showAppView('quote',{noScroll:true,mode:'estimate'});
+      const grupos={};
+      lista.forEach(it=>{
+        const key=it.table_title||it.table_key||titulo||'Architectural plans';
+        (grupos[key]=grupos[key]||[]).push(it);
+      });
+      let n=0;
+      Object.keys(grupos).forEach(nombre=>{
+        const area=asegurarAreaPlano(nombre);
+        grupos[nombre].forEach(item=>{
+          const row=item.text&&!item.description?Object.assign({},item,{description:item.text,unit:item.unit||'LS',qty:1,action:item.action||'install'}):item;
+          if(aplicarFilaPlanoEnArea(area,row))n++;
+        });
+      });
+      if(typeof update==='function')update();
+      const heading=document.getElementById('areas')||document.getElementById('itemsHeading');
+      if(heading)heading.scrollIntoView({behavior:'smooth',block:'start'});
+      return n;
+    }
+    function renderNotasPlano(notas){
+      const wrap=document.getElementById('plans-notes');
+      if(!wrap)return;
+      wrap.replaceChildren();
+      const grupos={scope:[],architect:[],demolition:[],repair:[],note:[]};
+      (notas||[]).forEach(n=>{
+        const kind=String(n.kind||'note');
+        const bucket=grupos[kind]?kind:'note';
+        grupos[bucket].push(n);
+      });
+      const titulos={scope:'Scope of work',architect:'Architect notes',demolition:'Demolition notes',repair:'Repair notes',note:'Project notes'};
+      Object.keys(titulos).forEach(kind=>{
+        const lista=grupos[kind];
+        if(!lista.length)return;
+        const card=document.createElement('article');
+        card.className='plans-note-card';
+        const h=document.createElement('h4');
+        h.textContent=titulos[kind];
+        card.appendChild(h);
+        const ul=document.createElement('ul');
+        lista.forEach((nota,i)=>{
+          const li=document.createElement('li');
+          const cb=document.createElement('input');
+          cb.type='checkbox';
+          cb.className='plans-note-check';
+          cb.dataset.kind=kind;
+          cb.dataset.index=String(i);
+          cb.checked=kind==='demolition'||kind==='repair';
+          li.appendChild(cb);
+          li.appendChild(document.createTextNode(' '+nota.text+(nota.source_page?' (p. '+nota.source_page+')':'')));
+          li._nota=nota;
+          ul.appendChild(li);
+        });
+        const bar=document.createElement('div');
+        bar.className='plans-table-toolbar';
+        const btn=document.createElement('button');
+        btn.type='button';
+        btn.className='btn btn-primary';
+        btn.textContent='Add selected notes';
+        btn.addEventListener('click',()=>{
+          const sel=[...ul.querySelectorAll('li')].filter(li=>li.querySelector('input')?.checked).map(li=>Object.assign({
+            description:li._nota.text,
+            qty:1,
+            unit:'LS',
+            action:kind==='demolition'?'demo':(kind==='repair'?'replace':'install'),
+            table_title:titulos[kind],
+            table_key:kind
+          }, li._nota));
+          const n=agregarItemsPlanoACotizacion(sel, titulos[kind]);
+          const status=document.getElementById('plans-status');
+          if(status){ status.textContent=n?('Added '+n+' note(s) to the estimate.'):''; status.className='plans-status'+(n?' is-ok':''); }
+        });
+        bar.appendChild(btn);
+        card.appendChild(ul);
+        card.appendChild(bar);
+        wrap.appendChild(card);
+      });
+    }
+    function renderTablaPlano(tabla){
+      const card=document.createElement('article');
+      card.className='plans-table-card';
+      const h=document.createElement('h4');
+      h.textContent=(tabla.title||tabla.key||'Schedule')+' · '+(tabla.rows||[]).length+' row(s)';
+      card.appendChild(h);
+      const bar=document.createElement('div');
+      bar.className='plans-table-toolbar';
+      const addSel=document.createElement('button');
+      addSel.type='button';
+      addSel.className='btn btn-primary';
+      addSel.textContent='Add selected to estimate';
+      const addAll=document.createElement('button');
+      addAll.type='button';
+      addAll.className='btn';
+      addAll.textContent='Add entire table';
+      bar.appendChild(addSel);
+      bar.appendChild(addAll);
+      card.appendChild(bar);
+      const wrap=document.createElement('div');
+      wrap.className='plans-table-wrap';
+      const table=document.createElement('table');
+      table.className='plans-extract-table';
+      const cols=tabla.columns&&tabla.columns.length?tabla.columns:Object.keys((tabla.rows&&tabla.rows[0])||{});
+      const thead=document.createElement('thead');
+      const hr=document.createElement('tr');
+      const th0=document.createElement('th');
+      const master=document.createElement('input');
+      master.type='checkbox';
+      master.checked=true;
+      master.title='Select all';
+      th0.appendChild(master);
+      hr.appendChild(th0);
+      cols.forEach(col=>{
+        const th=document.createElement('th');
+        th.textContent=String(col).replace(/_/g,' ');
+        hr.appendChild(th);
+      });
+      thead.appendChild(hr);
+      table.appendChild(thead);
+      const tbody=document.createElement('tbody');
+      (tabla.rows||[]).forEach((row,i)=>{
+        const tr=document.createElement('tr');
+        tr.className='is-selected';
+        const td0=document.createElement('td');
+        const cb=document.createElement('input');
+        cb.type='checkbox';
+        cb.className='plans-row-check';
+        cb.checked=true;
+        cb.dataset.index=String(i);
+        td0.appendChild(cb);
+        tr.appendChild(td0);
+        cols.forEach(col=>{
+          const td=document.createElement('td');
+          td.textContent=textoCeldaPlano(row[col]);
+          tr.appendChild(td);
+        });
+        tr._item=(tabla.items&&tabla.items[i])||null;
+        tr._row=row;
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+      card.appendChild(wrap);
+      const syncSel=()=>{
+        tbody.querySelectorAll('tr').forEach(tr=>{
+          const on=!!tr.querySelector('input')?.checked;
+          tr.classList.toggle('is-selected',on);
+        });
+        master.checked=[...tbody.querySelectorAll('input.plans-row-check')].every(c=>c.checked);
+      };
+      master.addEventListener('change',()=>{
+        tbody.querySelectorAll('input.plans-row-check').forEach(c=>{ c.checked=master.checked; });
+        syncSel();
+      });
+      tbody.addEventListener('change',syncSel);
+      const itemsDe=soloSel=>{
+        return [...tbody.querySelectorAll('tr')].filter(tr=>!soloSel||tr.querySelector('input')?.checked).map(tr=>{
+          if(tr._item&&(tr._item.description||tr._item.descripcion))return tr._item;
+          const row=tr._row||{};
+          const desc=[row.mark,row.code,row.type,row.description,row.size,row.material,row.finish,row.remarks].filter(Boolean).join(' — ')||textoCeldaPlano(row);
+          return Object.assign({
+            description:desc,
+            qty:Number(row.qty||row.quantity||1)||1,
+            unit:String(row.unit||'EA').toUpperCase(),
+            action:'install_material',
+            table_key:tabla.key,
+            table_title:tabla.title,
+            raw:row
+          }, tr._item||{});
+        });
+      };
+      addSel.addEventListener('click',()=>{
+        const n=agregarItemsPlanoACotizacion(itemsDe(true), tabla.title);
+        const status=document.getElementById('plans-status');
+        if(status){ status.textContent=n?('Added '+n+' item(s) from '+tabla.title+'.'):'Select rows first.'; status.className='plans-status'+(n?' is-ok':''); }
+      });
+      addAll.addEventListener('click',()=>{
+        tbody.querySelectorAll('input.plans-row-check').forEach(c=>{ c.checked=true; });
+        syncSel();
+        const n=agregarItemsPlanoACotizacion(tabla.items&&tabla.items.length?tabla.items:itemsDe(false), tabla.title);
+        const status=document.getElementById('plans-status');
+        if(status){ status.textContent=n?('Added '+n+' item(s) from '+tabla.title+'.'):''; status.className='plans-status'+(n?' is-ok':''); }
+      });
+      return card;
+    }
+    function mostrarResultadoPlanos(payload, file){
+      const panel=document.getElementById('plans-panel');
+      const meta=document.getElementById('plans-panel-meta');
+      const summary=document.getElementById('plans-summary');
+      const tables=document.getElementById('plans-tables');
+      const status=document.getElementById('plans-status');
+      if(!panel||!tables)return;
+      window.__plansPayload=payload;
+      const ps=payload.project_summary||{};
+      const title=payload.title||ps.title||(file&&file.name)||'Architectural plans';
+      const addr=payload.address||ps.address||'';
+      const pages=payload.pages_analyzed||0;
+      const total=payload.pages_total||pages;
+      if(meta)meta.textContent=[title, addr, (pages?(pages+(total&&total!==pages?' of '+total:'')+' page(s) scanned'):'')].filter(Boolean).join(' · ');
+      if(summary){
+        const scope=[].concat(ps.scope_of_work||[]).filter(Boolean);
+        const sheets=[].concat(payload.sheet_titles||ps.sheet_titles||[]).filter(Boolean);
+        const bits=[];
+        if(ps.project_type)bits.push('<p><strong>Project type:</strong> '+String(ps.project_type).replace(/</g,'')+'</p>');
+        if(sheets.length)bits.push('<p><strong>Sheets:</strong> '+sheets.map(s=>String(s).replace(/</g,'')).join(', ')+'</p>');
+        if(scope.length)bits.push('<p>'+scope.map(s=>String(s).replace(/</g,'')).join(' ')+'</p>');
+        summary.innerHTML=bits.join('')||'<p>Schedules and notes extracted from the drawing set.</p>';
+        summary.querySelectorAll('h4').forEach(()=>{});
+        if(!summary.querySelector('h4')){
+          const h=document.createElement('h4');
+          h.textContent=title;
+          summary.prepend(h);
+        }
+        summary.hidden=false;
+      }
+      renderNotasPlano(payload.notes||[]);
+      tables.replaceChildren();
+      (payload.tables||[]).forEach(tabla=>tables.appendChild(renderTablaPlano(tabla)));
+      if(!(payload.tables||[]).length && !(payload.notes||[]).length){
+        const p=document.createElement('p');
+        p.className='plans-empty';
+        p.textContent='No schedules or notes were found on these sheets.';
+        tables.appendChild(p);
+      }
+      panel.hidden=false;
+      if(status){
+        status.textContent=(payload.tables||[]).length+' table(s) · '+(payload.notes||[]).length+' note(s) · '+(payload.items||[]).length+' quote item(s)';
+        status.className='plans-status is-ok';
+      }
+    }
+    async function enviarPlanosAlServidor(file){
+      if(!file||(file.type&&file.type!=='application/pdf'&&!/\.pdf$/i.test(file.name))){
+        alert('Select a PDF of architectural plans.');
+        return;
+      }
+      const status=document.getElementById('plans-status')||document.getElementById('pdf-api-status');
+      const btn=document.getElementById('importPlansButton');
+      const panel=document.getElementById('plans-panel');
+      if(panel)panel.hidden=false;
+      if(status){ status.textContent='Rendering sheets and reading with Claude Vision… this can take a minute.'; status.className='plans-status'; }
+      if(btn)btn.disabled=true;
+      try{
+        if(typeof showAppView==='function')showAppView('quote',{noScroll:true,mode:'estimate'});
+        const form=new FormData();
+        form.append('file',file);
+        const zipActivo=String(document.getElementById('zip-code')?.value||document.getElementById('clientZip')?.value||'').replace(/\D/g,'').slice(0,5);
+        if(zipActivo.length===5)form.append('zip_code',zipActivo);
+        const response=await fetch(apiUrlPlanos(),{method:'POST',body:form});
+        const payload=await response.json().catch(()=>null);
+        if(!response.ok||(payload&&payload.success===false)){
+          throw new Error((payload&&payload.error)||('Error '+response.status));
+        }
+        mostrarResultadoPlanos(payload,file);
+        if(typeof showPdfPreview==='function')await showPdfPreview(file,'Architectural plans: '+((payload.tables||[]).length)+' table(s)');
+      }catch(error){
+        const msg=error&&error.message?error.message:'Could not read the plans. Is the server running on port 5000?';
+        if(status){ status.textContent=msg; status.className='plans-status is-error'; }
+        else alert(msg);
+      }finally{
+        if(btn)btn.disabled=false;
+      }
+    }
     function valorPartidaImportada(row, keys, fallback){
       if(!row||typeof row!=='object')return fallback;
       for(const key of keys){
@@ -5962,6 +6333,16 @@
     document.querySelector('#addArea').addEventListener('click',()=>addArea());
     document.querySelector('#importReportButton').addEventListener('click',()=>document.querySelector('#reportFileInput').click());
     document.querySelector('#reportFileInput').addEventListener('change',event=>{ const file=event.target.files[0]; if(file)importReport(file); });
+    document.getElementById('importPlansButton')?.addEventListener('click',()=>document.getElementById('plansFileInput')?.click());
+    document.getElementById('plansFileInput')?.addEventListener('change',event=>{ const file=event.target.files[0]; if(file)enviarPlanosAlServidor(file); event.target.value=''; });
+    document.getElementById('plans-hide')?.addEventListener('click',()=>{ const p=document.getElementById('plans-panel'); if(p)p.hidden=true; });
+    document.getElementById('plans-add-all')?.addEventListener('click',()=>{
+      const payload=window.__plansPayload;
+      if(!payload){ alert('Import a plan PDF first.'); return; }
+      const n=agregarItemsPlanoACotizacion(payload.items||[], payload.title||'Architectural plans');
+      const status=document.getElementById('plans-status');
+      if(status){ status.textContent=n?('Added '+n+' item(s) to the estimate.'):'Nothing to add.'; status.className='plans-status'+(n?' is-ok':''); }
+    });
     document.querySelector('#exportButton').addEventListener('click',()=>document.querySelector('#exportModal').hidden=false);
     document.querySelector('#closeExportButton').addEventListener('click',()=>document.querySelector('#exportModal').hidden=true);
     document.querySelector('#downloadImageButton').addEventListener('click',downloadInvoiceImage);
@@ -6187,6 +6568,19 @@
     escucharAplicarFactorZIP();
     Promise.resolve(verificarActualizacionMensual()).finally(()=>cargarCatalogoDesdeSupabase());
     ejecutarMotorPrecios();
+    (function configurarSubidaPlanosInicio(){
+      const zona=document.getElementById('home-plans-drop');
+      const input=document.getElementById('home-plans-file');
+      if(!zona||!input)return;
+      const tomar=file=>{ if(file)enviarPlanosAlServidor(file); };
+      input.addEventListener('change',()=>{ tomar(input.files&&input.files[0]); input.value=''; });
+      ['dragenter','dragover'].forEach(ev=>zona.addEventListener(ev,e=>{ e.preventDefault(); e.stopPropagation(); zona.classList.add('is-dragover'); }));
+      ['dragleave','drop'].forEach(ev=>zona.addEventListener(ev,e=>{ e.preventDefault(); e.stopPropagation(); zona.classList.remove('is-dragover'); }));
+      zona.addEventListener('drop',e=>{
+        const file=[...(e.dataTransfer&&e.dataTransfer.files||[])].find(f=>/\.pdf$/i.test(f.name)||f.type==='application/pdf');
+        tomar(file);
+      });
+    })();
     (function configurarSubidaPdfInicio(){
       const zona=document.getElementById('home-pdf-drop');
       const input=document.getElementById('home-pdf-file');

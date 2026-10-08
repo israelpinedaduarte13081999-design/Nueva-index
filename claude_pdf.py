@@ -87,13 +87,147 @@ def _modelos_desde_api():
         return []
 
 
-def _post_claude(payload):
+def _post_claude(payload, timeout=120.0):
     ssl._create_default_https_context = ssl._create_unverified_context
-    with httpx.Client(verify=False, timeout=120.0) as http:
+    with httpx.Client(verify=False, timeout=float(timeout or 120.0)) as http:
         resp = http.post(API_URL, json=payload, headers=_headers())
         if resp.status_code >= 400:
             raise RuntimeError(f"Claude HTTP {resp.status_code}: {resp.text[:800]}")
         return resp.json()
+
+
+def pdf_paginas_a_imagenes(pdf_bytes, dpi=180, max_paginas=12, max_lado=2400, calidad=82):
+    """Renderiza cada página del PDF a JPEG Base64 para el endpoint de visión."""
+    import fitz
+
+    if not pdf_bytes:
+        raise RuntimeError("PDF vacío")
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    imagenes = []
+    try:
+        total = doc.page_count
+        limite = min(int(max_paginas or 12), total)
+        zoom = max(1.0, float(dpi or 180) / 72.0)
+        for i in range(limite):
+            page = doc.load_page(i)
+            mat = fitz.Matrix(zoom, zoom)
+            pix = page.get_pixmap(matrix=mat, alpha=False, colorspace=fitz.csRGB)
+            lado = max(pix.width, pix.height)
+            if lado > int(max_lado):
+                escala = float(max_lado) / float(lado)
+                pix = page.get_pixmap(
+                    matrix=fitz.Matrix(zoom * escala, zoom * escala),
+                    alpha=False,
+                    colorspace=fitz.csRGB,
+                )
+            jpeg = b""
+            usada = int(calidad or 82)
+            for q in (usada, 70, 58, 45):
+                try:
+                    jpeg = pix.tobytes("jpeg", jpg_quality=q)
+                except TypeError:
+                    jpeg = pix.tobytes("jpeg")
+                usada = q
+                if jpeg and len(jpeg) <= 4_500_000:
+                    break
+            if not jpeg:
+                jpeg = pix.tobytes("png")
+                media = "image/png"
+            else:
+                media = "image/jpeg"
+            imagenes.append({
+                "page": i + 1,
+                "pages_total": total,
+                "media_type": media,
+                "data": base64.standard_b64encode(jpeg).decode("ascii"),
+                "width": pix.width,
+                "height": pix.height,
+                "bytes": len(jpeg),
+                "quality": usada,
+            })
+            print(f"--> plano pág {i + 1}/{total}: {pix.width}x{pix.height} {media} {len(jpeg)} bytes")
+    finally:
+        doc.close()
+    if not imagenes:
+        raise RuntimeError("No se pudo renderizar ninguna página del PDF")
+    return imagenes
+
+
+def _contenido_vision(imagenes, prompt):
+    bloques = []
+    for img in imagenes or []:
+        data = img.get("data") if isinstance(img, dict) else None
+        if not data:
+            continue
+        pagina = img.get("page") or len(bloques) + 1
+        bloques.append({
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": img.get("media_type") or "image/jpeg",
+                "data": data,
+            },
+        })
+        bloques.append({
+            "type": "text",
+            "text": f"[Página {pagina} del plano]",
+        })
+    bloques.append({"type": "text", "text": prompt})
+    return bloques
+
+
+def analizar_imagenes_json(imagenes, prompt, system=None, max_tokens=8192, modelo=None, modelos=None, timeout=180.0):
+    """Envía imágenes renderizadas al endpoint de visión de Claude y devuelve JSON."""
+    key = _api_key()
+    if not key:
+        raise RuntimeError("Falta ANTHROPIC_API_KEY en .env")
+    if not imagenes:
+        raise RuntimeError("No hay imágenes de plano para analizar")
+    nombres = list(modelos or MODELOS_CLAUDE)
+    if modelo:
+        nombres = [modelo] + [m for m in nombres if m != modelo]
+    contenido = _contenido_vision(imagenes, prompt)
+    ultimo = None
+    intentados = set()
+
+    def _probar(nombre):
+        nonlocal ultimo
+        if not nombre or nombre in intentados:
+            return None
+        intentados.add(nombre)
+        payload = {
+            "model": nombre,
+            "max_tokens": int(max_tokens),
+            "messages": [{"role": "user", "content": contenido}],
+        }
+        if system:
+            payload["system"] = system
+        try:
+            body = _post_claude(payload, timeout=timeout)
+            texto = _texto_respuesta(body)
+            print("========== CLAUDE VISIÓN RAW ==========")
+            print((texto or "")[:8000])
+            print("========== FIN CLAUDE VISIÓN RAW ==========")
+            parsed = _extraer_json(texto)
+            if parsed is None:
+                raise RuntimeError("Claude Vision no devolvió JSON válido")
+            print(f"--> Plano analizado con visión ({nombre}, {len(imagenes)} img)")
+            return parsed
+        except Exception as err:
+            ultimo = err
+            print(f"--> Claude visión {nombre}: {err}")
+            return None
+
+    for nombre in nombres:
+        parsed = _probar(nombre)
+        if parsed is not None:
+            return parsed
+    if _es_modelo_ausente(ultimo):
+        for extra in _modelos_desde_api():
+            parsed = _probar(extra)
+            if parsed is not None:
+                return parsed
+    raise ultimo or RuntimeError("No se pudo analizar el plano con Claude Vision")
 
 
 def analizar_pdf_json(pdf_bytes, prompt, max_tokens=4096, modelo=None, modelos=None):

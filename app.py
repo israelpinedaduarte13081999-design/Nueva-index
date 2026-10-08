@@ -475,6 +475,43 @@ No mezcles partidas de otro oficio (p. ej. no pongas siding HardieShingle en un 
 }
 """
 
+SYSTEM_PROMPT_PLANOS = (
+    "Eres un Estimador General de Construcción con experiencia en lectura de planos "
+    "arquitectónicos, MEP, estructurales y de acabados en Estados Unidos y Latinoamérica. "
+    "No te limites a un solo oficio: cubres demolición, carpintería, puertas, ventanas, "
+    "acabados, pisos, drywall, pintura, techos, plomería, eléctrico, HVAC, luminarias, "
+    "herrería, concreto y cualquier especialidad que aparezca en las láminas. "
+    "El texto de los planos suele estar vectorizado o dibujado; debes LEER las imágenes "
+    "con visión (títulos de lámina, nubes de revisión, tablas, leyendas y notas). "
+    "No inventes schedules, cantidades ni medidas que no se vean. "
+    "Si un valor no es legible, omítelo o usa null. Responde SIEMPRE en JSON válido, "
+    "sin markdown ni comentarios."
+)
+
+PROMPT_PLANOS_VISION = """Analiza visualmente estas páginas de un plano arquitectónico / set de construcción.
+
+Busca en TODAS las láminas:
+1) Alcance general del proyecto (Scope of work) y notas del arquitecto.
+2) Cualquier tabla técnica: Door Schedule, Window Schedule, Finish Schedule, Lighting/Fixture Schedule, hardware, Room Finish, plumbing fixtures, electrical, millwork, etc.
+3) Notas específicas de demolición, reparaciones, parches, existing to remain, o áreas afectadas.
+4) Leyendas, nubes de revisión y títulos de lámina que definan el trabajo.
+
+Devuelve UN solo objeto JSON. Las llaves de primer nivel se generan DINÁMICAMENTE según lo que encuentres en ESTE plano (snake_case). Ejemplos reales, no plantillas fijas:
+{"door_schedule": [...], "window_schedule": [...], "finish_schedule": [...], "lighting_schedule": [...], "project_notes": [...]}
+
+Reglas:
+- Incluye SIEMPRE "project_summary" con: title, address, project_type, sheet_titles (array), scope_of_work (array de strings), architect_notes (array), demolition_notes (array), repair_notes (array).
+- Cada schedule/tabla = array de objetos. Usa como campos los encabezados reales de esa tabla (mark, type, width, height, material, finish, qty, remarks, code, size, location, etc.) más "source_page" (número de página visible o índice 1-based).
+- Notas sueltas = array de strings o de objetos {text, source_page, kind}.
+- No dejes llaves vacías. No copies disclaimers legales genéricos.
+- Cantidades numéricas como número. Unidades en mayúsculas (EA, SF, LF, LS) si constan.
+- Idioma: conserva el idioma original del plano en textos; no traduzcas marcas ni códigos.
+"""
+
+PLANOS_MAX_PAGINAS = 12
+PLANOS_LOTE_PAGINAS = 6
+PLANOS_DPI = 180
+
 PROMPT_ROOF_REPORT = """
 Este PDF es un ROOF REPORT de MEDICIONES (Roofr, EagleView, Hover, GAF QuickMeasure u otro).
 NO es un estimado: no trae precios. Tú lees el TEXTO línea por línea.
@@ -4850,6 +4887,396 @@ def _normalizar_partidas_ia(parsed):
             "subtotal": subtotal,
         })
     return items
+
+
+def _titulo_tabla_plano(clave):
+    texto = re.sub(r"[_\-]+", " ", str(clave or "")).strip()
+    return texto.title() if texto else "Schedule"
+
+
+def _es_lista_objetos(valor):
+    return isinstance(valor, list) and bool(valor) and all(isinstance(x, dict) for x in valor)
+
+
+def _es_lista_notas(valor):
+    if not isinstance(valor, list) or not valor:
+        return False
+    return all(isinstance(x, str) or (isinstance(x, dict) and (x.get("text") or x.get("note") or x.get("nota"))) for x in valor)
+
+
+def _fusionar_json_planos(destino, extra):
+    if not isinstance(extra, dict):
+        return destino if isinstance(destino, dict) else {}
+    if not isinstance(destino, dict):
+        return dict(extra)
+    for clave, valor in extra.items():
+        if clave not in destino or destino[clave] in (None, "", [], {}):
+            destino[clave] = valor
+            continue
+        actual = destino[clave]
+        if isinstance(actual, list) and isinstance(valor, list):
+            destino[clave] = actual + valor
+        elif isinstance(actual, dict) and isinstance(valor, dict):
+            _fusionar_json_planos(actual, valor)
+    return destino
+
+
+def _notas_desde_valor(valor, kind, source_key):
+    notas = []
+    if isinstance(valor, str) and valor.strip():
+        notas.append({"text": valor.strip(), "kind": kind, "source_key": source_key, "source_page": None})
+        return notas
+    if not isinstance(valor, list):
+        return notas
+    for item in valor:
+        if isinstance(item, str) and item.strip():
+            notas.append({"text": item.strip(), "kind": kind, "source_key": source_key, "source_page": None})
+        elif isinstance(item, dict):
+            texto = str(item.get("text") or item.get("note") or item.get("nota") or item.get("description") or "").strip()
+            if not texto:
+                continue
+            notas.append({
+                "text": texto,
+                "kind": str(item.get("kind") or kind),
+                "source_key": source_key,
+                "source_page": item.get("source_page") or item.get("page"),
+            })
+    return notas
+
+
+def _columnas_tabla_plano(filas):
+    orden = []
+    vistos = set()
+    preferidas = (
+        "mark", "code", "codigo", "type", "description", "descripcion", "size", "width",
+        "height", "qty", "quantity", "cantidad", "unit", "unidad", "material", "finish",
+        "location", "remarks", "notes", "source_page",
+    )
+    for fila in filas or []:
+        if not isinstance(fila, dict):
+            continue
+        for clave in fila.keys():
+            k = str(clave)
+            if k.lower() in vistos:
+                continue
+            vistos.add(k.lower())
+            orden.append(k)
+    ranking = {k: i for i, k in enumerate(preferidas)}
+    orden.sort(key=lambda c: (ranking.get(str(c).lower(), 80), str(c).lower()))
+    return orden[:16]
+
+
+def _celda_plano(fila, claves, default=""):
+    if not isinstance(fila, dict):
+        return default
+    lower = {str(k).lower(): v for k, v in fila.items()}
+    for clave in claves:
+        if clave.lower() in lower and lower[clave.lower()] not in (None, ""):
+            return lower[clave.lower()]
+    return default
+
+
+def _qty_plano(fila):
+    raw = _celda_plano(fila, ("qty", "quantity", "cantidad", "count", "no", "number", "q"))
+    n = _dinero_partida_ia(raw)
+    return n if n > 0 else 1.0
+
+
+def _unidad_plano(fila, clave_tabla=""):
+    raw = str(_celda_plano(fila, ("unit", "unidad", "uom"), "")).upper()
+    if raw in ("SQ", "SF", "LF", "EA", "PC", "HR", "CY", "BAG", "LS"):
+        return raw
+    blob = f"{clave_tabla} {_celda_plano(fila, ('type', 'description', 'descripcion', 'remarks'), '')}".lower()
+    if re.search(r"door|window|fixture|luminar|light|toilet|sink|vanity|hwc|mark\b", blob):
+        return "EA"
+    if re.search(r"floor|finish|paint|drywall|tile|sf\b|sq\s*ft", blob):
+        return "SF"
+    if re.search(r"base|trim|gutter|lf\b|linear", blob):
+        return "LF"
+    return "EA"
+
+
+def _accion_plano(clave_tabla, fila):
+    blob = f"{clave_tabla} {_celda_plano(fila, ('remarks', 'notes', 'type', 'description'), '')}".lower()
+    if re.search(r"demo|demol|remove|exist.*remove|tear", blob):
+        return "demo"
+    if re.search(r"repair|parche|patch|replace", blob):
+        return "replace"
+    return "install_material"
+
+
+def _descripcion_item_plano(clave_tabla, fila):
+    mark = str(_celda_plano(fila, ("mark", "code", "codigo", "tag", "symbol"), "")).strip()
+    tipo = str(_celda_plano(fila, ("type", "description", "descripcion", "item", "name", "nombre"), "")).strip()
+    size = str(_celda_plano(fila, ("size", "width", "height", "dim", "dimensions"), "")).strip()
+    w = str(_celda_plano(fila, ("width", "w"), "")).strip()
+    h = str(_celda_plano(fila, ("height", "h"), "")).strip()
+    if w and h and not size:
+        size = f"{w} x {h}"
+    material = str(_celda_plano(fila, ("material", "finish", "hardware"), "")).strip()
+    loc = str(_celda_plano(fila, ("location", "room", "area"), "")).strip()
+    remarks = str(_celda_plano(fila, ("remarks", "notes", "note"), "")).strip()
+    partes = []
+    titulo = _titulo_tabla_plano(clave_tabla)
+    if mark:
+        partes.append(f"{titulo} {mark}".strip())
+    elif tipo:
+        partes.append(tipo)
+    else:
+        partes.append(titulo)
+    extra = []
+    if tipo and mark:
+        extra.append(tipo)
+    if size:
+        extra.append(size)
+    if material:
+        extra.append(material)
+    if loc:
+        extra.append(loc)
+    if remarks:
+        extra.append(remarks)
+    if extra:
+        partes.append(" — ".join(extra))
+    return re.sub(r"\s+", " ", " ".join(partes)).strip()[:240]
+
+
+def _item_desde_fila_plano(clave_tabla, fila, index=1):
+    if not isinstance(fila, dict):
+        return None
+    desc = _descripcion_item_plano(clave_tabla, fila)
+    if not desc:
+        return None
+    qty = _qty_plano(fila)
+    unit = _unidad_plano(fila, clave_tabla)
+    action = _accion_plano(clave_tabla, fila)
+    codigo = str(_celda_plano(fila, ("mark", "code", "codigo", "tag"), "")).strip()
+    return {
+        "item": index,
+        "table_key": clave_tabla,
+        "table_title": _titulo_tabla_plano(clave_tabla),
+        "codigo": codigo,
+        "code": codigo,
+        "CODE": codigo,
+        "description": desc,
+        "descripcion": desc,
+        "WORK DESCRIPTION": desc,
+        "quantity": qty,
+        "qty": qty,
+        "QTY": qty,
+        "unit": unit,
+        "unidad": unit,
+        "UNIT": unit,
+        "action": action,
+        "ACTION": action,
+        "unit_price": 0.0,
+        "UNIT PRICE": 0.0,
+        "subtotal": 0.0,
+        "SUBTOTAL": 0.0,
+        "source_page": fila.get("source_page") or fila.get("page"),
+        "raw": fila,
+    }
+
+
+def _normalizar_payload_planos(parsed, paginas=0, paginas_total=0):
+    bruto = parsed if isinstance(parsed, dict) else {"project_notes": parsed if isinstance(parsed, list) else []}
+    resumen = bruto.get("project_summary") if isinstance(bruto.get("project_summary"), dict) else {}
+    tablas = []
+    notas = []
+    omitir = {"project_summary", "success", "ok", "document_type", "tables", "items", "notes"}
+
+    def _recorrer(nodo, prefijo=""):
+        if isinstance(nodo, dict):
+            for clave, valor in nodo.items():
+                clave_l = str(clave).lower()
+                ruta = f"{prefijo}_{clave}" if prefijo else str(clave)
+                if clave_l in omitir and not prefijo:
+                    continue
+                if clave_l in ("scope_of_work", "architect_notes", "demolition_notes", "repair_notes", "project_notes"):
+                    kind = (
+                        "demolition" if "demo" in clave_l else
+                        "repair" if "repair" in clave_l else
+                        "scope" if "scope" in clave_l else
+                        "architect" if "architect" in clave_l else
+                        "note"
+                    )
+                    notas.extend(_notas_desde_valor(valor, kind, ruta))
+                    continue
+                if _es_lista_objetos(valor):
+                    tablas.append({
+                        "key": ruta,
+                        "title": _titulo_tabla_plano(ruta),
+                        "columns": _columnas_tabla_plano(valor),
+                        "rows": valor,
+                    })
+                elif _es_lista_notas(valor):
+                    kind = (
+                        "demolition" if "demo" in clave_l else
+                        "repair" if "repair" in clave_l else
+                        "architect" if "architect" in clave_l else
+                        "note"
+                    )
+                    notas.extend(_notas_desde_valor(valor, kind, ruta))
+                elif isinstance(valor, dict):
+                    _recorrer(valor, ruta)
+        elif _es_lista_objetos(nodo) and prefijo:
+            tablas.append({
+                "key": prefijo,
+                "title": _titulo_tabla_plano(prefijo),
+                "columns": _columnas_tabla_plano(nodo),
+                "rows": nodo,
+            })
+
+    _recorrer(bruto)
+    for clave in ("scope_of_work", "architect_notes", "demolition_notes", "repair_notes"):
+        notas.extend(_notas_desde_valor(resumen.get(clave), clave.replace("_notes", "").replace("_of_work", ""), clave))
+
+    items = []
+    for tabla in tablas:
+        for fila in tabla.get("rows") or []:
+            item = _item_desde_fila_plano(tabla["key"], fila, len(items) + 1)
+            if item:
+                items.append(item)
+        tabla["items"] = [it for it in items if it.get("table_key") == tabla["key"]]
+
+    vistos_nota = set()
+    notas_unicas = []
+    for nota in notas:
+        marca = (nota.get("kind"), nota.get("text"))
+        if marca in vistos_nota:
+            continue
+        vistos_nota.add(marca)
+        notas_unicas.append(nota)
+
+    for nota in notas_unicas:
+        kind = str(nota.get("kind") or "note")
+        action = "demo" if kind == "demolition" else ("replace" if kind == "repair" else "install")
+        items.append({
+            "item": len(items) + 1,
+            "table_key": nota.get("source_key") or "project_notes",
+            "table_title": _titulo_tabla_plano(nota.get("source_key") or "project_notes"),
+            "codigo": "",
+            "code": "",
+            "CODE": "",
+            "description": nota.get("text") or "",
+            "descripcion": nota.get("text") or "",
+            "WORK DESCRIPTION": nota.get("text") or "",
+            "quantity": 1.0,
+            "qty": 1.0,
+            "QTY": 1.0,
+            "unit": "LS",
+            "unidad": "LS",
+            "UNIT": "LS",
+            "action": action,
+            "ACTION": action,
+            "unit_price": 0.0,
+            "UNIT PRICE": 0.0,
+            "subtotal": 0.0,
+            "SUBTOTAL": 0.0,
+            "source_page": nota.get("source_page"),
+            "is_note": True,
+        })
+
+    return {
+        "success": True,
+        "ok": True,
+        "document_type": "architectural_plans",
+        "project_type": resumen.get("project_type") or "general",
+        "address": resumen.get("address"),
+        "title": resumen.get("title"),
+        "sheet_titles": resumen.get("sheet_titles") or [],
+        "project_summary": resumen,
+        "raw": bruto,
+        "tables": tablas,
+        "notes": notas_unicas,
+        "items": items,
+        "pages_analyzed": paginas,
+        "pages_total": paginas_total,
+        "count": len(items),
+    }
+
+
+def _analizar_plano_vision(pdf_bytes):
+    from claude_pdf import MODELO_CLAUDE, MODELOS_CLAUDE, analizar_imagenes_json, pdf_paginas_a_imagenes
+
+    imagenes = pdf_paginas_a_imagenes(
+        pdf_bytes,
+        dpi=PLANOS_DPI,
+        max_paginas=PLANOS_MAX_PAGINAS,
+    )
+    combinado = {}
+    lote = PLANOS_LOTE_PAGINAS
+    for inicio in range(0, len(imagenes), lote):
+        grupo = imagenes[inicio:inicio + lote]
+        paginas = ", ".join(str(img["page"]) for img in grupo)
+        prompt = (
+            PROMPT_PLANOS_VISION
+            + f"\nEstas imágenes corresponden a las páginas {paginas} "
+            + f"de {imagenes[0].get('pages_total') or len(imagenes)} del PDF."
+        )
+        parsed = analizar_imagenes_json(
+            grupo,
+            prompt,
+            system=SYSTEM_PROMPT_PLANOS,
+            max_tokens=8192,
+            modelo=MODELO_CLAUDE,
+            modelos=MODELOS_CLAUDE,
+            timeout=180.0,
+        )
+        if isinstance(parsed, dict):
+            _fusionar_json_planos(combinado, parsed)
+        elif isinstance(parsed, list):
+            _fusionar_json_planos(combinado, {"extracted_rows": parsed})
+    if not combinado:
+        raise RuntimeError("Claude Vision no encontró tablas ni notas en el plano")
+    return _normalizar_payload_planos(
+        combinado,
+        paginas=len(imagenes),
+        paginas_total=(imagenes[0].get("pages_total") if imagenes else 0),
+    )
+
+
+@app.route("/api/import-planos", methods=["POST"])
+@app.route("/api/process-architectural-plans", methods=["POST"])
+def import_planos_vision():
+    archivo = request.files.get("file") or request.files.get("pdf")
+    if archivo is None:
+        return jsonify({"success": False, "error": "No se encontró el archivo PDF del plano"}), 400
+    nombre = str(getattr(archivo, "filename", "") or "")
+    if nombre and not nombre.lower().endswith(".pdf"):
+        return jsonify({"success": False, "error": "Sube un PDF de planos arquitectónicos"}), 400
+    pdf_bytes = archivo.read()
+    if not pdf_bytes:
+        return jsonify({"success": False, "error": "El PDF está vacío"}), 400
+    try:
+        payload = _analizar_plano_vision(pdf_bytes)
+        if not payload.get("tables") and not payload.get("notes"):
+            payload["success"] = False
+            payload["error"] = "No se encontraron schedules, notas ni alcance en estas láminas."
+            resp = jsonify(payload)
+            resp.headers["Access-Control-Allow-Origin"] = "*"
+            return resp, 422
+        print("========== HTTP /api/import-planos ==========")
+        print(json.dumps({
+            "title": payload.get("title"),
+            "tables": [t.get("key") for t in payload.get("tables") or []],
+            "notes": len(payload.get("notes") or []),
+            "items": len(payload.get("items") or []),
+            "pages_analyzed": payload.get("pages_analyzed"),
+        }, ensure_ascii=False, indent=2)[:4000])
+        resp = jsonify(payload)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        resp = jsonify({
+            "success": False,
+            "error": f"No se pudieron leer los planos: {e}",
+            "tables": [],
+            "items": [],
+        })
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp, 500
 
 
 def _buscar_navegador_pdf():
