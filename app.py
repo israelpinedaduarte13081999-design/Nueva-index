@@ -476,36 +476,60 @@ No mezcles partidas de otro oficio (p. ej. no pongas siding HardieShingle en un 
 """
 
 SYSTEM_PROMPT_PLANOS = (
-    "Eres un Estimador General de Construcción con experiencia en lectura de planos "
-    "arquitectónicos, MEP, estructurales y de acabados en Estados Unidos y Latinoamérica. "
-    "No te limites a un solo oficio: cubres demolición, carpintería, puertas, ventanas, "
-    "acabados, pisos, drywall, pintura, techos, plomería, eléctrico, HVAC, luminarias, "
-    "herrería, concreto y cualquier especialidad que aparezca en las láminas. "
-    "El texto de los planos suele estar vectorizado o dibujado; debes LEER las imágenes "
-    "con visión (títulos de lámina, nubes de revisión, tablas, leyendas y notas). "
-    "No inventes schedules, cantidades ni medidas que no se vean. "
-    "Si un valor no es legible, omítelo o usa null. Responde SIEMPRE en JSON válido, "
-    "sin markdown ni comentarios."
+    "Eres un Estimador General de Construcción y operador de Sketch profesional "
+    "(estilo Xactimate / EagleView interior takeoff). Lees planos de planta con visión: "
+    "el texto suele estar vectorizado o dibujado, no extraído como OCR. "
+    "Identificas CADA cuarto o área (Kitchen, Master Bed, Hall, Garage, Bath, Closet, etc.), "
+    "lees cotas, escalas gráficas y el dibujo de gabinetes/islas. "
+    "No te limites a un oficio: el takeoff alimenta piso, cielo, paredes, zócalo y gabinetes. "
+    "No inventes cuartos que no se vean. Si una cota no es legible, estima solo con la escala "
+    "del plano o deja 0. Altura de pared estándar = 8 ft salvo que el plano indique otra. "
+    "Responde SIEMPRE en JSON válido, sin markdown ni comentarios."
 )
 
-PROMPT_PLANOS_VISION = """Analiza visualmente estas páginas de un plano arquitectónico / set de construcción.
+PROMPT_PLANOS_VISION = """Analiza visualmente estas láminas como un Sketch profesional de interiores.
 
-Busca en TODAS las láminas:
-1) Alcance general del proyecto (Scope of work) y notas del arquitecto.
-2) Cualquier tabla técnica: Door Schedule, Window Schedule, Finish Schedule, Lighting/Fixture Schedule, hardware, Room Finish, plumbing fixtures, electrical, millwork, etc.
-3) Notas específicas de demolición, reparaciones, parches, existing to remain, o áreas afectadas.
-4) Leyendas, nubes de revisión y títulos de lámina que definan el trabajo.
+Para CADA cuarto o área acotada en la planta:
+1) Lee el nombre (Kitchen, Master Bed, Bath, Living, Hall, Closet, Garage, Laundry, etc.).
+2) Calcula floor_sf con las cotas o la escala gráfica.
+3) ceiling_sf = floor_sf salvo cielo abovedado/doble altura etiquetado.
+4) Mide o infiere el perímetro. wall_sf = perímetro × 8 (o la altura de plafón si está acotada).
+5) wall_and_ceiling_sf = wall_sf + ceiling_sf.
+6) trim_lf = perímetro (zócalo / baseboard). No descuentes vanos salvo que el plano lo pida.
+7) cabinets_lf: SOLO cocina, baño, laundry o bar. Suma corridas de base/wall cabinets e islas dibujadas, en pies lineales. Si no hay gabinetes, 0.
 
-Devuelve UN solo objeto JSON. Las llaves de primer nivel se generan DINÁMICAMENTE según lo que encuentres en ESTE plano (snake_case). Ejemplos reales, no plantillas fijas:
-{"door_schedule": [...], "window_schedule": [...], "finish_schedule": [...], "lighting_schedule": [...], "project_notes": [...]}
+Devuelve UN solo objeto JSON con EXACTAMENTE estas dos claves de primer nivel (obligatorias):
+
+{
+  "rooms": [
+    {
+      "room_name": "Kitchen",
+      "floor_sf": 168.5,
+      "ceiling_sf": 168.5,
+      "wall_sf": 432.0,
+      "wall_and_ceiling_sf": 600.5,
+      "trim_lf": 54.0,
+      "cabinets_lf": 22.0,
+      "source_page": 1
+    }
+  ],
+  "grand_totals": {
+    "floor_sf": 0,
+    "ceiling_sf": 0,
+    "wall_sf": 0,
+    "wall_and_ceiling_sf": 0,
+    "trim_lf": 0,
+    "cabinets_lf": 0
+  }
+}
 
 Reglas:
-- Incluye SIEMPRE "project_summary" con: title, address, project_type, sheet_titles (array), scope_of_work (array de strings), architect_notes (array), demolition_notes (array), repair_notes (array).
-- Cada schedule/tabla = array de objetos. Usa como campos los encabezados reales de esa tabla (mark, type, width, height, material, finish, qty, remarks, code, size, location, etc.) más "source_page" (número de página visible o índice 1-based).
-- Notas sueltas = array de strings o de objetos {text, source_page, kind}.
-- No dejes llaves vacías. No copies disclaimers legales genéricos.
-- Cantidades numéricas como número. Unidades en mayúsculas (EA, SF, LF, LS) si constan.
-- Idioma: conserva el idioma original del plano en textos; no traduzcas marcas ni códigos.
+- "rooms" es un arreglo. Un objeto por cuarto. Nombres en el idioma del plano.
+- "grand_totals" suma TODAS las variables numéricas de rooms (mismos campos, sin room_name).
+- Números en pies (SF / LF), no metros. Redondea a 2 decimales. No uses strings para cantidades.
+- No omitas las dos claves. No envuelvas el JSON en markdown.
+- Si un lote de páginas no tiene planta, rooms=[] y grand_totals en ceros.
+- Puedes añadir "project_summary" opcional (title, address, sheet_titles) además de las dos claves obligatorias.
 """
 
 PLANOS_MAX_PAGINAS = 12
@@ -5077,117 +5101,175 @@ def _item_desde_fila_plano(clave_tabla, fila, index=1):
     }
 
 
-def _normalizar_payload_planos(parsed, paginas=0, paginas_total=0):
-    bruto = parsed if isinstance(parsed, dict) else {"project_notes": parsed if isinstance(parsed, list) else []}
-    resumen = bruto.get("project_summary") if isinstance(bruto.get("project_summary"), dict) else {}
-    tablas = []
-    notas = []
-    omitir = {"project_summary", "success", "ok", "document_type", "tables", "items", "notes"}
+SKETCH_CAMPOS = (
+    "floor_sf",
+    "ceiling_sf",
+    "wall_sf",
+    "wall_and_ceiling_sf",
+    "trim_lf",
+    "cabinets_lf",
+)
+SKETCH_ALTURA_PARED = 8.0
+SKETCH_LINEAS = (
+    ("floor_sf", "Floor", "SF", "install_material"),
+    ("ceiling_sf", "Ceiling", "SF", "install_material"),
+    ("wall_sf", "Walls", "SF", "install_material"),
+    ("trim_lf", "Baseboard / trim", "LF", "install_material"),
+    ("cabinets_lf", "Cabinets", "LF", "install_material"),
+)
 
-    def _recorrer(nodo, prefijo=""):
-        if isinstance(nodo, dict):
-            for clave, valor in nodo.items():
-                clave_l = str(clave).lower()
-                ruta = f"{prefijo}_{clave}" if prefijo else str(clave)
-                if clave_l in omitir and not prefijo:
-                    continue
-                if clave_l in ("scope_of_work", "architect_notes", "demolition_notes", "repair_notes", "project_notes"):
-                    kind = (
-                        "demolition" if "demo" in clave_l else
-                        "repair" if "repair" in clave_l else
-                        "scope" if "scope" in clave_l else
-                        "architect" if "architect" in clave_l else
-                        "note"
-                    )
-                    notas.extend(_notas_desde_valor(valor, kind, ruta))
-                    continue
-                if _es_lista_objetos(valor):
-                    tablas.append({
-                        "key": ruta,
-                        "title": _titulo_tabla_plano(ruta),
-                        "columns": _columnas_tabla_plano(valor),
-                        "rows": valor,
-                    })
-                elif _es_lista_notas(valor):
-                    kind = (
-                        "demolition" if "demo" in clave_l else
-                        "repair" if "repair" in clave_l else
-                        "architect" if "architect" in clave_l else
-                        "note"
-                    )
-                    notas.extend(_notas_desde_valor(valor, kind, ruta))
-                elif isinstance(valor, dict):
-                    _recorrer(valor, ruta)
-        elif _es_lista_objetos(nodo) and prefijo:
-            tablas.append({
-                "key": prefijo,
-                "title": _titulo_tabla_plano(prefijo),
-                "columns": _columnas_tabla_plano(nodo),
-                "rows": nodo,
-            })
 
-    _recorrer(bruto)
-    for clave in ("scope_of_work", "architect_notes", "demolition_notes", "repair_notes"):
-        notas.extend(_notas_desde_valor(resumen.get(clave), clave.replace("_notes", "").replace("_of_work", ""), clave))
+def _num_sketch(valor):
+    n = _dinero_partida_ia(valor)
+    if n < 0 or not math.isfinite(n):
+        return 0.0
+    return round(n, 2)
 
+
+def _alias_cuarto(fila, *claves):
+    if not isinstance(fila, dict):
+        return None
+    lower = {str(k).lower(): v for k, v in fila.items()}
+    for clave in claves:
+        if clave.lower() in lower and lower[clave.lower()] not in (None, ""):
+            return lower[clave.lower()]
+    return None
+
+
+def _normalizar_cuarto(fila):
+    if not isinstance(fila, dict):
+        return None
+    nombre = str(
+        _alias_cuarto(fila, "room_name", "name", "room", "area", "area_name", "title") or ""
+    ).strip()
+    if not nombre:
+        return None
+    floor = _num_sketch(_alias_cuarto(fila, "floor_sf", "floor", "sf", "area_sf", "sqft"))
+    ceiling = _num_sketch(_alias_cuarto(fila, "ceiling_sf", "ceiling"))
+    wall = _num_sketch(_alias_cuarto(fila, "wall_sf", "walls_sf", "walls"))
+    trim = _num_sketch(_alias_cuarto(fila, "trim_lf", "perimeter_lf", "baseboard_lf", "perimeter"))
+    cabinets = _num_sketch(_alias_cuarto(fila, "cabinets_lf", "cabinet_lf", "millwork_lf"))
+    wac = _num_sketch(_alias_cuarto(fila, "wall_and_ceiling_sf", "walls_and_ceiling_sf"))
+    if ceiling <= 0:
+        ceiling = floor
+    if wall <= 0 and trim > 0:
+        wall = round(trim * SKETCH_ALTURA_PARED, 2)
+    if trim <= 0 and wall > 0:
+        trim = round(wall / SKETCH_ALTURA_PARED, 2)
+    if wac <= 0:
+        wac = round(wall + ceiling, 2)
+    cocina_bano = bool(re.search(r"kitchen|cocina|bath|baño|bano|laundry|lavadero|bar|island", nombre, re.I))
+    if not cocina_bano:
+        cabinets = 0.0
+    if floor <= 0 and wall <= 0 and trim <= 0 and cabinets <= 0:
+        return None
+    return {
+        "room_name": nombre,
+        "floor_sf": floor,
+        "ceiling_sf": ceiling,
+        "wall_sf": wall,
+        "wall_and_ceiling_sf": wac,
+        "trim_lf": trim,
+        "cabinets_lf": cabinets,
+        "source_page": fila.get("source_page") or fila.get("page"),
+    }
+
+
+def _fusionar_cuarto(a, b):
+    out = dict(a or {})
+    for campo in SKETCH_CAMPOS:
+        vb = _num_sketch((b or {}).get(campo))
+        if vb > _num_sketch(out.get(campo)):
+            out[campo] = vb
+    if (b or {}).get("source_page") and not out.get("source_page"):
+        out["source_page"] = b.get("source_page")
+    return out
+
+
+def _sumar_grand_totals(rooms):
+    totales = {campo: 0.0 for campo in SKETCH_CAMPOS}
+    for room in rooms or []:
+        for campo in SKETCH_CAMPOS:
+            totales[campo] = round(totales[campo] + _num_sketch(room.get(campo)), 2)
+    return totales
+
+
+def _items_desde_cuarto(room, index_inicio=1):
+    nombre = str((room or {}).get("room_name") or "Room").strip()
     items = []
-    for tabla in tablas:
-        for fila in tabla.get("rows") or []:
-            item = _item_desde_fila_plano(tabla["key"], fila, len(items) + 1)
-            if item:
-                items.append(item)
-        tabla["items"] = [it for it in items if it.get("table_key") == tabla["key"]]
-
-    vistos_nota = set()
-    notas_unicas = []
-    for nota in notas:
-        marca = (nota.get("kind"), nota.get("text"))
-        if marca in vistos_nota:
+    n = index_inicio
+    for campo, etiqueta, unidad, accion in SKETCH_LINEAS:
+        qty = _num_sketch(room.get(campo))
+        if qty <= 0:
             continue
-        vistos_nota.add(marca)
-        notas_unicas.append(nota)
-
-    for nota in notas_unicas:
-        kind = str(nota.get("kind") or "note")
-        action = "demo" if kind == "demolition" else ("replace" if kind == "repair" else "install")
+        desc = f"{nombre} — {etiqueta}"
         items.append({
-            "item": len(items) + 1,
-            "table_key": nota.get("source_key") or "project_notes",
-            "table_title": _titulo_tabla_plano(nota.get("source_key") or "project_notes"),
+            "item": n,
+            "table_key": "room",
+            "table_title": nombre,
+            "room_name": nombre,
+            "measure_key": campo,
             "codigo": "",
             "code": "",
             "CODE": "",
-            "description": nota.get("text") or "",
-            "descripcion": nota.get("text") or "",
-            "WORK DESCRIPTION": nota.get("text") or "",
-            "quantity": 1.0,
-            "qty": 1.0,
-            "QTY": 1.0,
-            "unit": "LS",
-            "unidad": "LS",
-            "UNIT": "LS",
-            "action": action,
-            "ACTION": action,
+            "description": desc,
+            "descripcion": desc,
+            "WORK DESCRIPTION": desc,
+            "quantity": qty,
+            "qty": qty,
+            "QTY": qty,
+            "unit": unidad,
+            "unidad": unidad,
+            "UNIT": unidad,
+            "action": accion,
+            "ACTION": accion,
             "unit_price": 0.0,
             "UNIT PRICE": 0.0,
             "subtotal": 0.0,
             "SUBTOTAL": 0.0,
-            "source_page": nota.get("source_page"),
-            "is_note": True,
+            "source_page": room.get("source_page"),
         })
+        n += 1
+    return items
 
+
+def _normalizar_payload_planos(parsed, paginas=0, paginas_total=0):
+    bruto = parsed if isinstance(parsed, dict) else {"rooms": parsed if isinstance(parsed, list) else []}
+    resumen = bruto.get("project_summary") if isinstance(bruto.get("project_summary"), dict) else {}
+    crudos = bruto.get("rooms")
+    if not isinstance(crudos, list):
+        crudos = bruto.get("areas") or bruto.get("cuartos") or []
+    rooms = []
+    indice = {}
+    for fila in crudos if isinstance(crudos, list) else []:
+        cuarto = _normalizar_cuarto(fila)
+        if not cuarto:
+            continue
+        clave = re.sub(r"\s+", " ", cuarto["room_name"]).strip().lower()
+        if clave in indice:
+            rooms[indice[clave]] = _fusionar_cuarto(rooms[indice[clave]], cuarto)
+        else:
+            indice[clave] = len(rooms)
+            rooms.append(cuarto)
+    grand = _sumar_grand_totals(rooms)
+    items = []
+    for room in rooms:
+        room["items"] = _items_desde_cuarto(room, len(items) + 1)
+        items.extend(room["items"])
     return {
         "success": True,
         "ok": True,
         "document_type": "architectural_plans",
-        "project_type": resumen.get("project_type") or "general",
+        "project_type": resumen.get("project_type") or "interior_sketch",
         "address": resumen.get("address"),
         "title": resumen.get("title"),
         "sheet_titles": resumen.get("sheet_titles") or [],
         "project_summary": resumen,
         "raw": bruto,
-        "tables": tablas,
-        "notes": notas_unicas,
+        "rooms": rooms,
+        "grand_totals": grand,
+        "tables": [],
+        "notes": [],
         "items": items,
         "pages_analyzed": paginas,
         "pages_total": paginas_total,
@@ -5226,8 +5308,8 @@ def _analizar_plano_vision(pdf_bytes):
             _fusionar_json_planos(combinado, parsed)
         elif isinstance(parsed, list):
             _fusionar_json_planos(combinado, {"extracted_rows": parsed})
-    if not combinado:
-        raise RuntimeError("Claude Vision no encontró tablas ni notas en el plano")
+        if not combinado:
+        raise RuntimeError("Claude Vision no encontró cuartos en el plano")
     return _normalizar_payload_planos(
         combinado,
         paginas=len(imagenes),
@@ -5249,17 +5331,17 @@ def import_planos_vision():
         return jsonify({"success": False, "error": "El PDF está vacío"}), 400
     try:
         payload = _analizar_plano_vision(pdf_bytes)
-        if not payload.get("tables") and not payload.get("notes"):
+        if not payload.get("rooms"):
             payload["success"] = False
-            payload["error"] = "No se encontraron schedules, notas ni alcance en estas láminas."
+            payload["error"] = "No se identificaron cuartos ni áreas en estas láminas."
             resp = jsonify(payload)
             resp.headers["Access-Control-Allow-Origin"] = "*"
             return resp, 422
         print("========== HTTP /api/import-planos ==========")
         print(json.dumps({
             "title": payload.get("title"),
-            "tables": [t.get("key") for t in payload.get("tables") or []],
-            "notes": len(payload.get("notes") or []),
+            "rooms": [r.get("room_name") for r in payload.get("rooms") or []],
+            "grand_totals": payload.get("grand_totals"),
             "items": len(payload.get("items") or []),
             "pages_analyzed": payload.get("pages_analyzed"),
         }, ensure_ascii=False, indent=2)[:4000])
@@ -5272,7 +5354,8 @@ def import_planos_vision():
         resp = jsonify({
             "success": False,
             "error": f"No se pudieron leer los planos: {e}",
-            "tables": [],
+            "rooms": [],
+            "grand_totals": {},
             "items": [],
         })
         resp.headers["Access-Control-Allow-Origin"] = "*"
