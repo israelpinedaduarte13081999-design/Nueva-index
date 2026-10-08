@@ -2384,20 +2384,17 @@
     }
     function precioDesdeRolesVariantes(roles,accion){
       const r=roles||{};
-      const install=Number(r.install)||0;
+      const labor=Number(r.labor)>0?Number(r.labor):(Number(r.install)||0);
       const demo=Number(r.demo)||0;
       const material=Number(r.material)||0;
-      const labor=Number(r.labor)||0;
-      const replace=Number(r.replace)||0;
       const a=normalizarAccion(accion);
-      if(a==='demo')return demo;
-      if(a==='install')return install;
-      if(a==='material')return material;
-      if(a==='labor')return labor;
-      if(a==='install_material')return install+material;
-      if(a==='replace')return replace||(demo+install);
-      if(a==='replace_material')return demo+install;
-      return install||replace||demo;
+      if(a==='demo')return demo>0?demo:0;
+      if(a==='material')return material>0?material:0;
+      if(a==='install'||a==='labor')return labor>0?labor:0;
+      if(a==='install_material')return (labor>0&&material>0)?labor+material:0;
+      if(a==='replace')return (demo>0&&labor>0)?demo+labor:0;
+      if(a==='replace_material')return (demo>0&&labor>0&&material>0)?demo+labor+material:0;
+      return labor>0?labor:0;
     }
     function guardarRolesEnFila(row,roles){
       if(!row||!roles)return;
@@ -2543,15 +2540,23 @@
       if(!priceInput)return;
       const precioAnterior=priceInput.value;
       const solicitud=++secuenciaPrecioAccion;
+      const accion=normalizarAccion(select.value);
+      const local=typeof precioDesdeRolesVariantes==='function'?precioDesdeRolesVariantes(rolesDesdeFila(row),accion):0;
       delete row.dataset.iaCatalogo;
       priceInput.classList.remove('precio-sin-ia');
       row.dataset.precioAccionReq=String(solicitud);
       row.dataset.precioAccionPendiente='1';
-      delete row.dataset.origenPrecio;
-      delete row.dataset.precioCatalogo;
-      priceInput.value='';
-      priceInput.placeholder='cargando...';
-      priceInput.classList.add('precio-cargando');
+      if(local>0){
+        priceInput.value=local.toFixed(2);
+        priceInput.placeholder='';
+        if(typeof recalcularSubtotalFila==='function')recalcularSubtotalFila(row);
+      }else{
+        delete row.dataset.origenPrecio;
+        delete row.dataset.precioCatalogo;
+        priceInput.value='';
+        priceInput.placeholder='cargando...';
+      }
+      priceInput.classList.toggle('precio-cargando',!(local>0));
       priceInput.setAttribute('aria-busy','true');
       if(typeof sincronizarBotonIaPrecio==='function')sincronizarBotonIaPrecio(row);
       if(typeof recalcularSubtotalFila==='function')recalcularSubtotalFila(row);
@@ -2565,7 +2570,6 @@
         return;
       }
       const ubicacionCliente=ubicacionClienteDesdeDom();
-      const accion=normalizarAccion(select.value);
       const accionTexto=String(select.options[select.selectedIndex]?.text||accion).trim();
       const unidad=String(row.querySelector('.select-unidad')?.value||'SF').toUpperCase();
       const controller=new AbortController();
@@ -2587,6 +2591,10 @@
         row.dataset.precioDesdeApi='1';
         row.dataset.skipZipFactor='1';
         row.setAttribute('data-precio-base',precio.toFixed(2));
+        if(Number(data.labor)>0)row.dataset.precioLabor=String(data.labor);
+        if(Number(data.material)>0)row.dataset.precioMaterial=String(data.material);
+        if(Number(data.demolicion)>0)row.dataset.precioDemo=String(data.demolicion);
+        if(Number(data.labor)>0)row.dataset.precioMatLabor=String(data.labor);
         if(data.fuente==='gemini'){
           row.dataset.origenPrecio='gemini';
           delete row.dataset.precioCatalogo;
@@ -2603,7 +2611,11 @@
           priceInput.placeholder='';
           delete row.dataset.precioDesdeApi;
           delete row.dataset.precioAccionPendiente;
-          if(['replace','replace_material','install_material'].includes(accion)){
+          const fallback=typeof precioDesdeRolesVariantes==='function'?precioDesdeRolesVariantes(rolesDesdeFila(row),accion):0;
+          if(fallback>0){
+            priceInput.value=fallback.toFixed(2);
+            row.dataset.precioDesdeApi='1';
+          }else if(['replace','replace_material','install_material'].includes(accion)){
             console.warn('Price lookup failed for a combined action; leaving the price empty instead of a partial local price.',error);
             row.dataset.precioDesdeApi='1';
             priceInput.value='';

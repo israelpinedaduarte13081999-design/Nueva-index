@@ -3538,18 +3538,65 @@ def _desglose_desde_precio_base(precio_base, categoria="", descripcion=""):
     return round(base * labor_f, 2), round(base * material_f, 2), round(base * demo_f, 2)
 
 
-def _completar_componentes_catalogo(install, demo, material, labor, categoria="", descripcion=""):
-    base = install if install > 0 else (labor if labor > 0 else (demo if demo > 0 else 0.0))
-    est_labor, est_material, est_demo = _desglose_desde_precio_base(base, categoria, descripcion)
-    if labor <= 0:
-        labor = est_labor
-    if install <= 0:
-        install = labor if labor > 0 else est_labor
-    if material <= 0:
-        material = est_material
-    if demo <= 0:
-        demo = est_demo
-    return install, demo, material, labor
+def _componentes_desde_columnas(precio_base, precio_material, precio_mano_obra, precio_demo=0, categoria="", descripcion=""):
+    """Arma labor, material y remoción sin sumar precio_base dos veces."""
+    base = _num(precio_base)
+    material = _num(precio_material)
+    labor = _num(precio_mano_obra)
+    demo = _num(precio_demo)
+    if labor > 0 and material > 0:
+        if demo <= 0:
+            _, _, demo = _desglose_desde_precio_base(labor, categoria, descripcion)
+        return round(labor, 2), round(material, 2), round(demo, 2)
+    if labor > 0:
+        if base > labor + 0.05:
+            material = round(base - labor, 2)
+        else:
+            _, material, est_demo = _desglose_desde_precio_base(labor, categoria, descripcion)
+            if demo <= 0:
+                demo = est_demo
+        if demo <= 0:
+            _, _, demo = _desglose_desde_precio_base(labor, categoria, descripcion)
+        return round(labor, 2), round(material, 2), round(demo, 2)
+    if material > 0:
+        if base > material + 0.05:
+            labor = round(base - material, 2)
+        elif base > 0:
+            labor = base
+        else:
+            _lf, mf, df = DESGLOSE_POR_CATEGORIA.get(
+                _clave_desglose_categoria(categoria, descripcion),
+                DESGLOSE_POR_CATEGORIA["GENERAL"],
+            )
+            labor = round(material / mf, 2) if mf > 0 else 0.0
+            if demo <= 0:
+                demo = round(labor * df, 2)
+        if demo <= 0:
+            _, _, demo = _desglose_desde_precio_base(labor, categoria, descripcion)
+        return round(labor, 2), round(material, 2), round(demo, 2)
+    if base > 0:
+        labor, material, est_demo = _desglose_desde_precio_base(base, categoria, descripcion)
+        if demo <= 0:
+            demo = est_demo
+        return labor, material, demo
+    return 0.0, 0.0, round(demo, 2)
+
+
+def _precio_roles_por_accion(install, demo, material, labor, accion):
+    mano = labor if labor > 0 else install
+    if accion == "demo":
+        return demo if demo > 0 else 0.0
+    if accion == "material":
+        return material if material > 0 else 0.0
+    if accion in ("install", "labor"):
+        return mano if mano > 0 else 0.0
+    if accion == "install_material":
+        return round(mano + material, 2) if mano > 0 and material > 0 else 0.0
+    if accion == "replace":
+        return round(demo + mano, 2) if demo > 0 and mano > 0 else 0.0
+    if accion == "replace_material":
+        return round(demo + mano + material, 2) if demo > 0 and mano > 0 and material > 0 else 0.0
+    return mano if mano > 0 else 0.0
 
 
 def _openai_api_key():
@@ -3638,24 +3685,6 @@ def _filas_catalogo_vector(descripcion, unidad=""):
     return filas
 
 
-def _precio_roles_por_accion(install, demo, material, labor, accion):
-    if accion == "demo":
-        return demo if demo > 0 else 0.0
-    if accion == "material":
-        return material if material > 0 else 0.0
-    if accion == "labor":
-        return labor if labor > 0 else 0.0
-    if accion == "install":
-        return install if install > 0 else 0.0
-    if accion == "install_material":
-        return install + material if install > 0 and material > 0 else 0.0
-    if accion == "replace":
-        return demo + install if demo > 0 and install > 0 else 0.0
-    if accion == "replace_material":
-        return demo + install + material if demo > 0 and install > 0 and material > 0 else 0.0
-    return install if install > 0 else 0.0
-
-
 def _precio_supabase_por_accion(descripcion, unidad, accion):
     client = _supabase_client()
     if client is None:
@@ -3718,16 +3747,22 @@ def _precio_supabase_por_accion(descripcion, unidad, accion):
         destino.append((puntaje, item))
     principal = max(trabajo, key=lambda c: c[0])[1] if trabajo else None
     fila_demo = max(demolicion, key=lambda c: c[0])[1] if demolicion else None
-    labor = _num((principal or {}).get("precio_labor"))
-    install = _num((principal or {}).get("precio_unitario")) or labor
-    demo = _num((principal or {}).get("precio_demo")) or _num((fila_demo or {}).get("precio_unitario"))
-    material = _num((principal or {}).get("precio_material"))
     item_ref = principal or fila_demo or {}
-    install, demo, material, labor = _completar_componentes_catalogo(
-        install, demo, material, labor,
-        item_ref.get("categoria") or "",
-        item_ref.get("descripcion") or nucleo,
-    )
+    demo_col = _num((principal or {}).get("precio_demo")) or _num((fila_demo or {}).get("precio_unitario"))
+    if principal:
+        labor, material, demo = _componentes_desde_columnas(
+            principal.get("precio_unitario"),
+            principal.get("precio_material"),
+            principal.get("precio_labor"),
+            demo_col,
+            principal.get("categoria") or "",
+            principal.get("descripcion") or nucleo,
+        )
+    elif fila_demo:
+        labor, material, demo = 0.0, 0.0, demo_col
+    else:
+        labor, material, demo = 0.0, 0.0, 0.0
+    install = labor
     referencias = {"unidad": unidad, "desglose": _clave_desglose_categoria(item_ref.get("categoria") or "", item_ref.get("descripcion") or nucleo)}
     if install > 0:
         referencias["precio_unitario_catalogo"] = round(install, 2)
@@ -3983,6 +4018,9 @@ def precio_accion():
             "precio": round(precio_base * factor, 2),
             "precio_base": round(precio_base, 2),
             "factor": round(factor, 4),
+            "labor": round(_num((referencias or {}).get("precio_mano_obra")) * factor, 2),
+            "material": round(_num((referencias or {}).get("precio_material")) * factor, 2),
+            "demolicion": round(_num((referencias or {}).get("precio_demolicion")) * factor, 2),
             "codigo": (item or {}).get("codigo") or "",
             "metodo": (referencias or {}).get("metodo") or "texto",
             "desglose": (referencias or {}).get("desglose") or "",
