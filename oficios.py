@@ -279,7 +279,11 @@ def todas_filas_catalogo():
     ctx = ssl._create_unverified_context()
     offset = 0
     while True:
-        params = {"select": "*", "limit": "1000", "offset": str(offset)}
+        params = {
+            "select": "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra",
+            "limit": "1000",
+            "offset": str(offset),
+        }
         query = urllib.parse.urlencode(params, safe="(),.*")
         req = urllib.request.Request(f"{url}/rest/v1/catalogo_items?{query}", headers=headers)
         try:

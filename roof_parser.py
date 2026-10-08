@@ -861,7 +861,11 @@ def _consultar_catalogo_supabase(termino="", limite=1000, offset=0):
         "Authorization": f"Bearer {key}",
         "Accept": "application/json",
     }
-    params = {"select": "*", "limit": str(int(limite) or 1000), "offset": str(int(offset) or 0)}
+    params = {
+        "select": "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra",
+        "limit": str(int(limite) or 1000),
+        "offset": str(int(offset) or 0),
+    }
     q = _normalizar_codigo(termino)
     if q:
         like = f"*{q[:60]}*"
@@ -878,7 +882,7 @@ def _consultar_catalogo_supabase(termino="", limite=1000, offset=0):
     req = urllib.request.Request(f"{url}/rest/v1/{TABLA_CATALOGO}?{query}", headers=headers)
     ctx = ssl._create_unverified_context()
     try:
-        with urllib.request.urlopen(req, timeout=20, context=ctx) as resp:
+        with urllib.request.urlopen(req, timeout=45, context=ctx) as resp:
             data = json.loads(resp.read().decode("utf-8") or "[]")
             return data if isinstance(data, list) else []
     except Exception as err:
@@ -886,7 +890,13 @@ def _consultar_catalogo_supabase(termino="", limite=1000, offset=0):
         return []
 
 
+_CACHE_CATALOGO_TECHO = None
+
+
 def _filas_catalogo_techo():
+    global _CACHE_CATALOGO_TECHO
+    if _CACHE_CATALOGO_TECHO is not None:
+        return _CACHE_CATALOGO_TECHO
     filas = []
     vistos = set()
 
@@ -918,6 +928,7 @@ def _filas_catalogo_techo():
         "ridge", "rake", "eave", "flash", "transition", "sbs", "limahoya", "cumbrera",
     ):
         _agregar(_consultar_catalogo_supabase(termino, limite=200))
+    _CACHE_CATALOGO_TECHO = filas
     return filas
 
 
@@ -933,9 +944,9 @@ def _compatible_unidad(unidad_item, unidad_base):
     return unidad_item == unidad_base
 
 
-def precios_unitarios_por_zip(zip_code):
+def precios_unitarios_por_zip(zip_code, filas=None):
     """Cruza por código/descripción de catalogo_items. Precio exacto; 0 si no hay match de unidad."""
-    filas = _filas_catalogo_techo()
+    filas = filas if filas is not None else _filas_catalogo_techo()
     rates = {clave: 0.0 for clave, _n, _c, _u, _p in PLANTILLA_PARTIDAS}
     mejores = {}
     for row in filas:
@@ -1229,7 +1240,7 @@ def armar_partidas(medidas, zip_code, unidad_area="SQ", factor_zona=1.0):
     """Paso 3–4: cruza JSON con catalogo_items (Supabase) y factor ZIP; arma renglones."""
     medidas = _aplicar_conversion_areas_sq(medidas)
     filas_cat = _filas_catalogo_techo()
-    rates = precios_unitarios_por_zip(zip_code)
+    rates = precios_unitarios_por_zip(zip_code, filas=filas_cat)
     factor = _num(factor_zona) or 1.0
     if factor <= 0:
         factor = 1.0

@@ -47,6 +47,7 @@ TABLA_FACTORES = "factores_regionales_usa"
 TABLA_FALTANTES = "items_faltantes"
 TABLA_HISTORIAL = "historial_estimados"
 TABLA_CONTRATISTAS = "contratistas"
+COLUMNAS_CATALOGO = "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra"
 _SQL_MULTITENANT = "Ejecuta multitenant.sql en el editor SQL de Supabase."
 
 def _supabase_creds():
@@ -1279,7 +1280,7 @@ def _buscar_catalogo_rest(q, limite):
     tablas = ["catalogo_items"]
     last_error = None
     for tabla in tablas:
-        params = {"select": "*", "limit": str(limite)}
+        params = {"select": COLUMNAS_CATALOGO, "limit": str(limite)}
         if q:
             like = f"*{q}*"
             compacto = _codigo_catalogo_compacto(q)
@@ -1294,7 +1295,7 @@ def _buscar_catalogo_rest(q, limite):
         except RuntimeError as err:
             last_error = err
             if q:
-                params = {"select": "*", "limit": str(limite), "descripcion": f"ilike.{like}"}
+                params = {"select": COLUMNAS_CATALOGO, "limit": str(limite), "descripcion": f"ilike.{like}"}
                 query = urllib.parse.urlencode(params, safe="(),.*")
                 req = urllib.request.Request(f"{url}/rest/v1/{tabla}?{query}", headers=headers)
                 try:
@@ -1312,7 +1313,7 @@ def buscar_filas_catalogo(q):
     client = _supabase_client()
     if client is not None:
         try:
-            query = client.table(TABLA_CATALOGO).select("*")
+            query = client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO)
             if termino:
                 compacto = _codigo_catalogo_compacto(termino)
                 filtro = f"descripcion.ilike.%{termino}%,codigo.ilike.%{termino}%"
@@ -1323,7 +1324,7 @@ def buscar_filas_catalogo(q):
             return list(data.data or [])
         except Exception:
             try:
-                query = client.table(TABLA_CATALOGO).select("*").ilike("descripcion", f"%{termino}%") if termino else client.table(TABLA_CATALOGO).select("*")
+                query = client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO).ilike("descripcion", f"%{termino}%") if termino else client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO)
                 data = query.limit(limite).execute()
                 return list(data.data or [])
             except Exception:
@@ -2812,7 +2813,7 @@ def _filas_catalogo_por_codigos(codigos):
     for i in range(0, len(limpios), 80):
         lote = limpios[i:i + 80]
         try:
-            res = sb.table(TABLA_CATALOGO).select("*").in_("codigo", lote).execute()
+            res = sb.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO).in_("codigo", lote).execute()
             for row in res.data or []:
                 clave = str(row.get("codigo") or "").strip()
                 if clave:
@@ -3104,7 +3105,7 @@ def buscar_catalogo():
                 if not filtro:
                     continue
                 try:
-                    res = client.table(TABLA_CATALOGO).select("*").or_(filtro).limit(200).execute()
+                    res = client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO).or_(filtro).limit(200).execute()
                     filas = list(res.data or [])
                     ultimo_err = None
                     if filas:
@@ -3118,7 +3119,7 @@ def buscar_catalogo():
                 except Exception as err:
                     ultimo_err = ultimo_err or err
         else:
-            res = client.table(TABLA_CATALOGO).select("*").limit(200).execute()
+            res = client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO).limit(200).execute()
             filas = list(res.data or [])
         if ultimo_err and not filas:
             raise ultimo_err
@@ -3719,7 +3720,7 @@ def _precio_supabase_por_accion(descripcion, unidad, accion):
         filtros += [f"descripcion.ilike.%{p}%" for p in palabras[:4]]
         for filtro in filtros:
             try:
-                datos = client.table(TABLA_CATALOGO).select("*").or_(filtro).limit(200).execute().data or []
+                datos = client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO).or_(filtro).limit(200).execute().data or []
             except Exception as err:
                 print(f"--> precio-accion filtro: {err}")
                 continue
@@ -4603,6 +4604,8 @@ def import_roof_report():
         return resp
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"success": False, "error": f"No se pudieron extraer mediciones del roof report: {str(e)}"}), 500
 
 
