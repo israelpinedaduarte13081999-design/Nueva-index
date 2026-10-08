@@ -40,6 +40,9 @@ if not _gemini_ssl_verificado():
 print("--> Cache de precios IA vacia al arrancar (llave: descripcion + accion + ZIP). Search Grounding activo.")
 client = _crear_cliente_gemini()
 TABLA_CATALOGO = "catalogo_items"
+EMBEDDING_MODELO = "text-embedding-3-small"
+EMBEDDING_DIM = 1536
+UMBRAL_SIMILITUD_CATALOGO = 0.70
 TABLA_FACTORES = "factores_regionales_usa"
 TABLA_FALTANTES = "items_faltantes"
 TABLA_HISTORIAL = "historial_estimados"
@@ -3436,6 +3439,204 @@ COMPONENTES_POR_ACCION = {
     "material": ("material",),
 }
 
+# Multiplicadores de precio_base (mano de obra de instalación) por especialidad.
+# labor, material, remoción. RSMeans / Xactimate, mercado EE. UU.
+DESGLOSE_POR_CATEGORIA = {
+    "TECHO": (1.00, 1.45, 0.45),
+    "ROOFING": (1.00, 1.45, 0.45),
+    "TECHOS": (1.00, 1.45, 0.45),
+    "PISO": (1.00, 1.20, 0.30),
+    "PISOS": (1.00, 1.20, 0.30),
+    "FLOORING": (1.00, 1.20, 0.30),
+    "ALFOMBRA": (1.00, 1.10, 0.22),
+    "FLR PREP": (1.00, 0.45, 0.20),
+    "DRYWALL": (1.00, 0.55, 0.40),
+    "PINTURA": (1.00, 0.35, 0.20),
+    "PAINTING": (1.00, 0.35, 0.20),
+    "AZULEJO": (1.00, 1.10, 0.35),
+    "TILE": (1.00, 1.10, 0.35),
+    "PLOMERIA": (1.00, 0.85, 0.30),
+    "PLUMBING": (1.00, 0.85, 0.30),
+    "ELECTRICIDAD": (1.00, 0.70, 0.25),
+    "ELECTRICAL": (1.00, 0.70, 0.25),
+    "HVAC": (1.00, 1.30, 0.35),
+    "COCINA": (1.00, 1.40, 0.30),
+    "KITCHEN": (1.00, 1.40, 0.30),
+    "ENCIMERAS": (1.00, 1.60, 0.25),
+    "BAÑO": (1.00, 1.25, 0.35),
+    "BANO": (1.00, 1.25, 0.35),
+    "BATHROOM": (1.00, 1.25, 0.35),
+    "FRAMING": (1.00, 0.90, 0.40),
+    "CARPINTERIA": (1.00, 0.80, 0.30),
+    "CARPINTERÍA": (1.00, 0.80, 0.30),
+    "MADERA": (1.00, 0.95, 0.30),
+    "DECK": (1.00, 1.35, 0.40),
+    "CANALES": (1.00, 0.95, 0.35),
+    "GUTTERS": (1.00, 0.95, 0.35),
+    "EXTERIOR": (1.00, 1.25, 0.40),
+    "SIDING": (1.00, 1.25, 0.40),
+    "VENTANAS": (1.00, 1.80, 0.25),
+    "WINDOWS": (1.00, 1.80, 0.25),
+    "CERCA": (1.00, 1.20, 0.35),
+    "CERCAS": (1.00, 1.20, 0.35),
+    "PAISAJISMO": (1.00, 1.10, 0.30),
+    "GAS": (1.00, 0.75, 0.30),
+    "CRAWL_SPACE": (1.00, 0.50, 0.45),
+    "BODEGAS": (1.00, 0.70, 0.35),
+    "DEMOLICION": (0.00, 0.00, 1.00),
+    "DEMOLITION": (0.00, 0.00, 1.00),
+    "COMERCIAL": (1.00, 0.95, 0.32),
+    "RESIDENCIAL": (1.00, 0.90, 0.30),
+    "GENERAL": (1.00, 0.90, 0.30),
+}
+
+_DESGLOSE_POR_TEXTO = (
+    ("TECHO", r"techo|roof|shingle|teja|sbs|epdm|tpo"),
+    ("SIDING", r"siding|hardie|revestimiento|soffit|fascia"),
+    ("PISO", r"piso|floor|lvt|lvp|spc|laminat|hardwood|vinilo"),
+    ("ALFOMBRA", r"alfombra|carpet"),
+    ("DRYWALL", r"drywall|tablaroca|sheetrock|yeso"),
+    ("PINTURA", r"pintura|paint|esmalte|primer"),
+    ("AZULEJO", r"azulejo|tile|porcelanato|ceramica|cerámica"),
+    ("PLOMERIA", r"plomer|plumb|pex|drenaje"),
+    ("ELECTRICIDAD", r"electric|cableado|tomacorriente"),
+    ("HVAC", r"hvac|climatiz|ducto"),
+    ("COCINA", r"cocina|kitchen|gabinete|cabinet"),
+    ("ENCIMERAS", r"encimera|countertop|granito|cuarzo"),
+    ("BAÑO", r"baño|bano|bath|ducha|vanity|inodoro"),
+    ("FRAMING", r"framing|enmarcado|cercha|vigueta"),
+    ("CARPINTERIA", r"carpinter|moldura|puerta|trim"),
+    ("DECK", r"deck|terraza|porche"),
+    ("CANALES", r"canaleta|gutter|bajante"),
+    ("VENTANAS", r"ventana|window"),
+    ("CERCA", r"cerca|fence"),
+    ("PAISAJISMO", r"paisaj|landscape"),
+    ("GAS", r"\bgas\b|tuberia de gas"),
+    ("DEMOLICION", r"demolici|demolition|escombro"),
+)
+
+
+def _clave_desglose_categoria(categoria, descripcion=""):
+    cat = re.sub(r"[^A-ZÁÉÍÓÚÜÑ_ ]", "", str(categoria or "").upper()).strip()
+    if cat in DESGLOSE_POR_CATEGORIA and cat not in ("GENERAL", "COMERCIAL", "RESIDENCIAL"):
+        return cat
+    blob = f"{cat} {descripcion or ''}"
+    for clave, patron in _DESGLOSE_POR_TEXTO:
+        if re.search(patron, blob, re.I):
+            return clave
+    return cat if cat in DESGLOSE_POR_CATEGORIA else "GENERAL"
+
+
+def _desglose_desde_precio_base(precio_base, categoria="", descripcion=""):
+    base = _num(precio_base)
+    if base <= 0:
+        return 0.0, 0.0, 0.0
+    labor_f, material_f, demo_f = DESGLOSE_POR_CATEGORIA.get(
+        _clave_desglose_categoria(categoria, descripcion),
+        DESGLOSE_POR_CATEGORIA["GENERAL"],
+    )
+    return round(base * labor_f, 2), round(base * material_f, 2), round(base * demo_f, 2)
+
+
+def _completar_componentes_catalogo(install, demo, material, labor, categoria="", descripcion=""):
+    base = install if install > 0 else (labor if labor > 0 else (demo if demo > 0 else 0.0))
+    est_labor, est_material, est_demo = _desglose_desde_precio_base(base, categoria, descripcion)
+    if labor <= 0:
+        labor = est_labor
+    if install <= 0:
+        install = labor if labor > 0 else est_labor
+    if material <= 0:
+        material = est_material
+    if demo <= 0:
+        demo = est_demo
+    return install, demo, material, labor
+
+
+def _openai_api_key():
+    for clave, valor in os.environ.items():
+        if clave.strip().lower().replace(" ", "") in {
+            "openai_api_key",
+            "openai_key",
+            "opennai_api_key",
+            "opennai_key",
+        } and str(valor or "").strip():
+            return str(valor).strip()
+    return ""
+
+
+def _texto_para_embedding(descripcion, unidad=""):
+    texto = _descripcion_catalogo_normalizada(descripcion) or re.sub(r"\s+", " ", str(descripcion or "")).strip()
+    unidad = str(unidad or "").strip().upper()
+    return f"{texto} | {unidad}".strip(" |") if unidad else texto
+
+
+def _embeddings_openai(textos):
+    key = _openai_api_key()
+    if not key:
+        raise RuntimeError("Falta OPENAI_API_KEY en .env")
+    entradas = [re.sub(r"\s+", " ", str(t or "")).strip()[:4000] for t in textos]
+    if not any(entradas):
+        return [None] * len(textos)
+    import httpx
+
+    verify = (os.getenv("GEMINI_SSL_VERIFY") or "1").strip().lower() not in ("0", "false", "no", "off")
+    with httpx.Client(verify=verify, timeout=60.0) as http:
+        resp = http.post(
+            "https://api.openai.com/v1/embeddings",
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            json={"model": EMBEDDING_MODELO, "input": entradas},
+        )
+    if resp.status_code >= 400:
+        raise RuntimeError(f"OpenAI embeddings HTTP {resp.status_code}: {resp.text[:300]}")
+    datos = (resp.json() or {}).get("data") or []
+    por_indice = {int(item.get("index", i)): item.get("embedding") for i, item in enumerate(datos)}
+    vectores = []
+    for i, texto in enumerate(entradas):
+        vector = por_indice.get(i)
+        if not texto or not isinstance(vector, list) or len(vector) != EMBEDDING_DIM:
+            vectores.append(None)
+        else:
+            vectores.append(vector)
+    return vectores
+
+
+def _embedding_texto(descripcion, unidad=""):
+    texto = _texto_para_embedding(descripcion, unidad)
+    if len(texto) < 3:
+        return None
+    vectores = _embeddings_openai([texto])
+    return vectores[0] if vectores else None
+
+
+def _filas_catalogo_vector(descripcion, unidad=""):
+    client = _supabase_client()
+    if client is None:
+        return []
+    vector = _embedding_texto(descripcion, unidad)
+    if not vector:
+        return []
+    payload = {
+        "query_embedding": vector,
+        "match_threshold": UMBRAL_SIMILITUD_CATALOGO,
+        "match_count": 12,
+    }
+    if unidad:
+        payload["filter_unidad"] = str(unidad).upper()
+    try:
+        datos = client.rpc("match_items", payload).execute().data or []
+    except Exception as err:
+        print(f"--> match_items: {err}")
+        return []
+    filas = []
+    for row in datos:
+        if not isinstance(row, dict):
+            continue
+        fila = dict(row)
+        fila["fuente"] = "vector"
+        filas.append(fila)
+    print(f"--> match_items '{descripcion[:60]}' {unidad}: {len(filas)} filas")
+    return filas
+
 
 def _precio_roles_por_accion(install, demo, material, labor, accion):
     if accion == "demo":
@@ -3460,47 +3661,74 @@ def _precio_supabase_por_accion(descripcion, unidad, accion):
     if client is None:
         raise RuntimeError("Cliente supabase es None (revisa SUPABASE_URL y SUPABASE_KEY en .env)")
     nucleo = _nucleo_busqueda_catalogo(_corregir_typos_catalogo(descripcion)) or descripcion
-    termino = _limpiar_termino_catalogo(nucleo)
-    categoria = re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{4,}", nucleo.split(" - ", 1)[0])
-    palabras = list(dict.fromkeys(categoria + sorted(
-        re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{4,}", nucleo), key=lambda p: (-len(p), p.lower())
-    )))
-    filtros = [f"descripcion.ilike.%{termino}%,codigo.ilike.%{termino}%"]
-    filtros += [f"descripcion.ilike.%{p}%" for p in palabras[:4]]
     filas, vistos = [], set()
-    for filtro in filtros:
-        try:
-            datos = client.table(TABLA_CATALOGO).select("*").or_(filtro).limit(200).execute().data or []
-        except Exception as err:
-            print(f"--> precio-accion filtro: {err}")
-            continue
-        for row in datos:
+    try:
+        for row in _filas_catalogo_vector(nucleo, unidad):
             clave = row.get("id") or row.get("codigo")
             if clave not in vistos:
                 vistos.add(clave)
                 filas.append(row)
+        if accion in ("demo", "replace", "replace_material"):
+            for row in _filas_catalogo_vector(f"{nucleo} retiro demolición", unidad):
+                clave = row.get("id") or row.get("codigo")
+                if clave not in vistos:
+                    vistos.add(clave)
+                    filas.append(row)
+    except Exception as err:
+        print(f"--> precio-accion vector: {err}")
     if not filas:
-        filas = list(buscar_filas_catalogo(nucleo) or [])
+        termino = _limpiar_termino_catalogo(nucleo)
+        categoria = re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{4,}", nucleo.split(" - ", 1)[0])
+        palabras = list(dict.fromkeys(categoria + sorted(
+            re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{4,}", nucleo), key=lambda p: (-len(p), p.lower())
+        )))
+        filtros = [f"descripcion.ilike.%{termino}%,codigo.ilike.%{termino}%"]
+        filtros += [f"descripcion.ilike.%{p}%" for p in palabras[:4]]
+        for filtro in filtros:
+            try:
+                datos = client.table(TABLA_CATALOGO).select("*").or_(filtro).limit(200).execute().data or []
+            except Exception as err:
+                print(f"--> precio-accion filtro: {err}")
+                continue
+            for row in datos:
+                clave = row.get("id") or row.get("codigo")
+                if clave not in vistos:
+                    vistos.add(clave)
+                    filas.append(row)
+        if not filas:
+            filas = list(buscar_filas_catalogo(nucleo) or [])
     tokens = _tokens_busqueda_catalogo(nucleo)
     trabajo, demolicion = [], []
     for row in filas:
         item = normalizar_item_catalogo(row)
-        if not item or _num(item.get("precio_unitario")) <= 0:
+        if not item:
             continue
         if unidad and str(item.get("unidad") or "").upper() != unidad:
             continue
-        puntaje = _puntaje_coincidencia_catalogo(row, nucleo, tokens, unidad)
-        if puntaje < 6:
-            continue
+        es_vector = str(row.get("fuente") or "") == "vector"
+        if es_vector:
+            puntaje = 10 + _num(row.get("similarity")) * 10
+        else:
+            if _num(item.get("precio_unitario")) <= 0:
+                continue
+            puntaje = _puntaje_coincidencia_catalogo(row, nucleo, tokens, unidad)
+            if puntaje < 6:
+                continue
         destino = demolicion if _RE_FILA_DEMOLICION.search(item.get("descripcion") or "") else trabajo
         destino.append((puntaje, item))
     principal = max(trabajo, key=lambda c: c[0])[1] if trabajo else None
     fila_demo = max(demolicion, key=lambda c: c[0])[1] if demolicion else None
-    install = _num((principal or {}).get("precio_unitario"))
+    labor = _num((principal or {}).get("precio_labor"))
+    install = _num((principal or {}).get("precio_unitario")) or labor
     demo = _num((principal or {}).get("precio_demo")) or _num((fila_demo or {}).get("precio_unitario"))
     material = _num((principal or {}).get("precio_material"))
-    labor = _num((principal or {}).get("precio_labor"))
-    referencias = {"unidad": unidad}
+    item_ref = principal or fila_demo or {}
+    install, demo, material, labor = _completar_componentes_catalogo(
+        install, demo, material, labor,
+        item_ref.get("categoria") or "",
+        item_ref.get("descripcion") or nucleo,
+    )
+    referencias = {"unidad": unidad, "desglose": _clave_desglose_categoria(item_ref.get("categoria") or "", item_ref.get("descripcion") or nucleo)}
     if install > 0:
         referencias["precio_unitario_catalogo"] = round(install, 2)
     if material > 0:
@@ -3512,6 +3740,8 @@ def _precio_supabase_por_accion(descripcion, unidad, accion):
     if principal:
         referencias["codigo"] = principal.get("codigo") or ""
         referencias["descripcion_catalogo"] = (principal.get("descripcion") or "")[:180]
+        if principal.get("fuente") == "vector":
+            referencias["metodo"] = "vector"
     if fila_demo:
         referencias["codigo_demolicion"] = fila_demo.get("codigo") or ""
         referencias["descripcion_demolicion"] = (fila_demo.get("descripcion") or "")[:180]
@@ -3754,6 +3984,8 @@ def precio_accion():
             "precio_base": round(precio_base, 2),
             "factor": round(factor, 4),
             "codigo": (item or {}).get("codigo") or "",
+            "metodo": (referencias or {}).get("metodo") or "texto",
+            "desglose": (referencias or {}).get("desglose") or "",
             "ubicacion": ubicacion,
             "estado": zona.get("estado"),
         })
@@ -3866,6 +4098,12 @@ def guardar_precio_ia_catalogo():
                 if _fila_catalogo_existe(sb, fila["codigo"], fila["descripcion"], unidad):
                     existentes += 1
                     continue
+                try:
+                    vector = _embedding_texto(fila["descripcion"], unidad)
+                    if vector:
+                        fila["embedding"] = vector
+                except Exception as err_emb:
+                    print(f"--> embedding IA omitido: {err_emb}")
                 sb.table(TABLA_CATALOGO).insert(fila).execute()
                 insertadas += 1
                 print(f"--> catálogo IA: insertado {fila['codigo']} '{fila['descripcion']}' {unidad} ${fila['precio_base']}")
