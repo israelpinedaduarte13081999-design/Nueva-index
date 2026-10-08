@@ -3600,15 +3600,19 @@ def _precio_roles_por_accion(install, demo, material, labor, accion):
 
 
 def _openai_api_key():
+    por_nombre = {}
     for clave, valor in os.environ.items():
-        if clave.strip().lower().replace(" ", "") in {
-            "openai_api_key",
-            "openai_key",
-            "opennai_api_key",
-            "opennai_key",
-        } and str(valor or "").strip():
-            return str(valor).strip()
-    return ""
+        norm = clave.strip().lower().replace(" ", "")
+        texto = str(valor or "").strip()
+        if norm in {"openai_api_key", "openai_key", "opennai_api_key", "opennai_key"} and texto:
+            por_nombre[norm] = texto
+    return (
+        por_nombre.get("openai_api_key")
+        or por_nombre.get("openai_key")
+        or por_nombre.get("opennai_api_key")
+        or por_nombre.get("opennai_key")
+        or ""
+    )
 
 
 def _texto_para_embedding(descripcion, unidad=""):

@@ -71,6 +71,12 @@ def main():
             if "insufficient_quota" in str(err) or "credit_balance_exhausted" in str(err):
                 print("--> OpenAI sin credito. Anade saldo y vuelve a ejecutar este script.")
                 return 1
+            if "401" in str(err) or "Incorrect API key" in str(err):
+                print("--> OPENAI_API_KEY invalida. Actualiza la clave en .env y vuelve a ejecutar.")
+                return 1
+            if "CERTIFICATE_VERIFY_FAILED" in str(err) or "SSL" in str(err):
+                print("--> Fallo SSL local. Asegura GEMINI_SSL_VERIFY=0 en .env y vuelve a ejecutar.")
+                return 1
             continue
         for row, vector in zip(lote, vectores):
             if not vector:
