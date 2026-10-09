@@ -918,7 +918,7 @@
           </select>
         </div>
         <button class="btn" id="addArea" type="button" data-i18n="addArea">+ Add area</button>
-        <button class="btn btn-primary" id="printButton" type="button">Save</button>
+        <button class="btn btn-primary" id="printButton" type="button">Save to history</button>
         <label class="estimate-lang-control no-print" for="selectIdiomaEstimado">Estimate Language
           <select id="selectIdiomaEstimado" aria-label="Estimate Language">
             <option value="es">Spanish</option>
@@ -968,6 +968,10 @@
           <button class="export-action export-action-preview" id="previewPdfButton" type="button">
             <svg class="export-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
             Preview PDF
+          </button>
+          <button class="export-action export-action-primary" id="saveHistoryButton" type="button">
+            <svg class="export-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+            Save to history
           </button>
           <button class="export-action export-action-primary" id="exportPdfButton" type="button">
             <svg class="export-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>
@@ -4633,43 +4637,37 @@
       };
     }
     async function guardarEstimadoEnHistorial(){
+      let nuevoRegistro=null;
       try{
-        await asegurarContratista();
-        const nuevoRegistro=construirRegistroHistorialActual();
-        console.log('Datos listos para guardar:', nuevoRegistro);
-        let remoto=null;
-        let errorRemoto='';
-        try{
-          const res=await fetch('/api/historial',{
-            method:'POST',
-            headers:headersContratista({'Content-Type':'application/json'}),
-            body:JSON.stringify(nuevoRegistro)
-          });
-          if(res.ok)remoto=await res.json();
-          else{
-            const text=await res.text();
-            console.error('Supabase historial', res.status, text);
-            try{ errorRemoto=(JSON.parse(text).error)||''; }catch(_){ errorRemoto=text; }
-          }
-        }catch(err){
-          console.error(err);
-          errorRemoto=err.message||'';
-        }
-        if(remoto&&remoto.id){
-          nuevoRegistro.id=remoto.id;
-          documentoHistorialId=remoto.id;
-          const url=urlEdicionDocumento(nuevoRegistro.type, remoto.id);
-          try{ history.replaceState({view:'quote',mode:nuevoRegistro.type,id:remoto.id},'',url); }catch(_){}
-        }else if(!nuevoRegistro.id){
-          nuevoRegistro.id='local-'+Date.now();
-        }
+        nuevoRegistro=construirRegistroHistorialActual();
+        if(!nuevoRegistro.id)nuevoRegistro.id='local-'+Date.now();
+        documentoHistorialId=nuevoRegistro.id;
         persistirRegistroHistorialLocal(nuevoRegistro);
         if(typeof renderHistorial==='function')renderHistorial();
-        if(remoto&&remoto.id) mostrarToastGuardado('Saved successfully');
-        else mostrarToastGuardado(errorRemoto||'Saved locally', errorRemoto?'error':undefined);
+        mostrarToastGuardado('Saved to history on this device');
       }catch(err){
         console.error(err);
-        mostrarToastGuardado(err.message||'Error saving','error');
+        mostrarToastGuardado(err.message||'Could not save to history','error');
+        return;
+      }
+      try{
+        try{ await asegurarContratista(); }catch(_){}
+        const res=await fetch('/api/historial',{
+          method:'POST',
+          headers:headersContratista({'Content-Type':'application/json'}),
+          body:JSON.stringify(nuevoRegistro)
+        });
+        if(!res.ok)return;
+        const remoto=await res.json().catch(()=>null);
+        if(!remoto||!remoto.id)return;
+        nuevoRegistro.id=remoto.id;
+        documentoHistorialId=remoto.id;
+        persistirRegistroHistorialLocal(nuevoRegistro);
+        const url=urlEdicionDocumento(nuevoRegistro.type, remoto.id);
+        try{ history.replaceState({view:'quote',mode:nuevoRegistro.type,id:remoto.id},'',url); }catch(_){}
+        if(typeof renderHistorial==='function')renderHistorial();
+      }catch(err){
+        console.error(err);
       }
     }
     let historyFilter='all';
@@ -4747,8 +4745,17 @@
       const extra=leerHistorialLocal('historial_estimados');
       const out=[];
       const idxPorClave={};
-      [...historialRemotoCache,...ui,...extra].forEach(item=>{
+      historialRemotoCache.forEach(item=>{
         if(!perteneceAlContratista(item))return;
+        const k=claveRegistroHistorial(item);
+        if(k&&idxPorClave[k]!=null){
+          out[idxPorClave[k]]=fusionarRegistrosHistorial(out[idxPorClave[k]],item);
+          return;
+        }
+        if(k)idxPorClave[k]=out.length;
+        out.push(item);
+      });
+      [...ui,...extra].forEach(item=>{
         const k=claveRegistroHistorial(item);
         if(k&&idxPorClave[k]!=null){
           out[idxPorClave[k]]=fusionarRegistrosHistorial(out[idxPorClave[k]],item);
@@ -4934,7 +4941,7 @@
       const filtrados=historyFilter==='all'?list.map((item,i)=>({item,i})):list.map((item,i)=>({item,i})).filter(({item})=>tipoDeRegistroHistorial(item)===historyFilter);
       if(!filtrados.length){
         const vacio=historyFilter==='all'
-          ?'No documents saved yet. Create a document and press Save to archive it.'
+          ?'No documents saved yet. Create a document and press Save to history.'
           :'No '+etiquetaTipoDocumento(historyFilter).toLowerCase()+'s saved yet.';
         tbody.innerHTML='<tr><td colspan="6">'+vacio+'</td></tr>';
         return;
@@ -6625,6 +6632,10 @@
     });
     document.querySelector('#emailInvoiceButton').addEventListener('click',emailInvoice);
     document.querySelector('#printButton').addEventListener('click',guardarEstimadoEnHistorial);
+    document.querySelector('#saveHistoryButton')?.addEventListener('click',()=>{
+      document.querySelector('#exportModal').hidden=true;
+      guardarEstimadoEnHistorial();
+    });
     document.querySelector('#newInvoiceButton').addEventListener('click',createNewInvoice);
     document.querySelector('#saveDraftButton')?.addEventListener('click',guardarBorradorEstimado);
     document.querySelector('#draftRestoreButton')?.addEventListener('click',()=>{
