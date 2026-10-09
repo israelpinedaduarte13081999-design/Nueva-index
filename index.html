@@ -4922,21 +4922,10 @@
     function tipoDeRegistroHistorial(item){
       return normalizarTipoDocumento(item&&(item.type||item.mode||item.modo||item.tipo||item.docMode));
     }
-    async function renderHistorial(){
+    function pintarTablaHistorial(){
       const tbody=document.querySelector('#historyTableBody');
       if(!tbody)return;
       actualizarBotonHistorialNuevo();
-      try{
-        try{ await asegurarContratista(); }catch(_){}
-        const res=await fetch('/api/historial',{headers:headersContratista()});
-        if(res.ok){
-          const json=await res.json();
-          const items=Array.isArray(json)?json:(json.items||json.documents||[]);
-          historialRemotoCache=Array.isArray(items)?items:[];
-        }else{
-          historialRemotoCache=[];
-        }
-      }catch(_){}
       const list=listaHistorialUnificada();
       const filtrados=historyFilter==='all'?list.map((item,i)=>({item,i})):list.map((item,i)=>({item,i})).filter(({item})=>tipoDeRegistroHistorial(item)===historyFilter);
       if(!filtrados.length){
@@ -4953,7 +4942,7 @@
         const openId=item.id||item.folio||item.number||'';
         const direccion=formatearDireccionHistorial(item)||'No address';
         const folio=folioHistorial(item)||'No number';
-        const clienteNombre=String((item.cliente&&item.cliente.name)||item.client||item.clienteNombre||'No client');
+        const clienteNombre=String((item.cliente&&item.cliente.name)||(typeof item.client==='string'?item.client:'')||item.clienteNombre||'No client');
         return `<tr>
           <td>
             <div class="history-job">
@@ -4969,6 +4958,31 @@
         </tr>`;
       }).join('');
     }
+    async function renderHistorial(){
+      const tbody=document.querySelector('#historyTableBody');
+      if(!tbody)return;
+      const seq=++renderHistorial._seq;
+      pintarTablaHistorial();
+      const controller=new AbortController();
+      const corte=setTimeout(()=>controller.abort(),5000);
+      try{
+        try{ await asegurarContratista(); }catch(_){}
+        if(seq!==renderHistorial._seq)return;
+        const res=await fetch('/api/historial',{headers:headersContratista(),signal:controller.signal});
+        if(seq!==renderHistorial._seq)return;
+        if(res.ok){
+          const json=await res.json();
+          const items=Array.isArray(json)?json:(json.items||json.documents||[]);
+          historialRemotoCache=Array.isArray(items)?items:[];
+        }
+      }catch(_){
+      }finally{
+        clearTimeout(corte);
+      }
+      if(seq!==renderHistorial._seq)return;
+      pintarTablaHistorial();
+    }
+    renderHistorial._seq=0;
     function showAppView(view, options={}){
       document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active',section.id==='view-'+view));
       document.querySelectorAll('.nav-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.view===view));
