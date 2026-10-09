@@ -243,7 +243,13 @@ def _es_default_estado(row):
     return marca in (True, 1, "1", "t", "true", "si", "sí", "yes")
 
 
+_FACTORES_CACHE = None
+
+
 def _filas_factores_regionales():
+    global _FACTORES_CACHE
+    if _FACTORES_CACHE is not None:
+        return _FACTORES_CACHE
     if supabase is not None:
         try:
             res = supabase.table(TABLA_FACTORES).select("*").limit(2000).execute()
@@ -251,6 +257,7 @@ def _filas_factores_regionales():
             print(f"--> {TABLA_FACTORES}: {len(filas)} registros")
             if filas:
                 print(f"--> Columnas {TABLA_FACTORES}: {list(filas[0].keys())}")
+                _FACTORES_CACHE = filas
             return filas
         except Exception as e:
             print(f"ERROR {TABLA_FACTORES} supabase: {e}")
@@ -269,7 +276,10 @@ def _filas_factores_regionales():
             },
         )
         filas = _urlopen_json(req)
-        return filas if isinstance(filas, list) else []
+        if isinstance(filas, list) and filas:
+            _FACTORES_CACHE = filas
+            return filas
+        return []
     except Exception as e:
         print(f"ERROR {TABLA_FACTORES} REST: {e}")
         return []
@@ -310,8 +320,8 @@ def _zona_mercado_por_zip(zip_code):
     }
     if len(zip_limpio) != 5:
         return zona
+    motor = getattr(_search_local, "engine", None)
     try:
-        motor = _motor_uszipcode()
         result = motor.by_zipcode(zip_limpio) if motor is not None else None
         ciudad = _texto_zipcode(result, "major_city", "city", "post_office_city")
         if ciudad and "," in ciudad:
@@ -1561,7 +1571,83 @@ _SINONIMOS_BUSQUEDA = {
     "flashing": ("flashing", "tapajuntas"),
     "ceramica": ("ceramica", "cerámica", "azulejo", "tile", "porcelanato"),
     "azulejo": ("azulejo", "ceramica", "cerámica", "tile", "porcelanato"),
+    "floor": ("floor", "flooring", "piso", "pisos", "lvt", "lvp", "vinyl", "hardwood", "laminate", "carpet", "alfombra", "spc"),
+    "piso": ("piso", "pisos", "floor", "flooring", "lvt", "lvp", "vinyl", "hardwood", "laminate", "carpet"),
+    "ceiling": ("ceiling", "cielo", "drywall", "tablaroca", "pintura", "paint"),
+    "cielo": ("cielo", "ceiling", "drywall", "tablaroca", "pintura"),
+    "wall": ("wall", "walls", "pared", "paredes", "drywall", "tablaroca", "pintura", "paint"),
+    "walls": ("walls", "wall", "pared", "drywall", "pintura", "paint"),
+    "pared": ("pared", "paredes", "wall", "drywall", "tablaroca", "pintura"),
+    "trim": ("trim", "baseboard", "zocalo", "moldura", "molding", "casings"),
+    "baseboard": ("baseboard", "trim", "zocalo", "moldura", "molding"),
+    "cabinet": ("cabinet", "cabinets", "gabinete", "gabinetes"),
+    "cabinets": ("cabinets", "cabinet", "gabinete", "gabinetes"),
+    "gabinete": ("gabinete", "gabinetes", "cabinet", "cabinets"),
+    "pintura": ("pintura", "paint", "painting", "primer", "esmalte"),
+    "paint": ("paint", "painting", "pintura", "primer"),
+    "drywall": ("drywall", "tablaroca", "sheetrock", "yeso"),
+    "tablaroca": ("tablaroca", "drywall", "sheetrock", "yeso"),
+    "techo": ("techo", "roof", "roofing", "shingle", "teja"),
+    "roof": ("roof", "roofing", "techo", "shingle", "teja"),
+    "puerta": ("puerta", "puertas", "door", "doors"),
+    "door": ("door", "doors", "puerta", "puertas"),
+    "ventana": ("ventana", "ventanas", "window", "windows"),
+    "window": ("window", "windows", "ventana"),
+    "siding": ("siding", "revestimiento", "hardie", "soffit"),
+    "alfombra": ("alfombra", "carpet", "floor", "flooring"),
+    "carpet": ("carpet", "alfombra", "floor"),
 }
+_TOKENS_MEDIDA = {
+    "floor", "flooring", "piso", "pisos", "ceiling", "cielo", "wall", "walls",
+    "pared", "paredes", "trim", "baseboard", "zocalo", "cabinet", "cabinets", "gabinete",
+}
+
+
+def _distancia_token(a, b):
+    if a == b:
+        return 0
+    if abs(len(a) - len(b)) > 2:
+        return 9
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, start=1):
+        cur = [i]
+        for j, cb in enumerate(b, start=1):
+            cur.append(min(cur[j - 1] + 1, prev[j] + 1, prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
+
+
+def _familias_de_token(token):
+    """'pizos' y 'flor' abren la familia (pisos, floor, vinyl, hardwood) para poder elegir."""
+    plano = _sin_acentos(token)
+    if len(plano) < 3 or plano in _STOP_BUSQUEDA_CATALOGO:
+        return []
+    exactas = []
+    prefijos = []
+    typos = []
+    mejor = 9
+    for grupo in _SINONIMOS_BUSQUEDA.values():
+        palabras = [_sin_acentos(p) for p in grupo if p]
+        if plano in palabras:
+            exactas.append(grupo)
+            continue
+        if any(palabra.startswith(plano) for palabra in palabras):
+            prefijos.append(grupo)
+            continue
+        if len(plano) < 4:
+            continue
+        tope = 1 if len(plano) < 6 else 2
+        dist = min((_distancia_token(plano, palabra) for palabra in palabras), default=9)
+        if dist <= tope and dist < mejor:
+            mejor = dist
+            typos = [grupo]
+        elif dist <= tope and dist == mejor and grupo not in typos:
+            typos.append(grupo)
+    vistos = []
+    for grupo in exactas or prefijos or typos:
+        if grupo not in vistos:
+            vistos.append(grupo)
+    return vistos
 
 
 def _tokens_busqueda_catalogo(q):
@@ -1570,18 +1656,18 @@ def _tokens_busqueda_catalogo(q):
     for t in crudos:
         if t in _STOP_BUSQUEDA_CATALOGO:
             continue
-        tokens.append(t)
-        for grupo in _SINONIMOS_BUSQUEDA.values():
-            if t in grupo:
-                tokens.extend(grupo)
+        tokens.append(_sin_acentos(t))
+        for grupo in _familias_de_token(t):
+            tokens.extend(grupo)
     vistos = set()
     out = []
     for t in tokens:
-        if t in vistos:
+        plano = _sin_acentos(t)
+        if not plano or plano in vistos:
             continue
-        vistos.add(t)
-        out.append(t)
-        if len(out) >= 12:
+        vistos.add(plano)
+        out.append(plano)
+        if len(out) >= 24:
             break
     return out
 
@@ -1642,12 +1728,14 @@ def _puntaje_coincidencia_catalogo(row, q, tokens=None, unidad=None):
     elif qn and desc and (qn in desc or desc in qn) and min(len(qn), len(desc)) >= 6:
         score += 45
     blob_n = _sin_acentos(blob)
+    palabras = [p for p in re.split(r"[^a-z0-9]+", blob_n) if p]
     hits = 0
     for t in tokens or _tokens_busqueda_catalogo(q):
         if not t:
             continue
-        if t in blob or _sin_acentos(t) in blob_n:
-            score += 8
+        tn = _sin_acentos(t)
+        if tn in blob_n or any(palabra.startswith(tn) for palabra in palabras if len(tn) >= 3):
+            score += 18 if tn in _TOKENS_MEDIDA else 8
             hits += 1
     if hits >= 2:
         score += 16
@@ -1721,6 +1809,63 @@ def _filtro_or_flexible(q):
         _add("descripcion_en", token)
         _add("codigo", token, 1)
     return ",".join(partes[:24])
+
+
+_RE_MEDIDA_PLANO = re.compile(
+    r"(?:—|–|-)\s*(floor|ceiling|walls?|trim|baseboard(?:\s*/\s*trim)?|cabinets?|"
+    r"piso|cielo|pared(?:es)?|z[oó]calo|gabinetes?)\b",
+    re.I,
+)
+
+
+def _consulta_medida_plano(q):
+    """'Kitchen — Floor' se busca como piso, no como el nombre del cuarto."""
+    texto = str(q or "")
+    match = _RE_MEDIDA_PLANO.search(texto)
+    if match:
+        return match.group(1).split("/")[0].strip()
+    final = re.search(
+        r"\b(floor|ceiling|walls?|trim|baseboard|cabinets?|piso|cielo|pared(?:es)?|zocalo|gabinetes?)\s*$",
+        _sin_acentos(texto),
+        re.I,
+    )
+    if final and re.search(r"\s", texto.strip()):
+        return final.group(1)
+    return ""
+
+
+def _filas_catalogo_locales(q, unidad="", limite=80):
+    """El catálogo ya cabe en memoria. Buscar ahí evita varias consultas lentas a Supabase."""
+    from oficios import todas_filas_catalogo
+
+    filas = todas_filas_catalogo() or []
+    consulta = _consulta_medida_plano(q) or _nucleo_busqueda_catalogo(_corregir_typos_catalogo(q)) or str(q or "").strip()
+    if not filas or not consulta:
+        return []
+    tokens = _tokens_busqueda_catalogo(consulta)
+    unidad_q = str(unidad or "").upper()
+    puntuadas = []
+    for row in filas:
+        score = _puntaje_coincidencia_catalogo(row, consulta, tokens, unidad_q)
+        if score < 8:
+            continue
+        precio = _num_catalogo(row, "precio_base", "precio_unitario", "precio", "price")
+        puntuadas.append((score, precio, row))
+    puntuadas.sort(key=lambda par: (par[0], par[1]), reverse=True)
+    salida = []
+    vistos = set()
+    for _score, _precio, row in puntuadas:
+        clave = (
+            str(row.get("codigo") or row.get("code") or "").strip().lower(),
+            _sin_acentos(row.get("descripcion") or row.get("description") or ""),
+        )
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        salida.append(row)
+        if len(salida) >= int(limite or 60):
+            break
+    return salida
 
 
 def _puntaje_catalogo_zip(row, zona):
@@ -3112,7 +3257,8 @@ def buscar_catalogo():
     from oficios import detectar_oficio, fila_es_oficio, normalizar_oficio
     q_norm = _corregir_typos_catalogo(q)
     oficio_ui = normalizar_oficio(request.args.get("oficio") or request.args.get("project_type") or "")
-    oficio = detectar_oficio(q_norm) or oficio_ui
+    medida = _consulta_medida_plano(q) or _consulta_medida_plano(q_norm)
+    oficio = detectar_oficio(medida) if medida else (detectar_oficio(q_norm) or oficio_ui)
     idioma = str(request.args.get("idioma") or request.args.get("lang") or "es").strip().lower()
     if idioma not in IDIOMAS_CATALOGO:
         idioma = "es"
@@ -3121,54 +3267,42 @@ def buscar_catalogo():
     print(f"--> Término buscado: '{q}' nucleo='{_nucleo_busqueda_catalogo(q_norm)}' oficio={oficio} ui={oficio_ui} ZIP={zona.get('zip')} {zona.get('ciudad')} {zona.get('estado')} factor={zona.get('factor')}")
     try:
         client = _supabase_client()
-        if client is None:
-            raise RuntimeError("Cliente supabase es None (revisa SUPABASE_URL y SUPABASE_KEY en .env)")
         q_match = _nucleo_busqueda_catalogo(q_norm) or q_norm
+        unidad_q = (request.args.get("unidad") or request.args.get("unit") or "").upper()
         filas = []
         ultimo_err = None
         if q_match:
-            termino = _limpiar_termino_catalogo(q_match)
-            compacto = _codigo_catalogo_compacto(q_match)
-            filtros = []
-            if campo in ("code", "codigo"):
-                filtros.append(f"codigo.ilike.%{termino}%")
-                if compacto and compacto.lower() != termino.lower():
-                    filtros[-1] += f",codigo.ilike.%{compacto}%"
-            elif campo in ("action", "accion"):
-                filtros.append(_filtro_or_flexible(q_match) or f"descripcion.ilike.%{termino}%")
-            filtros.extend([
-                _filtro_or_flexible(q_match),
-                f"descripcion.ilike.%{termino}%,codigo.ilike.%{termino}%",
-                f"codigo.ilike.%{termino}%",
-                f"descripcion.ilike.%{termino}%",
-            ])
-            for filtro in filtros:
-                if not filtro:
-                    continue
-                try:
-                    res = client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO).or_(filtro).limit(200).execute()
-                    filas = list(res.data or [])
-                    ultimo_err = None
-                    if filas:
-                        break
-                except Exception as err:
-                    ultimo_err = err
-                    print(f"--> buscar-catalogo filtro: {err}")
+            try:
+                filas = _filas_catalogo_locales(q_match, unidad_q)
+            except Exception as err:
+                ultimo_err = err
+                print(f"--> buscar-catalogo local: {err}")
+            if not filas and client is None:
+                raise RuntimeError("Cliente supabase es None (revisa SUPABASE_URL y SUPABASE_KEY en .env)")
             if not filas:
-                try:
-                    filas = list(buscar_filas_catalogo(q_match) or [])
-                except Exception as err:
-                    ultimo_err = ultimo_err or err
+                termino = _limpiar_termino_catalogo(_consulta_medida_plano(q_match) or q_match)
+                if termino:
+                    try:
+                        res = client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO).or_(
+                            f"descripcion.ilike.%{termino}%,codigo.ilike.%{termino}%"
+                        ).limit(80).execute()
+                        filas = list(res.data or [])
+                        ultimo_err = None
+                    except Exception as err:
+                        ultimo_err = err
+                        print(f"--> buscar-catalogo filtro: {err}")
+        elif client is None:
+            raise RuntimeError("Cliente supabase es None (revisa SUPABASE_URL y SUPABASE_KEY en .env)")
         else:
             res = client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO).limit(200).execute()
             filas = list(res.data or [])
         if ultimo_err and not filas:
             raise ultimo_err
-        tokens = _tokens_busqueda_catalogo(q_match)
-        unidad_q = (request.args.get("unidad") or request.args.get("unit") or "").upper()
+        tokens = _tokens_busqueda_catalogo(_consulta_medida_plano(q_match) or q_match)
         if oficio:
             filtradas = [row for row in filas if fila_es_oficio(row, oficio)]
-            filas = filtradas if filtradas else filas
+            if len(filtradas) >= 8:
+                filas = filtradas
         consulta_ridge = bool(re.search(r"\bridges?\b|ridge\s*cap|cumbrera", q_match or q_norm, re.I))
         if consulta_ridge:
             def _cat_row(row):
@@ -3199,7 +3333,7 @@ def buscar_catalogo():
             row for row in filas
             if _puntaje_coincidencia_catalogo(row, q_match, tokens, unidad_q) >= umbral
         ] or filas
-        limite = 40
+        limite = 50
         items = [item for item in (normalizar_item_catalogo(row, idioma) for row in razonables[:limite]) if item]
         factor = float(zona.get("factor") or 1.0)
         for item in items:
@@ -3736,21 +3870,33 @@ def _precio_supabase_por_accion(descripcion, unidad, accion):
     if client is None:
         raise RuntimeError("Cliente supabase es None (revisa SUPABASE_URL y SUPABASE_KEY en .env)")
     nucleo = _nucleo_busqueda_catalogo(_corregir_typos_catalogo(descripcion)) or descripcion
+    consulta = _consulta_medida_plano(nucleo) or nucleo
     filas, vistos = [], set()
     try:
-        for row in _filas_catalogo_vector(nucleo, unidad):
+        for row in _filas_catalogo_locales(consulta, unidad, limite=40):
             clave = row.get("id") or row.get("codigo")
             if clave not in vistos:
                 vistos.add(clave)
                 filas.append(row)
-        if accion in ("demo", "replace", "replace_material"):
-            for row in _filas_catalogo_vector(f"{nucleo} retiro demolición", unidad):
+    except Exception as err:
+        print(f"--> precio-accion catalogo local: {err}")
+    if filas:
+        print(f"--> precio-accion catalogo local '{consulta[:60]}' {unidad}: {len(filas)} filas")
+    else:
+        try:
+            for row in _filas_catalogo_vector(nucleo, unidad):
                 clave = row.get("id") or row.get("codigo")
                 if clave not in vistos:
                     vistos.add(clave)
                     filas.append(row)
-    except Exception as err:
-        print(f"--> precio-accion vector: {err}")
+            if accion in ("demo", "replace", "replace_material"):
+                for row in _filas_catalogo_vector(f"{nucleo} retiro demolición", unidad):
+                    clave = row.get("id") or row.get("codigo")
+                    if clave not in vistos:
+                        vistos.add(clave)
+                        filas.append(row)
+        except Exception as err:
+            print(f"--> precio-accion vector: {err}")
     if not filas:
         termino = _limpiar_termino_catalogo(nucleo)
         categoria = re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{4,}", nucleo.split(" - ", 1)[0])
@@ -3772,7 +3918,7 @@ def _precio_supabase_por_accion(descripcion, unidad, accion):
                     filas.append(row)
         if not filas:
             filas = list(buscar_filas_catalogo(nucleo) or [])
-    tokens = _tokens_busqueda_catalogo(nucleo)
+    tokens = _tokens_busqueda_catalogo(consulta)
     trabajo, demolicion = [], []
     for row in filas:
         item = normalizar_item_catalogo(row)
@@ -6178,6 +6324,25 @@ def aceptar_contrato_publico(token_aceptacion):
         aviso=aviso,
     )
     return Response(pagina, mimetype="text/html", headers={"Cache-Control": "no-store"})
+
+
+def _precalentar_busquedas():
+    try:
+        from oficios import todas_filas_catalogo
+        print(f"--> Catálogo listo en memoria: {len(todas_filas_catalogo() or [])} ítems")
+    except Exception as err:
+        print(f"--> Catálogo en memoria: {err}")
+    try:
+        _filas_factores_regionales()
+    except Exception as err:
+        print(f"--> Factores regionales: {err}")
+    try:
+        _motor_uszipcode()
+    except Exception as err:
+        print(f"--> uszipcode: {err}")
+
+
+threading.Thread(target=_precalentar_busquedas, daemon=True, name="catalogo-cache").start()
 
 
 if __name__ == "__main__":

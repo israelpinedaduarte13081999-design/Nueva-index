@@ -278,6 +278,7 @@ def todas_filas_catalogo():
     }
     ctx = ssl._create_unverified_context()
     offset = 0
+    error = False
     while True:
         params = {
             "select": "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra",
@@ -291,6 +292,7 @@ def todas_filas_catalogo():
                 lote = json.loads(resp.read().decode("utf-8") or "[]")
         except Exception as err:
             print(f"oficios catalogo: {err}")
+            error = True
             break
         if not isinstance(lote, list) or not lote:
             break
@@ -298,6 +300,8 @@ def todas_filas_catalogo():
         if len(lote) < 1000:
             break
         offset += 1000
+    if error and not filas:
+        return filas
     _CACHE_CATALOGO = filas
     return filas
 

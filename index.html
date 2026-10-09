@@ -3385,6 +3385,10 @@
       }
       const seq=++buscarYMostrarCatalogo._seq;
       buscarYMostrarCatalogo._input=input;
+      if(buscarYMostrarCatalogo._abort)buscarYMostrarCatalogo._abort.abort();
+      const controller=new AbortController();
+      buscarYMostrarCatalogo._abort=controller;
+      const corte=setTimeout(()=>controller.abort(),8000);
       menu.innerHTML='<div class="task-dropdown-group">Buscando en catálogo…</div>';
       posicionarMenuTareas(input,menu);
       let resultados=[];
@@ -3395,7 +3399,7 @@
         zipActivo=String(document.getElementById('zip-code')?.value||document.getElementById('clientZip')?.value||'').replace(/\D/g,'').slice(0,5);
         const oficioTexto=typeof oficioDesdeTexto==='function'?oficioDesdeTexto(texto):'';
         oficio=oficioTexto||(typeof oficioDesdeUI==='function'?oficioDesdeUI():'');
-        const response=await fetch(urlApiCatalogo(texto,{campo:campoBusquedaCatalogo(input),oficio:oficio}));
+        const response=await fetch(urlApiCatalogo(texto,{campo:campoBusquedaCatalogo(input),oficio:oficio}),{signal:controller.signal});
         const data=await response.json().catch(()=>({}));
         resultados=extraerItemsBusquedaCatalogo(data);
         if(data&&data.error){
@@ -3404,9 +3408,16 @@
         }
         if(!response.ok&&!resultados.length)errorMsg=errorMsg||('Catalog search failed ('+response.status+')');
       }catch(err){
-        resultados=[];
-        errorMsg=(err&&err.message)||'Could not reach the catalog server.';
-        console.error(err);
+        if(err&&err.name==='AbortError'){
+          if(seq!==buscarYMostrarCatalogo._seq)return;
+          errorMsg='La búsqueda del catálogo tardó demasiado. Intenta otra vez.';
+        }else{
+          resultados=[];
+          errorMsg=(err&&err.message)||'Could not reach the catalog server.';
+          console.error(err);
+        }
+      }finally{
+        clearTimeout(corte);
       }
       if(seq!==buscarYMostrarCatalogo._seq||buscarYMostrarCatalogo._input!==input)return;
       if(errorMsg&&!resultados.length){
