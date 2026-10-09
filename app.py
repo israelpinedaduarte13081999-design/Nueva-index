@@ -1812,14 +1812,17 @@ def _puntaje_coincidencia_catalogo(row, q, tokens=None, unidad=None):
         score += 95
     elif qn and desc and (qn in desc or desc in qn) and min(len(qn), len(desc)) >= 6:
         score += 45
-    blob_n = _sin_acentos(blob)
-    palabras = [p for p in re.split(r"[^a-z0-9]+", blob_n) if p]
+    blob_n = row.get("_busca")
+    if not isinstance(blob_n, str) or not blob_n:
+        blob_n = _sin_acentos(blob)
+        if isinstance(row, dict):
+            row["_busca"] = blob_n
     hits = 0
     for t in tokens or _tokens_busqueda_catalogo(q):
         if not t:
             continue
         tn = _sin_acentos(t)
-        if tn in blob_n or any(palabra.startswith(tn) for palabra in palabras if len(tn) >= 3):
+        if tn in blob_n:
             score += 18 if tn in _TOKENS_MEDIDA else 8
             hits += 1
     if hits >= 2:
@@ -3538,31 +3541,29 @@ def buscar_catalogo():
         unidad_q = (request.args.get("unidad") or request.args.get("unit") or "").upper()
         filas = []
         ultimo_err = None
+        from oficios import catalogo_en_carga
         if q_match:
             try:
                 filas = _filas_catalogo_locales(q_match, unidad_q)
             except Exception as err:
                 ultimo_err = err
                 print(f"--> buscar-catalogo local: {err}")
-            if not filas and client is None:
-                raise RuntimeError("Cliente supabase es None (revisa SUPABASE_URL y SUPABASE_KEY en .env)")
-            if not filas:
-                termino = _limpiar_termino_catalogo(_consulta_medida_plano(q_match) or q_match)
-                if termino:
-                    try:
-                        res = client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO).or_(
-                            f"descripcion.ilike.%{termino}%,codigo.ilike.%{termino}%"
-                        ).limit(80).execute()
-                        filas = list(res.data or [])
-                        ultimo_err = None
-                    except Exception as err:
-                        ultimo_err = err
-                        print(f"--> buscar-catalogo filtro: {err}")
+            if not filas and catalogo_en_carga():
+                payload = {
+                    "success": True,
+                    "items": [],
+                    "count": 0,
+                    "idioma": idioma,
+                    "traduciendo": True,
+                    "cargando": True,
+                }
+                resp = jsonify(payload)
+                resp.headers["Access-Control-Allow-Origin"] = "*"
+                return resp
         elif client is None:
             raise RuntimeError("Cliente supabase es None (revisa SUPABASE_URL y SUPABASE_KEY en .env)")
         else:
-            res = client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO).limit(200).execute()
-            filas = list(res.data or [])
+            filas = _filas_catalogo_locales(q or "", unidad_q)
         if ultimo_err and not filas:
             raise ultimo_err
         tokens = _tokens_busqueda_catalogo(_consulta_medida_plano(q_match) or q_match)

@@ -6,6 +6,7 @@ import json
 import os
 import re
 import ssl
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -154,6 +155,8 @@ _CODIGO_UI.update({
 _CACHE_CATALOGO = None
 _CACHE_CATALOGO_TS = 0.0
 _CACHE_CATALOGO_TTL = 120.0
+_CACHE_LOCK = threading.Lock()
+_CACHE_REFRESHING = False
 
 
 def _texto(*partes):
@@ -267,20 +270,21 @@ def _creds():
 
 def invalidar_catalogo():
     global _CACHE_CATALOGO, _CACHE_CATALOGO_TS
-    _CACHE_CATALOGO = None
-    _CACHE_CATALOGO_TS = 0.0
+    with _CACHE_LOCK:
+        _CACHE_CATALOGO = None
+        _CACHE_CATALOGO_TS = 0.0
 
 
-def todas_filas_catalogo():
-    global _CACHE_CATALOGO, _CACHE_CATALOGO_TS
-    ahora = time.time()
-    if _CACHE_CATALOGO is not None and ahora - _CACHE_CATALOGO_TS < _CACHE_CATALOGO_TTL:
-        return _CACHE_CATALOGO
+def catalogo_en_carga():
+    with _CACHE_LOCK:
+        return _CACHE_REFRESHING and not _CACHE_CATALOGO
+
+
+def _descargar_filas_catalogo():
     url, key = _creds()
     filas = []
     if not url or not key:
-        _CACHE_CATALOGO = filas
-        return filas
+        return filas, True
     headers = {
         "apikey": key,
         "Authorization": f"Bearer {key}",
@@ -299,7 +303,7 @@ def todas_filas_catalogo():
         query = urllib.parse.urlencode(params, safe="(),.*")
         req = urllib.request.Request(f"{url}/rest/v1/catalogo_items?{query}", headers=headers)
         try:
-            with urllib.request.urlopen(req, timeout=20, context=ctx) as resp:
+            with urllib.request.urlopen(req, timeout=12, context=ctx) as resp:
                 lote = json.loads(resp.read().decode("utf-8") or "[]")
         except Exception as err:
             print(f"oficios catalogo: {err}")
@@ -311,13 +315,62 @@ def todas_filas_catalogo():
         if len(lote) < 1000:
             break
         offset += 1000
-    if error and not filas:
-        return _CACHE_CATALOGO or filas
-    if filas:
-        _CACHE_CATALOGO = filas
-        _CACHE_CATALOGO_TS = time.time()
-        print(f"--> Catálogo recargado desde Supabase: {len(filas)} ítems")
-    return _CACHE_CATALOGO or filas
+    return filas, error
+
+
+def _guardar_descarga_catalogo(filas, error):
+    global _CACHE_CATALOGO, _CACHE_CATALOGO_TS
+    with _CACHE_LOCK:
+        if filas:
+            _CACHE_CATALOGO = filas
+            _CACHE_CATALOGO_TS = time.time()
+            print(f"--> Catálogo recargado desde Supabase: {len(filas)} ítems")
+        elif _CACHE_CATALOGO:
+            _CACHE_CATALOGO_TS = time.time() - _CACHE_CATALOGO_TTL + 45
+        else:
+            _CACHE_CATALOGO = []
+            _CACHE_CATALOGO_TS = time.time() - _CACHE_CATALOGO_TTL + 20
+            if error:
+                print("--> Catálogo no se pudo descargar; se reintenta en unos segundos")
+        return _CACHE_CATALOGO
+
+
+def _refresco_catalogo_background():
+    global _CACHE_REFRESHING
+    try:
+        filas, error = _descargar_filas_catalogo()
+        _guardar_descarga_catalogo(filas, error)
+    finally:
+        with _CACHE_LOCK:
+            _CACHE_REFRESHING = False
+
+
+def _arrancar_descarga_catalogo():
+    global _CACHE_REFRESHING
+    if _CACHE_REFRESHING:
+        return
+    _CACHE_REFRESHING = True
+    threading.Thread(target=_refresco_catalogo_background, daemon=True, name="catalogo-refresh").start()
+
+
+def todas_filas_catalogo():
+    """Devuelve el catálogo ya descargado. Nunca espera a Supabase en la búsqueda."""
+    global _CACHE_REFRESHING
+    with _CACHE_LOCK:
+        ahora = time.time()
+        if _CACHE_CATALOGO is not None and ahora - _CACHE_CATALOGO_TS < _CACHE_CATALOGO_TTL:
+            return _CACHE_CATALOGO
+        if _CACHE_CATALOGO:
+            if not _CACHE_REFRESHING:
+                _CACHE_REFRESHING = True
+                threading.Thread(
+                    target=_refresco_catalogo_background,
+                    daemon=True,
+                    name="catalogo-refresh",
+                ).start()
+            return _CACHE_CATALOGO
+        _arrancar_descarga_catalogo()
+        return []
 
 
 def filas_catalogo_oficio(oficio):
