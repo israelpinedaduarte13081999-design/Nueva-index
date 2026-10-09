@@ -1164,8 +1164,10 @@ def _idioma_de_texto(texto):
         es += 1
     if es > en:
         return "es"
-    if en > es:
+    if en > es and not es:
         return "en"
+    if es:
+        return "es"
     if re.search(r"\b(the|and|with|for|grade|finish|install|removal|panel|molding)\b", bajo):
         return "en"
     return "en"
@@ -3143,12 +3145,54 @@ def _traducciones_openai(textos, destino):
     return salida
 
 
+_TRAD_EN_COLA = set()
+
+
+def _aplicar_texto_idioma(item, original, texto, idioma):
+    if idioma == "es":
+        item["descripcion_es"] = texto
+        item["descripcion_en"] = item.get("descripcion_en") or (original if original != texto else "")
+    else:
+        item["descripcion_en"] = texto
+        item["descripcion_es"] = item.get("descripcion_es") or (original if original != texto else "")
+    item["descripcion"] = texto
+    item["desc"] = texto
+    item["idioma"] = idioma
+    item["descripciones"] = {"es": item.get("descripcion_es") or "", "en": item.get("descripcion_en") or ""}
+
+
+def _encolar_traduccion(textos, destino):
+    """OpenAI traduce después de responder. La búsqueda no se queda esperando."""
+    nuevos = []
+    with _CACHE_TRAD_LOCK:
+        _cargar_cache_traduccion()
+        for texto in textos:
+            clave = f"{destino}:{texto}"
+            if not texto or clave in _CACHE_TRADUCCION_IDIOMA or clave in _TRAD_EN_COLA:
+                continue
+            _TRAD_EN_COLA.add(clave)
+            nuevos.append(texto)
+    if not nuevos:
+        return
+
+    def _trabajo():
+        try:
+            _traducciones_openai(nuevos, destino)
+        finally:
+            with _CACHE_TRAD_LOCK:
+                for texto in nuevos:
+                    _TRAD_EN_COLA.discard(f"{destino}:{texto}")
+
+    threading.Thread(target=_trabajo, daemon=True, name="traduccion-catalogo").start()
+
+
 def _items_en_idioma_busqueda(items, idioma):
-    """La lista sale solo en el idioma de la búsqueda. OpenAI traduce lo que está en el otro."""
+    """La lista sale solo en el idioma de la búsqueda. Lo ya traducido entra al momento."""
     if idioma not in ("es", "en"):
-        return items
+        return items, False
+    _cargar_cache_traduccion()
     finales = []
-    traducir = []
+    pendientes = []
     for item in items or []:
         if not isinstance(item, dict):
             continue
@@ -3161,34 +3205,20 @@ def _items_en_idioma_busqueda(items, idioma):
         elif propio == "en":
             item["descripcion_en"] = original
         if propio == idioma:
-            item["descripcion"] = original
-            item["desc"] = original
-            item["idioma"] = idioma
-            textos = dict(item.get("descripciones") or {})
-            textos[idioma] = original
-            item["descripciones"] = textos
+            _aplicar_texto_idioma(item, original, original, idioma)
+            finales.append(item)
+            continue
+        trad = ""
+        with _CACHE_TRAD_LOCK:
+            trad = _CACHE_TRADUCCION_IDIOMA.get(f"{idioma}:{original}") or ""
+        if trad and _idioma_de_texto(trad) == idioma:
+            _aplicar_texto_idioma(item, original, trad, idioma)
             finales.append(item)
         else:
-            traducir.append(item)
-    if traducir:
-        origenes = [str(item.get("descripcion") or item.get("desc") or "").strip() for item in traducir]
-        textos = _traducciones_openai(origenes, idioma)
-        for item, original, trad in zip(traducir, origenes, textos):
-            if not trad or _idioma_de_texto(trad) != idioma:
-                continue
-            if idioma == "es":
-                item["descripcion_es"] = trad
-                item["descripcion_en"] = item.get("descripcion_en") or original
-            else:
-                item["descripcion_en"] = trad
-                item["descripcion_es"] = item.get("descripcion_es") or original
-            item["descripcion"] = trad
-            item["desc"] = trad
-            item["idioma"] = idioma
-            textos_item = {"es": item.get("descripcion_es") or "", "en": item.get("descripcion_en") or ""}
-            item["descripciones"] = textos_item
-            finales.append(item)
-    return finales
+            pendientes.append(original)
+    if pendientes:
+        _encolar_traduccion(pendientes, idioma)
+    return finales, bool(pendientes)
 
 
 def _filas_catalogo_por_codigos(codigos):
@@ -3554,11 +3584,11 @@ def buscar_catalogo():
             item["precio_zona"] = round(base * factor, 2)
             item["ajuste_zip"] = True
             item["fuente"] = item.get("fuente") or "supabase"
-        items = _items_en_idioma_busqueda(items, idioma)
-        print(f"--> catálogo supabase q='{q_match}' idioma={idioma} filas={len(filas)} items={len(items)}")
+        items, traduciendo = _items_en_idioma_busqueda(items, idioma)
+        print(f"--> catálogo supabase q='{q_match}' idioma={idioma} filas={len(filas)} items={len(items)} traduciendo={traduciendo}")
         if not items and str(request.args.get("registrar_faltante") or "") in ("1", "true", "si", "yes"):
             registrar_item_faltante(q, oficio, zona.get("zip") or zip_q)
-        payload = {"success": True, "items": items, "count": len(items), "idioma": idioma}
+        payload = {"success": True, "items": items, "count": len(items), "idioma": idioma, "traduciendo": traduciendo}
         resp = jsonify(payload)
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp
