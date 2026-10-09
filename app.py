@@ -476,65 +476,31 @@ No mezcles partidas de otro oficio (p. ej. no pongas siding HardieShingle en un 
 """
 
 SYSTEM_PROMPT_PLANOS = (
-    "Eres un Estimador General de Construcción y operador de Sketch profesional "
-    "(estilo Xactimate / EagleView interior takeoff). Lees planos de planta con visión: "
-    "el texto suele estar vectorizado o dibujado, no extraído como OCR. "
-    "Identificas CADA cuarto o área (Kitchen, Master Bed, Hall, Garage, Bath, Closet, etc.), "
-    "lees cotas, escalas gráficas y el dibujo de gabinetes/islas. "
-    "No te limites a un oficio: el takeoff alimenta piso, cielo, paredes, zócalo y gabinetes. "
-    "No inventes cuartos que no se vean. Si una cota no es legible, estima solo con la escala "
-    "del plano o deja 0. Altura de pared estándar = 8 ft salvo que el plano indique otra. "
-    "Responde SIEMPRE en JSON válido, sin markdown ni comentarios."
+    "Eres un medidor de planos (takeoff). Solo extraes medidas por cuarto. "
+    "Lees cotas y la escala dibujada. No inventes cuartos. "
+    "Altura de pared = 8 ft si el plano no dice otra. "
+    "Responde solo JSON válido, sin markdown."
 )
 
-PROMPT_PLANOS_VISION = """Analiza visualmente estas láminas como un Sketch profesional de interiores.
+PROMPT_PLANOS_VISION = """De estas láminas saca SOLO medidas, cuarto por cuarto.
 
-Para CADA cuarto o área acotada en la planta:
-1) Lee el nombre (Kitchen, Master Bed, Bath, Living, Hall, Closet, Garage, Laundry, etc.).
-2) Calcula floor_sf con las cotas o la escala gráfica.
-3) ceiling_sf = floor_sf salvo cielo abovedado/doble altura etiquetado.
-4) Mide o infiere el perímetro. wall_sf = perímetro × 8 (o la altura de plafón si está acotada).
-5) wall_and_ceiling_sf = wall_sf + ceiling_sf.
-6) trim_lf = perímetro (zócalo / baseboard). No descuentes vanos salvo que el plano lo pida.
-7) cabinets_lf: SOLO cocina, baño, laundry o bar. Suma corridas de base/wall cabinets e islas dibujadas, en pies lineales. Si no hay gabinetes, 0.
+Por cada cuarto visible:
+- room_name
+- floor_sf: área de piso
+- ceiling_sf: área de cielo (igual al piso si no hay doble altura)
+- wall_sf: perímetro x altura (8 ft si no hay otra cota)
+- wall_and_ceiling_sf: wall_sf + ceiling_sf
+- trim_lf: perímetro (zócalo)
+- cabinets_lf: pies lineales de gabinetes solo en cocina, baño o laundry; si no hay, 0
 
-Devuelve UN solo objeto JSON con EXACTAMENTE estas dos claves de primer nivel (obligatorias):
-
-{
-  "rooms": [
-    {
-      "room_name": "Kitchen",
-      "floor_sf": 168.5,
-      "ceiling_sf": 168.5,
-      "wall_sf": 432.0,
-      "wall_and_ceiling_sf": 600.5,
-      "trim_lf": 54.0,
-      "cabinets_lf": 22.0,
-      "source_page": 1
-    }
-  ],
-  "grand_totals": {
-    "floor_sf": 0,
-    "ceiling_sf": 0,
-    "wall_sf": 0,
-    "wall_and_ceiling_sf": 0,
-    "trim_lf": 0,
-    "cabinets_lf": 0
-  }
-}
-
-Reglas:
-- "rooms" es un arreglo. Un objeto por cuarto. Nombres en el idioma del plano.
-- "grand_totals" suma TODAS las variables numéricas de rooms (mismos campos, sin room_name).
-- Números en pies (SF / LF), no metros. Redondea a 2 decimales. No uses strings para cantidades.
-- No omitas las dos claves. No envuelvas el JSON en markdown.
-- Si un lote de páginas no tiene planta, rooms=[] y grand_totals en ceros.
-- Puedes añadir "project_summary" opcional (title, address, sheet_titles) además de las dos claves obligatorias.
+JSON obligatorio, números en pies, 2 decimales:
+{"rooms":[{"room_name":"Kitchen","floor_sf":168,"ceiling_sf":168,"wall_sf":416,"wall_and_ceiling_sf":584,"trim_lf":52,"cabinets_lf":0,"source_page":1}],"grand_totals":{"floor_sf":168,"ceiling_sf":168,"wall_sf":416,"wall_and_ceiling_sf":584,"trim_lf":52,"cabinets_lf":0}}
+grand_totals es la suma de todos los cuartos. Si no hay planta, rooms=[].
 """
 
-PLANOS_MAX_PAGINAS = 8
-PLANOS_LOTE_PAGINAS = 2
-PLANOS_DPI = 140
+PLANOS_MAX_PAGINAS = 4
+PLANOS_LOTE_PAGINAS = 4
+PLANOS_DPI = 120
 
 PROMPT_ROOF_REPORT = """
 Este PDF es un ROOF REPORT de MEDICIONES (Roofr, EagleView, Hover, GAF QuickMeasure u otro).
@@ -5278,44 +5244,29 @@ def _normalizar_payload_planos(parsed, paginas=0, paginas_total=0):
 
 
 def _analizar_plano_vision(pdf_bytes):
-    from claude_pdf import MODELO_CLAUDE, MODELOS_CLAUDE, analizar_imagenes_json, pdf_paginas_a_imagenes
+    from claude_pdf import MODELO_CLAUDE, analizar_imagenes_json, pdf_paginas_a_imagenes
 
     imagenes = pdf_paginas_a_imagenes(
         pdf_bytes,
         dpi=PLANOS_DPI,
         max_paginas=PLANOS_MAX_PAGINAS,
+        max_lado=1400,
     )
-    combinado = {}
-    lote = PLANOS_LOTE_PAGINAS
-    errores = []
-    for inicio in range(0, len(imagenes), lote):
-        grupo = imagenes[inicio:inicio + lote]
-        paginas = ", ".join(str(img["page"]) for img in grupo)
-        prompt = (
-            PROMPT_PLANOS_VISION
-            + f"\nEstas imágenes corresponden a las páginas {paginas} "
-            + f"de {imagenes[0].get('pages_total') or len(imagenes)} del PDF."
-        )
-        try:
-            parsed = analizar_imagenes_json(
-                grupo,
-                prompt,
-                system=SYSTEM_PROMPT_PLANOS,
-                max_tokens=8192,
-                modelo=MODELO_CLAUDE,
-                modelos=MODELOS_CLAUDE,
-                timeout=90.0,
-            )
-        except Exception as err:
-            errores.append(str(err))
-            print(f"--> planos páginas {paginas}: {err}")
-            continue
-        if isinstance(parsed, dict):
-            _fusionar_json_planos(combinado, parsed)
-        elif isinstance(parsed, list):
-            _fusionar_json_planos(combinado, {"rooms": parsed})
-    if not combinado and errores:
-        raise RuntimeError(errores[-1])
+    paginas = ", ".join(str(img["page"]) for img in imagenes)
+    prompt = (
+        PROMPT_PLANOS_VISION
+        + f"\nPáginas {paginas} de {imagenes[0].get('pages_total') or len(imagenes)}."
+    )
+    parsed = analizar_imagenes_json(
+        imagenes,
+        prompt,
+        system=SYSTEM_PROMPT_PLANOS,
+        max_tokens=4096,
+        modelo=MODELO_CLAUDE,
+        modelos=(MODELO_CLAUDE,),
+        timeout=80.0,
+    )
+    combinado = parsed if isinstance(parsed, dict) else {"rooms": parsed if isinstance(parsed, list) else []}
     return _normalizar_payload_planos(
         combinado,
         paginas=len(imagenes),
