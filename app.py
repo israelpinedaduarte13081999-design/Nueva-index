@@ -3218,8 +3218,13 @@ def _encolar_traduccion(textos, destino):
     threading.Thread(target=_trabajo, daemon=True, name="traduccion-catalogo").start()
 
 
+def _traduccion_guardada(texto, idioma):
+    with _CACHE_TRAD_LOCK:
+        return _CACHE_TRADUCCION_IDIOMA.get(f"{idioma}:{texto}") or ""
+
+
 def _items_en_idioma_busqueda(items, idioma):
-    """La lista sale solo en el idioma de la búsqueda. Lo ya traducido entra al momento."""
+    """La lista sale en el idioma de la búsqueda. Si todavía no hay ninguna, espera la traducción."""
     if idioma not in ("es", "en"):
         return items, False
     _cargar_cache_traduccion()
@@ -3240,16 +3245,30 @@ def _items_en_idioma_busqueda(items, idioma):
             _aplicar_texto_idioma(item, original, original, idioma)
             finales.append(item)
             continue
-        trad = ""
-        with _CACHE_TRAD_LOCK:
-            trad = _CACHE_TRADUCCION_IDIOMA.get(f"{idioma}:{original}") or ""
-        if trad and _idioma_de_texto(trad) == idioma:
+        trad = _traduccion_guardada(original, idioma)
+        if trad:
             _aplicar_texto_idioma(item, original, trad, idioma)
             finales.append(item)
         else:
-            pendientes.append(original)
+            pendientes.append(item)
+    if pendientes and not finales:
+        textos = [str(item.get("descripcion") or item.get("desc") or "").strip() for item in pendientes]
+        try:
+            trads = _traducciones_openai(textos, idioma)
+        except Exception as err:
+            print(f"--> traducir catalogo: {err}")
+            trads = []
+        for pos, item in enumerate(pendientes):
+            original = textos[pos]
+            trad = trads[pos] if pos < len(trads) else ""
+            _aplicar_texto_idioma(item, original, trad or original, idioma)
+            finales.append(item)
+        return finales, False
     if pendientes:
-        _encolar_traduccion(pendientes, idioma)
+        _encolar_traduccion(
+            [str(item.get("descripcion") or item.get("desc") or "").strip() for item in pendientes],
+            idioma,
+        )
     return finales, bool(pendientes)
 
 
@@ -3541,7 +3560,8 @@ def buscar_catalogo():
         unidad_q = (request.args.get("unidad") or request.args.get("unit") or "").upper()
         filas = []
         ultimo_err = None
-        from oficios import catalogo_en_carga
+        from oficios import catalogo_en_carga, esperar_catalogo
+        esperar_catalogo(28)
         if q_match:
             try:
                 filas = _filas_catalogo_locales(q_match, unidad_q)
@@ -3556,6 +3576,7 @@ def buscar_catalogo():
                     "idioma": idioma,
                     "traduciendo": True,
                     "cargando": True,
+                    "listo": False,
                 }
                 resp = jsonify(payload)
                 resp.headers["Access-Control-Allow-Origin"] = "*"
@@ -3638,7 +3659,15 @@ def buscar_catalogo():
         print(f"--> catálogo supabase q='{q_match}' idioma={idioma} filas={len(filas)} items={len(items)} traduciendo={traduciendo}")
         if not items and str(request.args.get("registrar_faltante") or "") in ("1", "true", "si", "yes"):
             registrar_item_faltante(q, oficio, zona.get("zip") or zip_q)
-        payload = {"success": True, "items": items, "count": len(items), "idioma": idioma, "traduciendo": traduciendo}
+        payload = {
+            "success": True,
+            "items": items,
+            "count": len(items),
+            "idioma": idioma,
+            "traduciendo": traduciendo,
+            "cargando": False,
+            "listo": True,
+        }
         resp = jsonify(payload)
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp

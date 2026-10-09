@@ -3388,8 +3388,8 @@
       if(buscarYMostrarCatalogo._abort)buscarYMostrarCatalogo._abort.abort();
       const controller=new AbortController();
       buscarYMostrarCatalogo._abort=controller;
-      const corte=setTimeout(()=>controller.abort(),20000);
-      if(!silencioso){
+      const corte=setTimeout(()=>controller.abort(),45000);
+      if(!silencioso || !menu.querySelector('.task-dropdown-item')){
         menu.innerHTML='<div class="task-dropdown-group">Buscando en catálogo…</div>';
         posicionarMenuTareas(input,menu);
       }
@@ -3405,16 +3405,15 @@
         const response=await fetch(urlApiCatalogo(texto,{campo:campoBusquedaCatalogo(input),oficio:oficio}),{signal:controller.signal});
         data=await response.json().catch(()=>({}));
         resultados=extraerItemsBusquedaCatalogo(data);
-        const sigue=data&&(data.traduciendo||data.cargando);
-        const tope=data&&data.cargando?24:8;
-        if(sigue&&(intento||0)<tope){
+        const sigue=data&&(data.traduciendo||data.cargando||data.listo===false);
+        if(sigue&&!resultados.length&&(intento||0)<40){
           const seqAhora=seq;
           const textoAhora=texto;
           setTimeout(()=>{
             if(seqAhora!==buscarYMostrarCatalogo._seq)return;
             if(!input.isConnected||(input.value||'').trim()!==textoAhora)return;
             buscarYMostrarCatalogo(input,true,(intento||0)+1);
-          },data.cargando?700:1400);
+          },800);
         }
         if(data&&data.error){
           errorMsg=String(data.error);
@@ -3424,14 +3423,16 @@
       }catch(err){
         if(err&&err.name==='AbortError'){
           if(seq!==buscarYMostrarCatalogo._seq)return;
-          if((intento||0)<2){
+          if((intento||0)<6){
             const seqAhora=seq;
             const textoAhora=texto;
+            menu.innerHTML='<div class="task-dropdown-group">Buscando en catálogo…</div>';
+            posicionarMenuTareas(input,menu);
             setTimeout(()=>{
               if(seqAhora!==buscarYMostrarCatalogo._seq)return;
               if(!input.isConnected||(input.value||'').trim()!==textoAhora)return;
               buscarYMostrarCatalogo(input,true,(intento||0)+1);
-            },350);
+            },400);
             return;
           }
           errorMsg='La búsqueda del catálogo tardó demasiado. Intenta otra vez.';
@@ -3444,12 +3445,18 @@
         clearTimeout(corte);
       }
       if(seq!==buscarYMostrarCatalogo._seq||buscarYMostrarCatalogo._input!==input)return;
-      if(!resultados.length&&data&&(data.traduciendo||data.cargando)){
-        if(!silencioso){
-          menu.innerHTML='<div class="task-dropdown-group">Buscando en catálogo…</div>';
-          posicionarMenuTareas(input,menu);
-        }
+      if(!resultados.length&&data&&(data.traduciendo||data.cargando||data.listo===false)){
+        menu.innerHTML='<div class="task-dropdown-group">Buscando en catálogo…</div>';
+        posicionarMenuTareas(input,menu);
         return;
+      }
+      if(!resultados.length&&buscarYMostrarCatalogo._ultimoTexto===texto&&(buscarYMostrarCatalogo._ultimos||[]).length){
+        pintarSugerenciasCatalogo(input, buscarYMostrarCatalogo._ultimos);
+        return;
+      }
+      if(resultados.length){
+        buscarYMostrarCatalogo._ultimoTexto=texto;
+        buscarYMostrarCatalogo._ultimos=resultados;
       }
       if(errorMsg&&!resultados.length){
         const menuErr=menuSugerenciasCatalogo();

@@ -353,8 +353,24 @@ def _arrancar_descarga_catalogo():
     threading.Thread(target=_refresco_catalogo_background, daemon=True, name="catalogo-refresh").start()
 
 
+def esperar_catalogo(segundos=28):
+    """Espera a que el catálogo esté en memoria. La búsqueda no responde vacía mientras baja."""
+    todas_filas_catalogo()
+    limite = time.time() + float(segundos or 0)
+    while time.time() < limite:
+        with _CACHE_LOCK:
+            if _CACHE_CATALOGO:
+                return _CACHE_CATALOGO
+            sigue = _CACHE_REFRESHING or _CACHE_CATALOGO is None
+        if not sigue:
+            break
+        time.sleep(0.2)
+    with _CACHE_LOCK:
+        return _CACHE_CATALOGO or []
+
+
 def todas_filas_catalogo():
-    """Devuelve el catálogo ya descargado. Nunca espera a Supabase en la búsqueda."""
+    """Devuelve el catálogo ya descargado. Si todavía no está, arranca la descarga y no bloquea."""
     global _CACHE_REFRESHING
     with _CACHE_LOCK:
         ahora = time.time()
