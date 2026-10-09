@@ -5308,7 +5308,7 @@ def _analizar_plano_vision(pdf_bytes):
             _fusionar_json_planos(combinado, parsed)
         elif isinstance(parsed, list):
             _fusionar_json_planos(combinado, {"extracted_rows": parsed})
-        if not combinado:
+    if not combinado:
         raise RuntimeError("Claude Vision no encontró cuartos en el plano")
     return _normalizar_payload_planos(
         combinado,
