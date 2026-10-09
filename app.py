@@ -92,6 +92,14 @@ def _crear_cliente_supabase(url, key):
 
 try:
     _sb_url, _sb_key = _supabase_creds()
+    _sb_host = _sb_url.split("//", 1)[-1].split("/", 1)[0] if _sb_url else "(sin url)"
+    _sb_tipo = (
+        "publishable" if _sb_key.startswith("sb_publishable_")
+        else "service" if "service" in _sb_key[:20]
+        else "jwt" if _sb_key.startswith("eyJ")
+        else "otra" if _sb_key else "vacia"
+    )
+    print(f"--> Supabase host={_sb_host} clave={_sb_tipo} len={len(_sb_key)}")
     supabase = _crear_cliente_supabase(_sb_url, _sb_key)
     if supabase is None:
         print("--> Cliente supabase es None (faltan SUPABASE_URL / SUPABASE_KEY)")
@@ -4139,6 +4147,7 @@ def _texto_para_embedding(descripcion, unidad=""):
 def _embeddings_openai(textos):
     key = _openai_api_key()
     if not key:
+        print("--> OpenAI embeddings: falta OPENAI_API_KEY en .env")
         raise RuntimeError("Falta OPENAI_API_KEY en .env")
     entradas = [re.sub(r"\s+", " ", str(t or "")).strip()[:4000] for t in textos]
     if not any(entradas):
@@ -4146,23 +4155,40 @@ def _embeddings_openai(textos):
     import httpx
 
     verify = (os.getenv("GEMINI_SSL_VERIFY") or "1").strip().lower() not in ("0", "false", "no", "off")
-    with httpx.Client(verify=verify, timeout=60.0) as http:
-        resp = http.post(
-            "https://api.openai.com/v1/embeddings",
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-            json={"model": EMBEDDING_MODELO, "input": entradas},
-        )
+    prefijo = key[:7]
+    print(
+        f"--> OpenAI embeddings: modelo={EMBEDDING_MODELO} textos={len(entradas)} "
+        f"clave={prefijo}… len={len(key)} ssl_verify={verify}"
+    )
+    try:
+        with httpx.Client(verify=verify, timeout=60.0) as http:
+            resp = http.post(
+                "https://api.openai.com/v1/embeddings",
+                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                json={"model": EMBEDDING_MODELO, "input": entradas},
+            )
+    except Exception as err:
+        print(f"--> OpenAI embeddings: fallo de conexion {type(err).__name__}: {err}")
+        raise
+    print(f"--> OpenAI embeddings: HTTP {resp.status_code}")
     if resp.status_code >= 400:
-        raise RuntimeError(f"OpenAI embeddings HTTP {resp.status_code}: {resp.text[:300]}")
+        cuerpo = (resp.text or "")[:300]
+        print(f"--> OpenAI embeddings: error {cuerpo}")
+        raise RuntimeError(f"OpenAI embeddings HTTP {resp.status_code}: {cuerpo}")
     datos = (resp.json() or {}).get("data") or []
     por_indice = {int(item.get("index", i)): item.get("embedding") for i, item in enumerate(datos)}
     vectores = []
     for i, texto in enumerate(entradas):
         vector = por_indice.get(i)
         if not texto or not isinstance(vector, list) or len(vector) != EMBEDDING_DIM:
+            print(
+                f"--> OpenAI embeddings: vector invalido i={i} "
+                f"tipo={type(vector).__name__} dim={len(vector) if isinstance(vector, list) else 0}"
+            )
             vectores.append(None)
         else:
             vectores.append(vector)
+    print(f"--> OpenAI embeddings: vectores_ok={sum(1 for v in vectores if v)}")
     return vectores
 
 
@@ -4177,9 +4203,15 @@ def _embedding_texto(descripcion, unidad=""):
 def _filas_catalogo_vector(descripcion, unidad=""):
     client = _supabase_client()
     if client is None:
+        print("--> match_items: cliente supabase es None")
         return []
-    vector = _embedding_texto(descripcion, unidad)
+    try:
+        vector = _embedding_texto(descripcion, unidad)
+    except Exception as err:
+        print(f"--> match_items: embedding fallo {type(err).__name__}: {err}")
+        return []
     if not vector:
+        print(f"--> match_items: sin vector para '{str(descripcion)[:60]}'")
         return []
     payload = {
         "query_embedding": vector,
@@ -4188,10 +4220,14 @@ def _filas_catalogo_vector(descripcion, unidad=""):
     }
     if unidad:
         payload["filter_unidad"] = str(unidad).upper()
+    print(
+        f"--> match_items: consulta '{str(descripcion)[:60]}' unidad={unidad or '-'} "
+        f"dim={len(vector)} umbral={UMBRAL_SIMILITUD_CATALOGO}"
+    )
     try:
         datos = client.rpc("match_items", payload).execute().data or []
     except Exception as err:
-        print(f"--> match_items: {err}")
+        print(f"--> match_items: error {type(err).__name__}: {err}")
         return []
     filas = []
     for row in datos:
