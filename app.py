@@ -532,9 +532,9 @@ Reglas:
 - Puedes añadir "project_summary" opcional (title, address, sheet_titles) además de las dos claves obligatorias.
 """
 
-PLANOS_MAX_PAGINAS = 12
-PLANOS_LOTE_PAGINAS = 6
-PLANOS_DPI = 180
+PLANOS_MAX_PAGINAS = 8
+PLANOS_LOTE_PAGINAS = 2
+PLANOS_DPI = 140
 
 PROMPT_ROOF_REPORT = """
 Este PDF es un ROOF REPORT de MEDICIONES (Roofr, EagleView, Hover, GAF QuickMeasure u otro).
@@ -5287,6 +5287,7 @@ def _analizar_plano_vision(pdf_bytes):
     )
     combinado = {}
     lote = PLANOS_LOTE_PAGINAS
+    errores = []
     for inicio in range(0, len(imagenes), lote):
         grupo = imagenes[inicio:inicio + lote]
         paginas = ", ".join(str(img["page"]) for img in grupo)
@@ -5295,21 +5296,26 @@ def _analizar_plano_vision(pdf_bytes):
             + f"\nEstas imágenes corresponden a las páginas {paginas} "
             + f"de {imagenes[0].get('pages_total') or len(imagenes)} del PDF."
         )
-        parsed = analizar_imagenes_json(
-            grupo,
-            prompt,
-            system=SYSTEM_PROMPT_PLANOS,
-            max_tokens=8192,
-            modelo=MODELO_CLAUDE,
-            modelos=MODELOS_CLAUDE,
-            timeout=180.0,
-        )
+        try:
+            parsed = analizar_imagenes_json(
+                grupo,
+                prompt,
+                system=SYSTEM_PROMPT_PLANOS,
+                max_tokens=8192,
+                modelo=MODELO_CLAUDE,
+                modelos=MODELOS_CLAUDE,
+                timeout=90.0,
+            )
+        except Exception as err:
+            errores.append(str(err))
+            print(f"--> planos páginas {paginas}: {err}")
+            continue
         if isinstance(parsed, dict):
             _fusionar_json_planos(combinado, parsed)
         elif isinstance(parsed, list):
-            _fusionar_json_planos(combinado, {"extracted_rows": parsed})
-    if not combinado:
-        raise RuntimeError("Claude Vision no encontró cuartos en el plano")
+            _fusionar_json_planos(combinado, {"rooms": parsed})
+    if not combinado and errores:
+        raise RuntimeError(errores[-1])
     return _normalizar_payload_planos(
         combinado,
         paginas=len(imagenes),

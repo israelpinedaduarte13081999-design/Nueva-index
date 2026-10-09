@@ -96,56 +96,68 @@ def _post_claude(payload, timeout=120.0):
         return resp.json()
 
 
-def pdf_paginas_a_imagenes(pdf_bytes, dpi=180, max_paginas=12, max_lado=2400, calidad=82):
-    """Renderiza cada página del PDF a JPEG Base64 para el endpoint de visión."""
+def _pixmap_plano(page, zoom):
     import fitz
 
+    matriz = fitz.Matrix(zoom, zoom)
+    try:
+        return page.get_pixmap(matrix=matriz, alpha=False, colorspace=fitz.csRGB)
+    except Exception:
+        return page.get_pixmap(matrix=matriz, alpha=False)
+
+
+def _jpeg_plano(pix, calidad=72, max_bytes=1_200_000):
+    jpeg = b""
+    usada = int(calidad or 72)
+    for q in (usada, 62, 50, 40, 32):
+        try:
+            jpeg = pix.tobytes("jpeg", jpg_quality=q)
+        except TypeError:
+            jpeg = pix.tobytes("jpeg")
+        usada = q
+        if jpeg and len(jpeg) <= int(max_bytes):
+            break
+    return jpeg, usada
+
+
+def pdf_paginas_a_imagenes(pdf_bytes, dpi=140, max_paginas=8, max_lado=1600, calidad=72, max_bytes=1_200_000):
+    """Renderiza cada página ya al tamaño final. Un plano tabloide a 180 dpi llenaba la RAM y devolvía 500."""
     if not pdf_bytes:
         raise RuntimeError("PDF vacío")
+    import fitz
+
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     imagenes = []
     try:
         total = doc.page_count
-        limite = min(int(max_paginas or 12), total)
-        zoom = max(1.0, float(dpi or 180) / 72.0)
+        limite = min(int(max_paginas or 8), total)
         for i in range(limite):
             page = doc.load_page(i)
-            mat = fitz.Matrix(zoom, zoom)
-            pix = page.get_pixmap(matrix=mat, alpha=False, colorspace=fitz.csRGB)
-            lado = max(pix.width, pix.height)
-            if lado > int(max_lado):
-                escala = float(max_lado) / float(lado)
-                pix = page.get_pixmap(
-                    matrix=fitz.Matrix(zoom * escala, zoom * escala),
-                    alpha=False,
-                    colorspace=fitz.csRGB,
-                )
-            jpeg = b""
-            usada = int(calidad or 82)
-            for q in (usada, 70, 58, 45):
-                try:
-                    jpeg = pix.tobytes("jpeg", jpg_quality=q)
-                except TypeError:
-                    jpeg = pix.tobytes("jpeg")
-                usada = q
-                if jpeg and len(jpeg) <= 4_500_000:
-                    break
+            rect = page.rect
+            lado_pts = max(float(rect.width or 1), float(rect.height or 1))
+            zoom = max(0.5, float(dpi or 140) / 72.0)
+            if lado_pts * zoom > float(max_lado):
+                zoom = float(max_lado) / lado_pts
+            pix = _pixmap_plano(page, zoom)
+            jpeg, usada = _jpeg_plano(pix, calidad=calidad, max_bytes=max_bytes)
+            if jpeg and len(jpeg) > int(max_bytes):
+                zoom *= 0.72
+                pix = _pixmap_plano(page, zoom)
+                jpeg, usada = _jpeg_plano(pix, calidad=50, max_bytes=max_bytes)
             if not jpeg:
-                jpeg = pix.tobytes("png")
-                media = "image/png"
-            else:
-                media = "image/jpeg"
+                raise RuntimeError(f"No se pudo comprimir la página {i + 1}")
             imagenes.append({
                 "page": i + 1,
                 "pages_total": total,
-                "media_type": media,
+                "media_type": "image/jpeg",
                 "data": base64.standard_b64encode(jpeg).decode("ascii"),
                 "width": pix.width,
                 "height": pix.height,
                 "bytes": len(jpeg),
                 "quality": usada,
             })
-            print(f"--> plano pág {i + 1}/{total}: {pix.width}x{pix.height} {media} {len(jpeg)} bytes")
+            print(f"--> plano pág {i + 1}/{total}: {pix.width}x{pix.height} image/jpeg {len(jpeg)} bytes")
+            pix = None
     finally:
         doc.close()
     if not imagenes:
@@ -216,6 +228,9 @@ def analizar_imagenes_json(imagenes, prompt, system=None, max_tokens=8192, model
         except Exception as err:
             ultimo = err
             print(f"--> Claude visión {nombre}: {err}")
+            texto = str(err).lower()
+            if any(marca in texto for marca in ("401", "403", "413", "invalid x-api-key", "credit", "too large", "prompt is too long")):
+                raise
             return None
 
     for nombre in nombres:
