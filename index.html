@@ -3409,16 +3409,14 @@
         const response=await fetch(urlApiCatalogo(texto,{campo:campoBusquedaCatalogo(input),oficio:oficio}),{signal:controller.signal});
         data=await response.json().catch(()=>({}));
         resultados=extraerItemsBusquedaCatalogo(data);
-        const falta=data&&!resultados.length&&(data.cargando||data.listo===false||data.traduciendo);
-        const refrescar=data&&data.traduciendo&&resultados.length&&(intento||0)<8;
-        if((falta&&(intento||0)<40)||refrescar){
+        if(!resultados.length&&data&&data.cargando&&(intento||0)<6){
           const seqAhora=seq;
           const textoAhora=texto;
           setTimeout(()=>{
             if(seqAhora!==buscarYMostrarCatalogo._seq)return;
             if(!input.isConnected||(input.value||'').trim()!==textoAhora)return;
             buscarYMostrarCatalogo(input,true,(intento||0)+1);
-          },falta?500:1200);
+          },400);
         }
         if(data&&data.error){
           errorMsg=String(data.error);
@@ -3428,22 +3426,20 @@
       }catch(err){
         if(err&&err.name==='AbortError'){
           if(seq!==buscarYMostrarCatalogo._seq)return;
-          if((intento||0)<8){
+          if((intento||0)<1){
             const seqAhora=seq;
             const textoAhora=texto;
-            if(!menu.querySelector('.task-dropdown-item')){
-              menu.innerHTML='<div class="task-dropdown-group">Buscando en catálogo…</div>';
-              posicionarMenuTareas(input,menu);
-            }
             setTimeout(()=>{
               if(seqAhora!==buscarYMostrarCatalogo._seq)return;
               if(!input.isConnected||(input.value||'').trim()!==textoAhora)return;
               buscarYMostrarCatalogo(input,true,(intento||0)+1);
-            },400);
+            },250);
             return;
           }
-          if((buscarYMostrarCatalogo._ultimos||[]).length&&buscarYMostrarCatalogo._ultimoTexto===texto)return;
-          errorMsg='La búsqueda del catálogo tardó demasiado. Intenta otra vez.';
+          if((buscarYMostrarCatalogo._ultimos||[]).length&&buscarYMostrarCatalogo._ultimoTexto===texto){
+            resultados=buscarYMostrarCatalogo._ultimos;
+            errorMsg='';
+          }else errorMsg='La búsqueda del catálogo tardó demasiado. Intenta otra vez.';
         }else{
           resultados=[];
           errorMsg=(err&&err.message)||'Could not reach the catalog server.';
@@ -3453,7 +3449,7 @@
         clearTimeout(corte);
       }
       if(seq!==buscarYMostrarCatalogo._seq||buscarYMostrarCatalogo._input!==input)return;
-      if(!resultados.length&&data&&(data.traduciendo||data.cargando||data.listo===false)){
+      if(!resultados.length&&data&&data.cargando&&(intento||0)<6){
         menu.innerHTML='<div class="task-dropdown-group">Buscando en catálogo…</div>';
         posicionarMenuTareas(input,menu);
         return;

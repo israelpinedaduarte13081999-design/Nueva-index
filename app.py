@@ -1175,26 +1175,40 @@ def _idioma_de_texto(texto):
     return "en"
 
 
+def _idioma_de_token_busqueda(plano):
+    """El idioma lo marca la palabra que escribió, no toda la familia mezclada."""
+    if plano in _LEMAS_BUSQUEDA_ES:
+        return "es"
+    if plano in _LEMAS_BUSQUEDA_EN:
+        return "en"
+    grupos = _familias_de_token(plano)
+    if not grupos:
+        return ""
+    palabras = [_sin_acentos(p) for p in grupos[0] if p]
+    if not palabras:
+        return ""
+    if plano in palabras:
+        elegido = plano
+    else:
+        elegido = min(palabras, key=lambda p: _distancia_token(plano, p))
+    if elegido in _LEMAS_BUSQUEDA_ES:
+        return "es"
+    if elegido in _LEMAS_BUSQUEDA_EN:
+        return "en"
+    return ""
+
+
 def _idioma_de_busqueda(q):
-    texto = str(q or "")
+    texto = _corregir_typos_catalogo(q)
     if re.search(r"[áéíóúñüÁÉÍÓÚÑÜ¿¡]", texto):
         return "es"
     es = en = 0
-    for token in re.findall(r"[a-zA-ZáéíóúñÁÉÍÓÚÑ]{3,}", texto.lower()):
-        plano = _sin_acentos(token)
-        if plano in _LEMAS_BUSQUEDA_ES:
+    for token in re.findall(r"[a-zA-ZáéíóúñÁÉÍÓÚÑ]{3,}", str(texto or "").lower()):
+        lang = _idioma_de_token_busqueda(_sin_acentos(token))
+        if lang == "es":
             es += 2
-        elif plano in _LEMAS_BUSQUEDA_EN:
+        elif lang == "en":
             en += 2
-        else:
-            for grupo in _familias_de_token(plano)[:1]:
-                for palabra in grupo:
-                    pn = _sin_acentos(palabra)
-                    if pn in _LEMAS_BUSQUEDA_ES:
-                        es += 1
-                    elif pn in _LEMAS_BUSQUEDA_EN:
-                        en += 1
-                break
     if es > en:
         return "es"
     if en > es:
@@ -1259,6 +1273,10 @@ def _corregir_typos_catalogo(q):
         (r"\binstalcion(es)?\b", "instalacion"),
         (r"\bceramicas?\b", "ceramica"),
         (r"\bazulejos?\b", "azulejo"),
+        (r"\b(?:tiel|tyle|tille|tils|teail|taile)\b", "tile"),
+        (r"\bbaldosas?\b", "baldosa"),
+        (r"\bpizos\b", "pisos"),
+        (r"\bpiso[sz]\b", "pisos"),
     )
     for patron, dest in reemplazos:
         texto = re.sub(patron, dest, texto, flags=re.I)
@@ -1721,7 +1739,7 @@ def _familias_de_token(token):
             continue
         if len(plano) < 4:
             continue
-        tope = 1 if len(plano) < 6 else 2
+        tope = 2
         dist = min((_distancia_token(plano, palabra) for palabra in palabras), default=9)
         if dist <= tope and dist < mejor:
             mejor = dist
@@ -3095,7 +3113,7 @@ def _guardar_cache_traduccion():
         print(f"--> cache traduccion no se guardo: {err}")
 
 
-def _traducir_lote_openai(textos, destino):
+def _traducir_lote_openai(textos, destino, timeout=25.0, modelos=None):
     key = _openai_api_key()
     if not key:
         raise RuntimeError("Falta OPENAI_API_KEY")
@@ -3111,8 +3129,8 @@ def _traducir_lote_openai(textos, destino):
     ultimo = None
     import httpx
 
-    with httpx.Client(verify=verify, timeout=25.0) as http:
-        for modelo in ("gpt-4o-mini", "gpt-4.1-mini", "gpt-4o"):
+    with httpx.Client(verify=verify, timeout=float(timeout or 25)) as http:
+        for modelo in (modelos or ("gpt-4o-mini", "gpt-4.1-mini", "gpt-4o")):
             try:
                 resp = http.post(
                     "https://api.openai.com/v1/chat/completions",
@@ -3224,7 +3242,7 @@ def _traduccion_guardada(texto, idioma):
 
 
 def _items_en_idioma_busqueda(items, idioma):
-    """Muestra coincidencias al momento. La traducción llega después, sin frenar la búsqueda."""
+    """Inglés solo en inglés. Español solo en español. No espera a traducir si ya hay coincidencias."""
     if idioma not in ("es", "en"):
         return items, False
     _cargar_cache_traduccion()
@@ -3246,16 +3264,33 @@ def _items_en_idioma_busqueda(items, idioma):
             finales.append(item)
             continue
         trad = _traduccion_guardada(original, idioma)
-        if trad:
+        if trad and _idioma_de_texto(trad) == idioma:
             _aplicar_texto_idioma(item, original, trad, idioma)
             finales.append(item)
         else:
-            _aplicar_texto_idioma(item, original, original, propio or idioma)
-            finales.append(item)
             pendientes.append(original)
+    if pendientes and not finales:
+        try:
+            trads = _traducir_lote_openai(pendientes[:24], idioma, timeout=6, modelos=("gpt-4o-mini",))
+        except Exception as err:
+            print(f"--> traducir catalogo: {err}")
+            trads = []
+        por_texto = {}
+        for pos, texto in enumerate(pendientes[:24]):
+            trad = trads[pos] if pos < len(trads) else ""
+            if trad and _idioma_de_texto(trad) == idioma:
+                por_texto[texto] = trad
+        for item in items or []:
+            original = str(item.get("descripcion") or item.get("desc") or "").strip()
+            trad = por_texto.get(original) or ""
+            if not trad:
+                continue
+            _aplicar_texto_idioma(item, original, trad, idioma)
+            finales.append(item)
+        return finales[:50], False
     if pendientes:
         _encolar_traduccion(pendientes, idioma)
-    return finales, bool(pendientes)
+    return finales[:50], False
 
 
 def _filas_catalogo_por_codigos(codigos):
@@ -3534,7 +3569,7 @@ def buscar_catalogo():
     oficio_ui = normalizar_oficio(request.args.get("oficio") or request.args.get("project_type") or "")
     medida = _consulta_medida_plano(q) or _consulta_medida_plano(q_norm)
     oficio = detectar_oficio(medida) if medida else (detectar_oficio(q_norm) or oficio_ui)
-    idioma = _idioma_de_busqueda(q) or str(request.args.get("idioma") or request.args.get("lang") or "es").strip().lower()
+    idioma = _idioma_de_busqueda(q) or _idioma_de_busqueda(q_norm) or str(request.args.get("idioma") or request.args.get("lang") or "es").strip().lower()
     if idioma not in IDIOMAS_CATALOGO:
         idioma = "es"
     zona = _zona_mercado_por_zip(zip_q)
@@ -3546,16 +3581,16 @@ def buscar_catalogo():
         unidad_q = (request.args.get("unidad") or request.args.get("unit") or "").upper()
         filas = []
         ultimo_err = None
-        from oficios import todas_filas_catalogo
-        if not (todas_filas_catalogo() or []):
+        from oficios import esperar_catalogo
+        if not (esperar_catalogo(4) or []):
             payload = {
                 "success": True,
                 "items": [],
                 "count": 0,
                 "idioma": idioma,
-                "traduciendo": True,
-                "cargando": True,
-                "listo": False,
+                "traduciendo": False,
+                "cargando": False,
+                "listo": True,
             }
             resp = jsonify(payload)
             resp.headers["Access-Control-Allow-Origin"] = "*"
@@ -3628,7 +3663,8 @@ def buscar_catalogo():
             if _puntaje_coincidencia_catalogo(row, q_match, tokens, unidad_q) >= umbral
         ] or filas
         limite = 50
-        items = [item for item in (normalizar_item_catalogo(row, idioma) for row in razonables[:limite]) if item]
+        candidatos = [item for item in (normalizar_item_catalogo(row, idioma) for row in razonables[:200]) if item]
+        items = candidatos
         factor = float(zona.get("factor") or 1.0)
         for item in items:
             base = _num(item.get("precio_unitario"))
@@ -3640,8 +3676,8 @@ def buscar_catalogo():
             item["precio_zona"] = round(base * factor, 2)
             item["ajuste_zip"] = True
             item["fuente"] = item.get("fuente") or "supabase"
-        items, traduciendo = _items_en_idioma_busqueda(items, idioma)
-        print(f"--> catálogo supabase q='{q_match}' idioma={idioma} filas={len(filas)} items={len(items)} traduciendo={traduciendo}")
+        items, _ = _items_en_idioma_busqueda(items, idioma)
+        print(f"--> catálogo supabase q='{q_match}' idioma={idioma} filas={len(filas)} items={len(items)}")
         if not items and str(request.args.get("registrar_faltante") or "") in ("1", "true", "si", "yes"):
             registrar_item_faltante(q, oficio, zona.get("zip") or zip_q)
         payload = {
@@ -3649,7 +3685,7 @@ def buscar_catalogo():
             "items": items,
             "count": len(items),
             "idioma": idioma,
-            "traduciendo": traduciendo,
+            "traduciendo": False,
             "cargando": False,
             "listo": True,
         }
