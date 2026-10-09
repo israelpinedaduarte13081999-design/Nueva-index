@@ -6290,6 +6290,27 @@
         status.className='plans-status is-ok';
       }
     }
+    function esperarMs(ms){ return new Promise(resolve=>setTimeout(resolve, ms)); }
+    async function leerJsonRespuesta(response){
+      const texto=await response.text();
+      if(!texto)return null;
+      try{ return JSON.parse(texto); }catch(e){ return null; }
+    }
+    async function esperarResultadoPlanos(jobId, status){
+      const inicio=Date.now();
+      let pausa=1200;
+      while(Date.now()-inicio<240000){
+        await esperarMs(pausa);
+        pausa=Math.min(2800, pausa+300);
+        const response=await fetch(apiUrlPlanos()+'/status/'+encodeURIComponent(jobId),{cache:'no-store'});
+        const payload=await leerJsonRespuesta(response);
+        if(!payload)throw new Error('Se perdió la conexión mientras se leían las medidas. Vuelve a subir el PDF.');
+        if(status&&payload.progress){ status.textContent=payload.progress; status.className='plans-status'; }
+        if(payload.status==='done'&&payload.result)return payload.result;
+        if(payload.status==='error')throw new Error(payload.error||'No se pudieron leer las medidas del plano.');
+      }
+      throw new Error('La lectura de medidas tardó demasiado. Vuelve a subir el PDF.');
+    }
     async function enviarPlanosAlServidor(file){
       if(!file||(file.type&&file.type!=='application/pdf'&&!/\.pdf$/i.test(file.name))){
         alert('Select a PDF of architectural plans.');
@@ -6299,7 +6320,7 @@
       const btn=document.getElementById('importPlansButton');
       const panel=document.getElementById('plans-panel');
       if(panel)panel.hidden=false;
-      if(status){ status.textContent='Rendering sheets and reading with Claude Vision… this can take a minute.'; status.className='plans-status'; }
+      if(status){ status.textContent='Subiendo el plano y leyendo medidas por cuarto…'; status.className='plans-status'; }
       if(btn)btn.disabled=true;
       try{
         if(typeof showAppView==='function')showAppView('quote',{noScroll:true,mode:'estimate'});
@@ -6308,9 +6329,18 @@
         const zipActivo=String(document.getElementById('zip-code')?.value||document.getElementById('clientZip')?.value||'').replace(/\D/g,'').slice(0,5);
         if(zipActivo.length===5)form.append('zip_code',zipActivo);
         const response=await fetch(apiUrlPlanos(),{method:'POST',body:form});
-        const payload=await response.json().catch(()=>null);
-        if(!response.ok||(payload&&payload.success===false)){
-          throw new Error((payload&&payload.error)||('Error '+response.status));
+        let payload=await leerJsonRespuesta(response);
+        if(!payload){
+          throw new Error('El servidor cortó la lectura del plano (HTTP '+response.status+'). Recarga la página con Ctrl+F5 y súbelo otra vez.');
+        }
+        if(payload.job_id&&payload.status==='processing'){
+          if(status){ status.textContent=payload.progress||'Leyendo medidas del plano…'; status.className='plans-status'; }
+          payload=await esperarResultadoPlanos(payload.job_id, status);
+        }else if(!response.ok||payload.success===false){
+          throw new Error(payload.error||('Error '+response.status));
+        }
+        if(!payload||payload.success===false||!(payload.rooms||[]).length){
+          throw new Error((payload&&payload.error)||'No se identificaron cuartos en el plano.');
         }
         mostrarResultadoPlanos(payload,file);
         if(typeof showPdfPreview==='function')await showPdfPreview(file,'Sketch: '+((payload.rooms||[]).length)+' room(s)');

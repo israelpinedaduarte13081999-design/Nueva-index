@@ -39,12 +39,36 @@ def _extraer_json(texto):
         return json.loads(raw)
     except json.JSONDecodeError:
         match = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", raw)
-        if not match:
-            return None
-        try:
-            return json.loads(match.group(1))
-        except json.JSONDecodeError:
-            return None
+        if match:
+            try:
+                return json.loads(match.group(1))
+            except json.JSONDecodeError:
+                pass
+        return _cerrar_json_cortado(raw)
+
+
+def _cerrar_json_cortado(raw):
+    """Si Claude se queda sin tokens a mitad de la lista de cuartos, cierra el JSON."""
+    if not raw or "rooms" not in raw:
+        return None
+    inicio = raw.find("{")
+    if inicio < 0:
+        return None
+    recorte = raw[inicio:]
+    fin = recorte.rfind("}")
+    if fin < 0:
+        return None
+    candidato = recorte[: fin + 1]
+    faltan_arr = candidato.count("[") - candidato.count("]")
+    faltan_obj = candidato.count("{") - candidato.count("}")
+    if faltan_arr > 0:
+        candidato += "]" * faltan_arr
+    if faltan_obj > 0:
+        candidato += "}" * faltan_obj
+    try:
+        return json.loads(candidato)
+    except json.JSONDecodeError:
+        return None
 
 
 def _texto_respuesta(body):
@@ -120,8 +144,11 @@ def _jpeg_plano(pix, calidad=72, max_bytes=1_200_000):
     return jpeg, usada
 
 
-def pdf_paginas_a_imagenes(pdf_bytes, dpi=140, max_paginas=8, max_lado=1600, calidad=72, max_bytes=1_200_000):
-    """Renderiza cada página ya al tamaño final. Un plano tabloide a 180 dpi llenaba la RAM y devolvía 500."""
+def pdf_paginas_a_imagenes(pdf_bytes, dpi=140, max_paginas=8, max_lado=1600, calidad=72, max_bytes=1_200_000, pagina=None):
+    """Renderiza cada página ya al tamaño final. Un plano tabloide a 180 dpi llenaba la RAM y devolvía 500.
+
+    pagina: número de página 1-based. Si viene, solo se renderiza esa lámina.
+    """
     if not pdf_bytes:
         raise RuntimeError("PDF vacío")
     import fitz
@@ -130,8 +157,14 @@ def pdf_paginas_a_imagenes(pdf_bytes, dpi=140, max_paginas=8, max_lado=1600, cal
     imagenes = []
     try:
         total = doc.page_count
-        limite = min(int(max_paginas or 8), total)
-        for i in range(limite):
+        if pagina is not None:
+            indice = int(pagina) - 1
+            if indice < 0 or indice >= total:
+                raise RuntimeError(f"La página {pagina} no existe en el PDF")
+            indices = [indice]
+        else:
+            indices = list(range(min(int(max_paginas or 8), total)))
+        for i in indices:
             page = doc.load_page(i)
             rect = page.rect
             lado_pts = max(float(rect.width or 1), float(rect.height or 1))
@@ -216,6 +249,8 @@ def analizar_imagenes_json(imagenes, prompt, system=None, max_tokens=8192, model
             payload["system"] = system
         try:
             body = _post_claude(payload, timeout=timeout)
+            if (body or {}).get("stop_reason") == "max_tokens":
+                print("--> Claude visión cortó por max_tokens; se intenta cerrar el JSON")
             texto = _texto_respuesta(body)
             print("========== CLAUDE VISIÓN RAW ==========")
             print((texto or "")[:8000])

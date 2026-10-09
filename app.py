@@ -19,6 +19,18 @@ load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
 app = Flask(__name__, template_folder=".")
 CORS(app)
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024
+
+
+@app.errorhandler(413)
+def _archivo_demasiado_grande(_err):
+    if request.path.startswith("/api/"):
+        resp = jsonify({
+            "success": False,
+            "error": "El PDF supera 32 MB. Exporta el plano más liviano y vuelve a subirlo.",
+        })
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp, 413
+    return ("Archivo demasiado grande", 413)
 COOKIE_CONTRATISTA = "contratista_token"
 
 
@@ -124,7 +136,9 @@ def _iniciar_uszipcode():
         _requests_uszip.get = orig_get
 
 
+import tempfile
 import threading
+import time
 
 _search_lock = threading.Lock()
 _search_local = threading.local()
@@ -5231,7 +5245,6 @@ def _normalizar_payload_planos(parsed, paginas=0, paginas_total=0):
         "title": resumen.get("title"),
         "sheet_titles": resumen.get("sheet_titles") or [],
         "project_summary": resumen,
-        "raw": bruto,
         "rooms": rooms,
         "grand_totals": grand,
         "tables": [],
@@ -5243,35 +5256,200 @@ def _normalizar_payload_planos(parsed, paginas=0, paginas_total=0):
     }
 
 
-def _analizar_plano_vision(pdf_bytes):
+_PLANOS_DIR = Path(tempfile.gettempdir()) / "zipnova-planos"
+_PLANOS_JOBS_LOCK = threading.Lock()
+_PLANOS_MARCAS = (
+    r"\bkitchen\b",
+    r"\bbedroom\b",
+    r"\bbath(?:room)?\b",
+    r"\bliving\b",
+    r"\bdining\b",
+    r"\bfloor\s*plan\b",
+    r"\bplanta\b",
+    r"\bcocina\b",
+    r"\brec[aá]mara\b",
+    r"\bba[nñ]o\b",
+    r"\bescala\b",
+    r"\bscale\b",
+    r"\blaundry\b",
+    r"\bgarage\b",
+    r"\bcloset\b",
+)
+
+
+def _respuesta_json(cuerpo, codigo=200):
+    resp = jsonify(cuerpo)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Cache-Control"] = "no-store"
+    return resp, codigo
+
+
+def _indices_laminas_medidas(pdf_bytes, max_paginas):
+    """Elige las láminas que parecen planta. Un PDF escaneado cae en las primeras páginas."""
+    import fitz
+
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        total = int(doc.page_count or 0)
+        if total <= 0:
+            raise RuntimeError("El PDF no tiene páginas")
+        puntos = []
+        for i in range(total):
+            try:
+                texto = doc.load_page(i).get_text("text") or ""
+            except Exception:
+                texto = ""
+            bajo = texto.lower()
+            score = sum(2 for marca in _PLANOS_MARCAS if re.search(marca, bajo))
+            if re.search(r"\d+\s*['′]", texto):
+                score += 1
+            puntos.append((score, i))
+        if not any(score for score, _ in puntos):
+            indices = list(range(min(int(max_paginas), total)))
+        else:
+            mejores = sorted(puntos, key=lambda fila: (-fila[0], fila[1]))[: int(max_paginas)]
+            indices = sorted(i for score, i in mejores if score > 0)
+            if not indices:
+                indices = list(range(min(int(max_paginas), total)))
+        return indices, total
+    finally:
+        doc.close()
+
+
+def _analizar_plano_vision(pdf_bytes, on_progress=None):
     from claude_pdf import MODELO_CLAUDE, analizar_imagenes_json, pdf_paginas_a_imagenes
 
-    imagenes = pdf_paginas_a_imagenes(
-        pdf_bytes,
-        dpi=PLANOS_DPI,
-        max_paginas=PLANOS_MAX_PAGINAS,
-        max_lado=1400,
-    )
-    paginas = ", ".join(str(img["page"]) for img in imagenes)
-    prompt = (
-        PROMPT_PLANOS_VISION
-        + f"\nPáginas {paginas} de {imagenes[0].get('pages_total') or len(imagenes)}."
-    )
-    parsed = analizar_imagenes_json(
-        imagenes,
-        prompt,
-        system=SYSTEM_PROMPT_PLANOS,
-        max_tokens=4096,
-        modelo=MODELO_CLAUDE,
-        modelos=(MODELO_CLAUDE,),
-        timeout=80.0,
-    )
-    combinado = parsed if isinstance(parsed, dict) else {"rooms": parsed if isinstance(parsed, list) else []}
-    return _normalizar_payload_planos(
-        combinado,
-        paginas=len(imagenes),
-        paginas_total=(imagenes[0].get("pages_total") if imagenes else 0),
-    )
+    indices, total = _indices_laminas_medidas(pdf_bytes, PLANOS_MAX_PAGINAS)
+    rooms = []
+    errores = []
+    for n, indice in enumerate(indices, start=1):
+        numero = indice + 1
+        if on_progress:
+            on_progress(f"Leyendo lámina {n} de {len(indices)} (página {numero} de {total})")
+        parsed = None
+        imagenes = None
+        try:
+            imagenes = pdf_paginas_a_imagenes(
+                pdf_bytes,
+                dpi=PLANOS_DPI,
+                max_paginas=1,
+                pagina=numero,
+                max_lado=1200,
+                max_bytes=700_000,
+            )
+            prompt = (
+                PROMPT_PLANOS_VISION
+                + f"\nEsta imagen es solo la página {numero} de {total}. "
+                + f"Pon source_page={numero} en cada cuarto. "
+                + "Si no es una planta, rooms=[]."
+            )
+            parsed = analizar_imagenes_json(
+                imagenes,
+                prompt,
+                system=SYSTEM_PROMPT_PLANOS,
+                max_tokens=4096,
+                modelo=MODELO_CLAUDE,
+                modelos=(MODELO_CLAUDE,),
+                timeout=50.0,
+            )
+        except Exception as err:
+            errores.append(f"página {numero}: {err}")
+            print(f"--> plano página {numero} omitida: {err}")
+        imagenes = None
+        if parsed is None:
+            continue
+        combinado = parsed if isinstance(parsed, dict) else {"rooms": parsed if isinstance(parsed, list) else []}
+        crudos = combinado.get("rooms") if isinstance(combinado, dict) else None
+        if not isinstance(crudos, list):
+            crudos = combinado if isinstance(combinado, list) else []
+        for room in crudos:
+            if isinstance(room, dict):
+                room.setdefault("source_page", numero)
+                rooms.append(room)
+    if not rooms and errores:
+        raise RuntimeError(errores[-1])
+    return _normalizar_payload_planos({"rooms": rooms}, paginas=len(indices), paginas_total=total)
+
+
+def _planos_ruta(job_id):
+    if not re.fullmatch(r"[a-f0-9]{32}", str(job_id or "")):
+        return None
+    return _PLANOS_DIR / f"{job_id}.json"
+
+
+def _planos_leer(job_id):
+    ruta = _planos_ruta(job_id)
+    if ruta is None or not ruta.is_file():
+        return None
+    try:
+        return json.loads(ruta.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _planos_escribir(job_id, job):
+    ruta = _planos_ruta(job_id)
+    if ruta is None:
+        return
+    _PLANOS_DIR.mkdir(parents=True, exist_ok=True)
+    temporal = ruta.with_suffix(".tmp")
+    temporal.write_text(json.dumps(job, ensure_ascii=False), encoding="utf-8")
+    temporal.replace(ruta)
+
+
+def _planos_guardar(job_id, **cambios):
+    with _PLANOS_JOBS_LOCK:
+        job = _planos_leer(job_id)
+        if not job:
+            return
+        job.update(cambios)
+        _planos_escribir(job_id, job)
+
+
+def _planos_limpiar_jobs():
+    if not _PLANOS_DIR.is_dir():
+        return
+    ahora = time.time()
+    for ruta in _PLANOS_DIR.glob("*.json"):
+        try:
+            if ahora - ruta.stat().st_mtime > 1800:
+                ruta.unlink()
+        except OSError:
+            pass
+
+
+def _planos_job_worker(job_id, pdf_bytes):
+    try:
+        payload = _analizar_plano_vision(
+            pdf_bytes,
+            on_progress=lambda mensaje: _planos_guardar(job_id, progress=mensaje),
+        )
+        if not payload.get("rooms"):
+            _planos_guardar(
+                job_id,
+                status="error",
+                error="No se identificaron cuartos ni áreas en estas láminas.",
+                progress="",
+            )
+            return
+        print("========== HTTP /api/import-planos ==========")
+        print(json.dumps({
+            "rooms": [r.get("room_name") for r in payload.get("rooms") or []],
+            "grand_totals": payload.get("grand_totals"),
+            "items": len(payload.get("items") or []),
+            "pages_analyzed": payload.get("pages_analyzed"),
+            "pages_total": payload.get("pages_total"),
+        }, ensure_ascii=False)[:2000])
+        _planos_guardar(job_id, status="done", result=payload, progress="Medidas listas", error=None)
+    except Exception as err:
+        import traceback
+        traceback.print_exc()
+        _planos_guardar(
+            job_id,
+            status="error",
+            error=f"No se pudieron leer los planos: {err}",
+            progress="",
+        )
 
 
 @app.route("/api/import-planos", methods=["POST"])
@@ -5279,44 +5457,50 @@ def _analizar_plano_vision(pdf_bytes):
 def import_planos_vision():
     archivo = request.files.get("file") or request.files.get("pdf")
     if archivo is None:
-        return jsonify({"success": False, "error": "No se encontró el archivo PDF del plano"}), 400
+        return _respuesta_json({"success": False, "error": "No se encontró el archivo PDF del plano"}, 400)
     nombre = str(getattr(archivo, "filename", "") or "")
     if nombre and not nombre.lower().endswith(".pdf"):
-        return jsonify({"success": False, "error": "Sube un PDF de planos arquitectónicos"}), 400
+        return _respuesta_json({"success": False, "error": "Sube un PDF de planos arquitectónicos"}, 400)
     pdf_bytes = archivo.read()
     if not pdf_bytes:
-        return jsonify({"success": False, "error": "El PDF está vacío"}), 400
-    try:
-        payload = _analizar_plano_vision(pdf_bytes)
-        if not payload.get("rooms"):
-            payload["success"] = False
-            payload["error"] = "No se identificaron cuartos ni áreas en estas láminas."
-            resp = jsonify(payload)
-            resp.headers["Access-Control-Allow-Origin"] = "*"
-            return resp, 422
-        print("========== HTTP /api/import-planos ==========")
-        print(json.dumps({
-            "title": payload.get("title"),
-            "rooms": [r.get("room_name") for r in payload.get("rooms") or []],
-            "grand_totals": payload.get("grand_totals"),
-            "items": len(payload.get("items") or []),
-            "pages_analyzed": payload.get("pages_analyzed"),
-        }, ensure_ascii=False, indent=2)[:4000])
-        resp = jsonify(payload)
-        resp.headers["Access-Control-Allow-Origin"] = "*"
-        return resp
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        resp = jsonify({
+        return _respuesta_json({"success": False, "error": "El PDF está vacío"}, 400)
+    _planos_limpiar_jobs()
+    job_id = uuid.uuid4().hex
+    _planos_escribir(job_id, {
+        "status": "processing",
+        "progress": "Preparando las láminas…",
+        "created": time.time(),
+        "result": None,
+        "error": None,
+    })
+    threading.Thread(
+        target=_planos_job_worker,
+        args=(job_id, pdf_bytes),
+        daemon=True,
+        name=f"planos-{job_id[:8]}",
+    ).start()
+    return _respuesta_json({"success": True, "status": "processing", "job_id": job_id}, 202)
+
+
+@app.route("/api/import-planos/status/<job_id>", methods=["GET"])
+@app.route("/api/process-architectural-plans/status/<job_id>", methods=["GET"])
+def import_planos_status(job_id):
+    copia = _planos_leer(job_id)
+    if not copia:
+        return _respuesta_json({
             "success": False,
-            "error": f"No se pudieron leer los planos: {e}",
-            "rooms": [],
-            "grand_totals": {},
-            "items": [],
+            "status": "error",
+            "error": "Esa lectura ya no está. Vuelve a subir el PDF.",
         })
-        resp.headers["Access-Control-Allow-Origin"] = "*"
-        return resp, 500
+    cuerpo = {
+        "success": copia.get("status") != "error",
+        "status": copia.get("status"),
+        "progress": copia.get("progress") or "",
+        "error": copia.get("error"),
+    }
+    if copia.get("status") == "done":
+        cuerpo["result"] = copia.get("result")
+    return _respuesta_json(cuerpo)
 
 
 def _buscar_navegador_pdf():
