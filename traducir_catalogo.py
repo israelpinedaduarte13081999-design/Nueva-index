@@ -78,11 +78,13 @@ load_dotenv()
 def credenciales_supabase():
     url = (os.getenv("SUPABASE_URL") or "").rstrip("/")
     key = (
-        os.getenv("SUPABASE_KEY")
+        os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        or os.getenv("SUPABASE_SECRET_KEY")
+        or os.getenv("SUPABASE_KEY")
         or os.getenv("SUPABASE_ANON_KEY")
         or os.getenv("SUPABASE_PUBLISHABLE_KEY")
         or ""
-    )
+    ).strip()
     return url, key
 
 

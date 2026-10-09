@@ -62,15 +62,37 @@ TABLA_CONTRATISTAS = "contratistas"
 COLUMNAS_CATALOGO = "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra"
 _SQL_MULTITENANT = "Ejecuta multitenant.sql en el editor SQL de Supabase."
 
+def _tipo_clave_supabase(key):
+    texto = str(key or "")
+    if texto.startswith("sb_secret_"):
+        return "service"
+    if texto.startswith("sb_publishable_"):
+        return "publishable"
+    if texto.startswith("eyJ"):
+        return "jwt"
+    return "otra" if texto else "vacia"
+
+
 def _supabase_creds():
+    """El backend usa la clave de servicio para saltar RLS en INSERT/UPDATE."""
+    global _SB_ROL
     url = (os.getenv("SUPABASE_URL") or "").rstrip("/")
-    key = (
+    service = (
+        os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        or os.getenv("SUPABASE_SECRET_KEY")
+        or ""
+    ).strip()
+    publica = (
         os.getenv("SUPABASE_KEY")
         or os.getenv("SUPABASE_ANON_KEY")
         or os.getenv("SUPABASE_PUBLISHABLE_KEY")
         or ""
-    )
-    return url, key
+    ).strip()
+    if service:
+        _SB_ROL = "service"
+        return url, service
+    _SB_ROL = _tipo_clave_supabase(publica)
+    return url, publica
 
 
 def _crear_cliente_supabase(url, key):
@@ -90,19 +112,16 @@ def _crear_cliente_supabase(url, key):
         return create_client(url, key)
 
 
+_SB_ROL = "vacia"
 try:
     _sb_url, _sb_key = _supabase_creds()
     _sb_host = _sb_url.split("//", 1)[-1].split("/", 1)[0] if _sb_url else "(sin url)"
-    _sb_tipo = (
-        "publishable" if _sb_key.startswith("sb_publishable_")
-        else "service" if "service" in _sb_key[:20]
-        else "jwt" if _sb_key.startswith("eyJ")
-        else "otra" if _sb_key else "vacia"
-    )
-    print(f"--> Supabase host={_sb_host} clave={_sb_tipo} len={len(_sb_key)}")
+    print(f"--> Supabase host={_sb_host} clave={_SB_ROL} len={len(_sb_key)}")
+    if _SB_ROL != "service":
+        print("--> AVISO: falta SUPABASE_SERVICE_ROLE_KEY. El INSERT en catalogo_items lo bloquea RLS.")
     supabase = _crear_cliente_supabase(_sb_url, _sb_key)
     if supabase is None:
-        print("--> Cliente supabase es None (faltan SUPABASE_URL / SUPABASE_KEY)")
+        print("--> Cliente supabase es None (faltan SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)")
     else:
         print("--> Cliente supabase creado (SSL verify desactivado)")
 except Exception as e:
@@ -4642,6 +4661,12 @@ def guardar_precio_ia_catalogo():
     sb = _supabase_client()
     if sb is None:
         return jsonify({"success": False, "error": "Cliente supabase es None"}), 503
+    if _SB_ROL != "service":
+        print("--> catalogo IA: no se inserta. Falta SUPABASE_SERVICE_ROLE_KEY y RLS exige authenticated.")
+        return jsonify({
+            "success": False,
+            "error": "Falta SUPABASE_SERVICE_ROLE_KEY. El INSERT de catalogo_items exige la clave de servicio.",
+        }), 503
     resultados = []
     for raw in items[:50]:
         if not isinstance(raw, dict):
@@ -4709,6 +4734,7 @@ def guardar_precio_ia_catalogo():
                         fila["embedding"] = vector
                 except Exception as err_emb:
                     print(f"--> embedding IA omitido: {err_emb}")
+                print(f"--> catalogo IA insert rol={_SB_ROL} codigo={fila['codigo']} unidad={unidad}")
                 sb.table(TABLA_CATALOGO).insert(fila).execute()
                 insertadas += 1
                 print(f"--> catálogo IA: insertado {fila['codigo']} '{fila['descripcion']}' {unidad} ${fila['precio_base']}")
