@@ -1141,13 +1141,15 @@ _LEMAS_BUSQUEDA_ES = {
     "piso", "pisos", "pizos", "pared", "paredes", "cielo", "pintura", "pintur",
     "gabinete", "gabinetes", "gabinet", "teja", "techo", "puerta", "puertas",
     "ventana", "ventanas", "alfombra", "tablaroca", "yeso", "moldura", "zocalo",
-    "azulejo", "ceramica", "ducha", "bano", "cocina", "revestimiento",
+    "azulejo", "ceramica", "baldosa", "baldosas", "porcelanato", "ducha", "bano",
+    "cocina", "revestimiento",
 }
 _LEMAS_BUSQUEDA_EN = {
     "floor", "floors", "flooring", "flor", "wall", "walls", "wal", "ceiling",
     "paint", "painting", "cabinet", "cabinets", "roof", "roofing", "door", "doors",
     "window", "windows", "carpet", "drywall", "drywal", "trim", "baseboard",
-    "siding", "tile", "shingle", "hardwood", "vinyl", "laminate", "plank",
+    "siding", "tile", "tiles", "shingle", "hardwood", "vinyl", "laminate", "plank",
+    "backsplash", "travertine", "bathroom", "shower", "kitchen",
 }
 
 
@@ -1625,8 +1627,34 @@ _SINONIMOS_BUSQUEDA = {
     "rakes": ("rakes", "rake"),
     "squares": ("squares", "square", "escuadra", "teja", "shingle"),
     "flashing": ("flashing", "tapajuntas"),
-    "ceramica": ("ceramica", "cerámica", "azulejo", "tile", "porcelanato"),
-    "azulejo": ("azulejo", "ceramica", "cerámica", "tile", "porcelanato"),
+    "ceramica": (
+        "ceramica", "azulejo", "porcelanato", "baldosa", "baldosas", "tile", "tiles",
+        "backsplash", "travertine", "shower", "bathroom", "bano", "cocina", "kitchen",
+    ),
+    "azulejo": (
+        "azulejo", "ceramica", "porcelanato", "baldosa", "baldosas", "tile", "tiles",
+        "backsplash", "travertine", "shower", "bathroom", "bano", "cocina", "kitchen",
+    ),
+    "baldosa": (
+        "baldosa", "baldosas", "ceramica", "azulejo", "porcelanato", "tile", "tiles",
+        "backsplash", "travertine", "shower", "bathroom", "bano", "cocina", "kitchen",
+    ),
+    "tile": (
+        "tile", "tiles", "baldosa", "baldosas", "ceramica", "azulejo", "porcelanato",
+        "backsplash", "travertine", "shower", "bathroom", "bano", "cocina", "kitchen",
+    ),
+    "bathroom": (
+        "bathroom", "bano", "shower", "tile", "baldosa", "ceramica", "backsplash", "travertine",
+    ),
+    "bano": (
+        "bano", "bathroom", "ducha", "shower", "tile", "baldosa", "ceramica", "backsplash",
+    ),
+    "cocina": (
+        "cocina", "kitchen", "backsplash", "baldosa", "tile", "ceramica", "porcelanato",
+    ),
+    "backsplash": (
+        "backsplash", "baldosa", "tile", "ceramica", "porcelanato", "cocina", "kitchen",
+    ),
     "floor": ("floor", "flooring", "piso", "pisos", "lvt", "lvp", "vinyl", "hardwood", "laminate", "carpet", "alfombra", "spc"),
     "piso": ("piso", "pisos", "floor", "flooring", "lvt", "lvp", "vinyl", "hardwood", "laminate", "carpet"),
     "ceiling": ("ceiling", "cielo", "drywall", "tablaroca", "pintura", "paint"),
@@ -1656,6 +1684,7 @@ _SINONIMOS_BUSQUEDA = {
 _TOKENS_MEDIDA = {
     "floor", "flooring", "piso", "pisos", "ceiling", "cielo", "wall", "walls",
     "pared", "paredes", "trim", "baseboard", "zocalo", "cabinet", "cabinets", "gabinete",
+    "tile", "tiles", "baldosa", "baldosas", "ceramica", "azulejo", "porcelanato", "backsplash",
 }
 
 
@@ -3537,10 +3566,30 @@ def buscar_catalogo():
         if ultimo_err and not filas:
             raise ultimo_err
         tokens = _tokens_busqueda_catalogo(_consulta_medida_plano(q_match) or q_match)
-        if oficio:
+        busca_baldosa = any(
+            "baldosa" in grupo or "tile" in grupo
+            for token in re.findall(r"[a-zA-ZáéíóúñÁÉÍÓÚÑ]{3,}", str(q_match or q).lower())
+            for grupo in _familias_de_token(token)
+        )
+        if oficio and not busca_baldosa:
             filtradas = [row for row in filas if fila_es_oficio(row, oficio)]
             if len(filtradas) >= 8:
                 filas = filtradas
+        if busca_baldosa:
+            def _es_baldosa_obra(row):
+                cat = str(row.get("categoria") or "").upper()
+                codigo = str(row.get("codigo") or "").upper()
+                blob = f"{codigo} {row.get('descripcion') or ''}".lower()
+                if re.search(r"roof|teja|shingle|\brfg", blob) and cat != "TILE":
+                    return False
+                if re.search(r"acustic|acoustic|cielo", blob) and not re.search(r"acustic|acoustic|cielo", str(q_match or q), re.I):
+                    return False
+                if cat == "TILE" or codigo.startswith("TIL"):
+                    return True
+                return bool(re.search(r"baldosa|ceramic|ceramica|porcelanato|azulejo|backsplash|travertine|shower", blob))
+            preferidas = [row for row in filas if _es_baldosa_obra(row)]
+            if len(preferidas) >= 8:
+                filas = preferidas
         consulta_ridge = bool(re.search(r"\bridges?\b|ridge\s*cap|cumbrera", q_match or q_norm, re.I))
         if consulta_ridge:
             def _cat_row(row):

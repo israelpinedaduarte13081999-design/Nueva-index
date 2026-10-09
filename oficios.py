@@ -6,6 +6,7 @@ import json
 import os
 import re
 import ssl
+import time
 import urllib.parse
 import urllib.request
 
@@ -73,9 +74,9 @@ OFICIOS = {
         "label": "Azulejo / Tile",
         "codigo_ui": "TIL",
         "prefijos": ("TIL",),
-        "include": r"azulejo|tile|porcelanato|ceramica|cerámica",
+        "include": r"azulejo|tile|porcelanato|ceramica|cerámica|baldosa|backsplash|travertine|shower",
         "exclude": r"roofing|siding|carpet",
-        "busquedas": ("azulejo", "tile", "TIL", "porcelanato"),
+        "busquedas": ("azulejo", "tile", "TIL", "porcelanato", "baldosa", "ceramica"),
     },
     "framing": {
         "label": "Framing / Estructura",
@@ -151,6 +152,8 @@ _CODIGO_UI.update({
 })
 
 _CACHE_CATALOGO = None
+_CACHE_CATALOGO_TS = 0.0
+_CACHE_CATALOGO_TTL = 120.0
 
 
 def _texto(*partes):
@@ -262,9 +265,16 @@ def _creds():
     return url, key
 
 
+def invalidar_catalogo():
+    global _CACHE_CATALOGO, _CACHE_CATALOGO_TS
+    _CACHE_CATALOGO = None
+    _CACHE_CATALOGO_TS = 0.0
+
+
 def todas_filas_catalogo():
-    global _CACHE_CATALOGO
-    if _CACHE_CATALOGO is not None:
+    global _CACHE_CATALOGO, _CACHE_CATALOGO_TS
+    ahora = time.time()
+    if _CACHE_CATALOGO is not None and ahora - _CACHE_CATALOGO_TS < _CACHE_CATALOGO_TTL:
         return _CACHE_CATALOGO
     url, key = _creds()
     filas = []
@@ -282,6 +292,7 @@ def todas_filas_catalogo():
     while True:
         params = {
             "select": "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra",
+            "order": "id.asc",
             "limit": "1000",
             "offset": str(offset),
         }
@@ -301,9 +312,12 @@ def todas_filas_catalogo():
             break
         offset += 1000
     if error and not filas:
-        return filas
-    _CACHE_CATALOGO = filas
-    return filas
+        return _CACHE_CATALOGO or filas
+    if filas:
+        _CACHE_CATALOGO = filas
+        _CACHE_CATALOGO_TS = time.time()
+        print(f"--> Catálogo recargado desde Supabase: {len(filas)} ítems")
+    return _CACHE_CATALOGO or filas
 
 
 def filas_catalogo_oficio(oficio):
