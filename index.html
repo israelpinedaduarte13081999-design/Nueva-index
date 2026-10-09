@@ -3352,7 +3352,7 @@
         opt.dataset.unit=item.unit||'';
         opt.dataset.desc=item.desc||item.descripcion_es||item.descripcion||'';
         const label=document.createElement('span');
-        label.textContent=(item.codigo||item.categoria||'—')+' / '+(item.desc||item.descripcion_es||item.descripcion||'');
+        label.textContent=(item.codigo||item.categoria||'—')+' / '+(item.desc||item.descripcion||'');
         const meta=document.createElement('span');
         meta.className='item-meta';
         meta.textContent=item.unit+' · $'+Number(item.precio_zona||item.price||0).toFixed(2);
@@ -3460,8 +3460,8 @@
       fila.dataset.descEn=textos.en||item.descripcion_en||'';
       const lang=typeof idiomaEstimadoActual==='function'?idiomaEstimadoActual():'es';
       const textoEn=textos.en||item.descripcion_en||'';
-      const textoEs=textos.es||item.descripcion_es||item.desc||item.descripcion||'';
-      const descTexto=(lang==='en'?(textoEn||textoEs):textoEs)||'';
+      const textoEs=textos.es||item.descripcion_es||'';
+      const descTexto=(item.idioma==='en'||item.idioma==='es')?(item.desc||item.descripcion||textoEn||textoEs||''):(lang==='en'?(textoEn||textoEs):(textoEs||textoEn))||'';
       const descInput=fila.querySelector('.item-desc')||fila.querySelector('.description')||(inputElement.matches('.item-desc, .description')?inputElement:null);
       if(descInput)descInput.value=descTexto;
       fila.dataset.updatingDesc='0';

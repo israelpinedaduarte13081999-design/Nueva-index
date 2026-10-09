@@ -1134,14 +1134,68 @@ def _textos_idioma_catalogo(row):
 
 
 def _parece_ingles_doc(texto):
+    return _idioma_de_texto(texto) == "en"
+
+
+_LEMAS_BUSQUEDA_ES = {
+    "piso", "pisos", "pizos", "pared", "paredes", "cielo", "pintura", "pintur",
+    "gabinete", "gabinetes", "gabinet", "teja", "techo", "puerta", "puertas",
+    "ventana", "ventanas", "alfombra", "tablaroca", "yeso", "moldura", "zocalo",
+    "azulejo", "ceramica", "ducha", "bano", "cocina", "revestimiento",
+}
+_LEMAS_BUSQUEDA_EN = {
+    "floor", "floors", "flooring", "flor", "wall", "walls", "wal", "ceiling",
+    "paint", "painting", "cabinet", "cabinets", "roof", "roofing", "door", "doors",
+    "window", "windows", "carpet", "drywall", "drywal", "trim", "baseboard",
+    "siding", "tile", "shingle", "hardwood", "vinyl", "laminate", "plank",
+}
+
+
+def _idioma_de_texto(texto):
     t = str(texto or "").strip()
     if not t:
-        return False
-    if re.search(r"[áéíóúñüÁÉÍÓÚÑÜ]", t):
-        return False
-    en = len(_PALABRAS_EN_DOC.findall(t))
+        return ""
+    if re.search(r"[áéíóúñüÁÉÍÓÚÑÜ¿¡]", t):
+        return "es"
+    bajo = _sin_acentos(t)
     es = len(_PALABRAS_ES_DOC.findall(t))
-    return en >= 2 and en > es
+    en = len(_PALABRAS_EN_DOC.findall(t))
+    if re.search(r"\b(de|del|para|con|sin|sobre|mano|aplicacion|reparacion|reemplazo|instalacion|paredes|cielos|pisos)\b", bajo):
+        es += 1
+    if es > en:
+        return "es"
+    if en > es:
+        return "en"
+    if re.search(r"\b(the|and|with|for|grade|finish|install|removal|panel|molding)\b", bajo):
+        return "en"
+    return "en"
+
+
+def _idioma_de_busqueda(q):
+    texto = str(q or "")
+    if re.search(r"[áéíóúñüÁÉÍÓÚÑÜ¿¡]", texto):
+        return "es"
+    es = en = 0
+    for token in re.findall(r"[a-zA-ZáéíóúñÁÉÍÓÚÑ]{3,}", texto.lower()):
+        plano = _sin_acentos(token)
+        if plano in _LEMAS_BUSQUEDA_ES:
+            es += 2
+        elif plano in _LEMAS_BUSQUEDA_EN:
+            en += 2
+        else:
+            for grupo in _familias_de_token(plano)[:1]:
+                for palabra in grupo:
+                    pn = _sin_acentos(palabra)
+                    if pn in _LEMAS_BUSQUEDA_ES:
+                        es += 1
+                    elif pn in _LEMAS_BUSQUEDA_EN:
+                        en += 1
+                break
+    if es > en:
+        return "es"
+    if en > es:
+        return "en"
+    return ""
 
 
 def _texto_ingles_catalogo(row):
@@ -2983,6 +3037,160 @@ def traducir_textos_a_ingles(textos, forzar=False):
     return resultado, fuente
 
 
+_CACHE_TRADUCCION_IDIOMA = {}
+_CACHE_TRAD_LOCK = threading.Lock()
+_CACHE_TRAD_RUTA = Path(tempfile.gettempdir()) / "zipnova-traducciones.json"
+
+
+def _cargar_cache_traduccion():
+    if _CACHE_TRADUCCION_IDIOMA:
+        return
+    try:
+        if _CACHE_TRAD_RUTA.is_file():
+            data = json.loads(_CACHE_TRAD_RUTA.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                _CACHE_TRADUCCION_IDIOMA.update({k: v for k, v in data.items() if isinstance(v, str) and v})
+    except Exception as err:
+        print(f"--> cache traduccion: {err}")
+
+
+def _guardar_cache_traduccion():
+    try:
+        _CACHE_TRAD_RUTA.write_text(json.dumps(_CACHE_TRADUCCION_IDIOMA, ensure_ascii=False), encoding="utf-8")
+    except Exception as err:
+        print(f"--> cache traduccion no se guardo: {err}")
+
+
+def _traducir_lote_openai(textos, destino):
+    key = _openai_api_key()
+    if not key:
+        raise RuntimeError("Falta OPENAI_API_KEY")
+    nombre = "español" if destino == "es" else "inglés"
+    origen = "inglés" if destino == "es" else "español"
+    user = (
+        f"Traduce cada partida de construcción del {origen} al {nombre}. "
+        "Conserva números, medidas, unidades y códigos. No mezcles idiomas. "
+        'Devuelve solo JSON {"translations":["..."]} con la misma cantidad y el mismo orden.\n\n'
+        + json.dumps(list(textos), ensure_ascii=False)
+    )
+    verify = (os.getenv("GEMINI_SSL_VERIFY") or "1").strip().lower() not in ("0", "false", "no", "off")
+    ultimo = None
+    import httpx
+
+    with httpx.Client(verify=verify, timeout=25.0) as http:
+        for modelo in ("gpt-4o-mini", "gpt-4.1-mini", "gpt-4o"):
+            try:
+                resp = http.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                    json={
+                        "model": modelo,
+                        "temperature": 0,
+                        "response_format": {"type": "json_object"},
+                        "messages": [
+                            {"role": "system", "content": "Eres traductor de partidas de construcción. Respondes solo JSON."},
+                            {"role": "user", "content": user},
+                        ],
+                    },
+                )
+                if resp.status_code >= 400:
+                    ultimo = RuntimeError(f"OpenAI {modelo} HTTP {resp.status_code}: {resp.text[:240]}")
+                    print(f"--> {ultimo}")
+                    continue
+                content = (((resp.json() or {}).get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+                parsed = extraer_json(content) or {}
+                trads = parsed.get("translations") or parsed.get("traducciones") or []
+                if isinstance(trads, list) and trads:
+                    print(f"--> traduccion OpenAI {modelo} a {destino}: {len(trads)}")
+                    return [str(t or "").strip() for t in trads]
+            except Exception as err:
+                ultimo = err
+                print(f"--> traducir OpenAI {modelo}: {err}")
+    raise ultimo or RuntimeError("OpenAI no tradujo")
+
+
+def _traducciones_openai(textos, destino):
+    _cargar_cache_traduccion()
+    salida = [""] * len(textos)
+    pendientes = []
+    indices = []
+    with _CACHE_TRAD_LOCK:
+        for i, texto in enumerate(textos):
+            guardado = _CACHE_TRADUCCION_IDIOMA.get(f"{destino}:{texto}")
+            if guardado:
+                salida[i] = guardado
+            else:
+                pendientes.append(texto)
+                indices.append(i)
+    if not pendientes:
+        return salida
+    try:
+        trads = _traducir_lote_openai(pendientes, destino)
+    except Exception as err:
+        print(f"--> traducir catalogo: {err}")
+        return salida
+    cambio = False
+    with _CACHE_TRAD_LOCK:
+        for pos, idx in enumerate(indices):
+            trad = trads[pos] if pos < len(trads) else ""
+            if not trad:
+                continue
+            salida[idx] = trad
+            _CACHE_TRADUCCION_IDIOMA[f"{destino}:{textos[idx]}"] = trad
+            cambio = True
+    if cambio:
+        _guardar_cache_traduccion()
+    return salida
+
+
+def _items_en_idioma_busqueda(items, idioma):
+    """La lista sale solo en el idioma de la búsqueda. OpenAI traduce lo que está en el otro."""
+    if idioma not in ("es", "en"):
+        return items
+    finales = []
+    traducir = []
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        original = str(item.get("descripcion") or item.get("desc") or "").strip()
+        if not original:
+            continue
+        propio = _idioma_de_texto(original)
+        if propio == "es":
+            item["descripcion_es"] = original
+        elif propio == "en":
+            item["descripcion_en"] = original
+        if propio == idioma:
+            item["descripcion"] = original
+            item["desc"] = original
+            item["idioma"] = idioma
+            textos = dict(item.get("descripciones") or {})
+            textos[idioma] = original
+            item["descripciones"] = textos
+            finales.append(item)
+        else:
+            traducir.append(item)
+    if traducir:
+        origenes = [str(item.get("descripcion") or item.get("desc") or "").strip() for item in traducir]
+        textos = _traducciones_openai(origenes, idioma)
+        for item, original, trad in zip(traducir, origenes, textos):
+            if not trad or _idioma_de_texto(trad) != idioma:
+                continue
+            if idioma == "es":
+                item["descripcion_es"] = trad
+                item["descripcion_en"] = item.get("descripcion_en") or original
+            else:
+                item["descripcion_en"] = trad
+                item["descripcion_es"] = item.get("descripcion_es") or original
+            item["descripcion"] = trad
+            item["desc"] = trad
+            item["idioma"] = idioma
+            textos_item = {"es": item.get("descripcion_es") or "", "en": item.get("descripcion_en") or ""}
+            item["descripciones"] = textos_item
+            finales.append(item)
+    return finales
+
+
 def _filas_catalogo_por_codigos(codigos):
     sb = _supabase_client()
     if sb is None or not codigos:
@@ -3259,7 +3467,7 @@ def buscar_catalogo():
     oficio_ui = normalizar_oficio(request.args.get("oficio") or request.args.get("project_type") or "")
     medida = _consulta_medida_plano(q) or _consulta_medida_plano(q_norm)
     oficio = detectar_oficio(medida) if medida else (detectar_oficio(q_norm) or oficio_ui)
-    idioma = str(request.args.get("idioma") or request.args.get("lang") or "es").strip().lower()
+    idioma = _idioma_de_busqueda(q) or str(request.args.get("idioma") or request.args.get("lang") or "es").strip().lower()
     if idioma not in IDIOMAS_CATALOGO:
         idioma = "es"
     zona = _zona_mercado_por_zip(zip_q)
@@ -3346,10 +3554,11 @@ def buscar_catalogo():
             item["precio_zona"] = round(base * factor, 2)
             item["ajuste_zip"] = True
             item["fuente"] = item.get("fuente") or "supabase"
-        print(f"--> catálogo supabase q='{q_match}' filas={len(filas)} items={len(items)}")
+        items = _items_en_idioma_busqueda(items, idioma)
+        print(f"--> catálogo supabase q='{q_match}' idioma={idioma} filas={len(filas)} items={len(items)}")
         if not items and str(request.args.get("registrar_faltante") or "") in ("1", "true", "si", "yes"):
             registrar_item_faltante(q, oficio, zona.get("zip") or zip_q)
-        payload = {"success": True, "items": items, "count": len(items)}
+        payload = {"success": True, "items": items, "count": len(items), "idioma": idioma}
         resp = jsonify(payload)
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp
