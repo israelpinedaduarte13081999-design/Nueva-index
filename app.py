@@ -473,7 +473,7 @@ PROMPT_IMPORT_LINE_ITEMS = (
     "Eres un estimador experto de Solid Remodeling & Reconstruction LLC. "
     "Analiza este texto de un presupuesto en PDF. Extrae todas las partidas "
     "(ignorando totales generales) y adáptalas a nuestro formato de SCOPE OF WORK. "
-    "You MUST detect the language of the provided PDF document. All extracted line items, descriptions, and data MUST be generated in the EXACT SAME LANGUAGE as the original document. Do NOT translate English text to Spanish. Keep the original terminology intact. "
+    "You MUST extract all line item descriptions EXACTLY in the original language of the PDF document. Do NOT translate English terms to Spanish under any circumstances, even if requested by other language variables. Maintain the original terminology intact. "
     "Devuelve ÚNICAMENTE un JSON válido que sea un arreglo de objetos. "
     "Cada objeto debe tener exactamente estas claves: CODE, ACTION, WORK DESCRIPTION, "
     "QTY, UNIT, UNIT PRICE, y SUBTOTAL."
@@ -481,7 +481,7 @@ PROMPT_IMPORT_LINE_ITEMS = (
 
 PROMPT_PDF = """
 Analiza este PDF de construcción.
-You MUST detect the language of the provided PDF document. All extracted line items, descriptions, and data MUST be generated in the EXACT SAME LANGUAGE as the original document. Do NOT translate English text to Spanish. Keep the original terminology intact.
+You MUST extract all line item descriptions EXACTLY in the original language of the PDF document. Do NOT translate English terms to Spanish under any circumstances, even if requested by other language variables. Maintain the original terminology intact.
 
 Clasifica el documento:
 - "roof_report" si es Roofr, EagleView, Hover, GAF QuickMeasure o cualquier reporte de MEDICIONES de techo (áreas, pitch, eaves, rakes, valleys, ridges). NO es un estimado de precios.
@@ -532,7 +532,7 @@ SYSTEM_PROMPT_PLANOS = (
     "Eres un medidor de planos (takeoff). Solo extraes medidas por cuarto. "
     "Lees cotas y la escala dibujada. No inventes cuartos. "
     "Altura de pared = 8 ft si el plano no dice otra. "
-    "You MUST detect the language of the provided PDF document. All extracted line items, descriptions, and data MUST be generated in the EXACT SAME LANGUAGE as the original document. Do NOT translate English text to Spanish. Keep the original terminology intact. "
+    "You MUST extract all line item descriptions EXACTLY in the original language of the PDF document. Do NOT translate English terms to Spanish under any circumstances, even if requested by other language variables. Maintain the original terminology intact. "
     "Responde solo JSON válido, sin markdown."
 )
 
@@ -559,7 +559,7 @@ PLANOS_DPI = 120
 PROMPT_ROOF_REPORT = """
 Este PDF es un ROOF REPORT de MEDICIONES (Roofr, EagleView, Hover, GAF QuickMeasure u otro).
 NO es un estimado: no trae precios. Tú lees el TEXTO línea por línea.
-You MUST detect the language of the provided PDF document. All extracted line items, descriptions, and data MUST be generated in the EXACT SAME LANGUAGE as the original document. Do NOT translate English text to Spanish. Keep the original terminology intact.
+You MUST extract all line item descriptions EXACTLY in the original language of the PDF document. Do NOT translate English terms to Spanish under any circumstances, even if requested by other language variables. Maintain the original terminology intact.
 
 TAREA:
 1) Lee cada línea del reporte. Ignora encabezados, diagramas, leyendas, disclaimers, números de página,
