@@ -236,8 +236,8 @@
     }
     .area td:nth-child(1), .area td:nth-child(2), .area td:nth-child(3), td.desc-cell { overflow:visible; position:relative; z-index:20; height:auto; }
     .task-autocomplete-container { position:relative; width:100%; }
-    .task-dropdown-menu { position:fixed; top:0; left:0; width:min(320px,calc(100vw - 16px)); min-width:0; max-width:calc(100vw - 16px); max-height:min(280px,45vh); overflow-y:auto; background:#ffffff; border:1px solid #c9d5e3; border-radius:6px; box-shadow:0 8px 20px rgba(0,0,0,.15); z-index:5000; display:none; font-family:inherit; box-sizing:border-box; }
-    #menu-sugerencias-catalogo { position:fixed !important; z-index:2147483000; min-width:0 !important; width:min(320px,calc(100vw - 16px)); max-width:min(640px,calc(100vw - 16px)); max-height:min(320px,45vh); background:#fff; }
+    .task-dropdown-menu { position:fixed; top:0; left:0; width:min(320px,calc(100vw - 16px)); min-width:0; max-width:calc(100vw - 16px); max-height:250px; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; background:#ffffff; border:1px solid #c9d5e3; border-radius:6px; box-shadow:0 8px 20px rgba(0,0,0,.15); z-index:5000; display:none; font-family:inherit; box-sizing:border-box; }
+    #menu-sugerencias-catalogo { position:fixed !important; z-index:2147483000; min-width:0 !important; width:min(320px,calc(100vw - 16px)); max-width:min(640px,calc(100vw - 16px)); max-height:250px; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; background:#fff; }
     #menu-sugerencias-catalogo.is-open { display:block !important; }
     .task-dropdown-group { background:#f0f4f8; color:#19385f; font-weight:700; font-size:11px; padding:6px 10px; text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid #e1e8f0; }
     .task-dropdown-item { padding:8px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:4px 8px; font-size:13px; color:#333333; border:0; border-bottom:1px solid #f2f5f8; width:100%; max-width:100%; background:#fff; text-align:left; font-family:inherit; transition:background .15s ease; white-space:normal; }
@@ -3351,7 +3351,7 @@
     }
     function posicionarMenuTareas(input, menu){
       if(!input||!menu)return;
-      colocarMenuEnPantalla(input,menu,{minAncho:Math.min(320,window.innerWidth-16),maxAlto:Math.min(320,window.innerHeight*0.45),z:2147483000});
+      colocarMenuEnPantalla(input,menu,{minAncho:Math.min(320,window.innerWidth-16),maxAlto:250,z:2147483000});
       menu.style.display='block';
       menu.classList.add('is-open');
     }
