@@ -2559,6 +2559,24 @@
     function revertirAInstall(precioActual,accion,unit,text,category){
       return Math.max(0,Number(precioActual)||0);
     }
+    function rolesDesdePrecioPaquete(precio){
+      const total=Math.max(0,Number(precio)||0);
+      const material=Math.round(total*0.9/2.2*100)/100;
+      const demo=Math.round(total*0.3/2.2*100)/100;
+      const labor=Math.round((total-material-demo)*100)/100;
+      return {install:labor,labor:labor,material:material,demo:demo,replace:Math.round((labor+demo)*100)/100};
+    }
+    function fijarAccionPaqueteImportado(row,precio){
+      if(!row)return;
+      const accion='replace_material';
+      const select=row.querySelector('.item-action');
+      if(select)select.value=accion;
+      row.dataset.accion=accion;
+      row.dataset.precioImportado='1';
+      const roles=rolesDesdePrecioPaquete(precio);
+      guardarRolesEnFila(row,roles);
+      guardarDesgloseFila(row,{install:roles.install,labor:roles.labor,material:roles.material,demo:roles.demo});
+    }
     function guardarDesgloseFila(row,desglose){
       if(!row||!desglose)return;
       if(desglose.install!=null)row.dataset.precioMatLabor=String(desglose.install||0);
@@ -5404,13 +5422,12 @@
         const unidad=unidadImportadaPdf(match[4]);
         const precioUnit=parseFloat(String(match[5]).replace(/,/g,''))||0;
         if(!descripcion||precioUnit<0)return;
-        addRow(area,[numeroItem, descripcion, cantidad, precioUnit, unidad, 0, 'install']);
+        addRow(area,[numeroItem, descripcion, cantidad, precioUnit, unidad, 0, 'replace_material']);
         const row=area.querySelector('tbody tr:last-child');
         if(row){
           row.dataset.descManual='1';
           row.dataset.unidadManual='1';
-          row.dataset.accion='install';
-          row.dataset.precioMatLabor=String(precioUnit);
+          fijarAccionPaqueteImportado(row, precioUnit);
           if(typeof asegurarOpcionUnidad==='function')asegurarOpcionUnidad(row.querySelector('.select-unidad'),unidad);
           const qtyInput=row.querySelector('.input-cantidad')||row.querySelector('.quantity');
           const priceInput=row.querySelector('.price')||row.querySelector('.input-precio');
@@ -5519,7 +5536,7 @@
         let qty=0;
         (alias[clave]||[clave]).some(k=>{ qty=Number(m[k]||0)||0; return qty>0; });
         if(qty<=0)return;
-        out.push({measure_key:clave,description:desc,descripcion:desc,quantity:qty,cantidad:qty,unit:unidad,unidad:unidad,unit_price:0,trade:'Roofing',categoria:'TECHO',action:clave==='total_roof_area_sq'?'replace_material':'install'});
+        out.push({measure_key:clave,description:desc,descripcion:desc,quantity:qty,cantidad:qty,unit:unidad,unidad:unidad,unit_price:0,trade:'Roofing',categoria:'TECHO',action:'replace_material'});
       });
       return out;
     }
@@ -5737,7 +5754,7 @@
           qty: a.qty,
           unit: a.unit,
           price: price,
-          action: 'install',
+          action: 'replace_material',
           measureKey: a.mk,
           precioInstall: price
         });
@@ -5782,24 +5799,12 @@
           const el = tr.querySelector(sel);
           if (el) el.addEventListener('input', function(){ if (typeof recalcularSubtotalFila==='function') recalcularSubtotalFila(tr); if (typeof update==='function') update(); });
         });
-        const selAccion=tr.querySelector('.item-action');
-        const accion=selAccion?selAccion.value:'install';
-        tr.dataset.accion=accion;
         const unit=tr.querySelector('.select-unidad')?.value||'SF';
         const desc=(tr.querySelector('.item-desc')||tr.querySelector('.description'))?.value||'';
         const unitPrice=Number(tr.querySelector('.price')?.value)||0;
-        if(typeof guardarDesgloseFila==='function'&&typeof desgloseDesdeItem==='function'){
-          guardarDesgloseFila(tr,{install:Number(tr.dataset.precioMatLabor)||unitPrice,demo:Number(tr.dataset.precioDemo)||0,labor:0,material:0});
-        }
-        if(typeof guardarRolesEnFila==='function'){
-          guardarRolesEnFila(tr,{
-            install:Number(tr.dataset.precioMatLabor)||0,
-            demo:Number(tr.dataset.precioDemo)||0,
-            material:0,
-            labor:0,
-            replace:unitPrice
-          });
-        }
+        fijarAccionPaqueteImportado(tr, unitPrice);
+        const priceInput=tr.querySelector('.price')||tr.querySelector('.input-precio');
+        if(priceInput)priceInput.value=unitPrice.toFixed(2);
         if(typeof guardarContextoMaterialFila==='function'){
           guardarContextoMaterialFila(tr,{
             codigo:tr.dataset.codigoBase||(tr.querySelector('.code')?.value||''),
@@ -5864,15 +5869,13 @@
         if(!Number.isFinite(unitPrice)||unitPrice<0)unitPrice=0;
         const subtotal=Number.isFinite(total)&&total>0?total:qty*unitPrice;
         const item=String(valorPartidaApi(row,['item','numero','number'],index+1));
-        const action=String(row.action||(/tear-off|remoci[oó]n|demo/i.test(desc)?'demo':'install'));
+        const action='replace_material';
         addRow(area,[item,desc,qty,unitPrice,unit,0,action]);
         const tr=area.querySelector('tbody tr:last-child');
         if(tr){
           tr.dataset.descManual='1';
           tr.dataset.unidadManual='1';
-          if(esTecho)tr.dataset.precioImportado='1';
-          tr.dataset.accion=action;
-          tr.dataset.precioMatLabor=String(revertirAInstall(unitPrice,action,unit,desc,''));
+          fijarAccionPaqueteImportado(tr, unitPrice);
           if(typeof asegurarOpcionUnidad==='function')asegurarOpcionUnidad(tr.querySelector('.select-unidad'),unit);
           const qtyInput=tr.querySelector('.input-cantidad')||tr.querySelector('.quantity');
           const priceInput=tr.querySelector('.price')||tr.querySelector('.input-precio');
@@ -6536,17 +6539,14 @@
       if(!Number.isFinite(unitPrice)&&Number.isFinite(subtotal)&&qty)unitPrice=subtotal/qty;
       if(!Number.isFinite(unitPrice)||unitPrice<0)unitPrice=0;
       const tax=Number(row.tax)||0;
-      const action=String(row.action||valorPartidaImportada(row,['ACTION','action'],'replace'));
-      const actionKey=['replace','replace_material','install_material','install','labor','demo','material'].includes(action)?action:(/demo|demolition/i.test(action)?'demo':/install plus/i.test(action)?'install_material':/install only/i.test(action)?'install':/material only/i.test(action)?'material':/remove/i.test(action)?'replace':'replace');
+      const actionKey='replace_material';
       const code=String(valorPartidaImportada(row,['CODE','code','codigo'],''));
       addRow(area,[code, desc, Number.isFinite(qty)&&qty>0?qty:1, unitPrice, unit, tax, actionKey]);
       const tr=area.querySelector('tbody tr:last-child');
       if(!tr)return true;
       tr.dataset.descManual='1';
       tr.dataset.unidadManual='1';
-      tr.dataset.precioImportado='1';
-      tr.dataset.accion=actionKey;
-      tr.dataset.precioMatLabor=String(unitPrice);
+      fijarAccionPaqueteImportado(tr, unitPrice);
       if(typeof asegurarOpcionUnidad==='function')asegurarOpcionUnidad(tr.querySelector('.select-unidad'),unit);
       const qtyInput=tr.querySelector('.input-cantidad')||tr.querySelector('.quantity');
       const priceInput=tr.querySelector('.price')||tr.querySelector('.input-precio');
