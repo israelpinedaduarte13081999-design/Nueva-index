@@ -364,6 +364,14 @@
     .pdf-api-status { color:var(--muted); font-size:12px; font-weight:600; }
     .pdf-api-status.is-error { color:#b91c1c; }
     .pdf-api-status.is-ok { color:#15803d; }
+    body.medidas-pdf-busy { overflow:hidden; }
+    #medidas-pdf-overlay { position:fixed; inset:0; z-index:2147483646; display:grid; place-items:center; padding:24px; background:rgba(15,23,42,.42); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); pointer-events:auto; }
+    #medidas-pdf-overlay[hidden] { display:none !important; }
+    .medidas-pdf-card { width:min(420px,100%); padding:36px 32px 32px; text-align:center; background:rgba(255,255,255,.96); border:1px solid rgba(226,232,240,.95); border-radius:18px; box-shadow:0 24px 60px rgba(15,23,42,.22); }
+    .medidas-pdf-spinner { width:56px; height:56px; margin:0 auto 22px; border-radius:50%; background:conic-gradient(from 0deg, rgba(2,132,199,0) 0%, #0284c7 68%, #38bdf8 100%); -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px)); mask:radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px)); animation:medidas-pdf-spin .85s linear infinite, medidas-pdf-pulse 1.8s ease-in-out infinite; }
+    @keyframes medidas-pdf-spin { to { transform:rotate(360deg); } }
+    @keyframes medidas-pdf-pulse { 0%,100% { filter:drop-shadow(0 0 0 rgba(2,132,199,0)); } 50% { filter:drop-shadow(0 0 8px rgba(2,132,199,.45)); } }
+    .medidas-pdf-card p { margin:0; color:#334155; font-size:15px; font-weight:600; line-height:1.5; }
     .pdf-extract-wrap { overflow:auto; border:1px solid #e2e8f0; border-radius:8px; background:#fff; }
     .pdf-extract-table { width:100%; border-collapse:collapse; table-layout:auto; font-size:12px; }
     .pdf-extract-table th { background:#f8fafc; color:#19385f; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.03em; text-align:left; padding:10px 12px; border-bottom:2px solid #e2e8f0; }
@@ -6124,11 +6132,27 @@
       });
       return payload;
     }
+    function mostrarCargaMedidasPdf(){
+      const overlay=document.getElementById('medidas-pdf-overlay');
+      if(!overlay)return;
+      overlay.hidden=false;
+      document.body.classList.add('medidas-pdf-busy');
+      const btn=document.getElementById('importReportButton');
+      if(btn)btn.disabled=true;
+    }
+    function ocultarCargaMedidasPdf(){
+      const overlay=document.getElementById('medidas-pdf-overlay');
+      if(overlay)overlay.hidden=true;
+      document.body.classList.remove('medidas-pdf-busy');
+      const btn=document.getElementById('importReportButton');
+      if(btn)btn.disabled=false;
+    }
     async function enviarRoofReportAlServidor(file){
       if(!file||(file.type&&file.type!=='application/pdf'&&!/\.pdf$/i.test(file.name))){
         alert('Selecciona un PDF de Roof Report.');
         return;
       }
+      if(document.body.classList.contains('medidas-pdf-busy'))return;
       const status=document.getElementById('pdf-api-status');
       const form=new FormData();
       form.append('file',file);
@@ -6139,6 +6163,7 @@
       form.append('oficio','roofing');
       form.append('project_type','roofing');
       if(status){ status.textContent='Procesando Roof Report…'; status.className='pdf-api-status'; }
+      mostrarCargaMedidasPdf();
       try{
         if(typeof showAppView==='function')showAppView('quote',{noScroll:true,mode:'estimate'});
         const apiUrl=(location.origin&&location.origin.indexOf('http')===0)?(location.origin+'/api/import-roof-report'):'http://127.0.0.1:5000/api/import-roof-report';
@@ -6173,6 +6198,8 @@
         const msg=error&&error.message?error.message:'No se pudo conectar con el servidor en el puerto 5000.';
         if(status){ status.textContent=msg; status.className='pdf-api-status is-error'; }
         else alert(msg);
+      }finally{
+        ocultarCargaMedidasPdf();
       }
     }
     async function enviarPdfAlServidor(archivoOpcional){
@@ -7375,6 +7402,12 @@
       });
   });
   </script>
+  <div id="medidas-pdf-overlay" hidden role="alertdialog" aria-modal="true" aria-labelledby="medidas-pdf-msg">
+    <div class="medidas-pdf-card">
+      <div class="medidas-pdf-spinner" aria-hidden="true"></div>
+      <p id="medidas-pdf-msg">Analizando documento... Esto puede tardar un minuto o más.</p>
+    </div>
+  </div>
 </body>
 </html>
 
