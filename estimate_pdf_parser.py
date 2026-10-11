@@ -299,7 +299,7 @@ def _item_from_cols(cols: dict[str, str]) -> dict[str, Any] | None:
         unit_price = round(subtotal / qty, 2) if qty else None
     return {
         "code": code,
-        "action": _action_key(action_raw) or "replace",
+        "action": __import__("roof_parser").accion_exacta_item(f"{desc} {action_raw}"),
         "action_label": action_raw,
         "description": desc,
         "qty": qty if qty is not None else 1.0,
@@ -334,7 +334,7 @@ def _merge_continuation(item: dict[str, Any], cols: dict[str, str], full: str) -
             bits.append(extra_action)
         else:
             item["action_label"] = combined or extra_action
-            item["action"] = mapped or item.get("action") or "replace"
+            item["action"] = mapped or __import__("roof_parser").accion_exacta_item(item.get("description") or "", item.get("action"))
     if extra_desc:
         bits.append(extra_desc)
     if not bits and full and not _is_header_row(full):
@@ -454,7 +454,7 @@ def _fallback_text_parse(pdf_bytes: bytes) -> list[dict[str, Any]]:
         items.append(
             {
                 "code": _norm(match.group("code") or ""),
-                "action": _action_key(match.group("action")) or "replace",
+                "action": __import__("roof_parser").accion_exacta_item(match.group("desc"), match.group("action")),
                 "action_label": _norm(match.group("action")),
                 "description": _norm(match.group("desc")),
                 "qty": _qty(match.group("qty")) or 1.0,
@@ -532,7 +532,7 @@ def extraer_partidas_numeradas(texto: str) -> dict[str, Any]:
         items.append(
             {
                 "code": match.group(1),
-                "action": "install",
+                "action": __import__("roof_parser").accion_exacta_item(match.group(2).strip()),
                 "description": match.group(2).strip(),
                 "qty": qty,
                 "unit": match.group(4).upper(),

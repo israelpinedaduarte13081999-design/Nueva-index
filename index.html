@@ -1215,7 +1215,7 @@
     </div>
   </section>
   <template id="areaTemplate"><section class="area"><div class="area-header"><div class="area-name"><span class="area-index"></span><input class="area-title" value="Kitchen area"><span>(</span><input class="area-reference" value="PLANO 85999"><span>)</span></div><div class="area-actions"><button class="icon-btn add-row-btn" type="button">+ Row</button><button class="icon-btn remove-area-btn" type="button">Remove area</button></div></div><table><thead><tr><th class="code-heading">Code</th><th class="action-heading">Action</th><th class="description-heading">Work description</th><th class="quantity-heading">Qty</th><th class="unit-heading">Unit</th><th class="price-heading">Unit price ($)</th><th class="tax-heading">TAX (%)</th><th class="subtotal-heading">Subtotal ($)</th><th></th></tr></thead><tbody></tbody></table><button class="add-row" type="button">+ Add row</button></section></template>
-    <template id="rowTemplate"><tr class="fila-trabajo"><td><input class="code" value=""></td><td><select class="item-action" aria-label="Action" onchange="onCambioAccionPartida(this)"><option value="replace" selected>Remove and install</option><option value="replace_material">Remove, install plus materials</option><option value="install_material">Install plus materials</option><option value="install">Install only</option><option value="demo">Demolition only</option><option value="material">Material only</option></select></td><td class="desc-cell"><div class="task-autocomplete-container"><textarea class="item-desc description" data-line-desc="1" rows="1" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea><div class="task-dropdown-menu" role="listbox" aria-label="Trades and tasks"></div></div></td><td><div class="quantity-cell"><input type="number" class="input-cantidad quantity" value="1" min="0" step="any" placeholder="0" style="width: 100%; max-width: 100%; padding: 4px; border: 1px solid #ced4da; border-radius: 4px; text-align: center; font-weight: bold;" oninput="recalcularSubtotalFila(this.closest('tr')); if(typeof update==='function')update();"></div></td><td><select class="select-unidad unit-select item-unit" aria-label="Unit"><option value="SQ">SQ (Squares, 100 sq ft)</option><option value="SF" selected>SF (Square Feet)</option><option value="LF">LF (Linear Feet)</option><option value="EA">EA (Each)</option>
+    <template id="rowTemplate"><tr class="fila-trabajo"><td><input class="code" value=""></td><td><select class="item-action" aria-label="Action" onchange="onCambioAccionPartida(this)"><option value="replace">Remove and install</option><option value="replace_material">Remove, install plus materials</option><option value="install_material" selected>Install plus materials</option><option value="install">Install only</option><option value="demo">Demolition only</option><option value="material">Material only</option></select></td><td class="desc-cell"><div class="task-autocomplete-container"><textarea class="item-desc description" data-line-desc="1" rows="1" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea><div class="task-dropdown-menu" role="listbox" aria-label="Trades and tasks"></div></div></td><td><div class="quantity-cell"><input type="number" class="input-cantidad quantity" value="1" min="0" step="any" placeholder="0" style="width: 100%; max-width: 100%; padding: 4px; border: 1px solid #ced4da; border-radius: 4px; text-align: center; font-weight: bold;" oninput="recalcularSubtotalFila(this.closest('tr')); if(typeof update==='function')update();"></div></td><td><select class="select-unidad unit-select item-unit" aria-label="Unit"><option value="SQ">SQ (Squares, 100 sq ft)</option><option value="SF" selected>SF (Square Feet)</option><option value="LF">LF (Linear Feet)</option><option value="EA">EA (Each)</option>
             <option value="PC">PC (Piece, 10 ft)</option><option value="HR">HR (Hours)</option><option value="CY">CY (Cubic Yards)</option><option value="BAG">BAG (Bag)</option><option value="LS">LS (Lump Sum)</option></select></td><td class="price-cell"><div class="price-ia-wrap"><input class="price number-input input-precio" type="number" min="0" step="0.01" value="0"><button type="button" class="btn-ia-precio no-print" hidden title="Suggest market price with AI">IA</button><div class="ia-precio-menu no-print" hidden></div></div></td><td><input class="tax number-input" type="number" min="0" step="0.01" value="0" aria-label="TAX (%)"></td><td class="subtotal-cell"><span class="row-total span-subtotal input-subtotal">$0.00</span><small class="minimum-tag tag-minimo"></small></td><td><button class="remove-row" type="button" aria-label="Remove row">×</button></td></tr></template>
   <datalist id="listaSugerenciasMateriales">
     <option value="Instalación de piso Luxury Vinyl Tile (LVT) pegado (Glue-down)"></option>
@@ -2551,7 +2551,7 @@
         demo:'demo', demolition:'demo',
         material:'material', materials:'material'
       };
-      return map[a]||'replace';
+      return map[a]||'install_material';
     }
     function precioSegunAccion(base,accion,unit,text,category){
       return precioDesdeRolesVariantes({install:base},accion);
@@ -2561,14 +2561,32 @@
     }
     function rolesDesdePrecioPaquete(precio){
       const total=Math.max(0,Number(precio)||0);
-      const material=Math.round(total*0.9/2.2*100)/100;
-      const demo=Math.round(total*0.3/2.2*100)/100;
-      const labor=Math.round((total-material-demo)*100)/100;
+      const labor=Math.round(total/1.9*100)/100;
+      const material=Math.round((total-labor)*100)/100;
+      const demo=Math.round(labor*0.3*100)/100;
       return {install:labor,labor:labor,material:material,demo:demo,replace:Math.round((labor+demo)*100)/100};
+    }
+    function accionSegunItem(texto){
+      const t=String(texto||'').toLowerCase();
+      if(/solo\s+demolici[oó]n|demolition\s+only|demo\s+only|tear[\s-]*off\s+only|demolici[oó]n\s+solamente/.test(t))return 'demo';
+      if(/solo\s+mano\s+de\s+obra|mano\s+de\s+obra\s+solamente|labor\s+only|labour\s+only/.test(t))return 'labor';
+      const remocion=/remoci[oó]n|removal|\bremove\b|tear[\s-]*off|\bretiro\b/.test(t);
+      const instalacion=/instalaci[oó]n|\binstall/.test(t);
+      const material=/\bmaterial/.test(t);
+      if(remocion&&instalacion&&material)return 'replace_material';
+      return 'install_material';
+    }
+    function accionInicialItem(texto,declarada){
+      const exacta=accionSegunItem(texto);
+      if(exacta!=='install_material')return exacta;
+      const d=String(declarada||'').trim();
+      if(d==='labor'||d==='material'||d==='install')return d;
+      return 'install_material';
     }
     function fijarAccionPaqueteImportado(row,precio){
       if(!row)return;
-      const accion='replace_material';
+      const desc=((row.querySelector('.item-desc')||row.querySelector('.description'))?.value)||'';
+      const accion=accionSegunItem(desc);
       const select=row.querySelector('.item-action');
       if(select)select.value=accion;
       row.dataset.accion=accion;
@@ -2586,7 +2604,7 @@
     }
     function aplicarPrecioAccionEnFila(row,roles,opts){
       const silent=!!(opts&&opts.silent);
-      const accion=normalizarAccion(row.querySelector('.item-action')?.value||row.dataset.accion||'replace');
+      const accion=normalizarAccion(row.querySelector('.item-action')?.value||row.dataset.accion||'install_material');
       const skipZip=row.dataset.skipZipFactor==='1';
       const autoOn=typeof preciosAutomaticosActivos==='function'?preciosAutomaticosActivos():true;
       const factor=skipZip||!autoOn?1:((typeof factorZipActual==='function'?factorZipActual():1)||1);
@@ -2819,7 +2837,7 @@
       if(!nucleo)return;
       row.dataset.nucleoDesc=nucleo;
       row.dataset.updatingDesc='1';
-      escribirTextoCampo(input, armarDescripcionAccion(row.querySelector('.item-action')?.value||'replace',nucleo));
+      escribirTextoCampo(input, armarDescripcionAccion(row.querySelector('.item-action')?.value||'install_material',nucleo));
       row.dataset.updatingDesc='0';
     }
     function encontrarEnCatalogoPorCodigo(code){
@@ -3617,20 +3635,27 @@
       fila.dataset.unidadManual='1';
       if(qtyInput&&(!qtyInput.value||parseFloat(qtyInput.value)===0))qtyInput.value=1;
       const unit=unitSelect?.value||item.unit||'SF';
-      const rol=clasificarRolPartida(item);
       const actionSelect=fila.querySelector('.item-action');
-      if(actionSelect&&['replace','replace_material','install_material','install','labor','demo','material'].includes(rol)){
-        actionSelect.value=rol;
-        fila.dataset.accion=rol;
+      if(actionSelect){
+        const accionCatalogo=accionSegunItem(descTexto||item.desc||item.descripcion||'');
+        actionSelect.value=accionCatalogo;
+        fila.dataset.accion=accionCatalogo;
       }
       const priceInput=fila.querySelector('.price, .input-precio');
       if(priceInput&&precioBase>=0)priceInput.value=Number(precioBase).toFixed(2);
       if(typeof autoAjustarAlturaDescripcion==='function'&&descInput)autoAjustarAlturaDescripcion(descInput);
       const variantes=agruparVariantesLocales(fila.dataset.codigoBase||item.codigo||item.code||'',fila.dataset.nucleoDesc,unit,fila.dataset.catalogoRama);
       const lista=variantes.length?variantes:[item];
-      guardarRolesEnFila(fila,preciosRolesDesdeVariantes(lista));
+      let rolesCatalogo=preciosRolesDesdeVariantes(lista);
+      if(!(rolesCatalogo.labor>0&&rolesCatalogo.material>0)&&precioBase>0)rolesCatalogo=rolesDesdePrecioPaquete(precioBase);
+      guardarRolesEnFila(fila,rolesCatalogo);
       if(typeof recalcularPrecioPorAccion==='function')recalcularPrecioPorAccion(fila,{skipDesc:true});
       else if(typeof update==='function')update();
+      if(priceInput&&precioBase>0&&!(Number(priceInput.value)>0)){
+        guardarRolesEnFila(fila,rolesDesdePrecioPaquete(precioBase));
+        priceInput.value=Number(precioBase).toFixed(2);
+        if(typeof recalcularSubtotalFila==='function')recalcularSubtotalFila(fila);
+      }
     }
     function habilitarSelectorRamas(inputElement){
       if(!inputElement||inputElement.classList.contains('no-autocomplete'))return;
@@ -3828,7 +3853,7 @@
       });
     });
 
-    function addRow(area, data=['','',1,0,'SF',0]) { const fragment=rowTemplate.content.cloneNode(true); area.querySelector('tbody').appendChild(fragment); const row=area.querySelector('tbody').lastElementChild; row.querySelector('.code').value=data[0]; (row.querySelector('.item-desc')||row.querySelector('.description')).value=data[1]; row.querySelector('.input-cantidad').value=data[2]; row.querySelector('.price').value=data[3]; const unitValue=normalizarUnidad(data[4]||'SF'); row.querySelector('.select-unidad').value=['SQ','SF','LF','EA','HR','CY','LS','BAG','PC'].includes(unitValue)?unitValue:'SF'; const actionSelect=row.querySelector('.item-action'); const accionInicial=['replace','replace_material','install_material','install','labor','demo','material'].includes(data[6])?data[6]:(detectarAlcance(data[1])==='demo'?'demo':detectarAlcance(data[1])==='labor'?'labor':detectarAlcance(data[1])==='replace'?'replace':'replace'); if(actionSelect)actionSelect.value=accionInicial; if(row.querySelector('.select-alcance'))row.querySelector('.select-alcance').value=['full','labor','replace','demo'].includes(data[6])?data[6]:detectarAlcance(data[1]); row.querySelector('.tax').value=data[5]??0; if(data[1])row.dataset.nucleoDesc=nucleoDescripcion(data[1]); const descInput=row.querySelector('.item-desc')||row.querySelector('.description'); const codeInput=row.querySelector('.code'); habilitarSelectorRamas(descInput); habilitarSelectorRamas(codeInput); if(typeof autoAjustarAlturaDescripcion==='function')autoAjustarAlturaDescripcion(descInput); if(descInput&&descInput.tagName!=='TEXTAREA'){ descInput.addEventListener('mousedown',e=>{ if(e.button===0)descInput.dataset.clickX=String(e.clientX); }); descInput.addEventListener('mouseup',e=>{ if(e.button!==0||e.detail!==1)return; if(Math.abs(e.clientX-Number(descInput.dataset.clickX||e.clientX))>3)return; const val=descInput.value; if(!val||descInput.selectionStart!==0||descInput.selectionEnd!==val.length)return; colocarCursorEnClic(descInput,e.clientX); }); } const procesarCambioPartida=()=>{ if(descInput)preservarContextoMaterialEnEdicion(row,descInput.value); update(); }; ['input','change'].forEach(evt=>{ if(descInput)descInput.addEventListener(evt,procesarCambioPartida); if(codeInput)codeInput.addEventListener(evt,procesarCambioPartida); }); actionSelect?.addEventListener('change',()=>{ actualizarDescripcionPorAccion(row); if(typeof recalcularPrecioPorAccion==='function')recalcularPrecioPorAccion(row); else { aplicarPrecioAutomaticoFila(row,false); update(); } }); row.querySelector('.select-unidad')?.addEventListener('change',()=>{ row.dataset.unidadManual='1'; if(row.querySelector('.select-unidad').value==='LS')aplicarUnidadLS(row); if(!filaPrecioFijo(row))aplicarPrecioAutomaticoFila(row,false); update(); }); ['.input-cantidad','.quantity','.price','.tax'].forEach(sel=>{ row.querySelector(sel)?.addEventListener('input',()=>{ recalcularSubtotalFila(row); update(); }); }); row.querySelector('.remove-row').addEventListener('click',()=>{ row.remove(); update(); }); row.querySelector('.remove-row').title=translations[language].removeRow; row.querySelector('.remove-row').setAttribute('aria-label',translations[language].removeRow); if(typeof sincronizarBotonIaPrecio==='function')sincronizarBotonIaPrecio(row); if(typeof recalcularSubtotalFila==='function'){ const qty=Number(row.querySelector('.input-cantidad')?.value||row.querySelector('.quantity')?.value)||0; const unitPrice=Number(row.querySelector('.price')?.value||row.querySelector('.input-precio')?.value)||0; const celdaSubtotal=row.querySelector('.row-total')||row.querySelector('.span-subtotal')||row.querySelector('.input-subtotal'); if(celdaSubtotal){ if(celdaSubtotal.tagName==='INPUT')celdaSubtotal.value=(qty*unitPrice).toFixed(2); else celdaSubtotal.textContent='$'+(qty*unitPrice).toFixed(2); } recalcularSubtotalFila(row); } }
+    function addRow(area, data=['','',1,0,'SF',0]) { const fragment=rowTemplate.content.cloneNode(true); area.querySelector('tbody').appendChild(fragment); const row=area.querySelector('tbody').lastElementChild; row.querySelector('.code').value=data[0]; (row.querySelector('.item-desc')||row.querySelector('.description')).value=data[1]; row.querySelector('.input-cantidad').value=data[2]; row.querySelector('.price').value=data[3]; const unitValue=normalizarUnidad(data[4]||'SF'); row.querySelector('.select-unidad').value=['SQ','SF','LF','EA','HR','CY','LS','BAG','PC'].includes(unitValue)?unitValue:'SF'; const actionSelect=row.querySelector('.item-action'); const accionInicial=accionInicialItem(data[1],data[6]); if(actionSelect)actionSelect.value=accionInicial; if(row.querySelector('.select-alcance'))row.querySelector('.select-alcance').value=['full','labor','replace','demo'].includes(data[6])?data[6]:detectarAlcance(data[1]); row.querySelector('.tax').value=data[5]??0; if(data[1])row.dataset.nucleoDesc=nucleoDescripcion(data[1]); const descInput=row.querySelector('.item-desc')||row.querySelector('.description'); const codeInput=row.querySelector('.code'); habilitarSelectorRamas(descInput); habilitarSelectorRamas(codeInput); if(typeof autoAjustarAlturaDescripcion==='function')autoAjustarAlturaDescripcion(descInput); if(descInput&&descInput.tagName!=='TEXTAREA'){ descInput.addEventListener('mousedown',e=>{ if(e.button===0)descInput.dataset.clickX=String(e.clientX); }); descInput.addEventListener('mouseup',e=>{ if(e.button!==0||e.detail!==1)return; if(Math.abs(e.clientX-Number(descInput.dataset.clickX||e.clientX))>3)return; const val=descInput.value; if(!val||descInput.selectionStart!==0||descInput.selectionEnd!==val.length)return; colocarCursorEnClic(descInput,e.clientX); }); } const procesarCambioPartida=()=>{ if(descInput)preservarContextoMaterialEnEdicion(row,descInput.value); update(); }; ['input','change'].forEach(evt=>{ if(descInput)descInput.addEventListener(evt,procesarCambioPartida); if(codeInput)codeInput.addEventListener(evt,procesarCambioPartida); }); actionSelect?.addEventListener('change',()=>{ actualizarDescripcionPorAccion(row); if(typeof recalcularPrecioPorAccion==='function')recalcularPrecioPorAccion(row); else { aplicarPrecioAutomaticoFila(row,false); update(); } }); row.querySelector('.select-unidad')?.addEventListener('change',()=>{ row.dataset.unidadManual='1'; if(row.querySelector('.select-unidad').value==='LS')aplicarUnidadLS(row); if(!filaPrecioFijo(row))aplicarPrecioAutomaticoFila(row,false); update(); }); ['.input-cantidad','.quantity','.price','.tax'].forEach(sel=>{ row.querySelector(sel)?.addEventListener('input',()=>{ recalcularSubtotalFila(row); update(); }); }); row.querySelector('.remove-row').addEventListener('click',()=>{ row.remove(); update(); }); row.querySelector('.remove-row').title=translations[language].removeRow; row.querySelector('.remove-row').setAttribute('aria-label',translations[language].removeRow); if(typeof sincronizarBotonIaPrecio==='function')sincronizarBotonIaPrecio(row); if(typeof recalcularSubtotalFila==='function'){ const qty=Number(row.querySelector('.input-cantidad')?.value||row.querySelector('.quantity')?.value)||0; const unitPrice=Number(row.querySelector('.price')?.value||row.querySelector('.input-precio')?.value)||0; const celdaSubtotal=row.querySelector('.row-total')||row.querySelector('.span-subtotal')||row.querySelector('.input-subtotal'); if(celdaSubtotal){ if(celdaSubtotal.tagName==='INPUT')celdaSubtotal.value=(qty*unitPrice).toFixed(2); else celdaSubtotal.textContent='$'+(qty*unitPrice).toFixed(2); } recalcularSubtotalFila(row); } }
     function addArea(data={title:'New area',titleEn:'New area',reference:'',rows:[['','',1,0,'unit']]}) { areaCount++; const fragment=areaTemplate.content.cloneNode(true); areas.appendChild(fragment); const area=areas.lastElementChild; area.dataset.titleEs=data.title; area.dataset.titleEn=data.titleEn||data.title; area.querySelector('.area-index').textContent=areaCount+'.'; area.querySelector('.area-title').value=data.titleEn||data.title; area.querySelector('.area-reference').value=data.reference; area.querySelector('.add-row-btn').addEventListener('click',()=>addRow(area)); area.querySelector('.add-row').addEventListener('click',()=>addRow(area)); area.querySelector('.remove-area-btn').addEventListener('click',()=>{area.remove();renumber();update();}); area.querySelectorAll('.area-title,.area-reference').forEach(input=>input.addEventListener('input',update)); data.rows.forEach(row=>addRow(area,row)); update(); }
     function renumber(){ areaCount=0; document.querySelectorAll('.area').forEach(area=>area.querySelector('.area-index').textContent=(++areaCount)+'.'); }
     function parsePaymentAmount(value,total){ const raw=String(value||'').trim(); if(!raw)return 0; if(raw.endsWith('%'))return total*(Number(raw.slice(0,-1).replace(',','.'))||0)/100; return Math.max(Number(raw.replace(/[$,\s]/g,''))||0,0); }
@@ -4313,7 +4338,7 @@
         price:row.querySelector('.price')?.value||'0',
         unit:row.querySelector('.select-unidad')?.value||'SF',
         tax:row.querySelector('.tax')?.value||'0',
-        action:row.querySelector('.item-action')?.value||'replace',
+        action:row.querySelector('.item-action')?.value||'install_material',
         meta
       };
     }
@@ -4899,7 +4924,7 @@
           price:it.precio_unitario!=null?it.precio_unitario:it.price,
           unit:it.unidad||it.unit||'SF',
           tax:it.tax||0,
-          action:it.accion||it.action||'replace',
+          action:it.accion||it.action||'install_material',
           meta:Object.assign({}, it.meta||{}, {descManual:'1', descCustom:textoDescripcionPartidaGuardada(it)})
         });
       });
@@ -5422,7 +5447,7 @@
         const unidad=unidadImportadaPdf(match[4]);
         const precioUnit=parseFloat(String(match[5]).replace(/,/g,''))||0;
         if(!descripcion||precioUnit<0)return;
-        addRow(area,[numeroItem, descripcion, cantidad, precioUnit, unidad, 0, 'replace_material']);
+        addRow(area,[numeroItem, descripcion, cantidad, precioUnit, unidad, 0, 'install_material']);
         const row=area.querySelector('tbody tr:last-child');
         if(row){
           row.dataset.descManual='1';
@@ -5536,7 +5561,7 @@
         let qty=0;
         (alias[clave]||[clave]).some(k=>{ qty=Number(m[k]||0)||0; return qty>0; });
         if(qty<=0)return;
-        out.push({measure_key:clave,description:desc,descripcion:desc,quantity:qty,cantidad:qty,unit:unidad,unidad:unidad,unit_price:0,trade:'Roofing',categoria:'TECHO',action:'replace_material'});
+        out.push({measure_key:clave,description:desc,descripcion:desc,quantity:qty,cantidad:qty,unit:unidad,unidad:unidad,unit_price:0,trade:'Roofing',categoria:'TECHO',action:'install_material'});
       });
       return out;
     }
@@ -5727,7 +5752,7 @@
         qty: med.squares,
         unit: 'SQ',
         price: combined,
-        action: 'replace_material',
+        action: 'install_material',
         measureKey: 'total_roof_area_sq',
         precioDemo: demoP,
         precioInstall: instP
@@ -5755,7 +5780,7 @@
           qty: a.qty,
           unit: a.unit,
           price: price,
-          action: 'replace_material',
+          action: 'install_material',
           measureKey: a.mk,
           precioInstall: price
         });
@@ -5782,7 +5807,7 @@
         const unit = String(f.unit||'LF').toUpperCase();
         return '<tr class="fila-trabajo" data-precio-importado="1" data-precio-catalogo="1" data-material-lock="1" data-desc-manual="1" data-unidad-manual="1" data-skip-zip-factor="1" data-catalogo-rama="TECHO" data-item-group="'+esc(group)+'" data-codigo-base="'+esc(f.codigoBase||codigo)+'" data-nucleo-desc="'+esc(nucleo)+'" data-precio-base="'+esc(f.unitPrice)+'" data-measure-key="'+esc(f.measureKey)+'" data-precio-demo="'+esc(f.precioDemo||0)+'" data-precio-mat-labor="'+esc(f.precioInstall||f.unitPrice)+'"'+(skipMinimos?' data-skip-minimo="1"':'')+'>'
           +'<td><input class="code" value="'+esc(codigo)+'"></td>'
-          +'<td><select class="item-action" aria-label="Action" onchange="onCambioAccionPartida(this)"><option value="replace">Remove and install</option><option value="replace_material" selected>Remove, install plus materials</option><option value="install_material">Install plus materials</option><option value="install">Install only</option><option value="demo">Demolition only</option><option value="material">Material only</option></select></td>'
+          +'<td><select class="item-action" aria-label="Action" onchange="onCambioAccionPartida(this)"><option value="replace">Remove and install</option><option value="replace_material">Remove, install plus materials</option><option value="install_material" selected>Install plus materials</option><option value="install">Install only</option><option value="demo">Demolition only</option><option value="material">Material only</option></select></td>'
           +'<td class="desc-cell"><div class="task-autocomplete-container"><textarea class="item-desc description" data-line-desc="1" rows="1" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false">'+esc(f.desc)+'</textarea></div></td>'
           +'<td><input type="number" class="input-cantidad quantity" value="'+esc(f.qty)+'" min="0" step="any"></td>'
           +'<td><select class="select-unidad"><option value="SQ"'+(unit==='SQ'?' selected':'')+'>SQ</option><option value="SF"'+(unit==='SF'?' selected':'')+'>SF</option><option value="LF"'+(unit==='LF'?' selected':'')+'>LF</option><option value="EA"'+(unit==='EA'?' selected':'')+'>EA</option></select></td>'
@@ -5870,7 +5895,7 @@
         if(!Number.isFinite(unitPrice)||unitPrice<0)unitPrice=0;
         const subtotal=Number.isFinite(total)&&total>0?total:qty*unitPrice;
         const item=String(valorPartidaApi(row,['item','numero','number'],index+1));
-        const action='replace_material';
+        const action='install_material';
         addRow(area,[item,desc,qty,unitPrice,unit,0,action]);
         const tr=area.querySelector('tbody tr:last-child');
         if(tr){
@@ -6141,7 +6166,7 @@
       Object.keys(grupos).forEach(nombre=>{
         const area=asegurarAreaPlano(nombre);
         grupos[nombre].forEach(item=>{
-          const row=item.text&&!item.description?Object.assign({},item,{description:item.text,unit:item.unit||'LS',qty:1,action:item.action||'install'}):item;
+          const row=item.text&&!item.description?Object.assign({},item,{description:item.text,unit:item.unit||'LS',qty:1,action:item.action||'install_material'}):item;
           if(aplicarFilaPlanoEnArea(area,row))n++;
         });
       });
@@ -6295,7 +6320,7 @@
             description:li._nota.text,
             qty:1,
             unit:'LS',
-            action:kind==='demolition'?'demo':(kind==='repair'?'replace':'install'),
+            action:kind==='demolition'?'demo':'install_material',
             table_title:titulos[kind],
             table_key:kind
           }, li._nota));
@@ -6540,7 +6565,7 @@
       if(!Number.isFinite(unitPrice)&&Number.isFinite(subtotal)&&qty)unitPrice=subtotal/qty;
       if(!Number.isFinite(unitPrice)||unitPrice<0)unitPrice=0;
       const tax=Number(row.tax)||0;
-      const actionKey='replace_material';
+      const actionKey='install_material';
       const code=String(valorPartidaImportada(row,['CODE','code','codigo'],''));
       addRow(area,[code, desc, Number.isFinite(qty)&&qty>0?qty:1, unitPrice, unit, tax, actionKey]);
       const tr=area.querySelector('tbody tr:last-child');

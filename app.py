@@ -600,8 +600,8 @@ JSON estricto:
   "drip_edge_pcs": 38,
   "items": [
     {"item":1,"trade":"Roofing","description":"Remoción de teja asfáltica (Tear-off)","quantity":47.05,"unit":"SQ","unit_price":null,"total":null,"action":"demo"},
-    {"item":2,"trade":"Roofing","description":"Instalación de teja arquitectónica (con waste 15%)","quantity":52.3,"unit":"SQ","unit_price":null,"total":null,"action":"install"},
-    {"item":3,"trade":"Roofing","description":"Starter Strip","quantity":366,"unit":"LF","unit_price":null,"total":null,"action":"install"}
+    {"item":2,"trade":"Roofing","description":"Instalación de teja arquitectónica (con waste 15%)","quantity":52.3,"unit":"SQ","unit_price":null,"total":null,"action":"install_material"},
+    {"item":3,"trade":"Roofing","description":"Starter Strip","quantity":366,"unit":"LF","unit_price":null,"total":null,"action":"install_material"}
   ]
 }
 """
@@ -931,6 +931,7 @@ def linea(item, trade, description, quantity, unit, unit_price, unidad_area="SQ"
     if unit == "PC":
         qty = int(round(qty))
     total = round(qty * price, 2)
+    from roof_parser import accion_exacta_item
     return {
         "item": item,
         "trade": trade,
@@ -941,7 +942,7 @@ def linea(item, trade, description, quantity, unit, unit_price, unidad_area="SQ"
         "unit_price": round(price, 4 if unit == "SF" else 2),
         "precio_unitario": round(price, 4 if unit == "SF" else 2),
         "total": total,
-        "action": "demo" if "tear-off" in description.lower() or "remoción" in description.lower() else "install",
+        "action": accion_exacta_item(description),
     }
 
 
@@ -4597,9 +4598,9 @@ def _precio_gemini_consulta(ubicacion, accion, accion_texto, descripcion, unidad
 @app.route("/api/precio-accion", methods=["POST"])
 def precio_accion():
     payload = request.get_json(silent=True) or {}
-    accion = str(payload.get("accion") or "replace").strip().lower()
+    accion = str(payload.get("accion") or "install_material").strip().lower()
     if accion not in ACCIONES_PRECIO:
-        accion = "replace"
+        accion = "install_material"
     accion_texto = str(payload.get("accion_texto") or "").strip() or ACCIONES_PRECIO[accion]
     descripcion = re.sub(r"\s+", " ", str(payload.get("descripcion") or "")).strip()[:300]
     unidad = str(payload.get("unidad") or "SF").strip().upper()[:6]
@@ -4711,7 +4712,7 @@ def guardar_precio_ia_catalogo():
         unidad = str(raw.get("unidad") or "SF").strip().upper()[:6]
         accion = str(raw.get("accion") or "").strip().lower()
         if accion not in ACCIONES_PRECIO:
-            accion = "replace"
+            accion = "install_material"
         clave = raw.get("clave")
         if len(descripcion) < 3:
             resultados.append({"clave": clave, "estado": "omitido", "motivo": "descripción vacía"})
@@ -4988,9 +4989,8 @@ def _preciar_partidas_roof_ia(filas, zip_code, unidad_area="SQ"):
             partida["unit_price"] = round(price, 2)
             partida["precio_unitario"] = round(price, 2)
             partida["total"] = round(partida["quantity"] * price, 2)
-        action = str(row.get("action") or "").strip().lower()
-        if action in ("demo", "install", "replace", "labor", "material"):
-            partida["action"] = action
+        from roof_parser import accion_exacta_item
+        partida["action"] = accion_exacta_item(desc, row.get("action"))
         items.append(partida)
         n += 1
     return items
@@ -5105,7 +5105,7 @@ def import_roof_report():
         except Exception:
             pass
 
-        from roof_parser import procesar_reporte_roofr, payload_http_cotizador
+        from roof_parser import procesar_reporte_roofr, payload_http_cotizador, accion_exacta_item
 
         file = request.files.get("file") or request.files.get("pdf_file")
         if file is None:
@@ -5156,7 +5156,7 @@ def import_roof_report():
                 "total": float(row.get("total") or 0),
                 "subtotal": float(row.get("total") or 0),
                 "measure_key": row.get("measure_key") or "",
-                "action": "replace_material",
+                "action": accion_exacta_item(row.get("description") or row.get("descripcion") or "", row.get("action")),
                 "trade": "Roofing",
                 "categoria": row.get("categoria") or "TECHO",
                 "codigo_base": row.get("codigo_base") or row.get("codigo") or row.get("code") or "",
@@ -5405,7 +5405,7 @@ def _accion_partida_ia(valor):
         "replace_material": "replace_material",
         "replace": "replace",
         "install_material": "install_material",
-        "install": "install",
+        "install": "install_material",
         "demo": "demo",
         "material": "material",
         "labor": "labor",
@@ -5422,7 +5422,7 @@ def _accion_partida_ia(valor):
         return "install"
     if "remove" in blob and "install" in blob:
         return "replace_material" if "material" in blob else "replace"
-    return "replace"
+    return "install_material"
 
 
 def _normalizar_partidas_ia(parsed):
@@ -5457,6 +5457,7 @@ def _normalizar_partidas_ia(parsed):
         if subtotal <= 0 and qty and unit_price:
             subtotal = round(qty * unit_price, 2)
         action_raw = row.get("ACTION") or row.get("action") or ""
+        from roof_parser import accion_exacta_item
         items.append({
             "CODE": str(row.get("CODE") or row.get("code") or "").strip(),
             "ACTION": str(action_raw).strip() or "Remove and install",
@@ -5466,7 +5467,7 @@ def _normalizar_partidas_ia(parsed):
             "UNIT PRICE": unit_price,
             "SUBTOTAL": subtotal,
             "code": str(row.get("CODE") or row.get("code") or "").strip(),
-            "action": _accion_partida_ia(action_raw),
+            "action": accion_exacta_item(desc, action_raw),
             "description": desc,
             "qty": qty if qty else 1.0,
             "unit": unit,
@@ -5584,12 +5585,9 @@ def _unidad_plano(fila, clave_tabla=""):
 
 
 def _accion_plano(clave_tabla, fila):
-    blob = f"{clave_tabla} {_celda_plano(fila, ('remarks', 'notes', 'type', 'description'), '')}".lower()
-    if re.search(r"demo|demol|remove|exist.*remove|tear", blob):
-        return "demo"
-    if re.search(r"repair|parche|patch|replace", blob):
-        return "replace"
-    return "install_material"
+    blob = f"{clave_tabla} {_celda_plano(fila, ('remarks', 'notes', 'type', 'description'), '')}"
+    from roof_parser import accion_exacta_item
+    return accion_exacta_item(blob)
 
 
 def _descripcion_item_plano(clave_tabla, fila):

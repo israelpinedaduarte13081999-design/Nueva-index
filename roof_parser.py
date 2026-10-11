@@ -1027,7 +1027,7 @@ def _partida_catalogo(clave, unidad_objetivo, filas_cat, zip_code=""):
     plantilla = next((p for p in PLANTILLA_PARTIDAS if p[0] == clave), None)
     desc_fallback = plantilla[1] if plantilla else clave
     patron = plantilla[4] if plantilla else r"."
-    action = "demo" if clave == "tear_off" else "install"
+    action = "install_material"
     mejor = None
     for row in filas_cat or []:
         try:
@@ -1108,7 +1108,7 @@ def _precio_rr_asfalto(filas_cat, zip_code=""):
         "precio": round(precio_demo + precio_install, 2),
         "precio_demo": precio_demo,
         "precio_install": precio_install,
-        "action": "replace_material",
+        "action": accion_exacta_item("3 tab - 25 yr. - comp. shingle roofing - w/out felt"),
         "categoria": "TECHO",
         "nucleo": "3 tab - 25 yr. - comp. shingle roofing - w/out felt",
     }
@@ -1185,6 +1185,21 @@ def json_medidas_canonico(medidas, zip_code=None, address=None):
     }
 
 
+def accion_exacta_item(texto="", declarada=""):
+    """Instalación + material, salvo que el ítem pida el paquete con remoción, solo demolición o solo mano de obra."""
+    blob = re.sub(r"\s+", " ", f"{texto or ''} {declarada or ''}").strip().lower()
+    if re.search(r"solo\s+demolici[oó]n|demolition\s+only|demo\s+only|tear[\s-]*off\s+only|demolici[oó]n\s+solamente", blob):
+        return "demo"
+    if re.search(r"solo\s+mano\s+de\s+obra|mano\s+de\s+obra\s+solamente|labor\s+only|labour\s+only", blob):
+        return "labor"
+    remocion = re.search(r"remoci[oó]n|removal|\bremove\b|tear[\s-]*off|\bretiro\b", blob)
+    instalacion = re.search(r"instalaci[oó]n|\binstall", blob)
+    material = re.search(r"\bmaterial", blob)
+    if remocion and instalacion and material:
+        return "replace_material"
+    return "install_material"
+
+
 def item_para_frontend(row, index=1):
     """Claves que parsearRespuestaPdfApi / insertarRoofReportEnTabla leen en index.html."""
     desc = str(row.get("description") or row.get("descripcion") or row.get("nombre") or "").strip()
@@ -1193,7 +1208,7 @@ def item_para_frontend(row, index=1):
     price = round(_num(row.get("unit_price") or row.get("precio_unitario") or row.get("precio") or row.get("price")), 2)
     total = round(_num(row.get("total") or row.get("subtotal")) or (qty * price), 2)
     codigo = str(row.get("codigo") or row.get("code") or "").strip()
-    action = "replace_material"
+    action = accion_exacta_item(desc, row.get("action"))
     return {
         "item": int(row.get("item") or index),
         "measure_key": row.get("measure_key") or "",
@@ -1302,7 +1317,7 @@ def armar_partidas(medidas, zip_code, unidad_area="SQ", factor_zona=1.0):
             "precio_install": inst_p,
             "subtotal": subtotal,
             "total": subtotal,
-            "action": "replace_material",
+            "action": accion_exacta_item(desc, cat.get("action")),
         }))
         if tarifa == "rr_asphalt":
             rates["rr_asphalt"] = round(base, 2)
