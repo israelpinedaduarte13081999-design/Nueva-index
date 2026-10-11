@@ -349,6 +349,12 @@
     .btn-cerrar-pdf { position:absolute; top:8px; right:12px; background:#ef4444; color:#ffffff; border:none; border-radius:50%; width:28px; height:28px; font-size:14px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(239,68,68,.4); transition:transform .15s ease,background-color .15s ease; z-index:10; }
     .btn-cerrar-pdf:hover { background:#dc2626; transform:scale(1.1); }
     .contenedor-preview-pdf iframe { display:block; width:100%; height:450px; border:none; border-radius:4px; background:#fff; }
+    .pdfjs-host, .pdfjs-pages { width:100%; max-height:min(78vh,920px); overflow:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
+    .pdfjs-pages { display:flex; flex-direction:column; gap:12px; background:#eef2f6; border-radius:4px; padding:8px; }
+    .pdfjs-page { margin:0; }
+    .pdfjs-page canvas { display:block; width:100%; height:auto; max-width:100%; background:#fff; box-shadow:0 1px 4px rgba(15,23,42,.08); }
+    .pdfjs-page-label { margin:0 0 6px; color:#64748b; font-size:11px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; }
+    .pdfjs-status { margin:0; padding:28px 12px; color:#475569; font-size:13px; font-weight:600; text-align:center; }
     .contenedor-preview-pdf .pdf-preview-note { margin:8px 36px 0 0; color:#64748b; font-size:12px; }
     .pdf-api-panel { margin:14px 0 18px; padding:16px 18px; border:1px solid var(--line); border-radius:8px; background:#f8fafc; }
     .pdf-api-panel h3 { margin:0 0 12px; color:var(--navy); font-size:13px; text-transform:uppercase; letter-spacing:.03em; }
@@ -5195,16 +5201,14 @@
     }
     async function previewPdfDocumento(){
       const btn=document.getElementById('previewPdfButton');
-      const tab=window.open('about:blank','_blank');
       if(btn)btn.disabled=true;
       try{
         const blob=await pedirPdfDocumento(true);
-        const url=URL.createObjectURL(blob);
-        if(tab&&!tab.closed)tab.location.href=url;
-        else window.open(url,'_blank');
         document.querySelector('#exportModal').hidden=true;
+        if(typeof showAppView==='function')showAppView('quote');
+        await mostrarVisorPDFConCierre(blob,'PDF preview');
+        document.getElementById('contenedor-visor-pdf')?.scrollIntoView({behavior:'smooth',block:'start'});
       }catch(error){
-        if(tab&&!tab.closed)tab.close();
         console.error(error);
         alert('Could not generate the PDF preview.');
       }finally{
@@ -6558,7 +6562,10 @@
     function replaceWithUniversalRows(rows,fileName){ areas.innerHTML=''; areaCount=0; addArea({title:'Medidas Extraídas del PDF',titleEn:'PDF Extracted Measurements',reference:fileName,rows:rows.map((row,index)=>[row.code||`GEN-${String(index+1).padStart(2,'0')}`,row.description,row.quantity,0,row.selectUnit,0])}); update(); }
     function quitarPDFPreview(){
       const visor=document.getElementById('contenedor-visor-pdf');
-      if(visor)visor.remove();
+      if(visor){
+        if(visor._pdfDoc&&typeof visor._pdfDoc.destroy==='function')visor._pdfDoc.destroy();
+        visor.remove();
+      }
       const fileInput=document.getElementById('input-pdf-upload');
       if(fileInput)fileInput.value='';
       if(reportPreviewUrl){
@@ -6566,9 +6573,50 @@
         reportPreviewUrl='';
       }
     }
-    function mostrarVisorPDFConCierre(urlPdfOImagen, message){
+    function configurarPdfJs(){
+      if(!window.pdfjsLib)return false;
+      pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      return true;
+    }
+    async function renderizarPdfEnVisor(host, fuente){
+      if(!configurarPdfJs())throw new Error('PDF.js no está disponible');
+      const tarea=(fuente instanceof Blob)
+        ? pdfjsLib.getDocument({data:new Uint8Array(await fuente.arrayBuffer())})
+        : pdfjsLib.getDocument({url:String(fuente)});
+      const pdf=await tarea.promise;
+      host._pdfDoc=pdf;
+      const pages=document.createElement('div');
+      pages.className='pdfjs-pages';
+      host.replaceChildren(pages);
+      for(let n=1;n<=pdf.numPages;n++){
+        const page=await pdf.getPage(n);
+        const shell=document.createElement('figure');
+        shell.className='pdfjs-page';
+        const label=document.createElement('figcaption');
+        label.className='pdfjs-page-label';
+        label.textContent='Page '+n+' of '+pdf.numPages;
+        const canvas=document.createElement('canvas');
+        canvas.setAttribute('role','img');
+        canvas.setAttribute('aria-label','PDF page '+n+' of '+pdf.numPages);
+        shell.appendChild(label);
+        shell.appendChild(canvas);
+        pages.appendChild(shell);
+        const base=page.getViewport({scale:1});
+        const anchoCss=Math.max(280,(pages.clientWidth||host.clientWidth||640)-16);
+        const viewport=page.getViewport({scale:Math.min(2,anchoCss/base.width)});
+        canvas.width=Math.floor(viewport.width);
+        canvas.height=Math.floor(viewport.height);
+        await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+        await new Promise(resolve=>requestAnimationFrame(resolve));
+      }
+      return pdf.numPages;
+    }
+    async function mostrarVisorPDFConCierre(fuente, message){
       const existente=document.getElementById('contenedor-visor-pdf');
-      if(existente)existente.remove();
+      if(existente){
+        if(existente._pdfDoc&&typeof existente._pdfDoc.destroy==='function')existente._pdfDoc.destroy();
+        existente.remove();
+      }
       const contenedor=document.createElement('div');
       contenedor.id='contenedor-visor-pdf';
       contenedor.className='contenedor-preview-pdf no-print';
@@ -6576,15 +6624,20 @@
       btn.type='button';
       btn.className='btn-cerrar-pdf';
       btn.title='Quitar este documento';
+      btn.setAttribute('aria-label','Close PDF preview');
       btn.textContent='✕';
       btn.addEventListener('click',quitarPDFPreview);
-      const iframe=document.createElement('iframe');
-      iframe.src=urlPdfOImagen;
-      iframe.title='Vista previa del PDF importado';
+      const visor=document.createElement('div');
+      visor.className='pdfjs-host';
+      const estado=document.createElement('p');
+      estado.className='pdfjs-status';
+      estado.textContent='Drawing PDF…';
+      visor.appendChild(estado);
       contenedor.appendChild(btn);
-      contenedor.appendChild(iframe);
+      contenedor.appendChild(visor);
+      let note=null;
       if(message){
-        const note=document.createElement('p');
+        note=document.createElement('p');
         note.className='pdf-preview-note';
         note.textContent=message;
         contenedor.appendChild(note);
@@ -6592,12 +6645,22 @@
       const destino=document.querySelector('#itemsHeading')||document.querySelector('#areas')||document.querySelector('.document');
       if(destino&&destino.parentNode)destino.parentNode.insertBefore(contenedor,destino);
       else document.body.appendChild(contenedor);
+      try{
+        const paginas=await renderizarPdfEnVisor(visor,fuente);
+        contenedor._pdfDoc=visor._pdfDoc;
+        if(note)note.textContent=message+' · '+paginas+' page'+(paginas===1?'':'s');
+      }catch(error){
+        console.error(error);
+        contenedor._pdfDoc=visor._pdfDoc;
+        visor.replaceChildren();
+        estado.textContent='Could not draw this PDF in the page.';
+        visor.appendChild(estado);
+      }
     }
     async function showPdfPreview(file,message){
       quitarPDFPreview();
       if(typeof clearTechnicalPreview==='function')clearTechnicalPreview();
-      reportPreviewUrl=URL.createObjectURL(file);
-      mostrarVisorPDFConCierre(reportPreviewUrl,message||('Reporte PDF adjunto: '+file.name));
+      await mostrarVisorPDFConCierre(file,message||('Reporte PDF adjunto: '+file.name));
     }
     async function importEsx(file){ if(typeof JSZip!=='function')throw new Error('JSZip no está disponible'); clearTechnicalPreview(); const zip=await JSZip.loadAsync(file); const xmlTexts=[]; let imageFile=null; for(const entry of Object.values(zip.files)){ if(entry.dir)continue; const lower=entry.name.toLowerCase(); if(lower.endsWith('.xml'))xmlTexts.push(await entry.async('string')); if(!imageFile&&/\.(jpg|jpeg|png|gif|webp)$/i.test(lower))imageFile=entry; } const rowCount=importMeasurements(xmlTexts); if(imageFile){ const imageBlob=await imageFile.async('blob'); reportPreviewUrl=URL.createObjectURL(imageBlob); const image=document.createElement('img'); image.alt='Croquis técnico extraído del reporte ESX'; image.src=reportPreviewUrl; showTechnicalPreview(image,rowCount?'Mediciones y croquis extraídos de '+file.name:'Croquis extraído de '+file.name); } else if(rowCount){ const note=document.createElement('p'); note.textContent='Mediciones extraídas de '+file.name+'. No se encontró una imagen de croquis dentro del archivo.'; showTechnicalPreview(note); } else { alert('No se encontraron mediciones reconocibles dentro del archivo ESX.'); } }
     async function importReport(file){ const extension=file.name.split('.').pop().toLowerCase(); try { if(extension==='esx')await importEsx(file); else if(extension==='xml') { clearTechnicalPreview(); const xml=await file.text(); const rowCount=importMeasurements([xml]); if(rowCount) { const note=document.createElement('p'); note.textContent='Mediciones XML importadas: '+file.name; showTechnicalPreview(note); } else alert('No se encontraron mediciones reconocibles en el XML.'); } else if(extension==='pdf') { await enviarRoofReportAlServidor(file); } else if(['jpg','jpeg','png'].includes(extension))await showImagePreview(file); } catch(error){ alert('No se pudo procesar el reporte técnico.'); console.error(error); } finally { document.querySelector('#reportFileInput').value=''; } }
