@@ -86,6 +86,7 @@ CODIGOS_PLANTILLA = {
 
 PROMPT_REPORT_SUMMARY = """
 Este PDF es un Roof Report (Roofr, EagleView, Hover, GAF QuickMeasure u otro informe de mediciones de techo).
+You MUST detect the language of the provided PDF document. All extracted line items, descriptions, and data MUST be generated in the EXACT SAME LANGUAGE as the original document. Do NOT translate English text to Spanish. Keep the original terminology intact.
 
 Busca de forma FLEXIBLE. El título de la sección puede variar; usa la primera que encuentres:
 - "Report Summary", "Report summary"
