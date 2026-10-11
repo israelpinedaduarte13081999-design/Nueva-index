@@ -408,6 +408,9 @@ async def analizar_pdf_json_async(pdf_bytes, prompt, max_tokens=4096, modelo=Non
         except Exception as err:
             ultimo = err
             print(f"--> Claude {nombre}: {err}")
+            texto = str(err).lower()
+            if any(marca in texto for marca in ("401", "403", "invalid x-api-key", "credit")):
+                raise
             return None
 
     for nombre in nombres:

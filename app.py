@@ -5333,13 +5333,18 @@ async def _importar_medidas_async(pdf_bytes, zip_code):
     )
 
     print("--> 1/3 Anthropic: extrayendo ítems y cantidades del PDF")
-    parsed = await analizar_pdf_json_async(
-        pdf_bytes,
-        PROMPT_REPORT_SUMMARY,
-        modelo=MODELO_CLAUDE,
-        modelos=MODELOS_CLAUDE,
-        system=SYSTEM_PROMPT_MEDIDAS_TECHO,
-    )
+    parsed = {}
+    try:
+        parsed = await analizar_pdf_json_async(
+            pdf_bytes,
+            PROMPT_REPORT_SUMMARY,
+            modelo=MODELO_CLAUDE,
+            modelos=MODELOS_CLAUDE,
+            system=SYSTEM_PROMPT_MEDIDAS_TECHO,
+        )
+    except Exception as err:
+        print(f"--> Anthropic no leyó el PDF ({err}). Se usan las medidas del texto.")
+        parsed = {}
     if not isinstance(parsed, dict):
         parsed = {}
     bruto = await asyncio.to_thread(
@@ -5382,29 +5387,32 @@ def import_roof_report():
             urllib3.disable_warnings()
         except Exception:
             pass
-        try:
-            import httplib2
-            _Http = httplib2.Http
+        if not getattr(app, "_ssl_import_pdf_listo", False):
+            try:
+                import httplib2
+                _Http = httplib2.Http
 
-            def _HttpSinVerify(*args, **kwargs):
-                kwargs["disable_ssl_certificate_validation"] = True
-                return _Http(*args, **kwargs)
+                def _HttpSinVerify(*args, **kwargs):
+                    kwargs["disable_ssl_certificate_validation"] = True
+                    return _Http(*args, **kwargs)
 
-            httplib2.Http = _HttpSinVerify
-        except Exception:
-            pass
-        try:
-            import requests as _req_ssl
+                httplib2.Http = _HttpSinVerify
+            except Exception:
+                pass
+            try:
+                import requests as _req_ssl
+                if not getattr(_req_ssl.Session.request, "_zipnova_sin_verify", False):
+                    _orig_req = _req_ssl.Session.request
 
-            _orig_req = _req_ssl.Session.request
+                    def _request_sin_verify(self, method, url, **kwargs):
+                        kwargs["verify"] = False
+                        return _orig_req(self, method, url, **kwargs)
 
-            def _request_sin_verify(self, method, url, **kwargs):
-                kwargs["verify"] = False
-                return _orig_req(self, method, url, **kwargs)
-
-            _req_ssl.Session.request = _request_sin_verify
-        except Exception:
-            pass
+                    _request_sin_verify._zipnova_sin_verify = True
+                    _req_ssl.Session.request = _request_sin_verify
+            except Exception:
+                pass
+            app._ssl_import_pdf_listo = True
 
         from roof_parser import accion_exacta_item
 
