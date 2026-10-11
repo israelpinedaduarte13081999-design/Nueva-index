@@ -5156,7 +5156,7 @@ def import_roof_report():
                 "total": float(row.get("total") or 0),
                 "subtotal": float(row.get("total") or 0),
                 "measure_key": row.get("measure_key") or "",
-                "action": row.get("action") or "install",
+                "action": "replace_material",
                 "trade": "Roofing",
                 "categoria": row.get("categoria") or "TECHO",
                 "codigo_base": row.get("codigo_base") or row.get("codigo") or row.get("code") or "",

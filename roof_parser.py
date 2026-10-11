@@ -57,7 +57,7 @@ PLANTILLA_PARTIDAS = (
 
 # Orden cronológico del alcance: R&R de escuadras, luego perímetros, luego accesorios.
 FILAS_COTIZADOR = (
-    ("rr_asphalt", "total_roof_area_sq", "SQ", "Remoción y reemplazo de techo asfáltico"),
+    ("rr_asphalt", "total_roof_area_sq", "SQ", "3 tab - 25 yr. - comp. shingle roofing - w/out felt"),
     ("starter", "eaves_lf", "LF", "Eaves / Starter Strip"),
     ("valley", "valleys_lf", "LF", "Valleys / Limahoya"),
     ("ridges", "ridges_lf", "LF", "Ridges / Ridge Cap"),
@@ -83,6 +83,14 @@ CODIGOS_PLANTILLA = {
     "drip_edge": {"RFGDRIP", "EXTROFDRIP", "RFGAPRON"},
     "ventilation": {"RFGVENT", "EXTROFVENT"},
 }
+
+SYSTEM_PROMPT_MEDIDAS_TECHO = (
+    "You extract roof measurements. The primary roof covering, the main shingle area item, "
+    "MUST be mapped exactly to description \"3 tab - 25 yr. - comp. shingle roofing - w/out felt\" "
+    "and code \"ZN-COM-TEJ\". Do NOT translate that description or that code to Spanish. "
+    "Keep this terminology intact. Return only the JSON object requested in the user message "
+    "and do not rename or remove its keys."
+)
 
 PROMPT_REPORT_SUMMARY = """
 Este PDF es un Roof Report (Roofr, EagleView, Hover, GAF QuickMeasure u otro informe de mediciones de techo).
@@ -735,6 +743,7 @@ def extraer_medidas_claude(pdf_bytes, parsed=None):
                 PROMPT_REPORT_SUMMARY,
                 modelo=MODELO_CLAUDE,
                 modelos=MODELOS_CLAUDE,
+                system=SYSTEM_PROMPT_MEDIDAS_TECHO,
             )
         if not isinstance(parsed, dict):
             return None
@@ -1090,20 +1099,18 @@ def _precio_rr_asfalto(filas_cat, zip_code=""):
     inst = _partida_catalogo("arch_shingle", "SQ", filas_cat, zip_code)
     precio_demo = round(_num(demo.get("precio")), 2)
     precio_install = round(_num(inst.get("precio")), 2)
-    codigo = inst.get("codigo") or demo.get("codigo") or ""
-    codigo_base = _raiz_codigo_techo(codigo) or codigo
     return {
-        "codigo": codigo,
-        "codigo_base": codigo_base,
+        "codigo": "ZN-COM-TEJ",
+        "codigo_base": "ZN-COM-TEJ",
         "codigo_demo": demo.get("codigo") or "",
         "codigo_install": inst.get("codigo") or "",
-        "descripcion": "Remoción y reemplazo de techo asfáltico",
+        "descripcion": "3 tab - 25 yr. - comp. shingle roofing - w/out felt",
         "precio": round(precio_demo + precio_install, 2),
         "precio_demo": precio_demo,
         "precio_install": precio_install,
         "action": "replace_material",
         "categoria": "TECHO",
-        "nucleo": "techo asfáltico",
+        "nucleo": "3 tab - 25 yr. - comp. shingle roofing - w/out felt",
     }
 
 
@@ -1186,7 +1193,7 @@ def item_para_frontend(row, index=1):
     price = round(_num(row.get("unit_price") or row.get("precio_unitario") or row.get("precio") or row.get("price")), 2)
     total = round(_num(row.get("total") or row.get("subtotal")) or (qty * price), 2)
     codigo = str(row.get("codigo") or row.get("code") or "").strip()
-    action = str(row.get("action") or ("demo" if re.search(r"tear.?off|remoci", desc, re.I) else "install"))
+    action = "replace_material"
     return {
         "item": int(row.get("item") or index),
         "measure_key": row.get("measure_key") or "",
@@ -1233,6 +1240,7 @@ def extraer_json_claude_techo(pdf_bytes):
         PROMPT_REPORT_SUMMARY,
         modelo=MODELO_CLAUDE,
         modelos=MODELOS_CLAUDE,
+        system=SYSTEM_PROMPT_MEDIDAS_TECHO,
     )
     if not isinstance(parsed, dict):
         print("--> Claude no devolvió un objeto JSON; se usa {}")
@@ -1294,7 +1302,7 @@ def armar_partidas(medidas, zip_code, unidad_area="SQ", factor_zona=1.0):
             "precio_install": inst_p,
             "subtotal": subtotal,
             "total": subtotal,
-            "action": cat.get("action") or ("replace_material" if tarifa == "rr_asphalt" else "install"),
+            "action": "replace_material",
         }))
         if tarifa == "rr_asphalt":
             rates["rr_asphalt"] = round(base, 2)

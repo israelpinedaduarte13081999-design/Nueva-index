@@ -280,7 +280,7 @@ def analizar_imagenes_json(imagenes, prompt, system=None, max_tokens=8192, model
     raise ultimo or RuntimeError("No se pudo analizar el plano con Claude Vision")
 
 
-def analizar_pdf_json(pdf_bytes, prompt, max_tokens=4096, modelo=None, modelos=None):
+def analizar_pdf_json(pdf_bytes, prompt, max_tokens=4096, modelo=None, modelos=None, system=None):
     """Envía el PDF a Claude y devuelve un dict/list JSON."""
     key = _api_key()
     if not key:
@@ -316,6 +316,8 @@ def analizar_pdf_json(pdf_bytes, prompt, max_tokens=4096, modelo=None, modelos=N
             "max_tokens": int(max_tokens),
             "messages": [{"role": "user", "content": contenido_pdf}],
         }
+        if system:
+            payload["system"] = system
         try:
             body = _post_claude(payload)
             texto = _texto_respuesta(body)

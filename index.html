@@ -5713,16 +5713,17 @@
           precioInstall: Number(opts.precioInstall) || 0
         });
       };
-      const rr = hallar(['total_roof_area_sq','squares','total_sq'], /reemplazo de techo asf[aá]ltico|remoci[oó]n e instalaci[oó]n de tejas asf[aá]lticas/i);
+      const rr = hallar(['total_roof_area_sq','squares','total_sq'], /3 tab|comp\. shingle|ZN-COM-TEJ|reemplazo de techo asf[aá]ltico|remoci[oó]n e instalaci[oó]n de tejas asf[aá]lticas/i);
       const demoP = Number(rr && rr.precio_demo) || precioDe(['total_roof_area_sq'], /tear-off|remoci[oó]n de teja/i);
       const instP = Number(rr && rr.precio_install) || precioDe(['total_pitched_area_sq'], /arquitect|instalaci[oó]n de teja|shingle/i);
       const combined = Number(rr && (rr.unit_price || rr.precio_unitario || rr.price)) || (demoP + instP);
-      const codigoRr = codigoDe(rr);
+      const codigoRr = codigoDe(rr) || 'ZN-COM-TEJ';
+      const descRr = (rr && (rr.description || rr.descripcion || rr.desc)) || '3 tab - 25 yr. - comp. shingle roofing - w/out felt';
       push({
         codigo: codigoRr,
         codigoBase: (rr && rr.codigo_base) || codigoRr,
-        desc: 'Remoción y reemplazo de techo asfáltico',
-        nucleo: 'techo asfáltico',
+        desc: descRr,
+        nucleo: (rr && rr.nucleo) || descRr,
         qty: med.squares,
         unit: 'SQ',
         price: combined,
@@ -5781,7 +5782,7 @@
         const unit = String(f.unit||'LF').toUpperCase();
         return '<tr class="fila-trabajo" data-precio-importado="1" data-precio-catalogo="1" data-material-lock="1" data-desc-manual="1" data-unidad-manual="1" data-skip-zip-factor="1" data-catalogo-rama="TECHO" data-item-group="'+esc(group)+'" data-codigo-base="'+esc(f.codigoBase||codigo)+'" data-nucleo-desc="'+esc(nucleo)+'" data-precio-base="'+esc(f.unitPrice)+'" data-measure-key="'+esc(f.measureKey)+'" data-precio-demo="'+esc(f.precioDemo||0)+'" data-precio-mat-labor="'+esc(f.precioInstall||f.unitPrice)+'"'+(skipMinimos?' data-skip-minimo="1"':'')+'>'
           +'<td><input class="code" value="'+esc(codigo)+'"></td>'
-          +'<td><select class="item-action" aria-label="Action" onchange="onCambioAccionPartida(this)"><option value="replace"'+(f.action==='replace'?' selected':'')+'>Remove and install</option><option value="replace_material"'+(f.action==='replace_material'?' selected':'')+'>Remove, install plus materials</option><option value="install_material"'+(f.action==='install_material'?' selected':'')+'>Install plus materials</option><option value="install"'+(f.action==='install'?' selected':'')+'>Install only</option><option value="demo"'+(f.action==='demo'?' selected':'')+'>Demolition only</option><option value="material"'+(f.action==='material'?' selected':'')+'>Material only</option></select></td>'
+          +'<td><select class="item-action" aria-label="Action" onchange="onCambioAccionPartida(this)"><option value="replace">Remove and install</option><option value="replace_material" selected>Remove, install plus materials</option><option value="install_material">Install plus materials</option><option value="install">Install only</option><option value="demo">Demolition only</option><option value="material">Material only</option></select></td>'
           +'<td class="desc-cell"><div class="task-autocomplete-container"><textarea class="item-desc description" data-line-desc="1" rows="1" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false">'+esc(f.desc)+'</textarea></div></td>'
           +'<td><input type="number" class="input-cantidad quantity" value="'+esc(f.qty)+'" min="0" step="any"></td>'
           +'<td><select class="select-unidad"><option value="SQ"'+(unit==='SQ'?' selected':'')+'>SQ</option><option value="SF"'+(unit==='SF'?' selected':'')+'>SF</option><option value="LF"'+(unit==='LF'?' selected':'')+'>LF</option><option value="EA"'+(unit==='EA'?' selected':'')+'>EA</option></select></td>'
