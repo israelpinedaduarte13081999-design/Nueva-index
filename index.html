@@ -3320,6 +3320,34 @@
         menu.className='task-dropdown-menu';
         menu.setAttribute('role','listbox');
         menu.setAttribute('aria-label','Sugerencias del catálogo');
+        let gesto=null;
+        const conservarFoco=event=>{ event.preventDefault(); };
+        menu.addEventListener('mousedown',conservarFoco);
+        menu.addEventListener('touchstart',event=>{
+          conservarFoco(event);
+          const toque=event.changedTouches&&event.changedTouches[0];
+          gesto=toque?{x:toque.clientX,y:toque.clientY,top:menu.scrollTop,movio:false}:null;
+        },{passive:false});
+        menu.addEventListener('touchmove',event=>{
+          if(!gesto)return;
+          const toque=event.changedTouches&&event.changedTouches[0];
+          if(!toque)return;
+          const dy=gesto.y-toque.clientY;
+          if(Math.abs(dy)>8||Math.hypot(toque.clientX-gesto.x,dy)>8){
+            gesto.movio=true;
+            menu.scrollTop=gesto.top+dy;
+            event.preventDefault();
+          }
+        },{passive:false});
+        menu.addEventListener('touchend',event=>{
+          const info=gesto;
+          gesto=null;
+          if(!info||info.movio||Math.abs(menu.scrollTop-info.top)>4)return;
+          const opt=event.target&&event.target.closest&&event.target.closest('.task-dropdown-item');
+          if(!opt)return;
+          event.preventDefault();
+          opt.click();
+        });
         document.body.appendChild(menu);
       }
       return menu;
@@ -3411,7 +3439,6 @@
           aplicarItemCatalogoTrabajos(input,item);
           cerrarMenusTareas();
         };
-        opt.addEventListener('pointerdown',elegir);
         opt.addEventListener('click',elegir);
         menu.appendChild(opt);
       });
