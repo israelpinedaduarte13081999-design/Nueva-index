@@ -85,9 +85,9 @@ CODIGOS_PLANTILLA = {
 }
 
 SYSTEM_PROMPT_MEDIDAS_TECHO = (
-    "You extract roof measurements. The primary roof covering, the main shingle area item, "
-    "MUST be mapped exactly to description \"3 tab - 25 yr. - comp. shingle roofing - w/out felt\" "
-    "and code \"ZN-COM-TEJ\". Do NOT translate that description or that code to Spanish. "
+    "You extract roof measurements. "
+    "You MUST output the exact code ZN-COM-TEJ-ROO-FEL and description 3 tab - 25 yr. - comp. shingle roofing - w/out felt for the primary roof replacement item. "
+    "Do NOT translate that description or that code to Spanish. "
     "Keep this terminology intact. Return only the JSON object requested in the user message "
     "and do not rename or remove its keys."
 )
@@ -156,8 +156,14 @@ Responde SOLO JSON con estas claves (números sin comas). Incluye SIEMPRE las ll
   "wall_flashing_lf": 0,
   "step_flashing_lf": 0,
   "flashing_lf": 0,
-  "transitions_lf": 0
+  "transitions_lf": 0,
+  "items": [
+    {"description": "3 tab - 25 yr. - comp. shingle roofing - w/out felt", "quantity": 56.46, "unit": "SQ"},
+    {"description": "Eaves / Starter Strip", "quantity": 166.25, "unit": "LF"}
+  ]
 }
+
+items: una partida por cada medida útil. description en el idioma original del PDF, quantity numérica y unit (SQ, LF o EA). No incluyas precios.
 """
 
 
@@ -1093,21 +1099,312 @@ def _raiz_codigo_techo(code):
     )
 
 
+CODIGO_TECHO_PRINCIPAL = "ZN-COM-TEJ-ROO-FEL"
+DESC_TECHO_PRINCIPAL = "3 tab - 25 yr. - comp. shingle roofing - w/out felt"
+
+
+def _precio_catalogo_por_codigo(codigo, filas_cat, zip_code=""):
+    """Precio de catalogo_items para un código exacto. No usa el precio que haya inventado la IA."""
+    filas = list(filas_cat or [])
+    if not any(_codigos_coinciden(_fila_codigo(row), codigo) for row in filas):
+        filas.extend(_consultar_catalogo_supabase(codigo, limite=20))
+    mejor = None
+    for row in filas:
+        if not _codigos_coinciden(_fila_codigo(row), codigo):
+            continue
+        precio = _precio_fila(row)
+        if precio <= 0:
+            continue
+        score = _score_region(row, zip_code)
+        if mejor is None or score > mejor[0]:
+            mejor = (score, round(precio, 2), _fila_codigo(row))
+    if not mejor:
+        print(f"--> catalogo sin precio para {codigo}")
+        return 0.0
+    print(f"--> precio catalogo {mejor[2]} = {mejor[1]}")
+    return mejor[1]
+
+
+def _forzar_precio_techo_principal(items, filas_cat, zip_code=""):
+    """Al recibir las partidas, el código ZN-COM-TEJ-ROO-FEL usa solo el precio de Supabase."""
+    precio = _precio_catalogo_por_codigo(CODIGO_TECHO_PRINCIPAL, filas_cat, zip_code)
+    if precio <= 0:
+        return items
+    for row in items or []:
+        if not isinstance(row, dict):
+            continue
+        codigo = row.get("codigo") or row.get("code") or row.get("sku") or row.get("codigo_base")
+        medida = str(row.get("measure_key") or "")
+        if not (_codigos_coinciden(codigo, CODIGO_TECHO_PRINCIPAL) or medida == "total_roof_area_sq"):
+            continue
+        qty = _num(row.get("quantity") or row.get("cantidad") or row.get("qty"))
+        total = round(qty * precio, 2)
+        row["codigo"] = CODIGO_TECHO_PRINCIPAL
+        row["code"] = CODIGO_TECHO_PRINCIPAL
+        row["sku"] = CODIGO_TECHO_PRINCIPAL
+        row["codigo_base"] = CODIGO_TECHO_PRINCIPAL
+        row["description"] = DESC_TECHO_PRINCIPAL
+        row["descripcion"] = DESC_TECHO_PRINCIPAL
+        row["desc"] = DESC_TECHO_PRINCIPAL
+        row["nombre"] = DESC_TECHO_PRINCIPAL
+        row["nucleo"] = DESC_TECHO_PRINCIPAL
+        row["unit_price"] = precio
+        row["precio_unitario"] = precio
+        row["precio"] = precio
+        row["price"] = precio
+        row["precio_base"] = precio
+        row["precio_demo"] = 0.0
+        row["precio_install"] = precio
+        row["subtotal"] = total
+        row["total"] = total
+        row["importe"] = total
+    return items
+
+
+def _texto_catalogo_clave(texto):
+    return re.sub(r"[^a-z0-9]+", " ", str(texto or "").lower()).strip()
+
+
+def _codigo_de_item(row):
+    if not isinstance(row, dict):
+        return ""
+    for key in ("codigo", "code", "CODE", "sku", "codigo_base"):
+        codigo = str(row.get(key) or "").strip()
+        if codigo:
+            return codigo
+    blob = " ".join(
+        str(row.get(key) or "")
+        for key in ("description", "descripcion", "desc", "WORK DESCRIPTION", "nombre")
+    )
+    hallados = re.findall(r"\b[A-Z]{2,}(?:-[A-Z0-9]{2,}){1,}\b", blob.upper())
+    return hallados[0] if hallados else ""
+
+
+def _descripcion_de_item(row):
+    for key in ("description", "descripcion", "desc", "WORK DESCRIPTION", "nombre"):
+        texto = re.sub(r"\s+", " ", str(row.get(key) or "")).strip()
+        if texto:
+            return texto
+    return ""
+
+
+def _filas_por_codigos(codigos):
+    url, key = _creds_supabase()
+    limpios = []
+    for codigo in codigos or []:
+        texto = str(codigo or "").strip()
+        if texto and texto not in limpios:
+            limpios.append(texto)
+    if not url or not key or not limpios:
+        return []
+    lista = ",".join('"' + c.replace('"', "") + '"' for c in limpios[:80])
+    headers = {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Accept": "application/json",
+    }
+    params = {
+        "select": "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra",
+        "activo": "eq.true",
+        "codigo": f"in.({lista})",
+        "limit": "200",
+    }
+    query = urllib.parse.urlencode(params, safe='()",.*')
+    req = urllib.request.Request(f"{url}/rest/v1/{TABLA_CATALOGO}?{query}", headers=headers)
+    ctx = ssl._create_unverified_context()
+    try:
+        with urllib.request.urlopen(req, timeout=45, context=ctx) as resp:
+            data = json.loads(resp.read().decode("utf-8") or "[]")
+            return data if isinstance(data, list) else []
+    except Exception as err:
+        print(f"roof_parser catalogo por codigos: {err}")
+        return []
+
+
+def _fila_descripcion_unica(texto):
+    clave = _texto_catalogo_clave(texto)
+    if len(clave) < 8:
+        return None
+    iguales = []
+    vistos = set()
+    for row in _consultar_catalogo_supabase(texto, limite=20):
+        if _texto_catalogo_clave(row.get("descripcion")) != clave:
+            continue
+        codigo = _fila_codigo(row)
+        if not codigo or codigo in vistos or _precio_fila(row) <= 0:
+            continue
+        vistos.add(codigo)
+        iguales.append(row)
+    if len(iguales) == 1:
+        return iguales[0]
+    return None
+
+
+def _escribir_precio_catalogo(row, precio, codigo_catalogo):
+    qty = _num(row.get("quantity") or row.get("cantidad") or row.get("qty") or row.get("QTY"))
+    total = round(qty * precio, 2) if qty else round(_num(row.get("total") or row.get("subtotal") or row.get("SUBTOTAL")), 2)
+    if codigo_catalogo:
+        row["codigo"] = codigo_catalogo
+        row["code"] = codigo_catalogo
+        row["CODE"] = codigo_catalogo
+        row["sku"] = codigo_catalogo
+        row["codigo_base"] = codigo_catalogo
+    for key in ("unit_price", "precio_unitario", "precio", "price", "precio_base", "UNIT PRICE", "UNIT_PRICE"):
+        row[key] = precio
+    row["precio_demo"] = 0.0
+    row["precio_install"] = precio
+    if qty:
+        for key in ("subtotal", "total", "importe", "SUBTOTAL"):
+            row[key] = total
+
+
+def aplicar_precios_reales_catalogo(items, factor_zona=1.0):
+    """Si el código o la descripción exacta están en catalogo_items, el precio de la IA se reemplaza."""
+    if not isinstance(items, list):
+        return items
+    factor = _num(factor_zona) or 1.0
+    codigos = [_codigo_de_item(row) for row in items if isinstance(row, dict)]
+    filas = _filas_por_codigos(codigos)
+    for row in items:
+        if not isinstance(row, dict):
+            continue
+        codigo = _codigo_de_item(row)
+        precio = _precio_catalogo_por_codigo(codigo, filas) if codigo else 0.0
+        codigo_catalogo = codigo
+        if precio <= 0:
+            fila = _fila_descripcion_unica(_descripcion_de_item(row))
+            if not fila:
+                continue
+            precio = _precio_fila(fila)
+            codigo_catalogo = _fila_codigo(fila)
+        if precio <= 0:
+            continue
+        actual = _num(
+            row.get("unit_price")
+            or row.get("UNIT PRICE")
+            or row.get("precio_unitario")
+            or row.get("precio")
+            or row.get("price")
+        )
+        if abs(actual - precio) < 0.02:
+            continue
+        if factor > 0 and abs(actual - round(precio * factor, 2)) < 0.02:
+            continue
+        print(f"--> precio IA {actual} reemplazado por catalogo {codigo_catalogo} = {precio}")
+        _escribir_precio_catalogo(row, precio, codigo_catalogo)
+    _aplicar_precios_materiales_techo(items, factor)
+    return items
+
+
+_RE_ITEM_TECHO = re.compile(
+    r"roof|techo|shingle|teja|starter|\beaves?\b|valley|limahoya|ridge|cumbrera|"
+    r"\bhips?\b|\brakes?\b|drip\s*edge|flashing|tapajuntas|\bsbs\b|tear.?off|ventil",
+    re.I,
+)
+_RE_TECHO_PRINCIPAL = re.compile(
+    r"3\s*tab|comp\.?\s*shingle|w/?out\s*felt|ZN-?COM-?TEJ|asphalt\s*shingle|teja\s+asf",
+    re.I,
+)
+_ORDEN_MATERIAL_TECHO = (
+    "drip_edge",
+    "starter",
+    "valley",
+    "ridges",
+    "hips",
+    "rakes",
+    "ventilation",
+    "flashing",
+    "transitions",
+    "flat_sbs",
+    "tear_off",
+    "arch_shingle",
+)
+
+
+def _precio_actual_item(row):
+    return _num(
+        row.get("unit_price")
+        or row.get("UNIT PRICE")
+        or row.get("precio_unitario")
+        or row.get("precio")
+        or row.get("price")
+    )
+
+
+def _es_item_roofing(row):
+    codigo = _codigo_clave(_codigo_de_item(row))
+    if codigo.startswith(("RFG", "EXTROF", "ZNCOMTEJ")):
+        return True
+    blob = " ".join(
+        str(row.get(key) or "")
+        for key in ("trade", "categoria", "category", "oficio", "WORK DESCRIPTION")
+    )
+    blob = f"{blob} {_descripcion_de_item(row)}"
+    return bool(_RE_ITEM_TECHO.search(blob))
+
+
+def _material_techo_de_item(row):
+    blob = f"{_codigo_de_item(row)} {_descripcion_de_item(row)}"
+    if _RE_TECHO_PRINCIPAL.search(blob):
+        return "rr_asphalt"
+    por_clave = {plantilla[0]: plantilla for plantilla in PLANTILLA_PARTIDAS}
+    for clave in _ORDEN_MATERIAL_TECHO:
+        plantilla = por_clave.get(clave)
+        if plantilla and re.search(plantilla[4], blob, re.I):
+            return clave
+    return ""
+
+
+def _unidad_item_techo(row, material):
+    unidad = str(row.get("unit") or row.get("unidad") or row.get("UNIT") or "").strip().upper()
+    if unidad in ("SQ", "SF", "LF", "EA"):
+        return unidad
+    plantilla = next((p for p in PLANTILLA_PARTIDAS if p[0] == material), None)
+    return plantilla[3] if plantilla else "SQ"
+
+
+def _aplicar_precios_materiales_techo(items, factor=1.0):
+    """Cada material de roofing usa el precio de su partida en catalogo_items."""
+    if not any(isinstance(row, dict) and _es_item_roofing(row) and _material_techo_de_item(row) for row in items or []):
+        return
+    filas = _filas_catalogo_techo()
+    for row in items or []:
+        if not isinstance(row, dict) or not _es_item_roofing(row):
+            continue
+        material = _material_techo_de_item(row)
+        if not material:
+            continue
+        codigo_item = _codigo_de_item(row)
+        if material != "rr_asphalt" and codigo_item and _precio_catalogo_por_codigo(codigo_item, filas) > 0:
+            continue
+        if material == "rr_asphalt":
+            precio = _precio_catalogo_por_codigo(CODIGO_TECHO_PRINCIPAL, filas)
+            codigo = CODIGO_TECHO_PRINCIPAL
+        else:
+            cat = _partida_catalogo(material, _unidad_item_techo(row, material), filas)
+            precio = _num(cat.get("precio")) if cat.get("codigo") else 0.0
+            codigo = str(cat.get("codigo") or "")
+        if precio <= 0 or not codigo:
+            continue
+        actual = _precio_actual_item(row)
+        if abs(actual - precio) < 0.02 or abs(actual - round(precio * factor, 2)) < 0.02:
+            continue
+        print(f"--> material {material}: precio IA {actual} reemplazado por {codigo} = {precio}")
+        _escribir_precio_catalogo(row, precio, codigo)
+
+
 def _precio_rr_asfalto(filas_cat, zip_code=""):
-    """Suma fila de retiro + fila de instalación de teja asfáltica (mismo material, SQ)."""
-    demo = _partida_catalogo("tear_off", "SQ", filas_cat, zip_code)
-    inst = _partida_catalogo("arch_shingle", "SQ", filas_cat, zip_code)
-    precio_demo = round(_num(demo.get("precio")), 2)
-    precio_install = round(_num(inst.get("precio")), 2)
+    """La partida principal usa el precio real de ZN-COM-TEJ-ROO-FEL en Supabase."""
+    precio_catalogo = _precio_catalogo_por_codigo(CODIGO_TECHO_PRINCIPAL, filas_cat, zip_code)
     return {
-        "codigo": "ZN-COM-TEJ",
-        "codigo_base": "ZN-COM-TEJ",
-        "codigo_demo": demo.get("codigo") or "",
-        "codigo_install": inst.get("codigo") or "",
-        "descripcion": "3 tab - 25 yr. - comp. shingle roofing - w/out felt",
-        "precio": round(precio_demo + precio_install, 2),
-        "precio_demo": precio_demo,
-        "precio_install": precio_install,
+        "codigo": CODIGO_TECHO_PRINCIPAL,
+        "codigo_base": CODIGO_TECHO_PRINCIPAL,
+        "codigo_demo": "",
+        "codigo_install": CODIGO_TECHO_PRINCIPAL,
+        "descripcion": DESC_TECHO_PRINCIPAL,
+        "precio": precio_catalogo,
+        "precio_demo": 0.0,
+        "precio_install": precio_catalogo,
         "action": accion_exacta_item("3 tab - 25 yr. - comp. shingle roofing - w/out felt"),
         "categoria": "TECHO",
         "nucleo": "3 tab - 25 yr. - comp. shingle roofing - w/out felt",
@@ -1283,18 +1580,19 @@ def armar_partidas(medidas, zip_code, unidad_area="SQ", factor_zona=1.0):
             continue
         if tarifa == "rr_asphalt":
             cat = _precio_rr_asfalto(filas_cat, zip_code)
-            base = _num(cat.get("precio")) or (_num(rates.get("tear_off")) + _num(rates.get("arch_shingle")))
+            base = _num(cat.get("precio"))
+            unit_price = round(base, 2) if base > 0 else 0.0
         else:
             cat = _partida_catalogo(tarifa, unidad, filas_cat, zip_code)
             base = _num(cat.get("precio")) or _num(rates.get(tarifa)) or _num(PRECIOS_RESPALDO.get(tarifa))
-        unit_price = round(base * factor, 2) if base > 0 else 0.0
+            unit_price = round(base * factor, 2) if base > 0 else 0.0
         subtotal = round(qty * unit_price, 2)
         n += 1
-        desc = desc_fallback if tarifa == "rr_asphalt" else (cat.get("descripcion") or desc_fallback)
+        desc = DESC_TECHO_PRINCIPAL if tarifa == "rr_asphalt" else (cat.get("descripcion") or desc_fallback)
         if tarifa != "rr_asphalt" and unidad == "SQ" and "waste" not in desc.lower() and "desperdicio" not in desc.lower():
             desc = f"{desc} ({waste_lbl})"
-        demo_p = round(_num(cat.get("precio_demo")) * factor, 2) if tarifa == "rr_asphalt" else 0.0
-        inst_p = round(_num(cat.get("precio_install")) * factor, 2) if tarifa == "rr_asphalt" else unit_price
+        demo_p = 0.0
+        inst_p = unit_price if tarifa == "rr_asphalt" else unit_price
         items.append(item_para_frontend({
             "item": n,
             "measure_key": campo,
@@ -1323,6 +1621,7 @@ def armar_partidas(medidas, zip_code, unidad_area="SQ", factor_zona=1.0):
             rates["rr_asphalt"] = round(base, 2)
         elif _num(rates.get(tarifa)) <= 0 and unit_price > 0:
             rates[tarifa] = round(base, 2)
+    items = _forzar_precio_techo_principal(items, filas_cat, zip_code)
     gran_total = round(sum(_num(row.get("total")) for row in items), 2)
     skip_minimos = gran_total > UMBRAL_SIN_MINIMOS
     for row in items:
@@ -1334,10 +1633,12 @@ def armar_partidas(medidas, zip_code, unidad_area="SQ", factor_zona=1.0):
     return items, gran_total, not skip_minimos, rates
 
 
-def procesar_reporte_roofr(pdf_bytes, zip_activo=None, unidad_area="SQ", factor_zona=None, zona_fn=None):
-    """Flujo de importación: Claude → JSON → tarifas Supabase/ZIP → partidas para la UI."""
-    # 1) Claude lee el PDF  2) JSON estructurado
-    json_claude = extraer_json_claude_techo(pdf_bytes) if pdf_bytes else {}
+def procesar_reporte_roofr(pdf_bytes, zip_activo=None, unidad_area="SQ", factor_zona=None, zona_fn=None, json_listo=None):
+    """Arma partidas desde el JSON que ya devolvió Anthropic, o lo pide si aún no existe."""
+    if json_listo is not None:
+        json_claude = json_listo if isinstance(json_listo, dict) else {}
+    else:
+        json_claude = extraer_json_claude_techo(pdf_bytes) if pdf_bytes else {}
     print("========== JSON CLAUDE (antes de tarifas / navegador) ==========")
     try:
         print(json.dumps(json_claude, ensure_ascii=False, indent=2)[:8000])

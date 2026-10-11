@@ -5060,6 +5060,307 @@ def procesar_roof_report_ia(pdf_bytes, parsed_inicial, zip_activo, unidad_area="
     }
 
 
+def _aplicar_coincidencia_vector(row, match):
+    precio = 0.0
+    try:
+        precio = float(match.get("precio_base") or 0)
+    except (TypeError, ValueError):
+        precio = 0.0
+    codigo = str(match.get("codigo") or "").strip()
+    if precio <= 0 or not codigo:
+        return False
+    try:
+        qty = float(row.get("quantity") or row.get("qty") or 0)
+    except (TypeError, ValueError):
+        qty = 0.0
+    total = round(qty * precio, 2) if qty else 0.0
+    row["codigo"] = codigo
+    row["code"] = codigo
+    row["sku"] = codigo
+    row["codigo_base"] = codigo
+    row["unit_price"] = precio
+    row["precio_unitario"] = precio
+    row["precio"] = precio
+    row["price"] = precio
+    row["precio_base"] = precio
+    row["precio_demo"] = 0.0
+    row["precio_install"] = precio
+    row["UNIT PRICE"] = precio
+    if qty:
+        row["total"] = total
+        row["subtotal"] = total
+        row["importe"] = total
+    row["action"] = "install_material"
+    row["ACTION"] = "Install plus materials"
+    return True
+
+
+def _match_catalogo_vector(client, vector, unidad=""):
+    payload = {
+        "query_embedding": vector,
+        "match_threshold": UMBRAL_SIMILITUD_CATALOGO,
+        "match_count": 5,
+    }
+    if unidad:
+        payload["filter_unidad"] = str(unidad).upper()
+    ultimo = None
+    for nombre in ("match_catalog_items", "match_items"):
+        try:
+            datos = client.rpc(nombre, payload).execute().data or []
+            if isinstance(datos, list) and datos:
+                return datos[0]
+            if isinstance(datos, list):
+                return None
+        except Exception as err:
+            ultimo = err
+            print(f"--> {nombre}: {type(err).__name__}: {err}")
+    if ultimo and "filter_unidad" in payload:
+        payload.pop("filter_unidad", None)
+        try:
+            datos = client.rpc("match_catalog_items", payload).execute().data or []
+            if isinstance(datos, list) and datos:
+                return datos[0]
+        except Exception as err:
+            print(f"--> match_catalog_items sin unidad: {err}")
+    return None
+
+
+def _preciar_medidas_por_vector(filas):
+    """Cada descripción del roof report se embebe y toma el precio, código y acción del catálogo."""
+    from roof_parser import aplicar_precios_reales_catalogo
+
+    pendientes = [row for row in filas or [] if isinstance(row, dict)]
+    if not pendientes:
+        return filas
+    textos = [
+        _texto_para_embedding(
+            row.get("description") or row.get("descripcion") or "",
+            row.get("unit") or row.get("unidad") or "",
+        )
+        for row in pendientes
+    ]
+    try:
+        vectores = _embeddings_openai(textos)
+    except Exception as err:
+        print(f"--> medidas vector: embedding fallo {type(err).__name__}: {err}")
+        aplicar_precios_reales_catalogo(filas)
+        return filas
+    client = _supabase_client()
+    if client is None:
+        print("--> medidas vector: sin cliente Supabase")
+        aplicar_precios_reales_catalogo(filas)
+        return filas
+    sin_match = []
+    for row, vector in zip(pendientes, vectores):
+        if not vector:
+            sin_match.append(row)
+            continue
+        unidad = str(row.get("unit") or row.get("unidad") or "").upper()
+        match = _match_catalogo_vector(client, vector, unidad)
+        if not match or not _aplicar_coincidencia_vector(row, match):
+            sin_match.append(row)
+            continue
+        print(
+            f"--> vector '{str(row.get('description') or '')[:50]}' "
+            f"-> {row.get('codigo')} ${row.get('unit_price')} sim={match.get('similarity')}"
+        )
+    if sin_match:
+        aplicar_precios_reales_catalogo(sin_match)
+    return filas
+
+
+async def _embeddings_openai_async(textos):
+    """OpenAI text-embedding-3-small. No lee el PDF."""
+    key = _openai_api_key()
+    if not key:
+        raise RuntimeError("Falta OPENAI_API_KEY en .env")
+    entradas = [re.sub(r"\s+", " ", str(t or "")).strip()[:4000] for t in textos]
+    if not any(entradas):
+        return [None] * len(textos)
+    import httpx
+
+    verify = (os.getenv("GEMINI_SSL_VERIFY") or "1").strip().lower() not in ("0", "false", "no", "off")
+    async with httpx.AsyncClient(verify=verify, timeout=60.0) as http:
+        resp = await http.post(
+            "https://api.openai.com/v1/embeddings",
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            json={"model": EMBEDDING_MODELO, "input": entradas},
+        )
+    if resp.status_code >= 400:
+        raise RuntimeError(f"OpenAI embeddings HTTP {resp.status_code}: {(resp.text or '')[:300]}")
+    datos = (resp.json() or {}).get("data") or []
+    por_indice = {int(item.get("index", i)): item.get("embedding") for i, item in enumerate(datos)}
+    vectores = []
+    for i, texto in enumerate(entradas):
+        vector = por_indice.get(i)
+        if not texto or not isinstance(vector, list) or len(vector) != EMBEDDING_DIM:
+            vectores.append(None)
+        else:
+            vectores.append(vector)
+    return vectores
+
+
+async def _rpc_match_catalogo_async(http, url, key, vector, unidad=""):
+    headers = {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    cuerpo = {
+        "query_embedding": vector,
+        "match_threshold": UMBRAL_SIMILITUD_CATALOGO,
+        "match_count": 5,
+    }
+    if unidad:
+        cuerpo["filter_unidad"] = unidad
+    for nombre in ("match_catalog_items", "match_items"):
+        resp = await http.post(f"{url}/rest/v1/rpc/{nombre}", json=cuerpo, headers=headers)
+        if resp.status_code == 404:
+            continue
+        if resp.status_code >= 400:
+            print(f"--> {nombre}: HTTP {resp.status_code} {(resp.text or '')[:200]}")
+            continue
+        datos = resp.json() if resp.content else []
+        if isinstance(datos, list) and datos:
+            return datos[0]
+        if isinstance(datos, list) and unidad:
+            cuerpo.pop("filter_unidad", None)
+            unidad = ""
+            continue
+        if isinstance(datos, list):
+            return None
+    return None
+
+
+def _mezclar_items_anthropic(items, parsed):
+    """Usa la descripción que devolvió Anthropic en cada partida, sin tocar la cantidad medida."""
+    crudos = parsed.get("items") if isinstance(parsed, dict) else None
+    if not isinstance(crudos, list):
+        return
+    usados = set()
+    for row in items or []:
+        if not isinstance(row, dict):
+            continue
+        desc_row = str(row.get("description") or row.get("descripcion") or "").lower()
+        unit = str(row.get("unit") or row.get("unidad") or "").upper()
+        elegido = None
+        for indice, raw in enumerate(crudos):
+            if indice in usados or not isinstance(raw, dict):
+                continue
+            desc = str(raw.get("description") or raw.get("descripcion") or "").strip()
+            if not desc:
+                continue
+            unidad = str(raw.get("unit") or raw.get("unidad") or "").upper()
+            if unit and unidad and unit != unidad:
+                continue
+            texto = desc.lower()
+            tokens = [t for t in re.split(r"[^a-z0-9]+", desc_row) if len(t) > 3]
+            if tokens and any(t in texto for t in tokens):
+                elegido = (indice, desc)
+                break
+            if elegido is None:
+                elegido = (indice, desc)
+        if not elegido:
+            continue
+        usados.add(elegido[0])
+        row["description"] = elegido[1]
+        row["descripcion"] = elegido[1]
+        row["desc"] = elegido[1]
+        row["nucleo"] = elegido[1]
+
+
+async def _preciar_medidas_vector_async(filas):
+    """Después de Anthropic: embedding de OpenAI y coincidencia pgvector, en ese orden."""
+    from roof_parser import aplicar_precios_reales_catalogo
+
+    pendientes = [row for row in filas or [] if isinstance(row, dict)]
+    if not pendientes:
+        return filas
+    textos = [
+        _texto_para_embedding(
+            row.get("description") or row.get("descripcion") or "",
+            row.get("unit") or row.get("unidad") or "",
+        )
+        for row in pendientes
+    ]
+    print("--> 2/3 OpenAI: embeddings de las descripciones")
+    try:
+        vectores = await _embeddings_openai_async(textos)
+    except Exception as err:
+        print(f"--> medidas vector: embedding fallo {type(err).__name__}: {err}")
+        aplicar_precios_reales_catalogo(filas)
+        return filas
+    url, key = _supabase_creds()
+    if not url or not key:
+        aplicar_precios_reales_catalogo(filas)
+        return filas
+    print("--> 3/3 Supabase: match_catalog_items")
+    import httpx
+
+    sin_match = []
+    async with httpx.AsyncClient(verify=False, timeout=45.0) as http:
+        for row, vector in zip(pendientes, vectores):
+            if not vector:
+                sin_match.append(row)
+                continue
+            unidad = str(row.get("unit") or row.get("unidad") or "").upper()
+            match = await _rpc_match_catalogo_async(http, url, key, vector, unidad)
+            if not match or not _aplicar_coincidencia_vector(row, match):
+                sin_match.append(row)
+                continue
+            print(
+                f"--> vector '{str(row.get('description') or '')[:50]}' "
+                f"-> {row.get('codigo')} ${row.get('unit_price')} sim={match.get('similarity')}"
+            )
+    if sin_match:
+        aplicar_precios_reales_catalogo(sin_match)
+    return filas
+
+
+async def _importar_medidas_async(pdf_bytes, zip_code):
+    """1 Anthropic (ítems y cantidades) → 2 OpenAI (vectores) → 3 Supabase (precio, código, acción)."""
+    import asyncio
+
+    from claude_pdf import analizar_pdf_json_async
+    from roof_parser import (
+        MODELO_CLAUDE,
+        MODELOS_CLAUDE,
+        PROMPT_REPORT_SUMMARY,
+        SYSTEM_PROMPT_MEDIDAS_TECHO,
+        payload_http_cotizador,
+        procesar_reporte_roofr,
+    )
+
+    print("--> 1/3 Anthropic: extrayendo ítems y cantidades del PDF")
+    parsed = await analizar_pdf_json_async(
+        pdf_bytes,
+        PROMPT_REPORT_SUMMARY,
+        modelo=MODELO_CLAUDE,
+        modelos=MODELOS_CLAUDE,
+        system=SYSTEM_PROMPT_MEDIDAS_TECHO,
+    )
+    if not isinstance(parsed, dict):
+        parsed = {}
+    bruto = await asyncio.to_thread(
+        procesar_reporte_roofr,
+        pdf_bytes,
+        zip_code,
+        "SQ",
+        None,
+        _zona_mercado_por_zip,
+        parsed,
+    )
+    _mezclar_items_anthropic(bruto.get("items") or [], parsed)
+    envuelto = payload_http_cotizador(bruto)
+    await _preciar_medidas_vector_async(envuelto.get("items") or [])
+    total = round(sum(float(f.get("total") or 0) for f in (envuelto.get("items") or [])), 2)
+    envuelto["total"] = total
+    envuelto["grand_total"] = total
+    envuelto["partidas"] = envuelto["data"] = envuelto["line_items"] = envuelto["rows"] = envuelto.get("items") or []
+    return envuelto
+
+
 @app.route("/api/import-roof-report", methods=["POST"])
 @app.route("/api/process-roof-report", methods=["POST"])
 def import_roof_report():
@@ -5105,7 +5406,7 @@ def import_roof_report():
         except Exception:
             pass
 
-        from roof_parser import procesar_reporte_roofr, payload_http_cotizador, accion_exacta_item
+        from roof_parser import accion_exacta_item
 
         file = request.files.get("file") or request.files.get("pdf_file")
         if file is None:
@@ -5118,12 +5419,8 @@ def import_roof_report():
             return jsonify({"success": False, "error": "Archivo no seleccionado"}), 400
 
         zip_form = re.sub(r"\D", "", str(request.form.get("zip_code") or request.args.get("zip_code") or ""))[:5]
-        payload = payload_http_cotizador(procesar_reporte_roofr(
-            pdf_bytes,
-            zip_activo=zip_form,
-            unidad_area="SQ",
-            zona_fn=_zona_mercado_por_zip,
-        ))
+        import asyncio
+        payload = asyncio.run(_importar_medidas_async(pdf_bytes, zip_form))
         items = payload.get("items") or []
         if not items:
             return jsonify({
@@ -5205,7 +5502,7 @@ def import_roof_report():
             "line_items": filas,
             "rows": filas,
             "measures": medidas,
-            "grand_total": payload.get("grand_total"),
+            "grand_total": round(sum(float(f.get("total") or 0) for f in filas), 2),
             "skip_minimums": payload.get("skip_minimums"),
             "roof": payload.get("roof") or {},
         }
@@ -5306,6 +5603,8 @@ def process_pdf():
             oficio = "roofing"
         zona = _zona_mercado_por_zip(zip_code or zip_activo)
         items = aplicar_precios_items(items or [], oficio, zona.get("factor") or 1.0)
+        from roof_parser import aplicar_precios_reales_catalogo
+        aplicar_precios_reales_catalogo(items, zona.get("factor") or 1.0)
         payload = {
             "document_type": "estimate" if not es_techo else "roof_report",
             "project_type": oficio,
@@ -5474,7 +5773,8 @@ def _normalizar_partidas_ia(parsed):
             "unit_price": unit_price,
             "subtotal": subtotal,
         })
-    return items
+    from roof_parser import aplicar_precios_reales_catalogo
+    return aplicar_precios_reales_catalogo(items)
 
 
 def _titulo_tabla_plano(clave):
@@ -5817,6 +6117,8 @@ def _normalizar_payload_planos(parsed, paginas=0, paginas_total=0):
     for room in rooms:
         room["items"] = _items_desde_cuarto(room, len(items) + 1)
         items.extend(room["items"])
+    from roof_parser import aplicar_precios_reales_catalogo
+    aplicar_precios_reales_catalogo(items)
     return {
         "success": True,
         "ok": True,

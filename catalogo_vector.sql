@@ -51,6 +51,47 @@ $$;
 grant execute on function public.match_items(vector, double precision, integer, text)
   to anon, authenticated, service_role;
 
+-- Import measurements from PDF: la coincidencia más alta por coseno.
+create or replace function public.match_catalog_items(
+  query_embedding vector(1536),
+  match_threshold double precision default 0.70,
+  match_count integer default 5,
+  filter_unidad text default null
+)
+returns table (
+  id bigint,
+  codigo text,
+  descripcion text,
+  unidad text,
+  precio_base numeric,
+  precio_material numeric,
+  precio_mano_obra numeric,
+  similarity double precision
+)
+language sql
+stable
+as $$
+  select
+    ci.id::bigint,
+    ci.codigo,
+    ci.descripcion,
+    ci.unidad,
+    ci.precio_base,
+    ci.precio_material,
+    ci.precio_mano_obra,
+    (1 - (ci.embedding <=> query_embedding))::double precision as similarity
+  from public.catalogo_items ci
+  where ci.embedding is not null
+    and ci.activo = true
+    and (filter_unidad is null or upper(ci.unidad) = upper(filter_unidad))
+    and 1 - (ci.embedding <=> query_embedding) >= match_threshold
+  order by ci.embedding <=> query_embedding
+  limit greatest(match_count, 1);
+$$;
+
+grant execute on function public.match_catalog_items(vector, double precision, integer, text)
+  to anon, authenticated, service_role;
+
 -- Permite que el script de embeddings (clave anon) escriba solo la columna embedding.
 create or replace function public.set_item_embedding(
   item_id bigint,

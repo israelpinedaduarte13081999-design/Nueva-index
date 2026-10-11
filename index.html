@@ -5738,24 +5738,22 @@
           precioInstall: Number(opts.precioInstall) || 0
         });
       };
-      const rr = hallar(['total_roof_area_sq','squares','total_sq'], /3 tab|comp\. shingle|ZN-COM-TEJ|reemplazo de techo asf[aá]ltico|remoci[oó]n e instalaci[oó]n de tejas asf[aá]lticas/i);
-      const demoP = Number(rr && rr.precio_demo) || precioDe(['total_roof_area_sq'], /tear-off|remoci[oó]n de teja/i);
-      const instP = Number(rr && rr.precio_install) || precioDe(['total_pitched_area_sq'], /arquitect|instalaci[oó]n de teja|shingle/i);
-      const combined = Number(rr && (rr.unit_price || rr.precio_unitario || rr.price)) || (demoP + instP);
-      const codigoRr = codigoDe(rr) || 'ZN-COM-TEJ';
+      const rr = hallar(['total_roof_area_sq','squares','total_sq'], /3 tab|comp\. shingle|ZN-COM-TEJ-ROO-FEL|ZN-COM-TEJ|reemplazo de techo asf[aá]ltico|remoci[oó]n e instalaci[oó]n de tejas asf[aá]lticas/i);
+      const precioCatalogo = Number(rr && (rr.unit_price || rr.precio_unitario || rr.precio || rr.price)) || 0;
+      const codigoRr = codigoDe(rr) || 'ZN-COM-TEJ-ROO-FEL';
       const descRr = (rr && (rr.description || rr.descripcion || rr.desc)) || '3 tab - 25 yr. - comp. shingle roofing - w/out felt';
       push({
         codigo: codigoRr,
-        codigoBase: (rr && rr.codigo_base) || codigoRr,
+        codigoBase: codigoRr,
         desc: descRr,
-        nucleo: (rr && rr.nucleo) || descRr,
+        nucleo: descRr,
         qty: med.squares,
         unit: 'SQ',
-        price: combined,
+        price: precioCatalogo,
         action: 'install_material',
         measureKey: 'total_roof_area_sq',
-        precioDemo: demoP,
-        precioInstall: instP
+        precioDemo: 0,
+        precioInstall: precioCatalogo
       });
       const accesorios = [
         {keys:['eaves_lf','eaves'], re:/eaves|starter/i, desc:'Eaves / Starter Strip', qty:med.eaves, unit:'LF', mk:'eaves_lf', nucleo:'starter strip'},
@@ -5770,8 +5768,8 @@
         var opts = {rechazarMetal: !!a.rechazarMetal, maxPu: a.maxPu || 0};
         var row = hallar(a.keys, a.re, opts);
         var price = precioDe(a.keys, a.re, opts);
-        if (a.fallback && (!(price > 0) || (a.maxPu && price > a.maxPu))) price = a.fallback;
-        if (row && esMetalEspecializado(row)) { row = null; price = a.fallback || 0; }
+        if (!(price > 0) && a.fallback) price = a.fallback;
+        if (row && esMetalEspecializado(row) && !(price > 0)) { row = null; price = a.fallback || 0; }
         push({
           codigo: codigoDe(row),
           codigoBase: (row && row.codigo_base) || codigoDe(row),
@@ -5959,6 +5957,173 @@
       if(foot)foot.textContent=partidas.length+' partida(s) · Total extraído: '+(typeof money==='object'?money.format(suma):('$'+suma.toFixed(2)))+' USD';
       wrap.hidden=false;
     }
+    const CODIGO_TECHO_PRINCIPAL = 'ZN-COM-TEJ-ROO-FEL';
+    const DESC_TECHO_PRINCIPAL = '3 tab - 25 yr. - comp. shingle roofing - w/out felt';
+    function codigoCatalogoClave(valor){
+      return String(valor||'').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
+    }
+    function precioLocalCodigoCatalogo(codigo){
+      const clave = codigoCatalogoClave(codigo);
+      const grupos = Object.values(CATALOGO_TRABAJOS||{});
+      for(let g=0; g<grupos.length; g++){
+        const lista = grupos[g]||[];
+        for(let i=0; i<lista.length; i++){
+          const item = lista[i];
+          if(codigoCatalogoClave(item&&item.codigo)!==clave) continue;
+          const precio = Number(item.price||item.precio_base||item.precio_unitario)||0;
+          if(precio>0) return precio;
+        }
+      }
+      return 0;
+    }
+    async function precioSupabasePorCodigo(codigo){
+      const local = precioLocalCodigoCatalogo(codigo);
+      if(local>0) return local;
+      try{
+        const url = SUPABASE_URL.replace(/\/$/,'')+'/rest/v1/catalogo_items?select=codigo,precio_base,precio_unitario,precio,price&activo=eq.true&codigo=eq.'+encodeURIComponent(codigo)+'&limit=5';
+        const response = await fetch(url,{headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Authorization:'Bearer '+SUPABASE_PUBLISHABLE_KEY,Accept:'application/json'}});
+        if(!response.ok) return 0;
+        const rows = await response.json().catch(()=>[]);
+        const row = (Array.isArray(rows)?rows:[]).find(function(r){ return Number(r.precio_base||r.precio_unitario||r.precio||r.price)>0; });
+        return row ? (Number(row.precio_base||row.precio_unitario||row.precio||row.price)||0) : 0;
+      }catch(err){
+        console.warn('Precio de catálogo no disponible', err);
+        return 0;
+      }
+    }
+    async function preciosSupabasePorCodigos(codigos){
+      const mapa={};
+      const unicos=[];
+      (codigos||[]).forEach(function(codigo){
+        const texto=String(codigo||'').trim();
+        if(!texto||unicos.some(function(c){ return codigoCatalogoClave(c)===codigoCatalogoClave(texto); })) return;
+        unicos.push(texto);
+        const local=precioLocalCodigoCatalogo(texto);
+        if(local>0) mapa[codigoCatalogoClave(texto)]={codigo:texto,precio:local};
+      });
+      const faltan=unicos.filter(function(codigo){ return !mapa[codigoCatalogoClave(codigo)]; });
+      if(!faltan.length) return mapa;
+      try{
+        const lista=faltan.map(function(codigo){ return '"'+String(codigo).replace(/"/g,'')+'"'; }).join(',');
+        const url=SUPABASE_URL.replace(/\/$/,'')+'/rest/v1/catalogo_items?select=codigo,descripcion,precio_base,precio_unitario,precio,price&activo=eq.true&codigo=in.('+lista+')&limit=200';
+        const response=await fetch(url,{headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Authorization:'Bearer '+SUPABASE_PUBLISHABLE_KEY,Accept:'application/json'}});
+        if(!response.ok) return mapa;
+        const rows=await response.json().catch(()=>[]);
+        (Array.isArray(rows)?rows:[]).forEach(function(row){
+          const precio=Number(row.precio_base||row.precio_unitario||row.precio||row.price)||0;
+          const codigo=String(row.codigo||'').trim();
+          if(codigo&&precio>0) mapa[codigoCatalogoClave(codigo)]={codigo:codigo,precio:precio};
+        });
+      }catch(err){
+        console.warn('Precios de catálogo no disponibles', err);
+      }
+      return mapa;
+    }
+    function textoCatalogoClave(texto){
+      return String(texto||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+    }
+    function partidaCatalogoPorDescripcion(texto){
+      const clave=textoCatalogoClave(texto);
+      if(clave.length<8) return null;
+      const hits=[];
+      const vistos=new Set();
+      Object.values(CATALOGO_TRABAJOS||{}).forEach(function(lista){
+        (lista||[]).forEach(function(item){
+          const desc=textoCatalogoClave(item&&item.desc);
+          const codigo=String(item&&item.codigo||'').trim();
+          const precio=Number(item&&item.price)||0;
+          const marca=codigoCatalogoClave(codigo);
+          if(desc!==clave||!marca||vistos.has(marca)||precio<=0) return;
+          vistos.add(marca);
+          hits.push({codigo:codigo,precio:precio});
+        });
+      });
+      return hits.length===1?hits[0]:null;
+    }
+    function escribirPrecioCatalogoItem(item, hit, factorZona){
+      if(!item||!hit||!(hit.precio>0)) return item;
+      const actual=Number(item.unit_price||item['UNIT PRICE']||item.precio_unitario||item.precio||item.price)||0;
+      const factor=Number(factorZona)||1;
+      const ajustado=Math.round(hit.precio*factor*100)/100;
+      const qty=Number(item.quantity||item.qty||item.QTY||item.cantidad)||0;
+      const total=Math.round(qty*hit.precio*100)/100;
+      if(hit.codigo){
+        item.codigo=hit.codigo;
+        item.code=hit.codigo;
+        item.CODE=hit.codigo;
+        item.sku=hit.codigo;
+        item.codigo_base=hit.codigo;
+      }
+      if(Math.abs(actual-hit.precio)<0.02||Math.abs(actual-ajustado)<0.02) return item;
+      item.unit_price=hit.precio;
+      item['UNIT PRICE']=hit.precio;
+      item.precio_unitario=hit.precio;
+      item.precio=hit.precio;
+      item.price=hit.precio;
+      item.precio_base=hit.precio;
+      item.precio_demo=0;
+      item.precio_install=hit.precio;
+      if(qty){
+        item.subtotal=total;
+        item.SUBTOTAL=total;
+        item.total=total;
+      }
+      return item;
+    }
+    async function aplicarPreciosRealesCatalogo(items, factorZona){
+      const lista=Array.isArray(items)?items:[];
+      if(!lista.length) return lista;
+      if(!Object.keys(CATALOGO_TRABAJOS||{}).length&&typeof cargarCatalogoDesdeSupabase==='function'){
+        try{ await cargarCatalogoDesdeSupabase(); }catch(err){}
+      }
+      const mapa=await preciosSupabasePorCodigos(lista.map(function(item){
+        return item&&(item.codigo||item.code||item.CODE||item.sku);
+      }));
+      lista.forEach(function(item){
+        if(!item||typeof item!=='object') return;
+        const codigo=String(item.codigo||item.code||item.CODE||item.sku||'').trim();
+        let hit=mapa[codigoCatalogoClave(codigo)]||null;
+        if(!hit){
+          const desc=item.description||item.descripcion||item.desc||item['WORK DESCRIPTION']||'';
+          hit=partidaCatalogoPorDescripcion(desc);
+        }
+        escribirPrecioCatalogoItem(item, hit, factorZona);
+      });
+      return lista;
+    }
+    function aplicarPrecioCatalogoTecho(payload, precio){
+      if(!payload||!(precio>0)) return payload;
+      ['items','data','partidas','rows','line_items'].forEach(function(key){
+        const filas = payload[key];
+        if(!Array.isArray(filas)) return;
+        filas.forEach(function(row){
+          if(!row||typeof row!=='object') return;
+          const codigo = codigoCatalogoClave(row.codigo||row.code||row.sku||row.codigo_base);
+          const medida = String(row.measure_key||'');
+          if(codigo!==codigoCatalogoClave(CODIGO_TECHO_PRINCIPAL) && medida!=='total_roof_area_sq') return;
+          const qty = Number(row.quantity||row.cantidad||row.qty)||0;
+          const total = Math.round(qty*precio*100)/100;
+          row.codigo = CODIGO_TECHO_PRINCIPAL;
+          row.code = CODIGO_TECHO_PRINCIPAL;
+          row.sku = CODIGO_TECHO_PRINCIPAL;
+          row.codigo_base = CODIGO_TECHO_PRINCIPAL;
+          row.description = DESC_TECHO_PRINCIPAL;
+          row.descripcion = DESC_TECHO_PRINCIPAL;
+          row.desc = DESC_TECHO_PRINCIPAL;
+          row.nucleo = DESC_TECHO_PRINCIPAL;
+          row.unit_price = precio;
+          row.precio_unitario = precio;
+          row.precio = precio;
+          row.price = precio;
+          row.precio_base = precio;
+          row.precio_demo = 0;
+          row.precio_install = precio;
+          row.subtotal = total;
+          row.total = total;
+        });
+      });
+      return payload;
+    }
     async function enviarRoofReportAlServidor(file){
       if(!file||(file.type&&file.type!=='application/pdf'&&!/\.pdf$/i.test(file.name))){
         alert('Selecciona un PDF de Roof Report.');
@@ -6043,7 +6208,10 @@
           const msg=(payload&&payload.error)||('Error '+response.status);
           throw new Error(msg);
         }
+        await aplicarPreciosRealesCatalogo(payload&&payload.items, payload&&payload.factor_zona);
+        await aplicarPreciosRealesCatalogo(payload&&payload.data, payload&&payload.factor_zona);
         const partidas=extraerItemsHttp(payload);
+        await aplicarPreciosRealesCatalogo(partidas, payload&&payload.factor_zona);
         if(!partidas.length){
           if(status){ status.textContent='El servidor no devolvió partidas.'; status.className='pdf-api-status is-error'; }
           return;
@@ -6080,6 +6248,7 @@
         if(!response.ok||payload.success===false||!items.length){
           throw new Error(payload.error||'The AI did not return line items from this PDF.');
         }
+        await aplicarPreciosRealesCatalogo(items);
         const n=poblarEstimadorDesdeEstimadoPasado({items,areas:[{title:'Imported line items',items}]});
         if(n&&typeof showPdfPreview==='function')await showPdfPreview(file,'Imported '+n+' line item(s).');
         if(typeof showAppView==='function')showAppView('quote');
@@ -6150,8 +6319,9 @@
       }
       return true;
     }
-    function agregarItemsPlanoACotizacion(items, titulo){
+    async function agregarItemsPlanoACotizacion(items, titulo){
       const lista=(items||[]).filter(it=>it&&(it.description||it.descripcion||it.text||it['WORK DESCRIPTION']));
+      await aplicarPreciosRealesCatalogo(lista);
       if(!lista.length){
         alert('Select at least one item from the plans.');
         return 0;
@@ -6203,8 +6373,8 @@
         return {description:nombre+' — '+label,qty,unit,action:'install_material',table_title:nombre,table_key:'room',room_name:nombre,measure_key:key};
       }).filter(Boolean);
     }
-    function agregarCuartoAlEstimado(room){
-      const n=agregarItemsPlanoACotizacion(itemsDesdeCuartoSketch(room), (room&&room.room_name)||'Room');
+    async function agregarCuartoAlEstimado(room){
+      const n=await agregarItemsPlanoACotizacion(itemsDesdeCuartoSketch(room), (room&&room.room_name)||'Room');
       const status=document.getElementById('plans-status');
       if(status){ status.textContent=n?('Added '+(room.room_name||'room')+' ('+n+' line'+ (n===1?'':'s')+').'):'This room has no quantities.'; status.className='plans-status'+(n?' is-ok':''); }
       return n;
@@ -6266,9 +6436,9 @@
       btn.className='btn btn-primary';
       btn.id='plans-add-all';
       btn.textContent='Add all to estimate';
-      btn.addEventListener('click',()=>{
+      btn.addEventListener('click',async ()=>{
         let n=0;
-        (rooms||[]).forEach(room=>{ n+=agregarItemsPlanoACotizacion(itemsDesdeCuartoSketch(room), room.room_name||'Room'); });
+        for(const room of (rooms||[])){ n+=await agregarItemsPlanoACotizacion(itemsDesdeCuartoSketch(room), room.room_name||'Room'); }
         const status=document.getElementById('plans-status');
         if(status){ status.textContent=n?('Added '+n+' line(s) from all rooms.'):'Nothing to add.'; status.className='plans-status'+(n?' is-ok':''); }
       });
@@ -6315,7 +6485,7 @@
         btn.type='button';
         btn.className='btn btn-primary';
         btn.textContent='Add selected notes';
-        btn.addEventListener('click',()=>{
+        btn.addEventListener('click',async ()=>{
           const sel=[...ul.querySelectorAll('li')].filter(li=>li.querySelector('input')?.checked).map(li=>Object.assign({
             description:li._nota.text,
             qty:1,
@@ -6324,7 +6494,7 @@
             table_title:titulos[kind],
             table_key:kind
           }, li._nota));
-          const n=agregarItemsPlanoACotizacion(sel, titulos[kind]);
+          const n=await agregarItemsPlanoACotizacion(sel, titulos[kind]);
           const status=document.getElementById('plans-status');
           if(status){ status.textContent=n?('Added '+n+' note(s) to the estimate.'):''; status.className='plans-status'+(n?' is-ok':''); }
         });
@@ -6426,15 +6596,15 @@
           }, tr._item||{});
         });
       };
-      addSel.addEventListener('click',()=>{
-        const n=agregarItemsPlanoACotizacion(itemsDe(true), tabla.title);
+      addSel.addEventListener('click',async ()=>{
+        const n=await agregarItemsPlanoACotizacion(itemsDe(true), tabla.title);
         const status=document.getElementById('plans-status');
         if(status){ status.textContent=n?('Added '+n+' item(s) from '+tabla.title+'.'):'Select rows first.'; status.className='plans-status'+(n?' is-ok':''); }
       });
-      addAll.addEventListener('click',()=>{
+      addAll.addEventListener('click',async ()=>{
         tbody.querySelectorAll('input.plans-row-check').forEach(c=>{ c.checked=true; });
         syncSel();
-        const n=agregarItemsPlanoACotizacion(tabla.items&&tabla.items.length?tabla.items:itemsDe(false), tabla.title);
+        const n=await agregarItemsPlanoACotizacion(tabla.items&&tabla.items.length?tabla.items:itemsDe(false), tabla.title);
         const status=document.getElementById('plans-status');
         if(status){ status.textContent=n?('Added '+n+' item(s) from '+tabla.title+'.'):''; status.className='plans-status'+(n?' is-ok':''); }
       });
@@ -6733,10 +6903,10 @@
     document.getElementById('importPlansButton')?.addEventListener('click',()=>document.getElementById('plansFileInput')?.click());
     document.getElementById('plansFileInput')?.addEventListener('change',event=>{ const file=event.target.files[0]; if(file)enviarPlanosAlServidor(file); event.target.value=''; });
     document.getElementById('plans-hide')?.addEventListener('click',()=>{ const p=document.getElementById('plans-panel'); if(p)p.hidden=true; });
-    document.getElementById('plans-add-all')?.addEventListener('click',()=>{
+    document.getElementById('plans-add-all')?.addEventListener('click',async ()=>{
       const payload=window.__plansPayload;
       if(!payload){ alert('Import a plan PDF first.'); return; }
-      const n=agregarItemsPlanoACotizacion(payload.items||[], payload.title||'Architectural plans');
+      const n=await agregarItemsPlanoACotizacion(payload.items||[], payload.title||'Architectural plans');
       const status=document.getElementById('plans-status');
       if(status){ status.textContent=n?('Added '+n+' item(s) to the estimate.'):'Nothing to add.'; status.className='plans-status'+(n?' is-ok':''); }
     });

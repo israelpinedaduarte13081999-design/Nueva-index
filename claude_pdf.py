@@ -120,6 +120,14 @@ def _post_claude(payload, timeout=120.0):
         return resp.json()
 
 
+async def _post_claude_async(payload, timeout=120.0):
+    async with httpx.AsyncClient(verify=False, timeout=float(timeout or 120.0)) as http:
+        resp = await http.post(API_URL, json=payload, headers=_headers())
+        if resp.status_code >= 400:
+            raise RuntimeError(f"Claude HTTP {resp.status_code}: {resp.text[:800]}")
+        return resp.json()
+
+
 def _pixmap_plano(page, zoom):
     import fitz
 
@@ -347,6 +355,68 @@ def analizar_pdf_json(pdf_bytes, prompt, max_tokens=4096, modelo=None, modelos=N
     if _es_modelo_ausente(ultimo):
         for extra in _modelos_desde_api():
             parsed = _probar(extra)
+            if parsed is not None:
+                return parsed
+    raise ultimo or RuntimeError("No se pudo analizar el PDF con Claude")
+
+
+async def analizar_pdf_json_async(pdf_bytes, prompt, max_tokens=4096, modelo=None, modelos=None, system=None):
+    """Anthropic lee el PDF y devuelve JSON. No llama a OpenAI."""
+    key = _api_key()
+    if not key:
+        raise RuntimeError("Falta ANTHROPIC_API_KEY en .env")
+    if not pdf_bytes:
+        raise RuntimeError("PDF vacío")
+    nombres = list(modelos or MODELOS_CLAUDE)
+    if modelo:
+        nombres = [modelo] + [m for m in nombres if m != modelo]
+    pdf_b64 = base64.standard_b64encode(pdf_bytes).decode("ascii")
+    contenido_pdf = [
+        {
+            "type": "document",
+            "source": {
+                "type": "base64",
+                "media_type": "application/pdf",
+                "data": pdf_b64,
+            },
+        },
+        {"type": "text", "text": prompt},
+    ]
+    ultimo = None
+    intentados = set()
+
+    async def _probar(nombre):
+        nonlocal ultimo
+        if not nombre or nombre in intentados:
+            return None
+        intentados.add(nombre)
+        payload = {
+            "model": nombre,
+            "max_tokens": int(max_tokens),
+            "messages": [{"role": "user", "content": contenido_pdf}],
+        }
+        if system:
+            payload["system"] = system
+        try:
+            body = await _post_claude_async(payload)
+            texto = _texto_respuesta(body)
+            parsed = _extraer_json(texto)
+            if parsed is None:
+                raise RuntimeError("Claude no devolvió JSON válido")
+            print(f"--> PDF analizado con Anthropic ({nombre})")
+            return parsed
+        except Exception as err:
+            ultimo = err
+            print(f"--> Claude {nombre}: {err}")
+            return None
+
+    for nombre in nombres:
+        parsed = await _probar(nombre)
+        if parsed is not None:
+            return parsed
+    if _es_modelo_ausente(ultimo):
+        for extra in _modelos_desde_api():
+            parsed = await _probar(extra)
             if parsed is not None:
                 return parsed
     raise ultimo or RuntimeError("No se pudo analizar el PDF con Claude")
