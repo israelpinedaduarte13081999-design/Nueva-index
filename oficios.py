@@ -298,6 +298,7 @@ def _descargar_filas_catalogo():
     while True:
         params = {
             "select": "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra",
+            "activo": "eq.true",
             "order": "id.asc",
             "limit": "1000",
             "offset": str(offset),

@@ -10,9 +10,10 @@
   <style>
     :root { --navy:#19385f; --blue:#2d70ad; --blue-soft:#edf5fb; --ink:#1d2b3b; --muted:#627083; --line:#d7e0e8; --gold:#dba72b; --green:#27834e; --green-soft:#effaf2; --paper:#fff; --canvas:#eef2f6; }
     * { box-sizing:border-box; }
+    img, video, iframe, svg, canvas, table, select, input, textarea { max-width:100%; }
     body { margin:0; padding:0; background-color:#f1f5f9; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:#1e293b; }
     .app-navbar { display:flex; justify-content:space-between; align-items:center; background-color:#ffffff; padding:12px 32px; border-bottom:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,.04); }
-    .brand-title { font-weight:700; font-size:1.15rem; color:#0f172a; }
+    .brand-title { font-weight:700; font-size:1.15rem; color:#0f172a; min-width:0; max-width:100%; overflow-wrap:anywhere; }
     .nav-links { display:flex; gap:8px; }
     .nav-btn { background:transparent; border:1px solid transparent; padding:8px 16px; border-radius:6px; cursor:pointer; font-size:.95rem; font-weight:500; color:#64748b; transition:all .2s ease-in-out; }
     .nav-btn:hover { background-color:#f8fafc; color:#0f172a; }
@@ -59,10 +60,11 @@
     .history-tab { background:transparent; border:1px solid transparent; color:#64748b; padding:8px 14px; border-radius:8px 8px 0 0; font-weight:600; font-size:.9rem; }
     .history-tab:hover { color:#0f172a; background:#f8fafc; }
     .history-tab.is-active { color:#0284c7; background:#f0f9ff; border-color:#bae6fd; border-bottom-color:#f0f9ff; }
-    .history-table { width:100%; border-collapse:collapse; text-align:left; font-size:.95rem; table-layout:auto; }
+    .history-table-wrap { width:100%; max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .history-table { width:100%; max-width:100%; border-collapse:collapse; text-align:left; font-size:.95rem; table-layout:auto; }
     .history-table th { background-color:#f8fafc; color:#475569; font-weight:600; padding:12px 14px; border-bottom:2px solid #e2e8f0; text-transform:none; font-size:.95rem; letter-spacing:0; }
     .history-table td { padding:12px 14px; border-bottom:1px solid #f1f5f9; color:#334155; overflow:visible; vertical-align:middle; }
-    .history-job { display:flex; flex-direction:column; gap:3px; min-width:220px; max-width:420px; }
+    .history-job { display:flex; flex-direction:column; gap:3px; min-width:0; max-width:min(420px,100%); }
     .history-address { color:#0f172a; font-size:15px; font-weight:800; line-height:1.3; }
     .history-folio { color:#64748b; font-size:12px; font-weight:600; letter-spacing:.03em; }
     .history-table tr:hover { background-color:#f8fafc; }
@@ -83,7 +85,7 @@
     .toolbar h1 { margin:0; color:var(--navy); font-size:20px; }
     .toolbar-actions { display:flex; gap:8px; flex-wrap:wrap; }
     .client-actions { display:flex; gap:8px; flex-wrap:wrap; width:100%; }
-    .client-actions select { flex:1; min-width:210px; }
+    .client-actions select { flex:1; min-width:0; width:100%; max-width:100%; }
     .business-modal[hidden] { display:none; }
     .business-modal { position:fixed; inset:0; z-index:20; display:grid; place-items:center; padding:18px; background:rgba(25,56,95,.42); }
     .business-dialog { width:min(520px,100%); max-height:calc(100vh - 36px); overflow:auto; background:#fff; border:1px solid var(--line); border-radius:6px; box-shadow:0 18px 50px rgba(24,55,86,.28); padding:22px; }
@@ -134,10 +136,10 @@
     .payment-method-controls { display:flex; flex-wrap:wrap; gap:10px 16px; margin:-2px 0 12px; padding-bottom:10px; border-bottom:1px solid #d5eadc; }
     .payment-method-controls label { display:inline-flex; align-items:center; gap:5px; color:var(--navy); font-size:11px; font-weight:700; }
     .payment-method-controls input { width:auto; }
-    .service-select { min-width:250px; }
-    .category-select-wrapper { display:inline-flex; align-items:center; gap:8px; margin:0 8px; vertical-align:middle; }
+    .service-select { min-width:0; width:100%; max-width:100%; }
+    .category-select-wrapper { display:inline-flex; align-items:center; gap:8px; margin:0 8px; vertical-align:middle; max-width:100%; min-width:0; }
     .category-label { font-size:.82rem; font-weight:600; color:#475569; white-space:nowrap; }
-    .clean-category-select { background-color:#ffffff; border:1px solid #cbd5e1; border-radius:6px; padding:6px 12px; font-size:.88rem; font-weight:500; color:#0f172a; outline:none; cursor:pointer; min-width:min(420px,calc(100vw - 48px)); max-width:520px; transition:border-color .2s ease,box-shadow .2s ease; }
+    .clean-category-select { background-color:#ffffff; border:1px solid #cbd5e1; border-radius:6px; padding:6px 12px; font-size:.88rem; font-weight:500; color:#0f172a; outline:none; cursor:pointer; width:min(420px,100%); min-width:0; max-width:100%; transition:border-color .2s ease,box-shadow .2s ease; }
     .clean-category-select:focus { border-color:#0284c7; box-shadow:0 0 0 3px rgba(2,132,199,.15); }
     .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
     .btn { border:1px solid var(--line); border-radius:4px; background:#fff; color:var(--navy); padding:9px 13px; font-weight:700; }
@@ -163,27 +165,29 @@
     .field-row label { font-size:12px; font-weight:700; }
     input,textarea { width:100%; border:1px solid transparent; border-radius:3px; color:var(--ink); background:transparent; padding:5px 6px; }
     input:hover,textarea:hover,input:focus,textarea:focus { border-color:var(--line); background:#fff; outline:0; }
-    .field-row input { font-weight:600; min-width:0; width:100%; max-width:none; box-sizing:border-box; }
+    .field-row input { font-weight:600; min-width:0; width:100%; max-width:100%; box-sizing:border-box; }
     #company, #companyBanner, #documentSubtitle {
       width:100%;
-      min-width:100%;
-      max-width:none;
+      min-width:0;
+      max-width:100%;
       overflow:visible;
       white-space:normal;
       overflow-wrap:anywhere;
       word-break:break-word;
     }
-    #company { min-width:300px !important; max-width:none !important; overflow:visible !important; }
-    .contractor-info .field-row { grid-template-columns:90px minmax(300px,1fr) !important; }
+    #company { min-width:0 !important; max-width:100% !important; width:100% !important; overflow:visible !important; }
+    .contractor-info .field-row { grid-template-columns:90px minmax(0,1fr) !important; }
     input[value*="solid Remodeling"], .contractor-info input {
       width: 100% !important;
-      min-width: 300px !important;
+      min-width: 0 !important;
+      max-width: 100% !important;
       text-overflow: clip !important;
       white-space: normal !important;
     }
     #company, .contractor-info #company {
       width: 100% !important;
-      min-width: 300px !important;
+      min-width: 0 !important;
+      max-width: 100% !important;
       text-overflow: clip !important;
       white-space: normal !important;
       overflow: visible !important;
@@ -232,14 +236,15 @@
     }
     .area td:nth-child(1), .area td:nth-child(2), .area td:nth-child(3), td.desc-cell { overflow:visible; position:relative; z-index:20; height:auto; }
     .task-autocomplete-container { position:relative; width:100%; }
-    .task-dropdown-menu { position:absolute; top:100%; left:0; width:100%; min-width:280px; max-height:280px; overflow-y:auto; background:#ffffff; border:1px solid #c9d5e3; border-radius:6px; box-shadow:0 8px 20px rgba(0,0,0,.15); z-index:5000; display:none; font-family:inherit; }
-    #menu-sugerencias-catalogo { position:fixed !important; z-index:2147483000; min-width:320px; max-width:min(640px, calc(100vw - 16px)); max-height:min(320px, 45vh); background:#fff; }
+    .task-dropdown-menu { position:fixed; top:0; left:0; width:min(320px,calc(100vw - 16px)); min-width:0; max-width:calc(100vw - 16px); max-height:min(280px,45vh); overflow-y:auto; background:#ffffff; border:1px solid #c9d5e3; border-radius:6px; box-shadow:0 8px 20px rgba(0,0,0,.15); z-index:5000; display:none; font-family:inherit; box-sizing:border-box; }
+    #menu-sugerencias-catalogo { position:fixed !important; z-index:2147483000; min-width:0 !important; width:min(320px,calc(100vw - 16px)); max-width:min(640px,calc(100vw - 16px)); max-height:min(320px,45vh); background:#fff; }
     #menu-sugerencias-catalogo.is-open { display:block !important; }
     .task-dropdown-group { background:#f0f4f8; color:#19385f; font-weight:700; font-size:11px; padding:6px 10px; text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid #e1e8f0; }
-    .task-dropdown-item { padding:8px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; font-size:13px; color:#333333; border:0; border-bottom:1px solid #f2f5f8; width:100%; background:#fff; text-align:left; font-family:inherit; transition:background .15s ease; }
+    .task-dropdown-item { padding:8px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:4px 8px; font-size:13px; color:#333333; border:0; border-bottom:1px solid #f2f5f8; width:100%; max-width:100%; background:#fff; text-align:left; font-family:inherit; transition:background .15s ease; white-space:normal; }
     .task-dropdown-item:hover, .task-dropdown-item.is-active { background:#eef5fc; color:#19385f; }
-    .task-dropdown-item .item-meta { font-size:11px; color:#627d98; background:#e2e8f0; padding:2px 6px; border-radius:4px; margin-left:8px; white-space:nowrap; }
-    .sugerencia-desc-menu { position:absolute; top:100%; left:0; right:0; z-index:6000; margin:2px 0 0; padding:4px 0; background:#fff; border:1px solid #d0d7e2; border-radius:8px; box-shadow:0 10px 24px rgba(15,23,42,.16); max-height:220px; overflow-y:auto; }
+    .task-dropdown-item > span:first-child { min-width:0; flex:1 1 140px; }
+    .task-dropdown-item .item-meta { font-size:11px; color:#627d98; background:#e2e8f0; padding:2px 6px; border-radius:4px; margin-left:0; white-space:normal; }
+    .sugerencia-desc-menu { position:fixed; z-index:6000; margin:0; padding:4px 0; background:#fff; border:1px solid #d0d7e2; border-radius:8px; box-shadow:0 10px 24px rgba(15,23,42,.16); width:min(320px,calc(100vw - 16px)); max-width:calc(100vw - 16px); max-height:min(220px,45vh); overflow-y:auto; box-sizing:border-box; }
     .sugerencia-desc-item { display:block; width:100%; border:0; background:#fff; text-align:left; padding:8px 12px; font:13px/1.35 inherit; color:#1e293b; cursor:pointer; }
     .sugerencia-desc-item:hover, .sugerencia-desc-item:focus { background:#eef5fc; color:#19385f; outline:0; }
     .price-ia-wrap { position:relative; display:flex; align-items:center; gap:4px; overflow:visible; z-index:5; }
@@ -251,7 +256,7 @@
     .btn-ia-precio { flex:none; border:1px solid #7c3aed; background:#f5f3ff; color:#5b21b6; border-radius:4px; padding:3px 6px; font-size:10px; font-weight:800; letter-spacing:.02em; }
     .btn-ia-precio:hover, .btn-ia-precio:focus { background:#ede9fe; }
     .btn-ia-precio:disabled { opacity:.55; cursor:wait; }
-    .ia-precio-menu { position:fixed; z-index:4000; min-width:240px; max-width:min(320px,calc(100vw - 16px)); max-height:min(280px,45vh); overflow-y:auto; margin:0; background:#fff; border:1px solid #c4b5fd; border-radius:6px; box-shadow:0 12px 28px rgba(91,33,182,.22); }
+    .ia-precio-menu { position:fixed; z-index:4000; min-width:0; width:min(280px,calc(100vw - 16px)); max-width:min(320px,calc(100vw - 16px)); max-height:min(280px,45vh); overflow-y:auto; margin:0; background:#fff; border:1px solid #c4b5fd; border-radius:6px; box-shadow:0 12px 28px rgba(91,33,182,.22); box-sizing:border-box; }
     .ia-precio-menu[hidden] { display:none; }
     .area tr.ia-precio-abierta { position:relative; z-index:8; }
     .ia-precio-item { display:flex; justify-content:space-between; gap:8px; width:100%; border:0; background:#fff; text-align:left; padding:8px 10px; font-size:12px; cursor:pointer; }
@@ -297,7 +302,7 @@
     .payment input { border-color:var(--line); background:#fff; }
     .qr-preview { display:none; width:110px; height:110px; object-fit:contain; margin:8px auto 0; border:1px solid var(--line); }
     .invoice-thanks { margin-top:20px; color:var(--navy); font-size:13px; font-weight:700; text-align:center; }
-    .mode-select { min-width:260px; border:2px solid var(--blue); border-radius:4px; background:#fff; color:var(--navy); padding:9px 10px; font-weight:700; }
+    .mode-select { min-width:0; width:min(260px,100%); max-width:100%; border:2px solid var(--blue); border-radius:4px; background:#fff; color:var(--navy); padding:9px 10px; font-weight:700; }
     .signatures { margin-top:18px; border:1px solid var(--line); border-radius:5px; padding:14px 16px; background:#fbfcfd; }
     .signature-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
     .signature-box-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
@@ -318,7 +323,7 @@
     .signature-line { margin-top:6px; border-top:1px solid var(--ink); padding-top:5px; color:var(--muted); font-size:11px; }
     .client-details-card { overflow:visible; position:relative; z-index:8; }
     .address-autocomplete { position:relative; min-width:0; }
-    .address-autocomplete-menu { position:absolute; top:calc(100% + 2px); left:0; right:0; z-index:6000; max-height:260px; overflow-y:auto; margin:0; padding:4px 0; background:#fff; border:1px solid #c9d5e3; border-radius:6px; box-shadow:0 10px 24px rgba(15,23,42,.16); }
+    .address-autocomplete-menu { position:fixed; z-index:6000; width:min(100%,calc(100vw - 16px)); max-width:calc(100vw - 16px); max-height:min(260px,45vh); overflow-y:auto; margin:0; padding:4px 0; background:#fff; border:1px solid #c9d5e3; border-radius:6px; box-shadow:0 10px 24px rgba(15,23,42,.16); box-sizing:border-box; }
     .address-autocomplete-menu[hidden] { display:none !important; }
     .address-suggest { display:flex; flex-direction:column; gap:2px; width:100%; border:0; background:#fff; text-align:left; padding:8px 12px; cursor:pointer; font:inherit; color:#0f172a; }
     .address-suggest:hover, .address-suggest.is-active { background:#eef5fc; }
@@ -397,9 +402,11 @@
     .plans-grand h4 { margin:0; padding:12px 14px; background:#0f172a; color:#fff; font-size:13px; letter-spacing:.04em; text-transform:uppercase; }
     .plans-grand .plans-table-toolbar { border-top:1px solid #e2e8f0; }
     .plans-grand td:last-child, .plans-grand th:last-child { text-align:right; font-variant-numeric:tabular-nums; }
-    .regional-control { display:flex; align-items:center; gap:7px; }
+    .regional-controls { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; max-width:100%; }
+    .regional-control { display:flex; align-items:center; gap:7px; max-width:100%; min-width:0; flex-wrap:wrap; }
     .regional-control label { color:var(--navy); font-size:13px; font-weight:700; }
-    .regional-control input[type="text"] { width:95px; padding:5px 8px; border:1px solid #ced4da; background:#fff; font-weight:700; text-align:center; }
+    .regional-control select { max-width:100%; min-width:0; }
+    .regional-control input[type="text"] { width:95px; max-width:100%; padding:5px 8px; border:1px solid #ced4da; background:#fff; font-weight:700; text-align:center; }
     .regional-control input[type="checkbox"] { width:16px; height:16px; cursor:pointer; }
     .regional-badge { padding:4px 10px; border-radius:4px; background:#e2e3e5; color:#383d41; font-size:12px; font-weight:700; }
     .regional-sync { margin-left:auto; color:var(--muted); font-size:11px; }
@@ -407,7 +414,32 @@
     .pricing-terms { margin-top:25px; padding:10px 14px; border-left:3px solid #6c757d; background:#fafafa; color:#555; font-size:10px; line-height:1.4; text-align:justify; }
     .select-alcance,.codigo-item { width:100%; margin-top:3px; padding:4px; border:1px solid #ced4da; border-radius:4px; color:var(--ink); background:#fff; font-size:11px; }
     @media (max-width:900px) { .tech-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);} }
-    @media (max-width:720px) { .app{width:calc(100% - 18px);margin:10px auto 25px}.document{padding:20px 14px 28px}.toolbar{align-items:flex-start;flex-direction:column}.tech-grid,.bottom-grid,.payment-grid{grid-template-columns:1fr}.brand h2{font-size:18px}.field-row{grid-template-columns:100px 1fr} .area{overflow-x:auto}.area table{min-width:860px}.area-header{min-width:860px}.bottom-grid{gap:14px} }
+    @media screen and (max-width:720px) {
+      .app-navbar { flex-wrap:wrap; gap:10px; padding:12px 14px; }
+      .nav-links { flex-wrap:wrap; width:100%; }
+      .nav-btn { flex:1 1 auto; text-align:center; }
+      .view-section { padding:16px 10px; }
+      .hero-card, .history-container { padding:18px 14px; }
+      .signup-card { max-width:100%; }
+      .app { width:calc(100% - 16px); max-width:100%; margin:10px auto 25px; }
+      .document { padding:16px 12px 24px; }
+      .toolbar, .toolbar-actions, .estimate-lang-control, .client-actions, .category-select-wrapper { align-items:stretch; flex-direction:column; width:100%; max-width:100%; }
+      .toolbar-actions > .btn, .mode-select, .service-select, .clean-category-select, .client-actions select, .estimate-lang-control select { width:100%; max-width:100%; min-width:0; }
+      .tech-grid, .bottom-grid, .payment-grid, .signature-grid, .client-address-grid { grid-template-columns:1fr; }
+      .brand h2 { font-size:18px; }
+      .brand-folio { flex-wrap:wrap; }
+      .brand-folio input { max-width:100%; }
+      .field-row, .contractor-info .field-row { grid-template-columns:minmax(72px,92px) minmax(0,1fr) !important; }
+      .history-table { min-width:680px; }
+      .area { overflow-x:auto; max-width:100%; }
+      .area table, .area-header { min-width:860px; }
+      .bottom-grid { gap:14px; }
+      .regional-controls { flex-direction:column; align-items:stretch; }
+      .regional-control, .regional-control select { width:100%; max-width:100%; }
+      .paid-stamp, .draft-toast, .save-toast { max-width:calc(100vw - 24px); }
+      .draft-toast, .save-toast { left:12px; right:12px; }
+      .task-dropdown-menu, #menu-sugerencias-catalogo, .ia-precio-menu, .address-autocomplete-menu, .sugerencia-desc-menu { max-width:calc(100vw - 16px); }
+    }
     @media print {
       @page { size: Letter; margin: 0.5in; }
       html, body {
@@ -1055,7 +1087,7 @@
         <select id="status"><option value="open" data-i18n="statusOpen">Open</option><option value="paid" data-i18n="statusPaid">Paid</option></select>
       </div>
       <section class="regional-controls no-print" aria-label="Regional pricing controls">
-        <div class="regional-control"><label for="zip-code" data-i18n="zipJob">📍 Job ZIP code:</label><input type="text" id="zip-code" placeholder="e.g. 30060" maxlength="5" inputmode="numeric" oninput="consultarFactorZipNacional(this.value)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; width: 100px;"></div>
+        <div class="regional-control"><label for="zip-code" data-i18n="zipJob">📍 Job ZIP code:</label><input type="text" id="zip-code" placeholder="e.g. 30060" maxlength="5" inputmode="numeric" oninput="consultarFactorZipNacional(this.value)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; width: 100%; max-width: 100px;"></div>
         <div class="regional-control"><label for="tipoProyecto" data-i18n="projectType">Project type:</label><select id="tipoProyecto" onchange="actualizarModoProyecto()" style="padding: 5px 10px; border-radius: 4px; border: 1px solid #ced4da; font-weight: bold;"><option value="residencial" selected data-i18n="residential">🏠 Residential</option><option value="comercial" data-i18n="commercial">🏢 Commercial</option></select></div>
         <div class="regional-control"><label for="select-tipo-contratista" style="font-weight:bold;color:#0d47a1;" data-i18n="quoteAs">Quote as:</label><select id="select-tipo-contratista" onchange="update()" style="padding:6px 10px;border-radius:4px;font-weight:600;border:2px solid #0d47a1;"><option value="general" selected data-i18n="gc">General contractor (includes overhead and profit)</option><option value="sub" data-i18n="sub">Subcontractor (direct cost, no GC markup)</option></select></div>
         <div class="regional-control"><label for="select-estado" data-i18n="state">State:</label><select id="select-estado" name="estado" onchange="actualizarCiudades()" style="padding: 5px 10px; border-radius: 4px; border: 1px solid #ced4da; font-weight:600;"><option value="">Select state</option><option value="AL">Alabama (AL)</option><option value="FL">Florida (FL)</option><option value="GA" selected>Georgia (GA)</option><option value="IL">Illinois (IL)</option><option value="NC">North Carolina (NC)</option><option value="SC">South Carolina (SC)</option><option value="TN">Tennessee (TN)</option><option value="TX">Texas (TX)</option><option value="CA">California (CA)</option><option value="NY">New York (NY)</option><option value="OTRO">Other state</option></select></div>
@@ -1185,6 +1217,7 @@
         <button type="button" class="history-tab" role="tab" aria-selected="false" data-history-filter="contract">Contracts</button>
         <button type="button" class="history-tab" role="tab" aria-selected="false" data-history-filter="invoice">Invoices</button>
       </div>
+      <div class="history-table-wrap">
       <table class="history-table">
         <thead>
           <tr>
@@ -1198,10 +1231,11 @@
         </thead>
         <tbody id="historyTableBody"></tbody>
       </table>
+      </div>
     </div>
   </section>
   <template id="areaTemplate"><section class="area"><div class="area-header"><div class="area-name"><span class="area-index"></span><input class="area-title" value="Kitchen area"><span>(</span><input class="area-reference" value="PLANO 85999"><span>)</span></div><div class="area-actions"><button class="icon-btn add-row-btn" type="button">+ Row</button><button class="icon-btn remove-area-btn" type="button">Remove area</button></div></div><table><thead><tr><th class="code-heading">Code</th><th class="action-heading">Action</th><th class="description-heading">Work description</th><th class="quantity-heading">Qty</th><th class="unit-heading">Unit</th><th class="price-heading">Unit price ($)</th><th class="tax-heading">TAX (%)</th><th class="subtotal-heading">Subtotal ($)</th><th></th></tr></thead><tbody></tbody></table><button class="add-row" type="button">+ Add row</button></section></template>
-    <template id="rowTemplate"><tr class="fila-trabajo"><td><input class="code" value=""></td><td><select class="item-action" aria-label="Action" onchange="onCambioAccionPartida(this)"><option value="replace" selected>Remove and install</option><option value="replace_material">Remove, install plus materials</option><option value="install_material">Install plus materials</option><option value="install">Install only</option><option value="demo">Demolition only</option><option value="material">Material only</option></select></td><td class="desc-cell"><div class="task-autocomplete-container"><textarea class="item-desc description" data-line-desc="1" rows="1" autocomplete="off"></textarea><div class="task-dropdown-menu" role="listbox" aria-label="Trades and tasks"></div></div></td><td><div class="quantity-cell"><input type="number" class="input-cantidad quantity" value="1" min="0" step="any" placeholder="0" style="width: 70px; padding: 4px; border: 1px solid #ced4da; border-radius: 4px; text-align: center; font-weight: bold;" oninput="recalcularSubtotalFila(this.closest('tr')); if(typeof update==='function')update();"></div></td><td><select class="select-unidad unit-select item-unit" aria-label="Unit"><option value="SQ">SQ (Squares, 100 sq ft)</option><option value="SF" selected>SF (Square Feet)</option><option value="LF">LF (Linear Feet)</option><option value="EA">EA (Each)</option>
+    <template id="rowTemplate"><tr class="fila-trabajo"><td><input class="code" value=""></td><td><select class="item-action" aria-label="Action" onchange="onCambioAccionPartida(this)"><option value="replace" selected>Remove and install</option><option value="replace_material">Remove, install plus materials</option><option value="install_material">Install plus materials</option><option value="install">Install only</option><option value="demo">Demolition only</option><option value="material">Material only</option></select></td><td class="desc-cell"><div class="task-autocomplete-container"><textarea class="item-desc description" data-line-desc="1" rows="1" autocomplete="off"></textarea><div class="task-dropdown-menu" role="listbox" aria-label="Trades and tasks"></div></div></td><td><div class="quantity-cell"><input type="number" class="input-cantidad quantity" value="1" min="0" step="any" placeholder="0" style="width: 100%; max-width: 100%; padding: 4px; border: 1px solid #ced4da; border-radius: 4px; text-align: center; font-weight: bold;" oninput="recalcularSubtotalFila(this.closest('tr')); if(typeof update==='function')update();"></div></td><td><select class="select-unidad unit-select item-unit" aria-label="Unit"><option value="SQ">SQ (Squares, 100 sq ft)</option><option value="SF" selected>SF (Square Feet)</option><option value="LF">LF (Linear Feet)</option><option value="EA">EA (Each)</option>
             <option value="PC">PC (Piece, 10 ft)</option><option value="HR">HR (Hours)</option><option value="CY">CY (Cubic Yards)</option><option value="BAG">BAG (Bag)</option><option value="LS">LS (Lump Sum)</option></select></td><td class="price-cell"><div class="price-ia-wrap"><input class="price number-input input-precio" type="number" min="0" step="0.01" value="0"><button type="button" class="btn-ia-precio no-print" hidden title="Suggest market price with AI">IA</button><div class="ia-precio-menu no-print" hidden></div></div></td><td><input class="tax number-input" type="number" min="0" step="0.01" value="0" aria-label="TAX (%)"></td><td class="subtotal-cell"><span class="row-total span-subtotal input-subtotal">$0.00</span><small class="minimum-tag tag-minimo"></small></td><td><button class="remove-row" type="button" aria-label="Remove row">×</button></td></tr></template>
   <datalist id="listaSugerenciasMateriales">
     <option value="Instalación de piso Luxury Vinyl Tile (LVT) pegado (Glue-down)"></option>
@@ -2172,17 +2206,26 @@
       menu.setAttribute('data-ia-open','1');
       row.classList.add('ia-precio-abierta');
       const rect=ancla.getBoundingClientRect();
-      const width=Math.min(Math.max(240,rect.width+120),Math.max(240,window.innerWidth-16));
+      const margen=8;
+      const limite=Math.max(160,window.innerWidth-margen*2);
+      const width=Math.min(Math.max(rect.width+80,Math.min(240,limite)),limite);
       let left=rect.right-width;
-      if(left<8)left=8;
-      if(left+width>window.innerWidth-8)left=Math.max(8,window.innerWidth-width-8);
+      if(left<margen)left=margen;
+      if(left+width>window.innerWidth-margen)left=Math.max(margen,window.innerWidth-width-margen);
       menu.style.width=width+'px';
+      menu.style.maxWidth=limite+'px';
       menu.style.left=left+'px';
       menu.style.right='auto';
-      const alto=menu.offsetHeight||160;
+      const espacioAbajo=window.innerHeight-rect.bottom-margen;
+      const espacioArriba=rect.top-margen;
+      let maxH=Math.min(280,Math.max(96,espacioAbajo-4));
       let top=rect.bottom+4;
-      if(top+alto>window.innerHeight-8 && rect.top>alto+8)top=rect.top-alto-4;
-      menu.style.top=Math.max(8,top)+'px';
+      if(espacioAbajo<140 && espacioArriba>espacioAbajo){
+        maxH=Math.min(280,Math.max(96,espacioArriba-4));
+        top=Math.max(margen,rect.top-maxH-4);
+      }
+      menu.style.maxHeight=maxH+'px';
+      menu.style.top=Math.max(margen,top)+'px';
     }
     function ocultarBadgePrecioIa(row){
       if(!row||row.dataset.origenPrecio!=='gemini')return;
@@ -3188,7 +3231,7 @@
       return true;
     }
     async function supabaseSelectCatalogo(table){
-      const url=SUPABASE_URL.replace(/\/$/,'')+'/rest/v1/'+encodeURIComponent(table)+'?select=*&limit=2000';
+      const url=SUPABASE_URL.replace(/\/$/,'')+'/rest/v1/'+encodeURIComponent(table)+'?select=*&activo=eq.true&limit=2000';
       const response=await fetch(url,{
         headers:{
           apikey:SUPABASE_PUBLISHABLE_KEY,
@@ -3301,20 +3344,40 @@
       }
       return menu;
     }
-    function posicionarMenuTareas(input, menu){
-      if(!input||!menu)return;
-      const r=input.getBoundingClientRect();
-      const ancho=Math.max(r.width,320);
-      let left=r.left;
-      if(left+ancho>window.innerWidth-8)left=Math.max(8,window.innerWidth-ancho-8);
-      let top=r.bottom+4;
-      const alto=Math.min(320, window.innerHeight*0.45);
-      if(top+120>window.innerHeight && r.top>alto)top=Math.max(8,r.top-alto-4);
+    function colocarMenuEnPantalla(ancla, menu, opciones){
+      if(!ancla||!menu)return;
+      const opts=opciones||{};
+      const margen=8;
+      const r=ancla.getBoundingClientRect();
+      const limite=Math.max(140,window.innerWidth-margen*2);
+      const preferido=Math.max(r.width, opts.minAncho==null?Math.min(280,limite):opts.minAncho);
+      const ancho=Math.min(Math.max(r.width,Math.min(preferido,limite)),limite);
+      let left=opts.alinear==='derecha'?r.right-ancho:r.left;
+      if(left+ancho>window.innerWidth-margen)left=window.innerWidth-ancho-margen;
+      if(left<margen)left=margen;
+      const topeAlto=opts.maxAlto||320;
+      const espacioAbajo=window.innerHeight-r.bottom-margen;
+      const espacioArriba=r.top-margen;
+      let maxH=Math.min(topeAlto,Math.max(96,espacioAbajo-4));
+      let top=r.bottom+(opts.gap==null?4:opts.gap);
+      if(espacioAbajo<140 && espacioArriba>espacioAbajo){
+        maxH=Math.min(topeAlto,Math.max(96,espacioArriba-4));
+        top=Math.max(margen,r.top-maxH-(opts.gap==null?4:opts.gap));
+      }
+      if(top<margen)top=margen;
       menu.style.position='fixed';
       menu.style.left=left+'px';
       menu.style.top=top+'px';
       menu.style.width=ancho+'px';
-      menu.style.zIndex='2147483000';
+      menu.style.maxWidth=limite+'px';
+      menu.style.maxHeight=maxH+'px';
+      menu.style.right='auto';
+      menu.style.bottom='auto';
+      if(opts.z)menu.style.zIndex=String(opts.z);
+    }
+    function posicionarMenuTareas(input, menu){
+      if(!input||!menu)return;
+      colocarMenuEnPantalla(input,menu,{minAncho:Math.min(320,window.innerWidth-16),maxAlto:Math.min(320,window.innerHeight*0.45),z:2147483000});
       menu.style.display='block';
       menu.classList.add('is-open');
     }
@@ -3605,11 +3668,18 @@
         if(e.target.closest('#menu-sugerencias-catalogo')||esCampoCatalogoVivo(e.target))return;
         cerrarMenusTareas();
       });
-      window.addEventListener('resize',()=>{
+      function recolocarMenusAbiertos(evento){
+        const origen=evento&&evento.target;
+        if(origen&&typeof origen.closest==='function'&&origen.closest('.task-dropdown-menu,.sugerencia-desc-menu,.address-autocomplete-menu,.ia-precio-menu'))return;
         const input=buscarYMostrarCatalogo._input;
         const menu=document.getElementById('menu-sugerencias-catalogo');
         if(input&&menu&&menu.classList.contains('is-open'))posicionarMenuTareas(input,menu);
-      });
+        document.querySelectorAll('.sugerencia-desc-menu').forEach(abierto=>{
+          if(abierto._input&&abierto._input.isConnected)colocarMenuEnPantalla(abierto._input,abierto,{minAncho:220,maxAlto:220,z:6000});
+        });
+      }
+      window.addEventListener('resize',recolocarMenusAbiertos);
+      window.addEventListener('scroll',recolocarMenusAbiertos,true);
     }
     iniciarBuscadorCatalogoGlobal();
 
@@ -3619,8 +3689,6 @@
     function pintarSugerenciasDescripcion(input, sugerencias){
       cerrarSugerenciasDescripcion();
       if(!input||!input.isConnected||!sugerencias||!sugerencias.length)return;
-      const host=input.closest('.task-autocomplete-container')||input.parentElement;
-      if(!host)return;
       if(typeof cerrarMenusTareas==='function')cerrarMenusTareas();
       const menu=document.createElement('div');
       menu.className='sugerencia-desc-menu no-print';
@@ -3638,7 +3706,8 @@
         });
         menu.appendChild(boton);
       });
-      host.appendChild(menu);
+      document.body.appendChild(menu);
+      colocarMenuEnPantalla(input,menu,{minAncho:220,maxAlto:220,z:6000});
     }
     function aplicarSugerenciaDescripcion(input, texto){
       cerrarSugerenciasDescripcion();
@@ -4008,6 +4077,10 @@
         input.setAttribute('aria-expanded','false');
         activo=-1;
       }
+      function colocarMenu(){
+        if(menu.hidden)return;
+        colocarMenuEnPantalla(input,menu,{minAncho:0,maxAlto:260,z:6000,gap:2});
+      }
       function pintarMenu(lista,estado){
         items=Array.isArray(lista)?lista:[];
         if(estado==='loading'){
@@ -4029,6 +4102,7 @@
         menu.hidden=false;
         input.setAttribute('aria-expanded','true');
         activo=-1;
+        colocarMenu();
       }
       function marcarActivo(idx){
         const botones=[...menu.querySelectorAll('.address-suggest')];
@@ -4096,6 +4170,12 @@
         if(event.target===input||menu.contains(event.target)||input.contains(event.target))return;
         cerrarMenu();
       });
+      window.addEventListener('resize',colocarMenu);
+      window.addEventListener('scroll',evento=>{
+        const origen=evento&&evento.target;
+        if(origen&&typeof origen.closest==='function'&&origen.closest('.address-autocomplete-menu'))return;
+        colocarMenu();
+      },true);
     }
     function prefijoFolio(tipo){
       return {estimate:'EST',contract:'CON',invoice:'INV'}[normalizarTipoDocumento(tipo)]||'INV';

@@ -1434,7 +1434,7 @@ def _buscar_catalogo_rest(q, limite):
     tablas = ["catalogo_items"]
     last_error = None
     for tabla in tablas:
-        params = {"select": COLUMNAS_CATALOGO, "limit": str(limite)}
+        params = {"select": COLUMNAS_CATALOGO, "activo": "eq.true", "limit": str(limite)}
         if q:
             like = f"*{q}*"
             compacto = _codigo_catalogo_compacto(q)
@@ -1449,7 +1449,7 @@ def _buscar_catalogo_rest(q, limite):
         except RuntimeError as err:
             last_error = err
             if q:
-                params = {"select": COLUMNAS_CATALOGO, "limit": str(limite), "descripcion": f"ilike.{like}"}
+                params = {"select": COLUMNAS_CATALOGO, "activo": "eq.true", "limit": str(limite), "descripcion": f"ilike.{like}"}
                 query = urllib.parse.urlencode(params, safe="(),.*")
                 req = urllib.request.Request(f"{url}/rest/v1/{tabla}?{query}", headers=headers)
                 try:
@@ -1467,7 +1467,7 @@ def buscar_filas_catalogo(q):
     client = _supabase_client()
     if client is not None:
         try:
-            query = client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO)
+            query = client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO).eq("activo", True)
             if termino:
                 compacto = _codigo_catalogo_compacto(termino)
                 filtro = f"descripcion.ilike.%{termino}%,codigo.ilike.%{termino}%"
@@ -1478,7 +1478,9 @@ def buscar_filas_catalogo(q):
             return list(data.data or [])
         except Exception:
             try:
-                query = client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO).ilike("descripcion", f"%{termino}%") if termino else client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO)
+                query = client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO).eq("activo", True)
+                if termino:
+                    query = query.ilike("descripcion", f"%{termino}%")
                 data = query.limit(limite).execute()
                 return list(data.data or [])
             except Exception:
@@ -4219,6 +4221,31 @@ def _embedding_texto(descripcion, unidad=""):
     return vectores[0] if vectores else None
 
 
+def _solo_activos_catalogo(client, filas):
+    """La consulta vectorial solo conserva catalogo_items con activo = true."""
+    ids = []
+    for row in filas or []:
+        if isinstance(row, dict) and row.get("id") is not None:
+            ids.append(row["id"])
+    if not ids:
+        return []
+    try:
+        vivos = (
+            client.table(TABLA_CATALOGO)
+            .select("id")
+            .in_("id", ids)
+            .eq("activo", True)
+            .execute()
+            .data
+            or []
+        )
+    except Exception as err:
+        print(f"--> match_items filtro activo: {type(err).__name__}: {err}")
+        return [row for row in filas if isinstance(row, dict) and row.get("activo") is not False]
+    permitidos = {row.get("id") for row in vivos}
+    return [row for row in filas if isinstance(row, dict) and row.get("id") in permitidos]
+
+
 def _filas_catalogo_vector(descripcion, unidad=""):
     client = _supabase_client()
     if client is None:
@@ -4235,22 +4262,27 @@ def _filas_catalogo_vector(descripcion, unidad=""):
     payload = {
         "query_embedding": vector,
         "match_threshold": UMBRAL_SIMILITUD_CATALOGO,
-        "match_count": 12,
+        "match_count": 40,
     }
     if unidad:
         payload["filter_unidad"] = str(unidad).upper()
     print(
         f"--> match_items: consulta '{str(descripcion)[:60]}' unidad={unidad or '-'} "
-        f"dim={len(vector)} umbral={UMBRAL_SIMILITUD_CATALOGO}"
+        f"dim={len(vector)} umbral={UMBRAL_SIMILITUD_CATALOGO} activo=true"
     )
     try:
         datos = client.rpc("match_items", payload).execute().data or []
     except Exception as err:
         print(f"--> match_items: error {type(err).__name__}: {err}")
         return []
+    antes = len(datos) if isinstance(datos, list) else 0
+    datos = _solo_activos_catalogo(client, datos)[:12]
+    print(f"--> match_items activo=true {len(datos)}/{antes}")
     filas = []
     for row in datos:
         if not isinstance(row, dict):
+            continue
+        if row.get("activo") is False:
             continue
         fila = dict(row)
         fila["fuente"] = "vector"
@@ -4301,7 +4333,7 @@ def _precio_supabase_por_accion(descripcion, unidad, accion):
         filtros += [f"descripcion.ilike.%{p}%" for p in palabras[:4]]
         for filtro in filtros:
             try:
-                datos = client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO).or_(filtro).limit(200).execute().data or []
+                datos = client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO).eq("activo", True).or_(filtro).limit(200).execute().data or []
             except Exception as err:
                 print(f"--> precio-accion filtro: {err}")
                 continue

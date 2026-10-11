@@ -41,6 +41,7 @@ as $$
     (1 - (ci.embedding <=> query_embedding))::double precision as similarity
   from public.catalogo_items ci
   where ci.embedding is not null
+    and ci.activo = true
     and (filter_unidad is null or upper(ci.unidad) = upper(filter_unidad))
     and 1 - (ci.embedding <=> query_embedding) >= match_threshold
   order by ci.embedding <=> query_embedding
@@ -48,7 +49,7 @@ as $$
 $$;
 
 grant execute on function public.match_items(vector, double precision, integer, text)
-  to anon, authenticated;
+  to anon, authenticated, service_role;
 
 -- Permite que el script de embeddings (clave anon) escriba solo la columna embedding.
 create or replace function public.set_item_embedding(

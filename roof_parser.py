@@ -865,6 +865,7 @@ def _consultar_catalogo_supabase(termino="", limite=1000, offset=0):
     }
     params = {
         "select": "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra",
+        "activo": "eq.true",
         "limit": str(int(limite) or 1000),
         "offset": str(int(offset) or 0),
     }
