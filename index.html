@@ -22,7 +22,30 @@
     .view-section.active { display:block; }
     #view-login.active { display:flex; align-items:center; justify-content:center; min-height:calc(100vh - 64px); padding:32px 16px; }
     #view-login .signup-card { max-width:440px; width:100%; margin:0; }
+    body.auth-solo { background:radial-gradient(1200px 480px at 50% -80px,#ffffff 0%,#e8eef6 55%,#dfe7f1 100%); }
+    body.auth-solo .app-navbar { background:transparent; border-bottom:0; box-shadow:none; }
     body.auth-solo .nav-links { display:none; }
+    #authContratista { padding:28px 26px 22px; border:1px solid rgba(255,255,255,.8); border-radius:22px; background:#fff; box-shadow:0 24px 60px rgba(15,23,42,.12); }
+    #authContratista .auth-kicker { margin:0 0 14px; color:#1d4ed8; font-size:11px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
+    #authContratista h3 { font-size:1.35rem; letter-spacing:-.03em; }
+    #authContratista p { line-height:1.45; }
+    #authContratista input { padding:11px 12px; border-radius:10px; border-color:#d5dee8; }
+    #authContratista input:focus { outline:2px solid #bfdbfe; border-color:#2563eb; }
+    #authContratista .btn-primary { width:100%; margin-top:16px; border:0; border-radius:10px; padding:12px 14px; background:#0f172a; }
+    #authContratista .btn-primary:hover { background:#1e293b; }
+    #authContratista .auth-secondary { width:100%; margin-top:8px; border-radius:10px; background:#fff; }
+    #authContratista .auth-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:12px; }
+    #authContratista .auth-check { display:flex; align-items:center; gap:8px; margin:0; font-size:13px; font-weight:600; color:#334155; }
+    #authContratista .auth-check input { width:16px; height:16px; margin:0; accent-color:#0f172a; }
+    #authContratista .auth-link { margin:0; padding:0; border:0; background:transparent; color:#1d4ed8; font-size:13px; font-weight:700; }
+    #authContratista .auth-link:hover { color:#1e3a8a; }
+    #authContratista .auth-back { display:inline-block; margin-top:14px; }
+    #authContratista .auth-divider { display:flex; align-items:center; gap:12px; margin:16px 0 0; color:#94a3b8; font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+    #authContratista .auth-divider:before, #authContratista .auth-divider:after { content:""; flex:1; height:1px; background:#e2e8f0; }
+    #authContratista .auth-google { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; margin-top:12px; padding:11px 14px; border:1px solid #dbe3ea; border-radius:10px; background:#fff; color:#0f172a; font-weight:700; text-decoration:none; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+    #authContratista .auth-google:hover { background:#f8fafc; border-color:#cbd5e1; }
+    #authContratista .auth-google svg { width:18px; height:18px; flex:0 0 auto; }
+    #authTabs[hidden], #authKicker[hidden], #authContratista form[hidden], #sesionContratista[hidden] { display:none !important; }
     #cerrarSesionNav[hidden] { display:none !important; }
     .view-section:not(.active) .business-modal,
     .view-section:not(.active) .export-modal { display:none!important; pointer-events:none; }
@@ -824,6 +847,7 @@
   </nav>
   <section id="view-login" class="view-section{{ ' active' if vista == 'login' else '' }} no-print">
       <div class="signup-card" id="authContratista">
+        <p class="auth-kicker" id="authKicker">Contractor access</p>
         <div class="auth-tabs" id="authTabs">
           <button type="button" id="authTabLogin" class="is-active">Log in</button>
           <button type="button" id="authTabRegistro">Create account</button>
@@ -835,10 +859,47 @@
           <input id="loginEmail" name="email" type="email" autocomplete="username" required placeholder="you@company.com">
           <label for="loginPassword" id="loginPasswordLabel">Password</label>
           <input id="loginPassword" name="password" type="password" autocomplete="current-password" required minlength="8" placeholder="••••••••">
+          <div class="auth-row">
+            <label class="auth-check" for="loginRecordarme">
+              <input id="loginRecordarme" name="recordarme" type="checkbox" checked>
+              <span id="loginRecordarmeLabel">Remember me</span>
+            </label>
+            <button class="auth-link" type="button" id="olvideContrasenaBtn">Forgot password</button>
+          </div>
           <button class="btn btn-primary" type="submit" id="loginSubmit">Log in</button>
-          <button class="btn" type="button" id="crearContrasenaBtn">Create password</button>
+          <div class="auth-divider"><span id="authDivider">or</span></div>
+          <a class="auth-google" id="loginGoogle" href="/api/contratistas/oauth/google">
+            <svg viewBox="0 0 18 18" aria-hidden="true">
+              <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+              <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+              <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/>
+              <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.167 6.656 3.58 9 3.58z"/>
+            </svg>
+            <span id="loginGoogleLabel">Continue with Google</span>
+          </a>
+          <button class="btn auth-secondary" type="button" id="crearContrasenaBtn">Create password</button>
           <p class="auth-note" id="loginCreateLead">If this company was created before passwords, set one now. After that, use Log in.</p>
           <p class="auth-status" id="loginStatus" hidden></p>
+        </form>
+        <form id="recuperarContratistaForm" hidden>
+          <h3 id="recuperarTitulo">Reset password</h3>
+          <p id="recuperarLead">We'll email you a link to choose a new password.</p>
+          <label for="recuperarEmail" id="recuperarEmailLabel">Email</label>
+          <input id="recuperarEmail" name="email" type="email" autocomplete="username" required placeholder="you@company.com">
+          <button class="btn btn-primary" type="submit" id="recuperarSubmit">Send link</button>
+          <button class="auth-link auth-back" type="button" id="recuperarVolver">Back to log in</button>
+          <p class="auth-status" id="recuperarStatus" hidden></p>
+        </form>
+        <form id="restablecerContratistaForm" hidden>
+          <h3 id="restablecerTitulo">Choose a new password</h3>
+          <p id="restablecerLead">Use at least 8 characters. You'll go straight to your dashboard.</p>
+          <label for="restablecerPassword" id="restablecerPasswordLabel">New password</label>
+          <input id="restablecerPassword" name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="••••••••">
+          <label for="restablecerPassword2" id="restablecerPassword2Label">Confirm password</label>
+          <input id="restablecerPassword2" name="password_confirm" type="password" autocomplete="new-password" required minlength="8" placeholder="••••••••">
+          <button class="btn btn-primary" type="submit" id="restablecerSubmit">Save password</button>
+          <button class="auth-link auth-back" type="button" id="restablecerVolver">Back to log in</button>
+          <p class="auth-status" id="restablecerStatus" hidden></p>
         </form>
         <form id="registroContratistaForm" hidden>
           <h3 id="registroTitulo">Create account</h3>
@@ -852,6 +913,16 @@
           <label for="registroPassword2" id="registroPassword2Label">Confirm password</label>
           <input id="registroPassword2" name="password_confirm" type="password" autocomplete="new-password" required minlength="8" placeholder="••••••••">
           <button class="btn btn-primary" type="submit" id="registroSubmit">Create account</button>
+          <div class="auth-divider"><span id="registroDivider">or</span></div>
+          <a class="auth-google" id="registroGoogle" href="/api/contratistas/oauth/google">
+            <svg viewBox="0 0 18 18" aria-hidden="true">
+              <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+              <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+              <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/>
+              <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.167 6.656 3.58 9 3.58z"/>
+            </svg>
+            <span id="registroGoogleLabel">Continue with Google</span>
+          </a>
           <p class="auth-status" id="registroContratistaStatus" hidden></p>
         </form>
         <div id="sesionContratista" hidden>
@@ -1735,6 +1806,23 @@
     let documentoHistorialId = null;
     const contratistaTokenKey = 'contratista_sesion';
     const contratistaIdKey = 'contratista_id';
+    function leerTokenContratistaLocal(){
+      return localStorage.getItem(contratistaTokenKey)||sessionStorage.getItem(contratistaTokenKey)||'';
+    }
+    function guardarTokenContratistaLocal(token, id, recordar){
+      const principal=recordar===false?sessionStorage:localStorage;
+      const otro=recordar===false?localStorage:sessionStorage;
+      if(token) principal.setItem(contratistaTokenKey, token);
+      if(id) principal.setItem(contratistaIdKey, id);
+      otro.removeItem(contratistaTokenKey);
+      otro.removeItem(contratistaIdKey);
+    }
+    function borrarTokenContratistaLocal(){
+      localStorage.removeItem(contratistaTokenKey);
+      localStorage.removeItem(contratistaIdKey);
+      sessionStorage.removeItem(contratistaTokenKey);
+      sessionStorage.removeItem(contratistaIdKey);
+    }
     function nombreEmpresaActiva(){
       const campo=String(document.getElementById('company')?.value||'').trim();
       const inyectada=String(window.__NOMBRE_EMPRESA__||'').trim();
@@ -1757,17 +1845,14 @@
     }
     function headersContratista(extra){
       const headers=Object.assign({Accept:'application/json'}, extra||{});
-      const token=localStorage.getItem(contratistaTokenKey)||'';
+      const token=leerTokenContratistaLocal();
       if(token) headers.Authorization='Bearer '+token;
       return headers;
     }
     async function leerContratistaActual(){
       const res=await fetch('/api/contratistas/yo',{headers:headersContratista(),credentials:'same-origin'});
       if(!res.ok){
-        if(res.status===401||res.status===403){
-          localStorage.removeItem(contratistaTokenKey);
-          localStorage.removeItem(contratistaIdKey);
-        }
+        if(res.status===401||res.status===403) borrarTokenContratistaLocal();
         return null;
       }
       const json=await res.json().catch(()=>null);
@@ -5151,8 +5236,29 @@
     let sesionActual=null;
     let sesionLista=false;
     function rutaEsLogin(path){
-      return path==='/'||path==='/login'||path==='/iniciar-sesion';
+      return path==='/'||path==='/login'||path==='/iniciar-sesion'||path==='/restablecer';
     }
+    let recuperacionPendiente=null;
+    function capturarRecuperacion(){
+      const hash=new URLSearchParams(String(location.hash||'').replace(/^#/,''));
+      const q=new URLSearchParams(location.search||'');
+      const path=(location.pathname||'/').replace(/\/+$/,'')||'/';
+      const access=hash.get('access_token')||'';
+      const code=q.get('code')||'';
+      const tipo=(hash.get('type')||q.get('type')||'').toLowerCase();
+      const error=hash.get('error_description')||q.get('error_description')||hash.get('error')||q.get('error')||'';
+      if(path!=='/restablecer' && tipo!=='recovery') return;
+      if(access||code||error){
+        recuperacionPendiente={
+          access:access,
+          code:code,
+          error:error,
+          verifier:sessionStorage.getItem('auth_pkce_verifier')||''
+        };
+        try{ history.replaceState({view:'login'},'', '/restablecer'); }catch(_){}
+      }
+    }
+    capturarRecuperacion();
     function mostrarVistaLogin(){
       document.body.classList.add('auth-solo');
       document.body.classList.remove('con-sesion');
@@ -5214,10 +5320,27 @@
         '/factura':'invoice','/invoice':'invoice','factura':'invoice','invoice':'invoice',
         '/cotizador':'estimate','/quote':'estimate'
       };
+      const recuperacionActiva=path==='/restablecer'||(recuperacionPendiente&&(recuperacionPendiente.access||recuperacionPendiente.code||recuperacionPendiente.error));
+      if(recuperacionActiva){
+        mostrarVistaLogin();
+        const lista=recuperacionPendiente&&!recuperacionPendiente.error&&(recuperacionPendiente.access||recuperacionPendiente.code);
+        if(typeof mostrarPanelAuth==='function') mostrarPanelAuth(lista?'restablecer':'recuperar');
+        if(recuperacionPendiente&&recuperacionPendiente.error&&typeof marcarEstadoAuth==='function'){
+          const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+          marcarEstadoAuth(lista?'restablecerStatus':'recuperarStatus', t.linkExpired, true);
+        }
+        return;
+      }
       if(!sesionActual){
         mostrarVistaLogin();
         if(!rutaEsLogin(path)){ try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} }
         if(typeof mostrarPanelAuth==='function') mostrarPanelAuth('login');
+        const aviso=new URLSearchParams(location.search||'').get('aviso');
+        if(aviso&&typeof marcarEstadoAuth==='function'){
+          const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+          const mapa={google:t.oauthFail,oauth:t.oauthFail,config:t.oauthFail,enlace:t.linkExpired};
+          marcarEstadoAuth('loginStatus', mapa[aviso]||t.oauthFail, true);
+        }
         return;
       }
       if(rutaEsLogin(path)){
@@ -7172,7 +7295,16 @@
         logout:'Log out', session:'Signed in as {email}', saving:'Signing in…', creating:'Creating account…',
         setting:'Saving password…', signed:'Signed in. Client documents will show this name.',
         created:'Account created.', mismatch:'The passwords do not match.', short:'Password must be at least 8 characters.',
-        needLogin:'Log in with your email and password before continuing.'
+        needLogin:'Log in with your email and password before continuing.',
+        kicker:'Contractor access', remember:'Remember me', forgot:'Forgot password', or:'or',
+        google:'Continue with Google', resetTitle:'Reset password',
+        resetLead:"We'll email you a link to choose a new password.",
+        sendLink:'Send link', back:'Back to log in', newPassword:'New password', savePassword:'Save password',
+        chooseTitle:'Choose a new password', chooseLead:"Use at least 8 characters. You'll go straight to your dashboard.",
+        sending:'Sending link…', sent:'If an account uses that email, we sent a link to reset the password.',
+        resetting:'Saving password…', resetOk:'Password updated. You can log in now.',
+        linkExpired:'That link expired or was already used. Request a new one.',
+        oauthFail:'Google sign-in did not finish. Try again, or use your email.'
       },
       es:{
         nav:'Iniciar sesión', tabLogin:'Iniciar sesión', tabReg:'Crear cuenta', loginTitle:'Iniciar sesión',
@@ -7184,7 +7316,16 @@
         logout:'Cerrar sesión', session:'Sesión iniciada como {email}', saving:'Entrando…', creating:'Creando cuenta…',
         setting:'Guardando contraseña…', signed:'Sesión iniciada. Los documentos del cliente mostrarán este nombre.',
         created:'Cuenta creada.', mismatch:'Las contraseñas no coinciden.', short:'La contraseña debe tener al menos 8 caracteres.',
-        needLogin:'Inicia sesión con tu correo y contraseña antes de continuar.'
+        needLogin:'Inicia sesión con tu correo y contraseña antes de continuar.',
+        kicker:'Acceso de contratista', remember:'Recordarme', forgot:'Olvidé mi contraseña', or:'o',
+        google:'Continuar con Google', resetTitle:'Restablecer contraseña',
+        resetLead:'Te enviaremos un enlace para elegir una contraseña nueva.',
+        sendLink:'Enviar enlace', back:'Volver a iniciar sesión', newPassword:'Nueva contraseña', savePassword:'Guardar contraseña',
+        chooseTitle:'Elige una contraseña nueva', chooseLead:'Usa al menos 8 caracteres. Después entrarás a tu panel.',
+        sending:'Enviando enlace…', sent:'Si hay una cuenta con ese correo, enviamos el enlace para restablecer la contraseña.',
+        resetting:'Guardando contraseña…', resetOk:'Contraseña actualizada. Ya puedes iniciar sesión.',
+        linkExpired:'El enlace venció o ya se usó. Pide uno nuevo.',
+        oauthFail:'No se pudo completar el acceso con Google. Inténtalo de nuevo o usa tu correo.'
       }
     };
     function idiomaAuth(){
@@ -7197,6 +7338,7 @@
       const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
       const poner=(id,texto)=>{ const el=document.getElementById(id); if(el) el.textContent=texto; };
       poner('cerrarSesionNav', t.logout);
+      poner('authKicker', t.kicker);
       poner('authTabLogin', t.tabLogin);
       poner('authTabRegistro', t.tabReg);
       poner('loginTitulo', t.loginTitle);
@@ -7204,6 +7346,23 @@
       poner('loginEmailLabel', t.email);
       poner('loginPasswordLabel', t.password);
       poner('loginSubmit', t.submitLogin);
+      poner('loginRecordarmeLabel', t.remember);
+      poner('olvideContrasenaBtn', t.forgot);
+      poner('authDivider', t.or);
+      poner('registroDivider', t.or);
+      poner('loginGoogleLabel', t.google);
+      poner('registroGoogleLabel', t.google);
+      poner('recuperarTitulo', t.resetTitle);
+      poner('recuperarLead', t.resetLead);
+      poner('recuperarEmailLabel', t.email);
+      poner('recuperarSubmit', t.sendLink);
+      poner('recuperarVolver', t.back);
+      poner('restablecerTitulo', t.chooseTitle);
+      poner('restablecerLead', t.chooseLead);
+      poner('restablecerPasswordLabel', t.newPassword);
+      poner('restablecerPassword2Label', t.confirm);
+      poner('restablecerSubmit', t.savePassword);
+      poner('restablecerVolver', t.back);
       poner('crearContrasenaBtn', t.createPw);
       poner('loginCreateLead', t.createPwLead);
       poner('registroTitulo', t.regTitle);
@@ -7222,18 +7381,27 @@
     function mostrarPanelAuth(modo){
       const login=document.getElementById('loginContratistaForm');
       const registro=document.getElementById('registroContratistaForm');
+      const recuperar=document.getElementById('recuperarContratistaForm');
+      const restablecer=document.getElementById('restablecerContratistaForm');
       const sesion=document.getElementById('sesionContratista');
       const tabs=document.getElementById('authTabs');
-      if(sesion&&!sesion.hidden) return;
+      const kicker=document.getElementById('authKicker');
+      if(modo!=='restablecer'&&modo!=='recuperar'&&sesion&&!sesion.hidden) return;
+      if(sesion&&(modo==='restablecer'||modo==='recuperar')) sesion.hidden=true;
       if(login) login.hidden=modo!=='login';
       if(registro) registro.hidden=modo!=='registro';
-      if(tabs) tabs.hidden=false;
+      if(recuperar) recuperar.hidden=modo!=='recuperar';
+      if(restablecer) restablecer.hidden=modo!=='restablecer';
+      if(tabs) tabs.hidden=modo==='recuperar'||modo==='restablecer';
+      if(kicker) kicker.hidden=modo==='recuperar'||modo==='restablecer';
       document.getElementById('authTabLogin')?.classList.toggle('is-active', modo==='login');
-      document.getElementById('authTabRegistro')?.classList.toggle('is-active', modo!=='login');
+      document.getElementById('authTabRegistro')?.classList.toggle('is-active', modo==='registro');
     }
     function pintarSesionAuth(row){
       const login=document.getElementById('loginContratistaForm');
       const registro=document.getElementById('registroContratistaForm');
+      const recuperar=document.getElementById('recuperarContratistaForm');
+      const restablecer=document.getElementById('restablecerContratistaForm');
       const sesion=document.getElementById('sesionContratista');
       const tabs=document.getElementById('authTabs');
       const texto=document.getElementById('sesionContratistaTexto');
@@ -7241,6 +7409,8 @@
       if(row&&row.id){
         if(login) login.hidden=true;
         if(registro) registro.hidden=true;
+        if(recuperar) recuperar.hidden=true;
+        if(restablecer) restablecer.hidden=true;
         if(tabs) tabs.hidden=true;
         if(sesion){ sesion.hidden=false; sesion.dataset.email=row.email||''; }
         if(texto) texto.textContent=t.session.replace('{email}', row.email||'');
@@ -7249,9 +7419,8 @@
       if(sesion) sesion.hidden=true;
       mostrarPanelAuth('login');
     }
-    function guardarSesionContratista(json){
-      if(json&&json.token) localStorage.setItem(contratistaTokenKey, json.token);
-      if(json&&json.id) localStorage.setItem(contratistaIdKey, json.id);
+    function guardarSesionContratista(json, recordar){
+      if(json&&(json.token||json.id)) guardarTokenContratistaLocal(json.token||'', json.id||'', recordar!==false);
       const nombre=json&&(json.nombre_empresa||'');
       if(nombre){
         aplicarMarcaBlanca(nombre);
@@ -7273,15 +7442,31 @@
       status.textContent=mensaje||'';
       status.classList.toggle('is-error', !!error);
     }
-    async function enviarAuth(url, body, statusId, espera, ok){
+    function recordarSesionMarcado(){
+      const caja=document.getElementById('loginRecordarme');
+      return !caja||caja.checked;
+    }
+    async function crearRetoPkce(){
+      const bytes=new Uint8Array(32);
+      crypto.getRandomValues(bytes);
+      let crudo='';
+      bytes.forEach(b=>{ crudo+=String.fromCharCode(b); });
+      const verifier=btoa(crudo).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+      const digest=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+      let reto='';
+      new Uint8Array(digest).forEach(b=>{ reto+=String.fromCharCode(b); });
+      const challenge=btoa(reto).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+      sessionStorage.setItem('auth_pkce_verifier', verifier);
+      return challenge;
+    }
+    async function enviarAuth(url, body, statusId, espera, ok, recordar){
       const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
       if(String(body.password||'').length<8){
         marcarEstadoAuth(statusId, t.short, true);
         return;
       }
       marcarEstadoAuth(statusId, espera, false);
-      localStorage.removeItem(contratistaTokenKey);
-      localStorage.removeItem(contratistaIdKey);
+      borrarTokenContratistaLocal();
       await fetch('/api/contratistas/sesion',{method:'DELETE',credentials:'same-origin'}).catch(()=>{});
       const res=await fetch(url,{
         method:'POST',
@@ -7291,16 +7476,95 @@
       });
       const json=await res.json().catch(()=>({}));
       if(!res.ok||!json.token) throw new Error(json.error||t.needLogin);
-      guardarSesionContratista(json);
+      guardarSesionContratista(json, recordar!==false);
       marcarEstadoAuth(statusId, ok, false);
     }
     aplicarTextosAuth();
     document.getElementById('authTabLogin')?.addEventListener('click',()=>mostrarPanelAuth('login'));
     document.getElementById('authTabRegistro')?.addEventListener('click',()=>mostrarPanelAuth('registro'));
+    document.getElementById('olvideContrasenaBtn')?.addEventListener('click',()=>{
+      const origen=document.getElementById('loginEmail');
+      const destino=document.getElementById('recuperarEmail');
+      if(destino&&origen&&origen.value&&!destino.value) destino.value=origen.value;
+      mostrarPanelAuth('recuperar');
+    });
+    document.getElementById('recuperarVolver')?.addEventListener('click',()=>mostrarPanelAuth('login'));
+    document.getElementById('restablecerVolver')?.addEventListener('click',()=>{
+      recuperacionPendiente=null;
+      mostrarPanelAuth('login');
+      try{ history.replaceState({view:'login'},'', '/login'); }catch(_){}
+    });
+    document.getElementById('recuperarContratistaForm')?.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+      const email=String(document.getElementById('recuperarEmail')?.value||'').trim();
+      marcarEstadoAuth('recuperarStatus', t.sending, false);
+      let challenge='';
+      try{ challenge=await crearRetoPkce(); }catch(_){ challenge=''; }
+      try{
+        const res=await fetch('/api/contratistas/recuperar',{
+          method:'POST',
+          credentials:'same-origin',
+          headers:{'Content-Type':'application/json',Accept:'application/json'},
+          body:JSON.stringify({email, code_challenge:challenge})
+        });
+        const json=await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(json.error||t.linkExpired);
+        marcarEstadoAuth('recuperarStatus', t.sent, false);
+      }catch(err){
+        marcarEstadoAuth('recuperarStatus', err.message||t.linkExpired, true);
+      }
+    });
+    document.getElementById('restablecerContratistaForm')?.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+      const password=document.getElementById('restablecerPassword')?.value||'';
+      const password2=document.getElementById('restablecerPassword2')?.value||'';
+      if(password.length<8){
+        marcarEstadoAuth('restablecerStatus', t.short, true);
+        return;
+      }
+      if(password!==password2){
+        marcarEstadoAuth('restablecerStatus', t.mismatch, true);
+        return;
+      }
+      const pendiente=recuperacionPendiente||{};
+      if(!pendiente.access&&!pendiente.code){
+        marcarEstadoAuth('restablecerStatus', t.linkExpired, true);
+        mostrarPanelAuth('recuperar');
+        return;
+      }
+      marcarEstadoAuth('restablecerStatus', t.resetting, false);
+      try{
+        const res=await fetch('/api/contratistas/restablecer',{
+          method:'POST',
+          credentials:'same-origin',
+          headers:{'Content-Type':'application/json',Accept:'application/json'},
+          body:JSON.stringify({
+            password,
+            access_token:pendiente.access||'',
+            code:pendiente.access?'':(pendiente.code||''),
+            code_verifier:pendiente.access?'':(pendiente.verifier||'')
+          })
+        });
+        const json=await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(json.error||t.linkExpired);
+        sessionStorage.removeItem('auth_pkce_verifier');
+        recuperacionPendiente=null;
+        if(json.token&&json.id){
+          guardarSesionContratista(json, true);
+          return;
+        }
+        mostrarPanelAuth('login');
+        try{ history.replaceState({view:'login'},'', '/login'); }catch(_){}
+        marcarEstadoAuth('loginStatus', t.resetOk, false);
+      }catch(err){
+        marcarEstadoAuth('restablecerStatus', err.message||t.linkExpired, true);
+      }
+    });
     async function cerrarSesionActual(){
       sesionActual=null;
-      localStorage.removeItem(contratistaTokenKey);
-      localStorage.removeItem(contratistaIdKey);
+      borrarTokenContratistaLocal();
       await fetch('/api/contratistas/sesion',{method:'DELETE',credentials:'same-origin'}).catch(()=>{});
       location.replace('/login');
     }
@@ -7311,8 +7575,9 @@
       try{
         await enviarAuth('/api/contratistas/login',{
           email:String(document.getElementById('loginEmail')?.value||'').trim(),
-          password:document.getElementById('loginPassword')?.value||''
-        }, 'loginStatus', t.saving, t.signed);
+          password:document.getElementById('loginPassword')?.value||'',
+          recordarme:recordarSesionMarcado()
+        }, 'loginStatus', t.saving, t.signed, recordarSesionMarcado());
       }catch(err){
         marcarEstadoAuth('loginStatus', err.message||t.needLogin, true);
       }
@@ -7322,8 +7587,9 @@
       try{
         await enviarAuth('/api/contratistas/contrasena',{
           email:String(document.getElementById('loginEmail')?.value||'').trim(),
-          password:document.getElementById('loginPassword')?.value||''
-        }, 'loginStatus', t.setting, t.signed);
+          password:document.getElementById('loginPassword')?.value||'',
+          recordarme:recordarSesionMarcado()
+        }, 'loginStatus', t.setting, t.signed, recordarSesionMarcado());
       }catch(err){
         marcarEstadoAuth('loginStatus', err.message||t.needLogin, true);
       }

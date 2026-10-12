@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import json
 import math
 import os
@@ -35,6 +37,9 @@ def _archivo_demasiado_grande(_err):
         return resp, 413
     return ("Archivo demasiado grande", 413)
 COOKIE_CONTRATISTA = "contratista_token"
+COOKIE_PERSISTIR = "contratista_persistir"
+COOKIE_OAUTH = "oauth_verifier"
+_MAX_EDAD_RECORDADA = 60 * 60 * 24 * 400
 
 
 def _gemini_ssl_verificado():
@@ -189,7 +194,7 @@ def _motor_uszipcode():
             _search_local.engine = motor
         return motor
 
-_RUTAS_LOGIN = {"/", "/login", "/iniciar-sesion"}
+_RUTAS_LOGIN = {"/", "/login", "/iniciar-sesion", "/restablecer"}
 _RUTAS_PANEL = {
     "/estimado", "/estimate", "/contrato", "/contract",
     "/factura", "/invoice", "/cotizador", "/quote",
@@ -226,6 +231,7 @@ def _vista_inicial():
 @app.route("/")
 @app.route("/login")
 @app.route("/iniciar-sesion")
+@app.route("/restablecer")
 @app.route("/estimado")
 @app.route("/estimate")
 @app.route("/contrato")
@@ -2489,26 +2495,40 @@ def _limpiar_cookies_contratista(respuesta):
     if _es_dominio_app():
         for dominio in (DOMINIO_APP, "." + DOMINIO_APP, "www." + DOMINIO_APP):
             variantes.append({"path": "/", "domain": dominio, "samesite": "Lax", "secure": seguro})
-    for kwargs in variantes:
-        respuesta.delete_cookie(COOKIE_CONTRATISTA, **kwargs)
+    for nombre in (COOKIE_CONTRATISTA, COOKIE_PERSISTIR, COOKIE_OAUTH):
+        for kwargs in variantes:
+            respuesta.delete_cookie(nombre, **kwargs)
     return respuesta
 
 
-def _adjuntar_sesion_contratista(respuesta, token):
+def _recordarme_activo(valor, predeterminado=True):
+    if isinstance(valor, bool):
+        return valor
+    if valor is None:
+        return bool(predeterminado)
+    return str(valor).strip().lower() not in ("0", "false", "no", "off")
+
+
+def _adjuntar_sesion_contratista(respuesta, token, persistir=None):
     seguro = _peticion_https()
     respuesta.delete_cookie(COOKIE_CONTRATISTA, path="/", samesite="Lax", secure=seguro)
+    respuesta.delete_cookie(COOKIE_PERSISTIR, path="/", samesite="Lax", secure=seguro)
     if not token:
         return _limpiar_cookies_contratista(respuesta)
+    if persistir is None:
+        persistir = request.cookies.get(COOKIE_PERSISTIR) != "0"
     kwargs = {
-        "max_age": 60 * 60 * 24 * 400,
         "httponly": True,
         "samesite": "Lax",
-        "secure": _peticion_https(),
+        "secure": seguro,
         "path": "/",
     }
+    if persistir:
+        kwargs["max_age"] = _MAX_EDAD_RECORDADA
     if _es_dominio_app():
         kwargs["domain"] = "." + DOMINIO_APP
     respuesta.set_cookie(COOKIE_CONTRATISTA, token, **kwargs)
+    respuesta.set_cookie(COOKIE_PERSISTIR, "1" if persistir else "0", **kwargs)
     return respuesta
 
 
@@ -2813,6 +2833,161 @@ def crear_contrasena_contratista(email, password):
     _verificar_contrasena(email, password)
     print(f"--> contrasena creada email={email}")
     return row
+
+
+def _clave_publica_supabase():
+    return (
+        os.getenv("SUPABASE_KEY")
+        or os.getenv("SUPABASE_ANON_KEY")
+        or os.getenv("SUPABASE_PUBLISHABLE_KEY")
+        or ""
+    ).strip()
+
+
+def _origen_publico():
+    bruto = (request.headers.get("X-Forwarded-Host") or request.host or "localhost").split(",")[0].strip()
+    proto = "https" if _peticion_https() else (request.scheme or "http")
+    return proto + "://" + bruto
+
+
+def _par_pkce():
+    verifier = secrets.token_urlsafe(32)
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    challenge = base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+    return verifier, challenge
+
+
+def _auth_como_usuario(method, path, access_token, body=None):
+    token = str(access_token or "").strip()
+    url, key = _supabase_creds()
+    if not url or not key:
+        raise ErrorAuth("config", "Supabase no configurado", 503)
+    if not token or token == key:
+        raise ErrorAuth("enlace", "The reset link expired. Request a new one.", 400)
+    import httpx
+    headers = {
+        "apikey": key,
+        "Authorization": "Bearer " + token,
+        "Content-Type": "application/json",
+    }
+    with httpx.Client(verify=False, timeout=30.0) as http:
+        res = http.request(method, url + path, headers=headers, json=body)
+    try:
+        data = res.json()
+    except Exception:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    return res.status_code, data
+
+
+def _nombre_oauth(user):
+    meta = user.get("user_metadata") if isinstance(user.get("user_metadata"), dict) else {}
+    for clave in ("full_name", "name", "nombre_empresa"):
+        texto = str(meta.get(clave) or "").strip()
+        if texto:
+            return texto[:120]
+    identidades = user.get("identities") or []
+    if identidades and isinstance(identidades[0], dict):
+        datos = identidades[0].get("identity_data") or {}
+        if isinstance(datos, dict):
+            for clave in ("full_name", "name"):
+                texto = str(datos.get(clave) or "").strip()
+                if texto:
+                    return texto[:120]
+    email = str(user.get("email") or "")
+    base = email.split("@")[0].replace(".", " ").replace("_", " ").strip()
+    return (base.title() or "My company")[:120]
+
+
+def asegurar_contratista_oauth(email, nombre):
+    sb = _supabase_client()
+    if sb is None:
+        raise ErrorAuth("config", "Supabase no configurado", 503)
+    row = _contratista_por_email_tabla(sb, email)
+    if row and row.get("token"):
+        return row
+    try:
+        data = _rpc_tenant(sb, "registrar_contratista", {"p_email": email, "p_nombre": nombre})
+        row = _dict_rpc(data)
+        if row and row.get("token"):
+            return row
+    except Exception as err:
+        texto = str(err or "")
+        if "already_registered" in texto or re.search(r"duplicate key|contratistas_email", texto, re.I):
+            row = _contratista_por_email_tabla(sb, email)
+            if row and row.get("token"):
+                return row
+        if not _error_sin_funcion_tenant(err):
+            raise
+    return _registrar_contratista_tabla(sb, email, nombre)
+
+
+def _usuario_oauth(access_token, user=None):
+    if isinstance(user, dict) and _correo_valido(user.get("email")):
+        return user
+    status, data = _auth_como_usuario("GET", "/auth/v1/user", access_token)
+    if status == 200 and _correo_valido(data.get("email")):
+        return data
+    raise ErrorAuth("oauth_email", "Google did not share an email for this account.", 400)
+
+
+def sesion_oauth_google(code, verifier):
+    code = str(code or "").strip()
+    verifier = str(verifier or "").strip()
+    if not code or not verifier:
+        raise ErrorAuth("enlace", "The Google sign-in expired. Try again.", 400)
+    status, data = _auth_http("POST", "/auth/v1/token?grant_type=pkce", {
+        "auth_code": code,
+        "code_verifier": verifier,
+    })
+    if status != 200 or not data.get("access_token"):
+        print(f"--> oauth google intercambio status={status}")
+        raise ErrorAuth("oauth", "Could not finish Google sign-in.", 401)
+    user = _usuario_oauth(data.get("access_token"), data.get("user") if isinstance(data.get("user"), dict) else None)
+    email = str(user.get("email") or "").strip().lower()
+    row = asegurar_contratista_oauth(email, _nombre_oauth(user))
+    if not row or not row.get("token"):
+        raise ErrorAuth("sin_cuenta", "Could not open the contractor account.", 404)
+    print(f"--> sesion google email={email}")
+    return row
+
+
+def restablecer_contrasena(password, access_token="", code="", code_verifier=""):
+    password = _validar_password(password)
+    token = str(access_token or "").strip()
+    user = None
+    if not token:
+        codigo = str(code or "").strip()
+        verifier = str(code_verifier or "").strip()
+        if not codigo or not verifier:
+            raise ErrorAuth("enlace", "The reset link expired. Request a new one.", 400)
+        status, data = _auth_http("POST", "/auth/v1/token?grant_type=pkce", {
+            "auth_code": codigo,
+            "code_verifier": verifier,
+        })
+        if status != 200 or not data.get("access_token"):
+            print(f"--> restablecer intercambio status={status}")
+            raise ErrorAuth("enlace", "The reset link expired. Request a new one.", 400)
+        token = data.get("access_token")
+        user = data.get("user") if isinstance(data.get("user"), dict) else None
+    status, data = _auth_como_usuario("PUT", "/auth/v1/user", token, {"password": password})
+    if status not in (200, 201):
+        print(f"--> restablecer password status={status}")
+        raise ErrorAuth("enlace", "The reset link expired. Request a new one.", 400)
+    if not isinstance(user, dict) or not _correo_valido(user.get("email")):
+        user = data if isinstance(data, dict) else {}
+    email = str(user.get("email") or "").strip().lower()
+    if not _correo_valido(email) and isinstance(user.get("user"), dict):
+        email = str(user["user"].get("email") or "").strip().lower()
+    if not _correo_valido(email):
+        raise ErrorAuth("enlace", "The reset link expired. Request a new one.", 400)
+    sb = _supabase_client()
+    if sb is None:
+        raise ErrorAuth("config", "Supabase no configurado", 503)
+    row = _contratista_por_email_tabla(sb, email)
+    print(f"--> contrasena restablecida email={email}")
+    return row if row and row.get("token") else None
 
 
 def contratista_por_token(token):
@@ -3146,7 +3321,7 @@ def api_contratistas():
             "nombre_empresa": row.get("nombre_empresa"),
             "token": row.get("token"),
         })
-        return _adjuntar_sesion_contratista(resp, row.get("token"))
+        return _adjuntar_sesion_contratista(resp, row.get("token"), persistir=True)
     contratista, error = _exigir_contratista()
     if error:
         return error
@@ -3180,7 +3355,105 @@ def api_login_contratista():
     if not row or not row.get("token"):
         return jsonify({"error": "No contractor account uses this email. Create one first.", "code": "sin_cuenta"}), 404
     resp = jsonify(_sesion_desde_fila(row))
-    return _adjuntar_sesion_contratista(resp, row.get("token"))
+    return _adjuntar_sesion_contratista(
+        resp,
+        row.get("token"),
+        persistir=_recordarme_activo(body.get("recordarme"), True),
+    )
+
+
+@app.route("/api/contratistas/recuperar", methods=["POST"])
+def api_recuperar_contrasena():
+    body = request.get_json(silent=True) or {}
+    email = str(body.get("email") or "").strip().lower()
+    if not _correo_valido(email):
+        return jsonify({"error": "Enter a valid email.", "code": "email"}), 400
+    payload = {"email": email, "redirect_to": _origen_publico() + "/restablecer"}
+    challenge = str(body.get("code_challenge") or "").strip()
+    if challenge:
+        payload["code_challenge"] = challenge
+        payload["code_challenge_method"] = "s256"
+    try:
+        status, _data = _auth_http("POST", "/auth/v1/recover", payload)
+    except ErrorAuth as err:
+        return _respuesta_auth(err)
+    except Exception as err:
+        return _respuesta_tenant(err)
+    if status == 429:
+        return jsonify({"error": "Too many attempts. Wait a moment and try again.", "code": "limite"}), 429
+    if status >= 500:
+        print(f"--> recuperar status={status}")
+        return jsonify({"error": "Could not send the reset email.", "code": "auth_error"}), 502
+    return jsonify({"ok": True})
+
+
+@app.route("/api/contratistas/restablecer", methods=["POST"])
+def api_restablecer_contrasena():
+    body = request.get_json(silent=True) or {}
+    try:
+        row = restablecer_contrasena(
+            body.get("password") or body.get("contrasena") or "",
+            access_token=body.get("access_token") or "",
+            code=body.get("code") or "",
+            code_verifier=body.get("code_verifier") or "",
+        )
+    except ErrorAuth as err:
+        return _respuesta_auth(err)
+    except Exception as err:
+        return _respuesta_tenant(err)
+    if not row or not row.get("token"):
+        return jsonify({"ok": True, "sesion": False})
+    resp = jsonify(_sesion_desde_fila(row))
+    return _adjuntar_sesion_contratista(resp, row.get("token"), persistir=True)
+
+
+@app.route("/api/contratistas/oauth/google")
+def api_oauth_google():
+    from urllib.parse import urlencode
+    url, _key = _supabase_creds()
+    if not url:
+        return redirect("/login?aviso=config")
+    publica = _clave_publica_supabase()
+    verifier, challenge = _par_pkce()
+    params = {
+        "provider": "google",
+        "redirect_to": _origen_publico() + "/auth/callback",
+        "code_challenge": challenge,
+        "code_challenge_method": "s256",
+    }
+    if publica and _tipo_clave_supabase(publica) != "service":
+        params["apikey"] = publica
+    resp = redirect(url + "/auth/v1/authorize?" + urlencode(params))
+    resp.set_cookie(
+        COOKIE_OAUTH,
+        verifier,
+        max_age=600,
+        httponly=True,
+        samesite="Lax",
+        secure=_peticion_https(),
+        path="/",
+    )
+    return resp
+
+
+@app.route("/auth/callback")
+def auth_callback():
+    if request.args.get("error") or request.args.get("error_description"):
+        resp = redirect("/login?aviso=google")
+        resp.delete_cookie(COOKIE_OAUTH, path="/", samesite="Lax", secure=_peticion_https())
+        return resp
+    code = str(request.args.get("code") or "").strip()
+    verifier = str(request.cookies.get(COOKIE_OAUTH) or "").strip()
+    try:
+        row = sesion_oauth_google(code, verifier)
+    except Exception as err:
+        print(f"--> oauth google fallo {type(err).__name__}")
+        resp = redirect("/login?aviso=google")
+        resp.delete_cookie(COOKIE_OAUTH, path="/", samesite="Lax", secure=_peticion_https())
+        return resp
+    resp = redirect("/estimado")
+    resp.delete_cookie(COOKIE_OAUTH, path="/", samesite="Lax", secure=_peticion_https())
+    return _adjuntar_sesion_contratista(resp, row.get("token"), persistir=True)
 
 
 @app.route("/api/contratistas/contrasena", methods=["POST"])
@@ -3199,7 +3472,11 @@ def api_crear_contrasena_contratista():
     if not row or not row.get("token"):
         return jsonify({"error": "No contractor account uses this email. Create one first.", "code": "sin_cuenta"}), 404
     resp = jsonify(_sesion_desde_fila(row))
-    return _adjuntar_sesion_contratista(resp, row.get("token"))
+    return _adjuntar_sesion_contratista(
+        resp,
+        row.get("token"),
+        persistir=_recordarme_activo(body.get("recordarme"), True),
+    )
 
 
 @app.route("/api/contratistas/sesion", methods=["DELETE"])
