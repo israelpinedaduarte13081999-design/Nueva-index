@@ -5244,9 +5244,31 @@
       const q=new URLSearchParams(location.search||'');
       const path=(location.pathname||'/').replace(/\/+$/,'')||'/';
       const access=hash.get('access_token')||'';
-      const code=q.get('code')||'';
+      const code=q.get('code')||hash.get('code')||'';
       const tipo=(hash.get('type')||q.get('type')||'').toLowerCase();
       const error=hash.get('error_description')||q.get('error_description')||hash.get('error')||q.get('error')||'';
+      if(path!=='/auth/callback' && path!=='/restablecer' && tipo!=='recovery'){
+        if(code){
+          location.replace('/auth/callback?code='+encodeURIComponent(code));
+          return;
+        }
+        if(access){
+          const form=document.createElement('form');
+          form.method='post';
+          form.action='/auth/callback';
+          const campo=document.createElement('input');
+          campo.type='hidden';
+          campo.name='access_token';
+          campo.value=access;
+          form.appendChild(campo);
+          document.body.appendChild(form);
+          form.submit();
+          return;
+        }
+        if(error && (path==='/' || path==='/login' || path==='/iniciar-sesion')){
+          try{ history.replaceState({view:'login'},'', '/login?aviso=google'); }catch(_){}
+        }
+      }
       if(path!=='/restablecer' && tipo!=='recovery') return;
       if(access||code||error){
         recuperacionPendiente={

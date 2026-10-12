@@ -2546,7 +2546,11 @@ def _canonico_quantixbuilds():
 
 
 def _error_sin_funcion_tenant(err):
-    return bool(re.search(r"PGRST202|Could not find the function", str(err or ""), re.I))
+    return bool(re.search(
+        r"PGRST202|PGRST205|Could not find the function|Could not find the table|schema cache",
+        str(err or ""),
+        re.I,
+    ))
 
 
 def _desenvolver_rpc(data):
@@ -3144,8 +3148,11 @@ def _exigir_contratista():
     try:
         contratista = contratista_por_token(token)
     except Exception as err:
-        _aviso_multitenant(err)
-        return None, (jsonify({"error": _SQL_MULTITENANT}), 503)
+        if _error_sin_funcion_tenant(err):
+            _aviso_multitenant(err)
+            return None, (jsonify({"error": _SQL_MULTITENANT}), 503)
+        print(f"--> sesion contratista: {type(err).__name__}")
+        return None, (jsonify({"error": "Could not open the contractor session."}), 503)
     if not contratista or not _correo_valido(contratista.get("email")):
         return None, (jsonify({"error": "Contractor not authorized"}), 403)
     contratista["token"] = token
@@ -3402,7 +3409,7 @@ def _respuesta_tenant(err):
         return jsonify({"error": "Company name and a valid contractor email are required."}), 400
     if re.search(r"duplicate key|contratistas_email", texto, re.I):
         return jsonify({"error": "That contractor email is already in use."}), 409
-    if re.search(r"contratistas|contratista_id|token_aceptacion|PGRST204|PGRST205|does not exist", texto, re.I):
+    if _error_sin_funcion_tenant(err):
         _aviso_multitenant(err)
         return jsonify({"error": _SQL_MULTITENANT}), 503
     _aviso_historial_faltante(err)
@@ -3425,7 +3432,7 @@ def api_contratistas():
         except Exception as err:
             return _respuesta_tenant(err)
         if not row or not row.get("token"):
-            return jsonify({"error": _SQL_MULTITENANT}), 503
+            return jsonify({"error": "Could not open the contractor account."}), 503
         print(f"--> contratista registrado id={row.get('id')}")
         resp = jsonify({
             "id": row.get("id"),
@@ -3520,20 +3527,30 @@ def api_restablecer_contrasena():
 
 
 def _cookie_oauth(respuesta, verifier):
-    respuesta.set_cookie(
-        COOKIE_OAUTH,
-        verifier,
-        max_age=600,
-        httponly=True,
-        samesite="Lax",
-        secure=_peticion_https(),
-        path="/",
-    )
+    kwargs = {
+        "max_age": 600,
+        "httponly": True,
+        "samesite": "Lax",
+        "secure": _peticion_https(),
+        "path": "/",
+    }
+    respuesta.set_cookie(COOKIE_OAUTH, verifier, **kwargs)
+    if _es_dominio_app():
+        respuesta.set_cookie(COOKIE_OAUTH, verifier, domain="." + DOMINIO_APP, **kwargs)
     return respuesta
 
 
 def _olvidar_cookie_oauth(respuesta):
-    respuesta.delete_cookie(COOKIE_OAUTH, path="/", samesite="Lax", secure=_peticion_https())
+    seguro = _peticion_https()
+    respuesta.delete_cookie(COOKIE_OAUTH, path="/", samesite="Lax", secure=seguro)
+    if _es_dominio_app():
+        respuesta.delete_cookie(
+            COOKIE_OAUTH,
+            domain="." + DOMINIO_APP,
+            path="/",
+            samesite="Lax",
+            secure=seguro,
+        )
     return respuesta
 
 
@@ -3583,24 +3600,84 @@ else{document.getElementById("code").value=code;document.getElementById("access_
     return resp
 
 
+_PARAMS_GOOGLE_OAUTH = {
+    "client_id", "redirect_uri", "response_type", "scope", "state",
+    "nonce", "code_challenge", "code_challenge_method", "access_type",
+    "prompt", "include_granted_scopes", "login_hint", "hd",
+}
+
+
+def _url_oauth_google_cliente(redirect_to):
+    cliente = _cliente_auth_oauth()
+    if cliente is None:
+        return "", ""
+    respuesta = cliente.auth.sign_in_with_oauth({
+        "provider": "google",
+        "options": {
+            "redirect_to": redirect_to,
+            "scopes": "openid email profile",
+        },
+    })
+    url = str(getattr(respuesta, "url", "") or "")
+    auth = getattr(cliente, "auth", None)
+    storage = getattr(auth, "_storage", None)
+    clave = str(getattr(auth, "_storage_key", "") or "")
+    verifier = ""
+    if storage is not None and clave:
+        verifier = str(storage.get_item(f"{clave}-code-verifier") or "")
+    return url, verifier
+
+
+def _seguir_autorizacion_google(url_authorize):
+    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+    publica = _clave_publica_supabase()
+    if not url_authorize or not publica or _tipo_clave_supabase(publica) == "service":
+        return ""
+    import httpx
+    headers = {"apikey": publica, "Authorization": "Bearer " + publica}
+    res = None
+    ultimo = ""
+    for _ in range(2):
+        try:
+            with httpx.Client(verify=False, timeout=30.0, follow_redirects=False) as http:
+                res = http.get(url_authorize, headers=headers)
+            break
+        except Exception as err:
+            ultimo = type(err).__name__
+            res = None
+    if res is None:
+        print(f"--> oauth google authorize {ultimo}")
+        return ""
+    parts = urlsplit(res.headers.get("location") or "")
+    if "accounts.google.com" not in (parts.netloc or ""):
+        print(f"--> oauth google authorize status={res.status_code}")
+        return ""
+    limpios = []
+    for clave, valor in parse_qsl(parts.query, keep_blank_values=True):
+        if clave not in _PARAMS_GOOGLE_OAUTH:
+            continue
+        if clave == "scope":
+            vistos = []
+            for token in str(valor or "").split():
+                if token not in vistos:
+                    vistos.append(token)
+            valor = " ".join(vistos)
+        limpios.append((clave, valor))
+    if not limpios:
+        return ""
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(limpios), ""))
+
+
 @app.route("/api/contratistas/oauth/google")
 def api_oauth_google():
-    from urllib.parse import urlencode
     url, _key = _supabase_creds()
     if not url:
         return redirect("/login?aviso=config")
-    publica = _clave_publica_supabase()
-    verifier, challenge = _par_pkce()
-    params = {
-        "provider": "google",
-        "redirect_to": _origen_publico() + "/auth/callback",
-        "code_challenge": challenge,
-        "code_challenge_method": "s256",
-        "scopes": "openid email profile",
-    }
-    if publica and _tipo_clave_supabase(publica) != "service":
-        params["apikey"] = publica
-    destino = url + "/auth/v1/authorize?" + urlencode(params)
+    authorize, verifier = _url_oauth_google_cliente(_origen_publico() + "/auth/callback")
+    destino = _seguir_autorizacion_google(authorize)
+    if not destino or not verifier:
+        print(f"--> oauth google inicio incompleto destino={bool(destino)} verifier={bool(verifier)}")
+        return redirect("/login?aviso=config")
     resp = _pagina_puente(destino, destino)
     return _cookie_oauth(resp, verifier)
 
@@ -7720,7 +7797,7 @@ def api_enviar_estimado():
     except Exception as err:
         print(f"--> enviar-estimado: {err}")
         texto = str(err or "")
-        if re.search(r"contratistas|contratista_id|token_aceptacion|PGRST202|PGRST204|PGRST205|does not exist", texto, re.I):
+        if _error_sin_funcion_tenant(err):
             _aviso_multitenant(err)
             return jsonify({"error": _SQL_MULTITENANT}), 503
         return jsonify({"error": texto}), 500
@@ -7749,8 +7826,11 @@ def aceptar_contrato_publico(token_aceptacion):
             datos = marcar_contrato_aceptado(token)
     except Exception as err:
         print(f"--> aceptar contrato: {err}")
-        _aviso_multitenant(err)
-        pagina = _html_aceptacion("No se pudo abrir el contrato", _SQL_MULTITENANT)
+        if _error_sin_funcion_tenant(err):
+            _aviso_multitenant(err)
+            pagina = _html_aceptacion("No se pudo abrir el contrato", _SQL_MULTITENANT)
+        else:
+            pagina = _html_aceptacion("No se pudo abrir el contrato", "Inténtalo de nuevo en unos minutos.")
         return Response(pagina, status=503, mimetype="text/html")
     if not datos:
         pagina = _html_aceptacion("Contrato no encontrado", "Este enlace no corresponde a un contrato pendiente.")
