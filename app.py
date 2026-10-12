@@ -2695,8 +2695,9 @@ def _validar_password(password):
     return texto
 
 
-def _auth_http(method, path, body=None):
+def _auth_http(method, path, body=None, clave=None):
     url, key = _supabase_creds()
+    key = str(clave or key or "").strip()
     if not url or not key:
         raise ErrorAuth("config", "Supabase no configurado", 503)
     import httpx
@@ -2847,6 +2848,10 @@ def _clave_publica_supabase():
 def _origen_publico():
     bruto = (request.headers.get("X-Forwarded-Host") or request.host or "localhost").split(",")[0].strip()
     proto = "https" if _peticion_https() else (request.scheme or "http")
+    if bruto.count(":") == 1:
+        host, puerto = bruto.rsplit(":", 1)
+        if (proto == "https" and puerto == "443") or (proto == "http" and puerto == "80"):
+            bruto = host
     return proto + "://" + bruto
 
 
@@ -2923,34 +2928,93 @@ def asegurar_contratista_oauth(email, nombre):
     return _registrar_contratista_tabla(sb, email, nombre)
 
 
+def _email_usuario_auth(user):
+    if not isinstance(user, dict):
+        return ""
+    candidatos = [user.get("email")]
+    anidado = user.get("user")
+    if isinstance(anidado, dict):
+        candidatos.append(anidado.get("email"))
+    for identidad in user.get("identities") or []:
+        if not isinstance(identidad, dict):
+            continue
+        datos = identidad.get("identity_data") or {}
+        if isinstance(datos, dict):
+            candidatos.append(datos.get("email"))
+    for valor in candidatos:
+        email = str(valor or "").strip().lower()
+        if _correo_valido(email):
+            return email
+    return ""
+
+
 def _usuario_oauth(access_token, user=None):
-    if isinstance(user, dict) and _correo_valido(user.get("email")):
+    if _email_usuario_auth(user):
         return user
     status, data = _auth_como_usuario("GET", "/auth/v1/user", access_token)
-    if status == 200 and _correo_valido(data.get("email")):
+    if status == 200 and _email_usuario_auth(data):
         return data
     raise ErrorAuth("oauth_email", "Google did not share an email for this account.", 400)
+
+
+def _claves_intercambio_oauth():
+    claves = []
+    publica = _clave_publica_supabase()
+    if publica and _tipo_clave_supabase(publica) != "service":
+        claves.append(publica)
+    _url, servicio = _supabase_creds()
+    if servicio and servicio not in claves:
+        claves.append(servicio)
+    return claves
+
+
+def _intercambiar_codigo_pkce(code, verifier):
+    cuerpo = {"auth_code": code, "code": code, "code_verifier": verifier}
+    ultimo_status = 0
+    ultimo_msg = ""
+    for clave in _claves_intercambio_oauth():
+        status, data = _auth_http(
+            "POST",
+            "/auth/v1/token?grant_type=pkce",
+            cuerpo,
+            clave=clave,
+        )
+        if status == 200 and data.get("access_token"):
+            return data
+        ultimo_status = status
+        ultimo_msg = _mensaje_auth(data)[:180]
+        print(f"--> oauth google intercambio status={status} msg={ultimo_msg}")
+    if not ultimo_status:
+        raise ErrorAuth("config", "Supabase no configurado", 503)
+    raise ErrorAuth("oauth", "Could not finish Google sign-in.", 401)
+
+
+def _sesion_contratista_oauth(access_token, user=None):
+    user = _usuario_oauth(access_token, user)
+    email = _email_usuario_auth(user)
+    row = asegurar_contratista_oauth(email, _nombre_oauth(user))
+    if not row or not row.get("token"):
+        raise ErrorAuth("sin_cuenta", "Could not open the contractor account.", 404)
+    print(f"--> sesion google email={email}")
+    return row
 
 
 def sesion_oauth_google(code, verifier):
     code = str(code or "").strip()
     verifier = str(verifier or "").strip()
     if not code or not verifier:
+        print(f"--> oauth google incompleto code={bool(code)} verifier={bool(verifier)}")
         raise ErrorAuth("enlace", "The Google sign-in expired. Try again.", 400)
-    status, data = _auth_http("POST", "/auth/v1/token?grant_type=pkce", {
-        "auth_code": code,
-        "code_verifier": verifier,
-    })
-    if status != 200 or not data.get("access_token"):
-        print(f"--> oauth google intercambio status={status}")
+    data = _intercambiar_codigo_pkce(code, verifier)
+    user = data.get("user") if isinstance(data.get("user"), dict) else None
+    return _sesion_contratista_oauth(data.get("access_token"), user)
+
+
+def sesion_desde_token_google(access_token):
+    token = str(access_token or "").strip()
+    if not token:
         raise ErrorAuth("oauth", "Could not finish Google sign-in.", 401)
-    user = _usuario_oauth(data.get("access_token"), data.get("user") if isinstance(data.get("user"), dict) else None)
-    email = str(user.get("email") or "").strip().lower()
-    row = asegurar_contratista_oauth(email, _nombre_oauth(user))
-    if not row or not row.get("token"):
-        raise ErrorAuth("sin_cuenta", "Could not open the contractor account.", 404)
-    print(f"--> sesion google email={email}")
-    return row
+    return _sesion_contratista_oauth(token, None)
 
 
 def restablecer_contrasena(password, access_token="", code="", code_verifier=""):
@@ -3407,6 +3471,70 @@ def api_restablecer_contrasena():
     return _adjuntar_sesion_contratista(resp, row.get("token"), persistir=True)
 
 
+def _cookie_oauth(respuesta, verifier):
+    respuesta.set_cookie(
+        COOKIE_OAUTH,
+        verifier,
+        max_age=600,
+        httponly=True,
+        samesite="Lax",
+        secure=_peticion_https(),
+        path="/",
+    )
+    return respuesta
+
+
+def _olvidar_cookie_oauth(respuesta):
+    respuesta.delete_cookie(COOKIE_OAUTH, path="/", samesite="Lax", secure=_peticion_https())
+    return respuesta
+
+
+def _oauth_entrar(row):
+    resp = redirect("/estimado")
+    resp.headers["Cache-Control"] = "no-store"
+    _olvidar_cookie_oauth(resp)
+    return _adjuntar_sesion_contratista(resp, row.get("token"), persistir=True)
+
+
+def _oauth_login_fallo():
+    resp = redirect("/login?aviso=google")
+    resp.headers["Cache-Control"] = "no-store"
+    return _olvidar_cookie_oauth(resp)
+
+
+def _pagina_puente(destino_js, destino_html):
+    import html as html_lib
+    pagina = (
+        "<!doctype html><html><head><meta charset=\"utf-8\">"
+        f"<meta http-equiv=\"refresh\" content=\"0;url={html_lib.escape(destino_html, quote=True)}\">"
+        f"<script>location.replace({json.dumps(destino_js)});</script>"
+        "</head><body></body></html>"
+    )
+    resp = Response(pagina, mimetype="text/html")
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+def _pagina_callback_hash():
+    pagina = """<!doctype html><html><head><meta charset="utf-8"><title>Signing in</title></head><body>
+<form id="completar" method="post" action="/auth/callback">
+<input type="hidden" name="code" id="code">
+<input type="hidden" name="access_token" id="access_token">
+</form>
+<script>
+var q=new URLSearchParams(location.search||"");
+var h=new URLSearchParams(String(location.hash||"").replace(/^#/,""));
+var code=q.get("code")||h.get("code")||"";
+var token=h.get("access_token")||"";
+var err=q.get("error_description")||h.get("error_description")||q.get("error")||h.get("error")||"";
+if((err&&!code&&!token)||(!code&&!token)){location.replace("/login?aviso=google");}
+else{document.getElementById("code").value=code;document.getElementById("access_token").value=token;document.getElementById("completar").submit();}
+</script></body></html>"""
+    resp = Response(pagina, mimetype="text/html")
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
 @app.route("/api/contratistas/oauth/google")
 def api_oauth_google():
     from urllib.parse import urlencode
@@ -3420,40 +3548,33 @@ def api_oauth_google():
         "redirect_to": _origen_publico() + "/auth/callback",
         "code_challenge": challenge,
         "code_challenge_method": "s256",
+        "scopes": "openid email profile",
     }
     if publica and _tipo_clave_supabase(publica) != "service":
         params["apikey"] = publica
-    resp = redirect(url + "/auth/v1/authorize?" + urlencode(params))
-    resp.set_cookie(
-        COOKIE_OAUTH,
-        verifier,
-        max_age=600,
-        httponly=True,
-        samesite="Lax",
-        secure=_peticion_https(),
-        path="/",
-    )
-    return resp
+    destino = url + "/auth/v1/authorize?" + urlencode(params)
+    resp = _pagina_puente(destino, destino)
+    return _cookie_oauth(resp, verifier)
 
 
-@app.route("/auth/callback")
+@app.route("/auth/callback", methods=["GET", "POST"])
 def auth_callback():
-    if request.args.get("error") or request.args.get("error_description"):
-        resp = redirect("/login?aviso=google")
-        resp.delete_cookie(COOKIE_OAUTH, path="/", samesite="Lax", secure=_peticion_https())
-        return resp
-    code = str(request.args.get("code") or "").strip()
-    verifier = str(request.cookies.get(COOKIE_OAUTH) or "").strip()
+    code = str(request.values.get("code") or request.values.get("auth_code") or "").strip()
+    access = str(request.values.get("access_token") or "").strip()
+    if request.method == "GET" and not code and not access:
+        if request.args.get("error") or request.args.get("error_description"):
+            return _oauth_login_fallo()
+        return _pagina_callback_hash()
     try:
-        row = sesion_oauth_google(code, verifier)
+        if access:
+            row = sesion_desde_token_google(access)
+        else:
+            verifier = str(request.cookies.get(COOKIE_OAUTH) or "").strip()
+            row = sesion_oauth_google(code, verifier)
     except Exception as err:
         print(f"--> oauth google fallo {type(err).__name__}")
-        resp = redirect("/login?aviso=google")
-        resp.delete_cookie(COOKIE_OAUTH, path="/", samesite="Lax", secure=_peticion_https())
-        return resp
-    resp = redirect("/estimado")
-    resp.delete_cookie(COOKIE_OAUTH, path="/", samesite="Lax", secure=_peticion_https())
-    return _adjuntar_sesion_contratista(resp, row.get("token"), persistir=True)
+        return _oauth_login_fallo()
+    return _oauth_entrar(row)
 
 
 @app.route("/api/contratistas/contrasena", methods=["POST"])
