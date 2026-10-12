@@ -20,6 +20,10 @@
     .nav-btn.active { background-color:#e2e8f0; color:#0f172a; font-weight:600; }
     .view-section { display:none; padding:28px 16px; max-width:1100px; margin:0 auto; }
     .view-section.active { display:block; }
+    #view-login.active { display:flex; align-items:center; justify-content:center; min-height:calc(100vh - 64px); padding:32px 16px; }
+    #view-login .signup-card { max-width:440px; width:100%; margin:0; }
+    body.auth-solo .nav-links { display:none; }
+    #cerrarSesionNav[hidden] { display:none !important; }
     .view-section:not(.active) .business-modal,
     .view-section:not(.active) .export-modal { display:none!important; pointer-events:none; }
     #view-quote { max-width:none; padding:20px 0 40px; }
@@ -808,20 +812,17 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
-<body data-nombre-empresa="{{ nombre_empresa }}">
+<body class="{{ 'con-sesion' if vista != 'login' else 'auth-solo' }}" data-nombre-empresa="{{ nombre_empresa }}">
   <nav class="app-navbar no-print" aria-label="Main navigation">
     <div class="brand-title" data-brand-name>{{ nombre_empresa_visible }}</div>
     <div class="nav-links">
-      <button class="nav-btn active" type="button" data-view="home" data-i18n="nav.home">Home</button>
-      <button class="nav-btn" type="button" data-view="quote" data-i18n="nav.quote">Quote</button>
-      <button class="nav-btn" type="button" data-view="history" data-i18n="nav.history">History</button>
-      <button class="nav-btn" type="button" id="loginNavButton">Log in</button>
+      <button class="nav-btn{{ ' active' if vista == 'home' else '' }}" type="button" data-view="home" data-i18n="nav.home">Home</button>
+      <button class="nav-btn{{ ' active' if vista == 'quote' else '' }}" type="button" data-view="quote" data-i18n="nav.quote">Quote</button>
+      <button class="nav-btn{{ ' active' if vista == 'history' else '' }}" type="button" data-view="history" data-i18n="nav.history">History</button>
+      <button class="nav-btn" type="button" id="cerrarSesionNav"{{ '' if vista != 'login' else ' hidden' }}>Log out</button>
     </div>
   </nav>
-  <section id="view-home" class="view-section active no-print">
-    <div class="hero-card">
-      <h2 data-i18n="home.title">Work dashboard</h2>
-      <p data-i18n="home.lead">Create estimates, invoices, and review document history from one place.</p>
+  <section id="view-login" class="view-section{{ ' active' if vista == 'login' else '' }} no-print">
       <div class="signup-card" id="authContratista">
         <div class="auth-tabs" id="authTabs">
           <button type="button" id="authTabLogin" class="is-active">Log in</button>
@@ -859,6 +860,11 @@
           <button class="btn" type="button" id="cerrarSesionBtn">Log out</button>
         </div>
       </div>
+  </section>
+  <section id="view-home" class="view-section{{ ' active' if vista == 'home' else '' }} no-print">
+    <div class="hero-card">
+      <h2 data-i18n="home.title">Work dashboard</h2>
+      <p data-i18n="home.lead">Create estimates, invoices, and review document history from one place.</p>
       <div class="action-cards-grid">
         <div class="action-card main-doc-card">
           <div class="card-top">
@@ -868,7 +874,7 @@
           <h3 data-i18n="home.createDoc">Create document</h3>
           <p data-i18n="home.createDocLead">Select the document type for this project:</p>
           <div class="doc-options-grid">
-            <a href="/estimado" class="doc-pill-btn" data-doc-mode="estimate">
+            <a href="/estimado?nuevo=1" class="doc-pill-btn" data-doc-mode="estimate">
               <span class="pill-icon">📋</span>
               <div>
                 <strong data-i18n="home.estimate">New estimate</strong>
@@ -908,7 +914,7 @@
       </div>
     </div>
   </section>
-  <section id="view-quote" class="view-section">
+  <section id="view-quote" class="view-section{{ ' active' if vista == 'quote' else '' }}">
   <main class="app">
     <div class="toolbar">
       <label class="sr-only" for="docMode" data-i18n="quoteDetails">Document mode</label><select class="mode-select" id="docMode" aria-label="Document mode"><option value="estimate" data-i18n="modeEstimate">Estimate</option><option value="contract" data-i18n="modeContract">Work contract</option><option value="invoice" selected data-i18n="modeInvoice">Invoice</option></select>
@@ -1227,7 +1233,7 @@
     </section>
   </main>
   </section>
-  <section id="view-history" class="view-section no-print">
+  <section id="view-history" class="view-section{{ ' active' if vista == 'history' else '' }} no-print">
     <div class="history-container">
       <div class="history-header">
         <h2>Document history</h2>
@@ -1756,9 +1762,7 @@
       return headers;
     }
     async function leerContratistaActual(){
-      const token=localStorage.getItem(contratistaTokenKey)||'';
-      if(!token) return null;
-      const res=await fetch('/api/contratistas/yo',{headers:headersContratista()});
+      const res=await fetch('/api/contratistas/yo',{headers:headersContratista(),credentials:'same-origin'});
       if(!res.ok){
         if(res.status===401||res.status===403){
           localStorage.removeItem(contratistaTokenKey);
@@ -5017,7 +5021,7 @@
     function urlEdicionDocumento(tipo,id){
       const modo=normalizarTipoDocumento(tipo);
       const base={estimate:'/estimado',contract:'/contrato',invoice:'/factura'}[modo]||'/estimado';
-      if(!id)return base;
+      if(!id) return modo==='estimate'?'/estimado?nuevo=1':base;
       return base+'?id='+encodeURIComponent(String(id));
     }
     function idDocumentoEnUrl(){
@@ -5144,7 +5148,28 @@
       pintarTablaHistorial();
     }
     renderHistorial._seq=0;
+    let sesionActual=null;
+    let sesionLista=false;
+    function rutaEsLogin(path){
+      return path==='/'||path==='/login'||path==='/iniciar-sesion';
+    }
+    function mostrarVistaLogin(){
+      document.body.classList.add('auth-solo');
+      document.body.classList.remove('con-sesion');
+      const salir=document.getElementById('cerrarSesionNav');
+      if(salir) salir.hidden=true;
+      document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active',section.id==='view-login'));
+      document.querySelectorAll('.nav-btn[data-view]').forEach(btn=>btn.classList.remove('active'));
+    }
     function showAppView(view, options={}){
+      if(view==='login'||((view==='home'||view==='quote'||view==='history')&&!sesionActual)){
+        mostrarVistaLogin();
+        return;
+      }
+      document.body.classList.remove('auth-solo');
+      document.body.classList.add('con-sesion');
+      const salir=document.getElementById('cerrarSesionNav');
+      if(salir) salir.hidden=false;
       document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active',section.id==='view-'+view));
       document.querySelectorAll('.nav-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.view===view));
       if(view==='quote'){
@@ -5161,6 +5186,7 @@
       if(view==='history')renderHistorial();
     }
     function crearDocumento(tipo){
+      if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
       const t=String(tipo||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
       const modo={estimado:'estimate',estimate:'estimate',contrato:'contract',contract:'contract',factura:'invoice',invoice:'invoice'}[t]||'estimate';
       documentoHistorialId=null;
@@ -5170,24 +5196,37 @@
     }
     function cambiarVista(vista){
       const view={inicio:'home',home:'home',cotizador:'quote',quote:'quote',historial:'history',history:'history'}[String(vista||'').toLowerCase()]||'home';
+      if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
       showAppView(view);
-      const ruta={home:'/',quote:'/cotizador',history:'/historial'}[view]||'/';
+      const ruta={home:'/estimado',quote:'/cotizador',history:'/historial'}[view]||'/estimado';
       try{ history.pushState({view},'',ruta); }catch(_){}
     }
     function aplicarRutaInicial(){
+      if(!sesionLista) return;
       const path=(location.pathname||'/').replace(/\/+$/,'')||'/';
       const hash=(location.hash||'').replace('#','').toLowerCase();
       const clave=(hash||path).toLowerCase();
       const docId=idDocumentoEnUrl();
+      const nuevo=new URLSearchParams(location.search||'').get('nuevo')==='1';
       const modos={
         '/estimado':'estimate','/estimate':'estimate','estimado':'estimate','estimate':'estimate',
         '/contrato':'contract','/contract':'contract','contrato':'contract','contract':'contract',
         '/factura':'invoice','/invoice':'invoice','factura':'invoice','invoice':'invoice',
         '/cotizador':'estimate','/quote':'estimate'
       };
-      if(clave==='/login'||clave==='/iniciar-sesion'||clave==='login'||clave==='iniciar-sesion'){
-        showAppView('home');
+      if(!sesionActual){
+        mostrarVistaLogin();
+        if(!rutaEsLogin(path)){ try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} }
         if(typeof mostrarPanelAuth==='function') mostrarPanelAuth('login');
+        return;
+      }
+      if(rutaEsLogin(path)){
+        try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
+        showAppView('home');
+        return;
+      }
+      if((path==='/estimado'||path==='/estimate')&&!docId&&!nuevo){
+        showAppView('home');
         return;
       }
       if(clave==='/historial'||clave==='/history'||clave==='historial'||clave==='history'){
@@ -6153,9 +6192,16 @@
       });
       return payload;
     }
+    function aplicarTextoCargaMedidasPdf(){
+      const msg=document.getElementById('medidas-pdf-msg');
+      if(!msg)return;
+      const en=typeof idiomaEstimadoActual==='function'&&idiomaEstimadoActual()==='en';
+      msg.textContent=en?'Analyzing document... This may take a minute or more.':'Analizando documento... Esto puede tardar un minuto o más.';
+    }
     function mostrarCargaMedidasPdf(){
       const overlay=document.getElementById('medidas-pdf-overlay');
       if(!overlay)return;
+      aplicarTextoCargaMedidasPdf();
       overlay.hidden=false;
       document.body.classList.add('medidas-pdf-busy');
       const btn=document.getElementById('importReportButton');
@@ -7029,11 +7075,13 @@
     document.getElementById('selectIdiomaEstimado')?.addEventListener('change',async event=>{
       sincronizarSelectIdiomaEstimado(event.target);
       if(typeof aplicarTextosAuth==='function') aplicarTextosAuth();
+      if(typeof aplicarTextoCargaMedidasPdf==='function') aplicarTextoCargaMedidasPdf();
       try{ await aplicarIdiomaEstimado(); }catch(err){ console.error(err); }
     });
     document.getElementById('selectIdiomaEstimadoModal')?.addEventListener('change',async event=>{
       sincronizarSelectIdiomaEstimado(event.target);
       if(typeof aplicarTextosAuth==='function') aplicarTextosAuth();
+      if(typeof aplicarTextoCargaMedidasPdf==='function') aplicarTextoCargaMedidasPdf();
       try{ await aplicarIdiomaEstimado(); }catch(err){ console.error(err); }
     });
     document.querySelector('#previewPdfButton')?.addEventListener('click',previewPdfDocumento);
@@ -7063,7 +7111,12 @@
       if(!document.querySelector('#areas .area')) initialAreas.forEach(addArea);
     });
     document.querySelectorAll('.nav-btn').forEach(el=>el.addEventListener('click',()=>{
-      showAppView(el.dataset.view,{mode:el.dataset.mode,reset:el.dataset.reset==='1'});
+      if(!el.dataset.view) return;
+      if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
+      const view=el.dataset.view;
+      showAppView(view,{mode:el.dataset.mode,reset:el.dataset.reset==='1'});
+      const ruta={home:'/estimado',quote:'/cotizador',history:'/historial'}[view]||'/estimado';
+      try{ history.pushState({view},'',ruta); }catch(_){}
     }));
     document.querySelectorAll('[data-doc-mode]').forEach(el=>{
       el.addEventListener('click',event=>{
@@ -7143,7 +7196,7 @@
     function aplicarTextosAuth(){
       const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
       const poner=(id,texto)=>{ const el=document.getElementById(id); if(el) el.textContent=texto; };
-      poner('loginNavButton', t.nav);
+      poner('cerrarSesionNav', t.logout);
       poner('authTabLogin', t.tabLogin);
       poner('authTabRegistro', t.tabReg);
       poner('loginTitulo', t.loginTitle);
@@ -7206,7 +7259,12 @@
         if(company) company.value=nombre;
         if(typeof syncCompanyName==='function') syncCompanyName();
       }
-      pintarSesionAuth(json||null);
+      sesionActual=json&&json.id?json:null;
+      sesionLista=true;
+      if(sesionActual){
+        try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
+        if(typeof aplicarRutaInicial==='function') aplicarRutaInicial();
+      }
     }
     function marcarEstadoAuth(id, mensaje, error){
       const status=document.getElementById(id);
@@ -7239,12 +7297,14 @@
     aplicarTextosAuth();
     document.getElementById('authTabLogin')?.addEventListener('click',()=>mostrarPanelAuth('login'));
     document.getElementById('authTabRegistro')?.addEventListener('click',()=>mostrarPanelAuth('registro'));
-    document.getElementById('loginNavButton')?.addEventListener('click',()=>{
-      if(typeof showAppView==='function') showAppView('home');
-      mostrarPanelAuth('login');
-      document.getElementById('authContratista')?.scrollIntoView({behavior:'smooth',block:'center'});
-      try{ history.pushState({view:'home'},'', '/login'); }catch(_){}
-    });
+    async function cerrarSesionActual(){
+      sesionActual=null;
+      localStorage.removeItem(contratistaTokenKey);
+      localStorage.removeItem(contratistaIdKey);
+      await fetch('/api/contratistas/sesion',{method:'DELETE',credentials:'same-origin'}).catch(()=>{});
+      location.replace('/login');
+    }
+    document.getElementById('cerrarSesionNav')?.addEventListener('click',cerrarSesionActual);
     document.getElementById('loginContratistaForm')?.addEventListener('submit',async event=>{
       event.preventDefault();
       const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
@@ -7287,21 +7347,19 @@
         marcarEstadoAuth('registroContratistaStatus', err.message||t.needLogin, true);
       }
     });
-    document.getElementById('cerrarSesionBtn')?.addEventListener('click',async ()=>{
-      localStorage.removeItem(contratistaTokenKey);
-      localStorage.removeItem(contratistaIdKey);
-      await fetch('/api/contratistas/sesion',{method:'DELETE',credentials:'same-origin'}).catch(()=>{});
-      pintarSesionAuth(null);
-      marcarEstadoAuth('loginStatus', '', false);
-      const status=document.getElementById('loginStatus');
-      if(status) status.hidden=true;
-    });
+    document.getElementById('cerrarSesionBtn')?.addEventListener('click',cerrarSesionActual);
     leerContratistaActual().then(row=>{
-      if(row&&row.nombre_empresa) aplicarMarcaBlanca(row.nombre_empresa);
-      pintarSesionAuth(row&&row.id?row:null);
+      sesionActual=row&&row.id?row:null;
+      sesionLista=true;
+      if(sesionActual&&sesionActual.nombre_empresa) aplicarMarcaBlanca(sesionActual.nombre_empresa);
       const mail=document.getElementById('loginEmail');
-      if(mail&&row&&row.email&&!mail.value) mail.value=row.email;
-    }).catch(()=>{});
+      if(mail&&sesionActual&&sesionActual.email&&!mail.value) mail.value=sesionActual.email;
+      aplicarRutaInicial();
+    }).catch(()=>{
+      sesionActual=null;
+      sesionLista=true;
+      aplicarRutaInicial();
+    });
     const savedClientData=JSON.parse(localStorage.getItem(clientStorageKey)||'null');
     if(savedClientData){ Object.entries({clientName:savedClientData.name,clientEmail:savedClientData.email,clientPhone:savedClientData.phone,clientStreet:savedClientData.street,clientCity:savedClientData.city,clientState:savedClientData.state,clientZip:savedClientData.zip}).forEach(([id,value])=>{ if(value!==undefined && value!==null) document.querySelector('#'+id).value=value; }); }
     document.querySelectorAll('#clientName,#clientEmail,#clientPhone,#clientStreet,#clientCity,#clientZip').forEach(field=>field.addEventListener('input',syncClientData));
@@ -7388,7 +7446,6 @@
       });
     })();
     if(!savedBusinessProfile && document.getElementById('view-quote')?.classList.contains('active')) openBusinessProfile();
-    aplicarRutaInicial();
   </script>
   <datalist id="lista-trabajos">
     <option value="Instalación de piso Luxury Vinyl Tile (LVT) pegado (Glue-down)"></option>

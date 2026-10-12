@@ -189,6 +189,40 @@ def _motor_uszipcode():
             _search_local.engine = motor
         return motor
 
+_RUTAS_LOGIN = {"/", "/login", "/iniciar-sesion"}
+_RUTAS_PANEL = {
+    "/estimado", "/estimate", "/contrato", "/contract",
+    "/factura", "/invoice", "/cotizador", "/quote",
+    "/historial", "/history",
+}
+
+
+@app.before_request
+def _exigir_login_panel():
+    if request.method not in ("GET", "HEAD"):
+        return None
+    path = request.path.rstrip("/") or "/"
+    if path not in _RUTAS_PANEL:
+        return None
+    if _token_contratista_solicitud():
+        return None
+    return redirect("/login")
+
+
+def _vista_inicial():
+    path = request.path.rstrip("/") or "/"
+    if path in _RUTAS_LOGIN or not _token_contratista_solicitud():
+        return "login"
+    if path in ("/historial", "/history"):
+        return "history"
+    nuevo = str(request.args.get("nuevo") or "") == "1"
+    if path in ("/estimado", "/estimate") and not request.args.get("id") and not nuevo:
+        return "home"
+    if path in _RUTAS_PANEL:
+        return "quote"
+    return "login"
+
+
 @app.route("/")
 @app.route("/login")
 @app.route("/iniciar-sesion")
@@ -199,13 +233,16 @@ def _motor_uszipcode():
 @app.route("/factura")
 @app.route("/invoice")
 @app.route("/cotizador")
+@app.route("/quote")
 @app.route("/historial")
+@app.route("/history")
 def home():
     nombre = _nombre_empresa_sesion()
     return render_template(
         "index.html",
         nombre_empresa=nombre,
         nombre_empresa_visible=nombre or "Your company",
+        vista=_vista_inicial(),
     )
 
 
