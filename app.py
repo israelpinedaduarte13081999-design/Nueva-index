@@ -2968,10 +2968,59 @@ def _claves_intercambio_oauth():
     return claves
 
 
+def _modelo_auth_dict(obj):
+    if obj is None:
+        return {}
+    if isinstance(obj, dict):
+        return obj
+    if hasattr(obj, "model_dump"):
+        data = obj.model_dump()
+        return data if isinstance(data, dict) else {}
+    if hasattr(obj, "dict"):
+        data = obj.dict()
+        return data if isinstance(data, dict) else {}
+    return {}
+
+
+def _cliente_auth_oauth():
+    url, servicio = _supabase_creds()
+    publica = _clave_publica_supabase()
+    clave = publica if publica and _tipo_clave_supabase(publica) != "service" else servicio
+    return _crear_cliente_supabase(url, clave)
+
+
+def _intercambiar_codigo_cliente(code, verifier):
+    cliente = _cliente_auth_oauth()
+    if cliente is None:
+        return None
+    try:
+        respuesta = cliente.auth.exchange_code_for_session({
+            "auth_code": code,
+            "code_verifier": verifier,
+        })
+    except Exception as err:
+        mensaje = str(getattr(err, "message", None) or err)[:180]
+        print(f"--> oauth cliente intercambio {type(err).__name__} {mensaje}")
+        return None
+    sesion = getattr(respuesta, "session", None)
+    access = getattr(sesion, "access_token", None) if sesion is not None else None
+    if isinstance(sesion, dict):
+        access = sesion.get("access_token")
+    usuario = getattr(respuesta, "user", None)
+    if usuario is None and sesion is not None:
+        usuario = sesion.get("user") if isinstance(sesion, dict) else getattr(sesion, "user", None)
+    if not access:
+        print("--> oauth cliente intercambio sin access_token")
+        return None
+    return {"access_token": access, "user": _modelo_auth_dict(usuario)}
+
+
 def _intercambiar_codigo_pkce(code, verifier):
-    cuerpo = {"auth_code": code, "code": code, "code_verifier": verifier}
+    data = _intercambiar_codigo_cliente(code, verifier)
+    if data and data.get("access_token"):
+        return data
+    cuerpo = {"auth_code": code, "code_verifier": verifier}
     ultimo_status = 0
-    ultimo_msg = ""
     for clave in _claves_intercambio_oauth():
         status, data = _auth_http(
             "POST",
@@ -2982,8 +3031,7 @@ def _intercambiar_codigo_pkce(code, verifier):
         if status == 200 and data.get("access_token"):
             return data
         ultimo_status = status
-        ultimo_msg = _mensaje_auth(data)[:180]
-        print(f"--> oauth google intercambio status={status} msg={ultimo_msg}")
+        print(f"--> oauth google intercambio status={status} msg={_mensaje_auth(data)[:180]}")
     if not ultimo_status:
         raise ErrorAuth("config", "Supabase no configurado", 503)
     raise ErrorAuth("oauth", "Could not finish Google sign-in.", 401)
@@ -3572,7 +3620,8 @@ def auth_callback():
             verifier = str(request.cookies.get(COOKIE_OAUTH) or "").strip()
             row = sesion_oauth_google(code, verifier)
     except Exception as err:
-        print(f"--> oauth google fallo {type(err).__name__}")
+        mensaje = str(getattr(err, "message", None) or err)[:180]
+        print(f"--> oauth google fallo {type(err).__name__} {mensaje}")
         return _oauth_login_fallo()
     return _oauth_entrar(row)
 
