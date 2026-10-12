@@ -77,6 +77,12 @@
     .signup-card label { display:block; font-size:.8rem; font-weight:700; color:#334155; margin:8px 0 4px; }
     .signup-card input { width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:8px 10px; background:#fff; }
     .signup-card button { margin-top:12px; }
+    .auth-tabs { display:flex; gap:8px; margin-bottom:4px; }
+    .auth-tabs button { margin-top:0; border:1px solid #e2e8f0; background:#f8fafc; color:#334155; border-radius:999px; padding:7px 14px; font-size:13px; font-weight:700; white-space:nowrap; }
+    .auth-tabs button.is-active { background:#0f172a; color:#fff; border-color:#0f172a; }
+    .signup-card .auth-note { margin:10px 0 0; color:#64748b; font-size:.8rem; font-weight:600; }
+    .signup-card .auth-status { margin:10px 0 0; font-size:.85rem; font-weight:700; color:#0f172a; }
+    .signup-card .auth-status.is-error { color:#b91c1c; }
     .btn-sm:hover { background-color:#0369a1; }
     button,input,textarea { font:inherit; }
     button { cursor:pointer; }
@@ -809,22 +815,50 @@
       <button class="nav-btn active" type="button" data-view="home" data-i18n="nav.home">Home</button>
       <button class="nav-btn" type="button" data-view="quote" data-i18n="nav.quote">Quote</button>
       <button class="nav-btn" type="button" data-view="history" data-i18n="nav.history">History</button>
+      <button class="nav-btn" type="button" id="loginNavButton">Log in</button>
     </div>
   </nav>
   <section id="view-home" class="view-section active no-print">
     <div class="hero-card">
       <h2 data-i18n="home.title">Work dashboard</h2>
       <p data-i18n="home.lead">Create estimates, invoices, and review document history from one place.</p>
-      <form class="signup-card" id="registroContratistaForm">
-        <h3>Contractor account</h3>
-        <p>Enter your company name. Clients will only see this name on estimates and contracts.</p>
-        <label for="registroNombreEmpresa">Company name</label>
-        <input id="registroNombreEmpresa" name="nombre_empresa" required maxlength="120" placeholder="Your remodeling company LLC" value="{{ nombre_empresa }}">
-        <label for="registroEmail">Email</label>
-        <input id="registroEmail" name="email" type="email" required placeholder="you@company.com">
-        <button class="btn btn-primary" type="submit">Save company</button>
-        <p id="registroContratistaStatus" hidden></p>
-      </form>
+      <div class="signup-card" id="authContratista">
+        <div class="auth-tabs" id="authTabs">
+          <button type="button" id="authTabLogin" class="is-active">Log in</button>
+          <button type="button" id="authTabRegistro">Create account</button>
+        </div>
+        <form id="loginContratistaForm">
+          <h3 id="loginTitulo">Log in</h3>
+          <p id="loginLead">Sign in with the email and password for your company.</p>
+          <label for="loginEmail" id="loginEmailLabel">Email</label>
+          <input id="loginEmail" name="email" type="email" autocomplete="username" required placeholder="you@company.com">
+          <label for="loginPassword" id="loginPasswordLabel">Password</label>
+          <input id="loginPassword" name="password" type="password" autocomplete="current-password" required minlength="8" placeholder="••••••••">
+          <button class="btn btn-primary" type="submit" id="loginSubmit">Log in</button>
+          <button class="btn" type="button" id="crearContrasenaBtn">Create password</button>
+          <p class="auth-note" id="loginCreateLead">If this company was created before passwords, set one now. After that, use Log in.</p>
+          <p class="auth-status" id="loginStatus" hidden></p>
+        </form>
+        <form id="registroContratistaForm" hidden>
+          <h3 id="registroTitulo">Create account</h3>
+          <p id="registroLead">Enter your company name. Clients will only see this name on estimates and contracts.</p>
+          <label for="registroNombreEmpresa" id="registroNombreLabel">Company name</label>
+          <input id="registroNombreEmpresa" name="nombre_empresa" required maxlength="120" placeholder="Your remodeling company LLC" value="{{ nombre_empresa }}">
+          <label for="registroEmail" id="registroEmailLabel">Email</label>
+          <input id="registroEmail" name="email" type="email" autocomplete="username" required placeholder="you@company.com">
+          <label for="registroPassword" id="registroPasswordLabel">Password</label>
+          <input id="registroPassword" name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="••••••••">
+          <label for="registroPassword2" id="registroPassword2Label">Confirm password</label>
+          <input id="registroPassword2" name="password_confirm" type="password" autocomplete="new-password" required minlength="8" placeholder="••••••••">
+          <button class="btn btn-primary" type="submit" id="registroSubmit">Create account</button>
+          <p class="auth-status" id="registroContratistaStatus" hidden></p>
+        </form>
+        <div id="sesionContratista" hidden>
+          <h3 id="sesionTitulo">Log in</h3>
+          <p id="sesionContratistaTexto"></p>
+          <button class="btn" type="button" id="cerrarSesionBtn">Log out</button>
+        </div>
+      </div>
       <div class="action-cards-grid">
         <div class="action-card main-doc-card">
           <div class="card-top">
@@ -1740,28 +1774,10 @@
     async function asegurarContratista(){
       const actual=await leerContratistaActual();
       if(actual&&actual.id) return actual;
-      const email=String(document.getElementById('email')?.value||'').trim();
-      const nombre=String(document.getElementById('company')?.value||'').trim();
-      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!nombre){
-        const err=new Error('Write the company name and a valid contact email before saving.');
-        err.code='contratista_incompleto';
-        throw err;
-      }
-      const res=await fetch('/api/contratistas',{
-        method:'POST',
-        headers:{'Content-Type':'application/json',Accept:'application/json'},
-        body:JSON.stringify({email, nombre_empresa:nombre})
-      });
-      const json=await res.json().catch(()=>({}));
-      if(!res.ok||!json.token){
-        const err=new Error(json.error||'Could not register the contractor');
-        err.code=res.status===409?'contratista_existe':'contratista_error';
-        throw err;
-      }
-      localStorage.setItem(contratistaTokenKey, json.token);
-      if(json.id) localStorage.setItem(contratistaIdKey, json.id);
-      if(json.nombre_empresa) aplicarMarcaBlanca(json.nombre_empresa);
-      return json;
+      const textos=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+      const err=new Error(textos.needLogin);
+      err.code='contratista_incompleto';
+      throw err;
     }
     function perteneceAlContratista(item){
       if(!item) return false;
@@ -5169,6 +5185,11 @@
         '/factura':'invoice','/invoice':'invoice','factura':'invoice','invoice':'invoice',
         '/cotizador':'estimate','/quote':'estimate'
       };
+      if(clave==='/login'||clave==='/iniciar-sesion'||clave==='login'||clave==='iniciar-sesion'){
+        showAppView('home');
+        if(typeof mostrarPanelAuth==='function') mostrarPanelAuth('login');
+        return;
+      }
       if(clave==='/historial'||clave==='/history'||clave==='historial'||clave==='history'){
         showAppView('history');
         return;
@@ -7007,10 +7028,12 @@
     }
     document.getElementById('selectIdiomaEstimado')?.addEventListener('change',async event=>{
       sincronizarSelectIdiomaEstimado(event.target);
+      if(typeof aplicarTextosAuth==='function') aplicarTextosAuth();
       try{ await aplicarIdiomaEstimado(); }catch(err){ console.error(err); }
     });
     document.getElementById('selectIdiomaEstimadoModal')?.addEventListener('change',async event=>{
       sincronizarSelectIdiomaEstimado(event.target);
+      if(typeof aplicarTextosAuth==='function') aplicarTextosAuth();
       try{ await aplicarIdiomaEstimado(); }catch(err){ console.error(err); }
     });
     document.querySelector('#previewPdfButton')?.addEventListener('click',previewPdfDocumento);
@@ -7085,39 +7108,200 @@
     if(savedBusinessProfile) applyBusinessProfile(savedBusinessProfile);
     document.querySelector('#company').addEventListener('input',syncCompanyName);
     aplicarMarcaBlanca(window.__NOMBRE_EMPRESA__||document.getElementById('company')?.value||'');
-    leerContratistaActual().then(row=>{
-      if(row&&row.nombre_empresa) aplicarMarcaBlanca(row.nombre_empresa);
-      const form=document.getElementById('registroContratistaForm');
-      if(form&&row&&row.id) form.hidden=true;
-      const mail=document.getElementById('registroEmail');
-      if(mail&&row&&row.email&&!mail.value) mail.value=row.email;
-    }).catch(()=>{});
-    document.getElementById('registroContratistaForm')?.addEventListener('submit',async event=>{
-      event.preventDefault();
-      const status=document.getElementById('registroContratistaStatus');
-      const email=String(document.getElementById('registroEmail')?.value||document.getElementById('email')?.value||'').trim();
-      const nombre=String(document.getElementById('registroNombreEmpresa')?.value||'').trim();
-      if(status){ status.hidden=false; status.textContent='Saving…'; }
-      try{
-        const token=localStorage.getItem(contratistaTokenKey)||'';
-        const res=await fetch('/api/contratistas',{
-          method:token?'PATCH':'POST',
-          headers:headersContratista({'Content-Type':'application/json'}),
-          body:JSON.stringify({email, nombre_empresa:nombre})
-        });
-        const json=await res.json().catch(()=>({}));
-        if(!res.ok) throw new Error(json.error||'Could not save company');
-        if(json.token) localStorage.setItem(contratistaTokenKey, json.token);
-        if(json.id) localStorage.setItem(contratistaIdKey, json.id);
-        aplicarMarcaBlanca(json.nombre_empresa||nombre);
+    const TEXTOS_AUTH={
+      en:{
+        nav:'Log in', tabLogin:'Log in', tabReg:'Create account', loginTitle:'Log in',
+        loginLead:'Sign in with the email and password for your company.',
+        email:'Email', password:'Password', company:'Company name', confirm:'Confirm password',
+        submitLogin:'Log in', submitReg:'Create account', createPw:'Create password',
+        createPwLead:'If this company was created before passwords, set one now. After that, use Log in.',
+        regTitle:'Create account', regLead:'Enter your company name. Clients will only see this name on estimates and contracts.',
+        logout:'Log out', session:'Signed in as {email}', saving:'Signing in…', creating:'Creating account…',
+        setting:'Saving password…', signed:'Signed in. Client documents will show this name.',
+        created:'Account created.', mismatch:'The passwords do not match.', short:'Password must be at least 8 characters.',
+        needLogin:'Log in with your email and password before continuing.'
+      },
+      es:{
+        nav:'Iniciar sesión', tabLogin:'Iniciar sesión', tabReg:'Crear cuenta', loginTitle:'Iniciar sesión',
+        loginLead:'Entra con el correo y la contraseña de tu empresa.',
+        email:'Correo', password:'Contraseña', company:'Nombre de la empresa', confirm:'Confirmar contraseña',
+        submitLogin:'Iniciar sesión', submitReg:'Crear cuenta', createPw:'Crear contraseña',
+        createPwLead:'Si la empresa se creó antes de usar contraseñas, crea una ahora. Después entra con Iniciar sesión.',
+        regTitle:'Crear cuenta', regLead:'Escribe el nombre de la empresa. Los clientes solo verán este nombre en estimados y contratos.',
+        logout:'Cerrar sesión', session:'Sesión iniciada como {email}', saving:'Entrando…', creating:'Creando cuenta…',
+        setting:'Guardando contraseña…', signed:'Sesión iniciada. Los documentos del cliente mostrarán este nombre.',
+        created:'Cuenta creada.', mismatch:'Las contraseñas no coinciden.', short:'La contraseña debe tener al menos 8 caracteres.',
+        needLogin:'Inicia sesión con tu correo y contraseña antes de continuar.'
+      }
+    };
+    function idiomaAuth(){
+      const sel=document.getElementById('selectIdiomaEstimado');
+      if(sel&&sel.value==='es') return 'es';
+      if(sel&&sel.value==='en') return 'en';
+      return 'en';
+    }
+    function aplicarTextosAuth(){
+      const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+      const poner=(id,texto)=>{ const el=document.getElementById(id); if(el) el.textContent=texto; };
+      poner('loginNavButton', t.nav);
+      poner('authTabLogin', t.tabLogin);
+      poner('authTabRegistro', t.tabReg);
+      poner('loginTitulo', t.loginTitle);
+      poner('loginLead', t.loginLead);
+      poner('loginEmailLabel', t.email);
+      poner('loginPasswordLabel', t.password);
+      poner('loginSubmit', t.submitLogin);
+      poner('crearContrasenaBtn', t.createPw);
+      poner('loginCreateLead', t.createPwLead);
+      poner('registroTitulo', t.regTitle);
+      poner('registroLead', t.regLead);
+      poner('registroNombreLabel', t.company);
+      poner('registroEmailLabel', t.email);
+      poner('registroPasswordLabel', t.password);
+      poner('registroPassword2Label', t.confirm);
+      poner('registroSubmit', t.submitReg);
+      poner('sesionTitulo', t.loginTitle);
+      poner('cerrarSesionBtn', t.logout);
+      const sesion=document.getElementById('sesionContratista');
+      const texto=document.getElementById('sesionContratistaTexto');
+      if(sesion&&texto&&!sesion.hidden) texto.textContent=t.session.replace('{email}', sesion.dataset.email||'');
+    }
+    function mostrarPanelAuth(modo){
+      const login=document.getElementById('loginContratistaForm');
+      const registro=document.getElementById('registroContratistaForm');
+      const sesion=document.getElementById('sesionContratista');
+      const tabs=document.getElementById('authTabs');
+      if(sesion&&!sesion.hidden) return;
+      if(login) login.hidden=modo!=='login';
+      if(registro) registro.hidden=modo!=='registro';
+      if(tabs) tabs.hidden=false;
+      document.getElementById('authTabLogin')?.classList.toggle('is-active', modo==='login');
+      document.getElementById('authTabRegistro')?.classList.toggle('is-active', modo!=='login');
+    }
+    function pintarSesionAuth(row){
+      const login=document.getElementById('loginContratistaForm');
+      const registro=document.getElementById('registroContratistaForm');
+      const sesion=document.getElementById('sesionContratista');
+      const tabs=document.getElementById('authTabs');
+      const texto=document.getElementById('sesionContratistaTexto');
+      const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+      if(row&&row.id){
+        if(login) login.hidden=true;
+        if(registro) registro.hidden=true;
+        if(tabs) tabs.hidden=true;
+        if(sesion){ sesion.hidden=false; sesion.dataset.email=row.email||''; }
+        if(texto) texto.textContent=t.session.replace('{email}', row.email||'');
+        return;
+      }
+      if(sesion) sesion.hidden=true;
+      mostrarPanelAuth('login');
+    }
+    function guardarSesionContratista(json){
+      if(json&&json.token) localStorage.setItem(contratistaTokenKey, json.token);
+      if(json&&json.id) localStorage.setItem(contratistaIdKey, json.id);
+      const nombre=json&&(json.nombre_empresa||'');
+      if(nombre){
+        aplicarMarcaBlanca(nombre);
         const company=document.getElementById('company');
-        if(company) company.value=json.nombre_empresa||nombre;
-        syncCompanyName();
-        if(status) status.textContent='Company saved. Client documents will show this name.';
+        if(company) company.value=nombre;
+        if(typeof syncCompanyName==='function') syncCompanyName();
+      }
+      pintarSesionAuth(json||null);
+    }
+    function marcarEstadoAuth(id, mensaje, error){
+      const status=document.getElementById(id);
+      if(!status) return;
+      status.hidden=false;
+      status.textContent=mensaje||'';
+      status.classList.toggle('is-error', !!error);
+    }
+    async function enviarAuth(url, body, statusId, espera, ok){
+      const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+      if(String(body.password||'').length<8){
+        marcarEstadoAuth(statusId, t.short, true);
+        return;
+      }
+      marcarEstadoAuth(statusId, espera, false);
+      localStorage.removeItem(contratistaTokenKey);
+      localStorage.removeItem(contratistaIdKey);
+      await fetch('/api/contratistas/sesion',{method:'DELETE',credentials:'same-origin'}).catch(()=>{});
+      const res=await fetch(url,{
+        method:'POST',
+        credentials:'same-origin',
+        headers:{'Content-Type':'application/json',Accept:'application/json'},
+        body:JSON.stringify(body)
+      });
+      const json=await res.json().catch(()=>({}));
+      if(!res.ok||!json.token) throw new Error(json.error||t.needLogin);
+      guardarSesionContratista(json);
+      marcarEstadoAuth(statusId, ok, false);
+    }
+    aplicarTextosAuth();
+    document.getElementById('authTabLogin')?.addEventListener('click',()=>mostrarPanelAuth('login'));
+    document.getElementById('authTabRegistro')?.addEventListener('click',()=>mostrarPanelAuth('registro'));
+    document.getElementById('loginNavButton')?.addEventListener('click',()=>{
+      if(typeof showAppView==='function') showAppView('home');
+      mostrarPanelAuth('login');
+      document.getElementById('authContratista')?.scrollIntoView({behavior:'smooth',block:'center'});
+      try{ history.pushState({view:'home'},'', '/login'); }catch(_){}
+    });
+    document.getElementById('loginContratistaForm')?.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+      try{
+        await enviarAuth('/api/contratistas/login',{
+          email:String(document.getElementById('loginEmail')?.value||'').trim(),
+          password:document.getElementById('loginPassword')?.value||''
+        }, 'loginStatus', t.saving, t.signed);
       }catch(err){
-        if(status) status.textContent=err.message||'Could not save company';
+        marcarEstadoAuth('loginStatus', err.message||t.needLogin, true);
       }
     });
+    document.getElementById('crearContrasenaBtn')?.addEventListener('click',async ()=>{
+      const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+      try{
+        await enviarAuth('/api/contratistas/contrasena',{
+          email:String(document.getElementById('loginEmail')?.value||'').trim(),
+          password:document.getElementById('loginPassword')?.value||''
+        }, 'loginStatus', t.setting, t.signed);
+      }catch(err){
+        marcarEstadoAuth('loginStatus', err.message||t.needLogin, true);
+      }
+    });
+    document.getElementById('registroContratistaForm')?.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+      const password=document.getElementById('registroPassword')?.value||'';
+      const password2=document.getElementById('registroPassword2')?.value||'';
+      if(password!==password2){
+        marcarEstadoAuth('registroContratistaStatus', t.mismatch, true);
+        return;
+      }
+      try{
+        await enviarAuth('/api/contratistas',{
+          email:String(document.getElementById('registroEmail')?.value||'').trim(),
+          nombre_empresa:String(document.getElementById('registroNombreEmpresa')?.value||'').trim(),
+          password
+        }, 'registroContratistaStatus', t.creating, t.created);
+      }catch(err){
+        marcarEstadoAuth('registroContratistaStatus', err.message||t.needLogin, true);
+      }
+    });
+    document.getElementById('cerrarSesionBtn')?.addEventListener('click',async ()=>{
+      localStorage.removeItem(contratistaTokenKey);
+      localStorage.removeItem(contratistaIdKey);
+      await fetch('/api/contratistas/sesion',{method:'DELETE',credentials:'same-origin'}).catch(()=>{});
+      pintarSesionAuth(null);
+      marcarEstadoAuth('loginStatus', '', false);
+      const status=document.getElementById('loginStatus');
+      if(status) status.hidden=true;
+    });
+    leerContratistaActual().then(row=>{
+      if(row&&row.nombre_empresa) aplicarMarcaBlanca(row.nombre_empresa);
+      pintarSesionAuth(row&&row.id?row:null);
+      const mail=document.getElementById('loginEmail');
+      if(mail&&row&&row.email&&!mail.value) mail.value=row.email;
+    }).catch(()=>{});
     const savedClientData=JSON.parse(localStorage.getItem(clientStorageKey)||'null');
     if(savedClientData){ Object.entries({clientName:savedClientData.name,clientEmail:savedClientData.email,clientPhone:savedClientData.phone,clientStreet:savedClientData.street,clientCity:savedClientData.city,clientState:savedClientData.state,clientZip:savedClientData.zip}).forEach(([id,value])=>{ if(value!==undefined && value!==null) document.querySelector('#'+id).value=value; }); }
     document.querySelectorAll('#clientName,#clientEmail,#clientPhone,#clientStreet,#clientCity,#clientZip').forEach(field=>field.addEventListener('input',syncClientData));

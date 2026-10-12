@@ -8,8 +8,9 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 ssl._create_default_https_context = ssl._create_unverified_context
-from flask import Flask, Response, request, jsonify, send_file, render_template
+from flask import Flask, Response, redirect, request, jsonify, send_file, render_template
 from flask_cors import CORS
+from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -17,8 +18,10 @@ from google.genai import types
 load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
 
 app = Flask(__name__, template_folder=".")
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 CORS(app)
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024
+DOMINIO_APP = "quantixbuilds.com"
 
 
 @app.errorhandler(413)
@@ -187,6 +190,8 @@ def _motor_uszipcode():
         return motor
 
 @app.route("/")
+@app.route("/login")
+@app.route("/iniciar-sesion")
 @app.route("/estimado")
 @app.route("/estimate")
 @app.route("/contrato")
@@ -2426,17 +2431,61 @@ def _nombre_empresa_sesion():
     return str((row or {}).get("nombre_empresa") or "").strip()
 
 
-def _adjuntar_sesion_contratista(respuesta, token):
-    if token:
-        respuesta.set_cookie(
-            COOKIE_CONTRATISTA,
-            token,
-            max_age=60 * 60 * 24 * 400,
-            httponly=True,
-            samesite="Lax",
-            path="/",
-        )
+def _host_publico():
+    bruto = (request.headers.get("X-Forwarded-Host") or request.host or "").split(",")[0].strip()
+    return bruto.split(":")[0].lower()
+
+
+def _peticion_https():
+    proto = (request.headers.get("X-Forwarded-Proto") or request.scheme or "").split(",")[0].strip().lower()
+    return proto == "https" or request.is_secure
+
+
+def _es_dominio_app(host=None):
+    host = (host or _host_publico()).lower()
+    return host == DOMINIO_APP or host.endswith("." + DOMINIO_APP)
+
+
+def _limpiar_cookies_contratista(respuesta):
+    seguro = _peticion_https()
+    variantes = [{"path": "/", "samesite": "Lax", "secure": seguro}]
+    if _es_dominio_app():
+        for dominio in (DOMINIO_APP, "." + DOMINIO_APP, "www." + DOMINIO_APP):
+            variantes.append({"path": "/", "domain": dominio, "samesite": "Lax", "secure": seguro})
+    for kwargs in variantes:
+        respuesta.delete_cookie(COOKIE_CONTRATISTA, **kwargs)
     return respuesta
+
+
+def _adjuntar_sesion_contratista(respuesta, token):
+    seguro = _peticion_https()
+    respuesta.delete_cookie(COOKIE_CONTRATISTA, path="/", samesite="Lax", secure=seguro)
+    if not token:
+        return _limpiar_cookies_contratista(respuesta)
+    kwargs = {
+        "max_age": 60 * 60 * 24 * 400,
+        "httponly": True,
+        "samesite": "Lax",
+        "secure": _peticion_https(),
+        "path": "/",
+    }
+    if _es_dominio_app():
+        kwargs["domain"] = "." + DOMINIO_APP
+    respuesta.set_cookie(COOKIE_CONTRATISTA, token, **kwargs)
+    return respuesta
+
+
+@app.before_request
+def _canonico_quantixbuilds():
+    if request.method not in ("GET", "HEAD"):
+        return None
+    host = _host_publico()
+    if host != "www." + DOMINIO_APP:
+        return None
+    destino = "https://" + DOMINIO_APP + request.full_path
+    if destino.endswith("?") and not request.query_string:
+        destino = destino[:-1]
+    return redirect(destino, code=301)
 
 
 def _error_sin_funcion_tenant(err):
@@ -2504,20 +2553,28 @@ def _contratista_publico(row):
     }
 
 
-def _registrar_contratista_tabla(sb, email, nombre):
+def _contratista_por_email_tabla(sb, email):
     email = str(email or "").strip().lower()
-    nombre = str(nombre or "").strip()
-    previos = sb.table(TABLA_CONTRATISTAS).select("id").limit(1).execute()
-    es_primero = not list(previos.data or [])
-    existente = (
+    if not email:
+        return None
+    res = (
         sb.table(TABLA_CONTRATISTAS)
-        .select("id")
+        .select("id,email,nombre_empresa,token")
         .eq("email", email)
         .limit(1)
         .execute()
     )
-    if list(existente.data or []):
-        raise RuntimeError("already_registered")
+    rows = list(res.data or [])
+    return rows[0] if rows else None
+
+
+def _registrar_contratista_tabla(sb, email, nombre):
+    email = str(email or "").strip().lower()
+    nombre = str(nombre or "").strip()
+    if _contratista_por_email_tabla(sb, email):
+        raise ErrorAuth("already_registered", "This email already has an account. Use Log in.", 409)
+    previos = sb.table(TABLA_CONTRATISTAS).select("id").limit(1).execute()
+    es_primero = not list(previos.data or [])
     token = secrets.token_hex(32)
     res = (
         sb.table(TABLA_CONTRATISTAS)
@@ -2567,20 +2624,158 @@ def _actualizar_contratista_tabla(sb, token, email, nombre):
     return _contratista_por_token_tabla(sb, token)
 
 
-def registrar_contratista(email, nombre):
+class ErrorAuth(Exception):
+    def __init__(self, code, message, status=400):
+        self.code = code
+        self.status = int(status)
+        super().__init__(message)
+
+
+def _validar_password(password):
+    texto = str(password or "")
+    if len(texto) < 8 or len(texto) > 72:
+        raise ErrorAuth("password", "Password must be at least 8 characters.", 400)
+    return texto
+
+
+def _auth_http(method, path, body=None):
+    url, key = _supabase_creds()
+    if not url or not key:
+        raise ErrorAuth("config", "Supabase no configurado", 503)
+    import httpx
+    headers = {
+        "apikey": key,
+        "Authorization": "Bearer " + key,
+        "Content-Type": "application/json",
+    }
+    with httpx.Client(verify=False, timeout=30.0) as http:
+        res = http.request(method, url + path, headers=headers, json=body)
+    try:
+        data = res.json()
+    except Exception:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    return res.status_code, data
+
+
+def _mensaje_auth(data):
+    return str(
+        (data or {}).get("msg")
+        or (data or {}).get("message")
+        or (data or {}).get("error_description")
+        or (data or {}).get("error")
+        or ""
+    )
+
+
+def _crear_usuario_auth(email, password, nombre):
+    status, data = _auth_http("POST", "/auth/v1/admin/users", {
+        "email": email,
+        "password": password,
+        "email_confirm": True,
+        "user_metadata": {"nombre_empresa": nombre or ""},
+    })
+    if status in (200, 201) and data.get("id"):
+        return data
+    msg = _mensaje_auth(data).lower()
+    codigo = str(data.get("error_code") or "").lower()
+    if status in (409, 422) or "already" in msg or "exists" in msg or codigo == "email_exists":
+        raise ErrorAuth("auth_existe", "This email already has a password. Use Log in.", 409)
+    print(f"--> auth crear usuario status={status}")
+    raise ErrorAuth("auth_error", "Could not create the account.", 502)
+
+
+def _verificar_contrasena(email, password):
+    status, data = _auth_http("POST", "/auth/v1/token?grant_type=password", {
+        "email": email,
+        "password": password,
+    })
+    if status == 200 and (data.get("access_token") or data.get("user")):
+        return data
+    msg = _mensaje_auth(data).lower()
+    if "not confirmed" in msg or "email_not_confirmed" in msg:
+        raise ErrorAuth("sin_confirmar", "Confirm the email before signing in.", 403)
+    raise ErrorAuth("credenciales", "Email or password is incorrect.", 401)
+
+
+def _respuesta_auth(err):
+    if isinstance(err, ErrorAuth):
+        return jsonify({"error": str(err), "code": err.code}), err.status
+    return _respuesta_tenant(err)
+
+
+def _sesion_desde_fila(row):
+    return {
+        "id": row.get("id"),
+        "email": row.get("email"),
+        "nombre_empresa": row.get("nombre_empresa") or "",
+        "token": row.get("token"),
+    }
+
+
+def registrar_contratista(email, nombre, password):
     sb = _supabase_client()
     if sb is None:
         raise RuntimeError("Supabase no configurado")
+    email = str(email or "").strip().lower()
+    nombre = str(nombre or "").strip()
+    password = _validar_password(password)
+    if _contratista_por_email_tabla(sb, email):
+        raise ErrorAuth("already_registered", "This email already has an account. Use Log in.", 409)
+    try:
+        _crear_usuario_auth(email, password, nombre)
+    except ErrorAuth as err:
+        if err.code != "auth_existe":
+            raise
+        _verificar_contrasena(email, password)
     try:
         data = _rpc_tenant(sb, "registrar_contratista", {"p_email": email, "p_nombre": nombre})
         row = _dict_rpc(data)
-        if row:
+        if row and row.get("token"):
             return row
     except Exception as err:
+        texto = str(err or "")
+        if "already_registered" in texto or re.search(r"duplicate key|contratistas_email", texto, re.I):
+            raise ErrorAuth("already_registered", "This email already has an account. Use Log in.", 409)
         if not _error_sin_funcion_tenant(err):
             raise
         _aviso_multitenant(err)
     return _registrar_contratista_tabla(sb, email, nombre)
+
+
+def iniciar_sesion_contratista(email, password):
+    sb = _supabase_client()
+    if sb is None:
+        raise ErrorAuth("config", "Supabase no configurado", 503)
+    email = str(email or "").strip().lower()
+    password = _validar_password(password)
+    _verificar_contrasena(email, password)
+    row = _contratista_por_email_tabla(sb, email)
+    if not row or not row.get("token"):
+        raise ErrorAuth("sin_cuenta", "No contractor account uses this email. Create one first.", 404)
+    print(f"--> sesion iniciada email={email}")
+    return row
+
+
+def crear_contrasena_contratista(email, password):
+    sb = _supabase_client()
+    if sb is None:
+        raise ErrorAuth("config", "Supabase no configurado", 503)
+    email = str(email or "").strip().lower()
+    password = _validar_password(password)
+    row = _contratista_por_email_tabla(sb, email)
+    if not row or not row.get("token"):
+        raise ErrorAuth("sin_cuenta", "No contractor account uses this email. Create one first.", 404)
+    try:
+        _crear_usuario_auth(email, password, row.get("nombre_empresa") or "")
+    except ErrorAuth as err:
+        if err.code == "auth_existe":
+            raise ErrorAuth("auth_existe", "This account already has a password. Use Log in.", 409)
+        raise
+    _verificar_contrasena(email, password)
+    print(f"--> contrasena creada email={email}")
+    return row
 
 
 def contratista_por_token(token):
@@ -2873,7 +3068,10 @@ def revertir_aceptacion_contrato(token_aceptacion, estado_anterior):
 def _respuesta_tenant(err):
     texto = str(err or "")
     if "already_registered" in texto:
-        return jsonify({"error": "This contractor email is already registered in another session."}), 409
+        return jsonify({
+            "error": "This email already has an account. Use Log in.",
+            "code": "already_registered",
+        }), 409
     if "unauthorized" in texto:
         return jsonify({"error": "Contractor not authorized"}), 403
     if "invalid_contractor" in texto:
@@ -2893,10 +3091,13 @@ def api_contratistas():
     if request.method == "POST":
         email = str(body.get("email") or "").strip().lower()
         nombre = str(body.get("nombre_empresa") or body.get("company") or "").strip()
+        password = body.get("password") or body.get("contrasena") or ""
         if not _correo_valido(email) or not nombre:
             return jsonify({"error": "Company name and a valid contractor email are required."}), 400
         try:
-            row = registrar_contratista(email, nombre)
+            row = registrar_contratista(email, nombre, password)
+        except ErrorAuth as err:
+            return _respuesta_auth(err)
         except Exception as err:
             return _respuesta_tenant(err)
         if not row or not row.get("token"):
@@ -2924,6 +3125,50 @@ def api_contratistas():
         return jsonify({"error": "Contractor not authorized"}), 403
     resp = jsonify(row)
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
+
+
+@app.route("/api/contratistas/login", methods=["POST"])
+def api_login_contratista():
+    body = request.get_json(silent=True) or {}
+    email = str(body.get("email") or "").strip().lower()
+    password = body.get("password") or body.get("contrasena") or ""
+    if not _correo_valido(email):
+        return jsonify({"error": "Enter a valid email.", "code": "email"}), 400
+    try:
+        row = iniciar_sesion_contratista(email, password)
+    except ErrorAuth as err:
+        return _respuesta_auth(err)
+    except Exception as err:
+        return _respuesta_tenant(err)
+    if not row or not row.get("token"):
+        return jsonify({"error": "No contractor account uses this email. Create one first.", "code": "sin_cuenta"}), 404
+    resp = jsonify(_sesion_desde_fila(row))
+    return _adjuntar_sesion_contratista(resp, row.get("token"))
+
+
+@app.route("/api/contratistas/contrasena", methods=["POST"])
+def api_crear_contrasena_contratista():
+    body = request.get_json(silent=True) or {}
+    email = str(body.get("email") or "").strip().lower()
+    password = body.get("password") or body.get("contrasena") or ""
+    if not _correo_valido(email):
+        return jsonify({"error": "Enter a valid email.", "code": "email"}), 400
+    try:
+        row = crear_contrasena_contratista(email, password)
+    except ErrorAuth as err:
+        return _respuesta_auth(err)
+    except Exception as err:
+        return _respuesta_tenant(err)
+    if not row or not row.get("token"):
+        return jsonify({"error": "No contractor account uses this email. Create one first.", "code": "sin_cuenta"}), 404
+    resp = jsonify(_sesion_desde_fila(row))
+    return _adjuntar_sesion_contratista(resp, row.get("token"))
+
+
+@app.route("/api/contratistas/sesion", methods=["DELETE"])
+def api_cerrar_sesion_contratista():
+    resp = jsonify({"ok": True})
+    return _limpiar_cookies_contratista(resp)
 
 
 @app.route("/api/contratistas/yo", methods=["GET"])
