@@ -2828,7 +2828,7 @@ def _crear_usuario_auth(email, password, nombre):
     codigo = str(data.get("error_code") or "").lower()
     if status in (409, 422) or "already" in msg or "exists" in msg or codigo == "email_exists":
         raise ErrorAuth("auth_existe", "This email already has a password. Use Log in.", 409)
-    print(f"--> auth crear usuario status={status}")
+    print(f"--> auth crear usuario status={status} code={codigo} detalle={_mensaje_auth(data)[:400]}")
     raise ErrorAuth("auth_error", "Could not create the account.", 502)
 
 
@@ -2890,6 +2890,7 @@ def registrar_contratista(email, nombre, password):
             return _registrar_contratista_tabla(sb, email, None)
         if "invalid_contractor" in texto:
             raise ErrorAuth("email", "Enter a valid email.", 400)
+        print(f"--> registrar contratista {type(err).__name__}: {err}")
         if not _error_sin_funcion_tenant(err):
             raise
         _aviso_multitenant(err)
@@ -3523,8 +3524,10 @@ def api_contratistas():
         try:
             row = registrar_contratista(email, nombre, password)
         except ErrorAuth as err:
+            print(f"--> registro contratista {err.code} status={err.status}: {err}")
             return _respuesta_auth(err)
         except Exception as err:
+            print(f"--> registro contratista {type(err).__name__}: {err}")
             return _respuesta_tenant(err)
         if not row or not row.get("token"):
             return jsonify({"error": "Could not open the contractor account."}), 503
@@ -3601,10 +3604,52 @@ def api_recuperar_contrasena():
     return jsonify({"ok": True})
 
 
+def _detalle_error(err):
+    texto = re.sub(r"[\r\n]+", " ", f"{type(err).__name__}: {err}").strip()
+    texto = re.sub(r"(sb_secret_|sb_publishable_|eyJ)[A-Za-z0-9_\-\.]+", "[redacted]", texto)
+
+    def ocultar_secreto(coincidencia):
+        valor = coincidencia.group(2)
+        if len(valor) < 24:
+            return coincidencia.group(0)
+        return coincidencia.group(1) + "[redacted]"
+
+    texto = re.sub(
+        r"((?:access_token|refresh_token|token|code)=)([^&\s]+)",
+        ocultar_secreto,
+        texto,
+        flags=re.I,
+    )
+    return texto[:500]
+
+
+def _fallo_recuperacion(err, code, status=502):
+    import traceback
+    print(f"--> recuperar-password {code} {_detalle_error(err)}")
+    traceback.print_exc()
+    return jsonify({
+        "error": "Could not send the reset email.",
+        "code": code,
+        "detalle": _detalle_error(err),
+    }), status
+
+
+def _enlace_absoluto_auth(enlace):
+    enlace = str(enlace or "").strip()
+    if enlace.startswith("https://") or enlace.startswith("http://"):
+        return enlace
+    base = (_supabase_creds()[0] or "").rstrip("/")
+    if enlace.startswith("/"):
+        return base + enlace
+    if enlace.startswith("auth/"):
+        return base + "/" + enlace
+    return enlace
+
+
 def _enlace_recuperacion_admin(email):
     cliente = _supabase_client()
     if cliente is None:
-        raise ErrorAuth("config", "Supabase no configurado", 503)
+        raise ErrorAuth("config", "Supabase no configurado. Revisa SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY.", 503)
     try:
         respuesta = cliente.auth.admin.generate_link({
             "type": "recovery",
@@ -3615,15 +3660,15 @@ def _enlace_recuperacion_admin(email):
         codigo = str(getattr(err, "code", "") or "").lower()
         status = getattr(err, "status", None)
         if status == 404 or codigo == "user_not_found":
+            print(f"--> recuperar-password sin usuario auth status={status} code={codigo}")
             return ""
         if status == 429:
-            raise ErrorAuth("limite", "Too many attempts. Wait a moment and try again.", 429)
-        print(f"--> recuperar-password enlace {type(err).__name__} status={status}")
-        raise ErrorAuth("auth_error", "Could not send the reset email.", 502)
+            raise ErrorAuth("limite", f"{type(err).__name__}: {err}", 429)
+        raise ErrorAuth("auth_error", f"{type(err).__name__} status={status} code={codigo}: {err}", 502)
     propiedades = getattr(respuesta, "properties", None)
-    enlace = str(getattr(propiedades, "action_link", "") or "").strip()
-    if not enlace.startswith("https://"):
-        raise ErrorAuth("auth_error", "Could not send the reset email.", 502)
+    enlace = _enlace_absoluto_auth(getattr(propiedades, "action_link", "") or "")
+    if not (enlace.startswith("https://") or enlace.startswith("http://")):
+        raise ErrorAuth("auth_error", "generate_link no devolvió action_link", 502)
     return enlace
 
 
@@ -3697,17 +3742,15 @@ def api_recuperar_password():
     try:
         enlace = _enlace_recuperacion_admin(email)
     except ErrorAuth as err:
-        return _respuesta_auth(err)
+        return _fallo_recuperacion(err, err.code, err.status)
     except Exception as err:
-        print(f"--> recuperar-password {type(err).__name__}")
-        return jsonify({"error": "Could not send the reset email.", "code": "auth_error"}), 502
+        return _fallo_recuperacion(err, "auth_error", 502)
     if not enlace:
         return jsonify({"ok": True})
     try:
         _enviar_correo_recuperacion(email, enlace)
     except Exception as err:
-        print(f"--> smtp recuperacion {type(err).__name__}")
-        return jsonify({"error": "Could not send the reset email.", "code": "smtp"}), 502
+        return _fallo_recuperacion(err, "smtp", 502)
     print("--> correo recuperacion enviado")
     return jsonify({"ok": True})
 

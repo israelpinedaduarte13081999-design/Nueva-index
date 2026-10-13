@@ -461,25 +461,36 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.perfiles (id, email, nombre_empresa)
-  values (
-    new.id,
-    new.email,
-    coalesce(new.raw_user_meta_data->>'nombre_empresa', '')
-  )
-  on conflict (id) do update
-    set email = excluded.email,
-        nombre_empresa = case
-          when excluded.nombre_empresa <> '' then excluded.nombre_empresa
-          else public.perfiles.nombre_empresa
-        end,
-        updated_at = now();
+  -- El perfil es auxiliar. Un fallo aquí no puede revertir auth.users.
+  begin
+    insert into public.perfiles (id, email, nombre_empresa)
+    values (
+      new.id,
+      new.email,
+      coalesce(new.raw_user_meta_data->>'nombre_empresa', '')
+    )
+    on conflict (id) do update
+      set email = excluded.email,
+          nombre_empresa = case
+            when excluded.nombre_empresa <> '' then excluded.nombre_empresa
+            else public.perfiles.nombre_empresa
+          end,
+          updated_at = now();
+  exception
+    when others then
+      raise warning 'handle_nuevo_usuario no bloquea auth.users: %', sqlerrm;
+  end;
   return new;
 end;
 $$;
 
+revoke all on function public.handle_nuevo_usuario() from public;
+grant execute on function public.handle_nuevo_usuario() to supabase_auth_admin;
+grant execute on function public.handle_nuevo_usuario() to postgres;
+grant execute on function public.handle_nuevo_usuario() to service_role;
+
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
-  after insert on auth.users
+  after insert or update on auth.users
   for each row execute procedure public.handle_nuevo_usuario();
 

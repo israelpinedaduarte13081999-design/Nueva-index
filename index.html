@@ -7571,7 +7571,10 @@
         body:JSON.stringify(body)
       });
       const json=await res.json().catch(()=>({}));
-      if(!res.ok||!json.token) throw new Error(mensajeErrorAuth(json, t.needLogin));
+      if(!res.ok||!json.token){
+        console.error('auth', url, res.status, json.detalle||json.error||json);
+        throw new Error(mensajeErrorAuth(json, t.needLogin));
+      }
       borrarTokenContratistaLocal();
       guardarSesionContratista(json, recordar!==false);
       marcarEstadoAuth(statusId, ok, false);
@@ -7701,9 +7704,13 @@
           body:JSON.stringify({email})
         });
         const json=await res.json().catch(()=>({}));
-        if(!res.ok) throw new Error(json.code==='email'?t.badEmail:t.mailFail);
+        if(!res.ok){
+          console.error('recuperar-password', res.status, json.detalle||json.error||json);
+          throw new Error(json.code==='email'?t.badEmail:t.mailFail);
+        }
         marcarEstadoAuth('recuperarStatus', t.sent, false);
       }catch(err){
+        console.error('recuperar-password', err);
         marcarEstadoAuth('recuperarStatus', err.message||t.mailFail, true);
       }finally{
         if(boton) boton.disabled=false;
