@@ -2,7 +2,7 @@ create extension if not exists pgcrypto;
 
 create table if not exists public.contratistas (
   id uuid primary key default gen_random_uuid(),
-  nombre_empresa text not null,
+  nombre_empresa text,
   email text not null unique,
   token text not null unique,
   created_at timestamptz not null default now(),
@@ -46,6 +46,8 @@ create index if not exists historial_estimados_tipo_idx
 create index if not exists historial_estimados_contratista_idx
   on public.historial_estimados (contratista_id, updated_at desc);
 
+alter table public.contratistas alter column nombre_empresa drop not null;
+
 alter table public.historial_estimados enable row level security;
 alter table public.contratistas enable row level security;
 
@@ -60,11 +62,11 @@ set search_path = public
 as $$
 declare
   v_email text := lower(trim(coalesce(p_email, '')));
-  v_nombre text := trim(coalesce(p_nombre, ''));
+  v_nombre text := nullif(trim(coalesce(p_nombre, '')), '');
   v_id uuid;
   v_token text;
 begin
-  if v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' or v_nombre = '' then
+  if v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then
     raise exception 'invalid_contractor';
   end if;
   if exists (select 1 from public.contratistas where email = v_email) then

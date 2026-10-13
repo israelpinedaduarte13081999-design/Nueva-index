@@ -2712,17 +2712,20 @@ def _contratista_por_email_tabla(sb, email):
 
 def _registrar_contratista_tabla(sb, email, nombre):
     email = str(email or "").strip().lower()
-    nombre = str(nombre or "").strip()
+    nombre = str(nombre or "").strip() or None
     if _contratista_por_email_tabla(sb, email):
         raise ErrorAuth("already_registered", "This email already has an account. Use Log in.", 409)
     previos = sb.table(TABLA_CONTRATISTAS).select("id").limit(1).execute()
     es_primero = not list(previos.data or [])
     token = secrets.token_hex(32)
-    res = (
-        sb.table(TABLA_CONTRATISTAS)
-        .insert({"nombre_empresa": nombre, "email": email, "token": token})
-        .execute()
-    )
+    payload = {"nombre_empresa": nombre, "email": email, "token": token}
+    try:
+        res = sb.table(TABLA_CONTRATISTAS).insert(payload).execute()
+    except Exception as err:
+        if nombre is not None or not re.search(r"not-null|null value", str(err or ""), re.I):
+            raise
+        payload["nombre_empresa"] = ""
+        res = sb.table(TABLA_CONTRATISTAS).insert(payload).execute()
     rows = list(res.data or [])
     if not rows:
         raise RuntimeError("No se pudo registrar el contratista")
@@ -2864,7 +2867,7 @@ def registrar_contratista(email, nombre, password):
     if sb is None:
         raise RuntimeError("Supabase no configurado")
     email = str(email or "").strip().lower()
-    nombre = str(nombre or "").strip()
+    nombre = str(nombre or "").strip() or None
     password = _validar_password(password)
     if _contratista_por_email_tabla(sb, email):
         raise ErrorAuth("already_registered", "This email already has an account. Use Log in.", 409)
@@ -2883,6 +2886,10 @@ def registrar_contratista(email, nombre, password):
         texto = str(err or "")
         if "already_registered" in texto or re.search(r"duplicate key|contratistas_email", texto, re.I):
             raise ErrorAuth("already_registered", "This email already has an account. Use Log in.", 409)
+        if "invalid_contractor" in texto and not nombre:
+            return _registrar_contratista_tabla(sb, email, None)
+        if "invalid_contractor" in texto:
+            raise ErrorAuth("email", "Enter a valid email.", 400)
         if not _error_sin_funcion_tenant(err):
             raise
         _aviso_multitenant(err)
@@ -3494,7 +3501,7 @@ def _respuesta_tenant(err):
     if "unauthorized" in texto:
         return jsonify({"error": "Contractor not authorized"}), 403
     if "invalid_contractor" in texto:
-        return jsonify({"error": "Company name and a valid contractor email are required."}), 400
+        return jsonify({"error": "Enter a valid email.", "code": "email"}), 400
     if re.search(r"duplicate key|contratistas_email", texto, re.I):
         return jsonify({"error": "That contractor email is already in use."}), 409
     if _error_sin_funcion_tenant(err):
@@ -3511,8 +3518,8 @@ def api_contratistas():
         email = str(body.get("email") or "").strip().lower()
         nombre = str(body.get("nombre_empresa") or body.get("company") or "").strip()
         password = body.get("password") or body.get("contrasena") or ""
-        if not _correo_valido(email) or not nombre:
-            return jsonify({"error": "Company name and a valid contractor email are required."}), 400
+        if not _correo_valido(email):
+            return jsonify({"error": "Enter a valid email.", "code": "email"}), 400
         try:
             row = registrar_contratista(email, nombre, password)
         except ErrorAuth as err:
