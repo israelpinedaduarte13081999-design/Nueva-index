@@ -5266,7 +5266,11 @@
           return;
         }
         if(error && (path==='/' || path==='/login' || path==='/iniciar-sesion')){
-          try{ history.replaceState({view:'login'},'', '/login?aviso=google'); }catch(_){}
+          const params=new URLSearchParams();
+          params.set('error', q.get('error')||hash.get('error')||'oauth');
+          params.set('error_description', error);
+          location.replace('/auth/callback?'+params.toString());
+          return;
         }
       }
       if(path!=='/restablecer' && tipo!=='recovery') return;
