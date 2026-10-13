@@ -5232,21 +5232,57 @@
       return path==='/'||path==='/login'||path==='/iniciar-sesion'||path==='/restablecer';
     }
     let recuperacionPendiente=null;
+    function abrirPanelAuthBasico(modo){
+      const formularios={login:'loginContratistaForm',registro:'registroContratistaForm',recuperar:'recuperarContratistaForm',restablecer:'restablecerContratistaForm'};
+      Object.entries(formularios).forEach(([nombre,id])=>{
+        const el=document.getElementById(id);
+        if(el) el.hidden=nombre!==modo;
+      });
+      const fuera=modo==='recuperar'||modo==='restablecer';
+      ['authTabs','authKicker','authGoogleBloque','authPie','sesionContratista'].forEach(id=>{
+        const el=document.getElementById(id);
+        if(el) el.hidden=fuera||id==='sesionContratista';
+      });
+      const legacy=document.getElementById('authLegacy');
+      if(legacy) legacy.hidden=modo!=='login';
+      document.body.classList.add('auth-solo');
+      document.body.classList.remove('con-sesion');
+      document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active', section.id==='view-login'));
+    }
+    function leerRecuperacionGuardada(){
+      try{ return JSON.parse(sessionStorage.getItem('auth_recuperacion')||'null'); }catch(_){ return null; }
+    }
+    function guardarRecuperacion(datos){
+      recuperacionPendiente=datos;
+      try{ sessionStorage.setItem('auth_recuperacion', JSON.stringify(datos)); }catch(_){}
+    }
     function capturarRecuperacion(){
       const hash=new URLSearchParams(String(location.hash||'').replace(/^#/,''));
       const q=new URLSearchParams(location.search||'');
       const path=(location.pathname||'/').replace(/\/+$/,'')||'/';
       const access=hash.get('access_token')||'';
       const code=q.get('code')||hash.get('code')||'';
+      const tokenHash=q.get('token_hash')||hash.get('token_hash')||'';
       const tipo=(hash.get('type')||q.get('type')||'').toLowerCase();
       const error=hash.get('error_description')||q.get('error_description')||hash.get('error')||q.get('error')||'';
-      if(path!=='/auth/callback' && path!=='/restablecer' && tipo!=='recovery'){
-        if(code){
+      const googleEnCurso=!!sessionStorage.getItem('oauth_pkce_verifier');
+      const rutasLogin=path==='/'||path==='/login'||path==='/iniciar-sesion'||path==='/restablecer';
+      const esRecuperacion=tipo==='recovery'||!!tokenHash||(path==='/restablecer'&&!!(code||access||tokenHash||error))||(!!code&&rutasLogin&&!googleEnCurso)||(!!access&&rutasLogin&&tipo!=='signup'&&!googleEnCurso);
+      if(!esRecuperacion){
+        const guardada=path==='/restablecer'?leerRecuperacionGuardada():null;
+        if(guardada&&!guardada.error&&(guardada.access||guardada.code||guardada.tokenHash)){
+          recuperacionPendiente=guardada;
+          window.__recuperacionEnCurso=true;
+          abrirPanelAuthBasico('restablecer');
+          return;
+        }
+        if(path==='/auth/callback'||path==='/restablecer') return;
+        if(code&&googleEnCurso){
           window.__oauthEnCurso=true;
           location.replace('/auth/callback?code='+encodeURIComponent(code));
           return;
         }
-        if(access){
+        if(access&&googleEnCurso){
           const form=document.createElement('form');
           form.method='post';
           form.action='/auth/callback';
@@ -5259,24 +5295,26 @@
           form.submit();
           return;
         }
-        if(error && (path==='/' || path==='/login' || path==='/iniciar-sesion')){
+        if(error&&rutasLogin){
           const params=new URLSearchParams();
           params.set('error', q.get('error')||hash.get('error')||'oauth');
           params.set('error_description', error);
           location.replace('/auth/callback?'+params.toString());
-          return;
         }
+        return;
       }
-      if(path!=='/restablecer' && tipo!=='recovery') return;
-      if(access||code||error){
-        recuperacionPendiente={
-          access:access,
-          code:code,
-          error:error,
-          verifier:sessionStorage.getItem('auth_pkce_verifier')||''
-        };
-        try{ history.replaceState({view:'login'},'', '/restablecer'); }catch(_){}
-      }
+      const verifier=localStorage.getItem('auth_pkce_verifier')||sessionStorage.getItem('auth_pkce_verifier')||'';
+      guardarRecuperacion({
+        access:access,
+        refresh:hash.get('refresh_token')||'',
+        code:code,
+        tokenHash:tokenHash,
+        error:error,
+        verifier:verifier
+      });
+      window.__recuperacionEnCurso=true;
+      abrirPanelAuthBasico(error&&!(access||code||tokenHash)?'recuperar':'restablecer');
+      try{ history.replaceState({view:'login'},'', '/restablecer'); }catch(_){}
     }
     capturarRecuperacion();
     function mostrarVistaLogin(){
@@ -5340,10 +5378,10 @@
         '/factura':'invoice','/invoice':'invoice','factura':'invoice','invoice':'invoice',
         '/cotizador':'estimate','/quote':'estimate'
       };
-      const recuperacionActiva=path==='/restablecer'||(recuperacionPendiente&&(recuperacionPendiente.access||recuperacionPendiente.code||recuperacionPendiente.error));
+      const recuperacionActiva=path==='/restablecer'||window.__recuperacionEnCurso||(recuperacionPendiente&&(recuperacionPendiente.access||recuperacionPendiente.code||recuperacionPendiente.tokenHash||recuperacionPendiente.error));
       if(recuperacionActiva){
         mostrarVistaLogin();
-        const lista=recuperacionPendiente&&!recuperacionPendiente.error&&(recuperacionPendiente.access||recuperacionPendiente.code);
+        const lista=recuperacionPendiente&&!recuperacionPendiente.error&&(recuperacionPendiente.access||recuperacionPendiente.code||recuperacionPendiente.tokenHash);
         if(typeof mostrarPanelAuth==='function') mostrarPanelAuth(lista?'restablecer':'recuperar');
         if(recuperacionPendiente&&recuperacionPendiente.error&&typeof marcarEstadoAuth==='function'){
           const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
@@ -7324,8 +7362,10 @@
         kicker:'Contractor access', remember:'Remember me', forgot:'Forgot password', or:'or',
         google:'Continue with Google', resetTitle:'Reset password',
         resetLead:"We'll email you a link to choose a new password.",
-        sendLink:'Send link', back:'Back to log in', newPassword:'New password', savePassword:'Save password',
-        chooseTitle:'Choose a new password', chooseLead:"Use at least 8 characters. You'll go straight to your dashboard.",
+        sendLink:'Send link', back:'Back to log in', savePassword:'Save password',
+        chooseTitle:'New password', chooseLead:"Use at least 8 characters. You'll go straight to your dashboard.",
+        newPassword:'Enter your new password', confirmNew:'Confirm new password',
+        sameBrowser:'Open the reset link in the same browser where you requested it.',
         sending:'Sending link…', sent:'If an account uses that email, we sent a link to reset the password.',
         resetting:'Saving password…', resetOk:'Password updated. You can log in now.',
         linkExpired:'That link expired or was already used. Request a new one.',
@@ -7347,8 +7387,10 @@
         kicker:'Acceso de contratista', remember:'Recordarme', forgot:'Olvidé mi contraseña', or:'o',
         google:'Continuar con Google', resetTitle:'Restablecer contraseña',
         resetLead:'Te enviaremos un enlace para elegir una contraseña nueva.',
-        sendLink:'Enviar enlace', back:'Volver a iniciar sesión', newPassword:'Nueva contraseña', savePassword:'Guardar contraseña',
-        chooseTitle:'Elige una contraseña nueva', chooseLead:'Usa al menos 8 caracteres. Después entrarás a tu panel.',
+        sendLink:'Enviar enlace', back:'Volver a iniciar sesión', savePassword:'Guardar contraseña',
+        chooseTitle:'Nueva contraseña', chooseLead:'Usa al menos 8 caracteres. Después entrarás a tu panel.',
+        newPassword:'Escribe tu nueva contraseña', confirmNew:'Confirmar nueva contraseña',
+        sameBrowser:'Abre el enlace en el mismo navegador donde pediste el cambio.',
         sending:'Enviando enlace…', sent:'Si hay una cuenta con ese correo, enviamos el enlace para restablecer la contraseña.',
         resetting:'Guardando contraseña…', resetOk:'Contraseña actualizada. Ya puedes iniciar sesión.',
         linkExpired:'El enlace venció o ya se usó. Pide uno nuevo.',
@@ -7384,7 +7426,7 @@
       poner('restablecerTitulo', t.chooseTitle);
       poner('restablecerLead', t.chooseLead);
       poner('restablecerPasswordLabel', t.newPassword);
-      poner('restablecerPassword2Label', t.confirm);
+      poner('restablecerPassword2Label', t.confirmNew||t.confirm);
       poner('restablecerSubmit', t.savePassword);
       poner('restablecerVolver', t.back);
       poner('crearContrasenaBtn', t.createPw);
@@ -7496,6 +7538,7 @@
       let reto='';
       new Uint8Array(digest).forEach(b=>{ reto+=String.fromCharCode(b); });
       const challenge=btoa(reto).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+      localStorage.setItem('auth_pkce_verifier', verifier);
       sessionStorage.setItem('auth_pkce_verifier', verifier);
       return challenge;
     }
@@ -7547,9 +7590,100 @@
     document.getElementById('recuperarVolver')?.addEventListener('click',()=>mostrarPanelAuth('login'));
     document.getElementById('restablecerVolver')?.addEventListener('click',()=>{
       recuperacionPendiente=null;
+      window.__recuperacionEnCurso=false;
+      try{ sessionStorage.removeItem('auth_recuperacion'); }catch(_){}
       mostrarPanelAuth('login');
       try{ history.replaceState({view:'login'},'', '/login'); }catch(_){}
     });
+    let clienteSupabase=null;
+    async function clienteAuthSupabase(){
+      if(clienteSupabase) return clienteSupabase;
+      const { createClient }=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+      const cliente=createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+        auth:{ flowType:'pkce', detectSessionInUrl:false, persistSession:false, autoRefreshToken:false }
+      });
+      cliente.auth.onAuthStateChange((event)=>{
+        if(event==='PASSWORD_RECOVERY'){
+          window.__recuperacionEnCurso=true;
+          abrirPanelAuthBasico('restablecer');
+          if(typeof mostrarPanelAuth==='function') mostrarPanelAuth('restablecer');
+        }
+      });
+      clienteSupabase=cliente;
+      return cliente;
+    }
+    async function sesionParaNuevaContrasena(pendiente){
+      if(pendiente.tokenHash){
+        const cliente=await clienteAuthSupabase();
+        const { data, error }=await cliente.auth.verifyOtp({ token_hash:pendiente.tokenHash, type:'recovery' });
+        if(error) throw error;
+        return data.session;
+      }
+      if(pendiente.access){
+        if(pendiente.refresh){
+          try{
+            const cliente=await clienteAuthSupabase();
+            const { data, error }=await cliente.auth.setSession({
+              access_token:pendiente.access,
+              refresh_token:pendiente.refresh
+            });
+            if(!error&&data.session) return data.session;
+          }catch(_){}
+        }
+        return { access_token:pendiente.access };
+      }
+      const verifier=pendiente.verifier||localStorage.getItem('auth_pkce_verifier')||sessionStorage.getItem('auth_pkce_verifier')||'';
+      if(!pendiente.code||!verifier){
+        const falta=new Error('verifier');
+        falta.code='verifier';
+        throw falta;
+      }
+      const intercambio=await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=pkce',{
+        method:'POST',
+        headers:{ apikey:SUPABASE_PUBLISHABLE_KEY, 'Content-Type':'application/json' },
+        body:JSON.stringify({ auth_code:pendiente.code, code_verifier:verifier })
+      });
+      const json=await intercambio.json().catch(()=>({}));
+      if(!intercambio.ok||!json.access_token) throw new Error(json.msg||json.error_description||json.message||'');
+      if(json.refresh_token){
+        try{
+          const cliente=await clienteAuthSupabase();
+          await cliente.auth.setSession({ access_token:json.access_token, refresh_token:json.refresh_token });
+        }catch(_){}
+      }
+      return { access_token:json.access_token, refresh_token:json.refresh_token||'' };
+    }
+    async function updateUserPassword(password, accessToken){
+      try{
+        const cliente=await clienteAuthSupabase();
+        const { data: { session } }=await cliente.auth.getSession();
+        if(!session&&accessToken){
+          const refresh=(recuperacionPendiente&&recuperacionPendiente.refresh)||'';
+          if(refresh){
+            const { error }=await cliente.auth.setSession({ access_token:accessToken, refresh_token:refresh });
+            if(error) throw error;
+          }
+        }
+        const { data, error }=await cliente.auth.updateUser({ password });
+        if(!error) return data;
+        if(!accessToken) throw error;
+      }catch(err){
+        if(!accessToken||(err&&err.code==='verifier')) throw err;
+      }
+      const res=await fetch(SUPABASE_URL+'/auth/v1/user',{
+        method:'PUT',
+        headers:{
+          apikey:SUPABASE_PUBLISHABLE_KEY,
+          Authorization:'Bearer '+accessToken,
+          'Content-Type':'application/json'
+        },
+        body:JSON.stringify({ password })
+      });
+      const json=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(json.msg||json.message||json.error_description||json.error||'');
+      return json;
+    }
+    if(window.__recuperacionEnCurso) clienteAuthSupabase().catch(()=>{});
     document.getElementById('recuperarContratistaForm')?.addEventListener('submit',async event=>{
       event.preventDefault();
       const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
@@ -7584,30 +7718,32 @@
         marcarEstadoAuth('restablecerStatus', t.mismatch, true);
         return;
       }
-      const pendiente=recuperacionPendiente||{};
-      if(!pendiente.access&&!pendiente.code){
+      const pendiente=recuperacionPendiente||leerRecuperacionGuardada()||{};
+      if(!pendiente.access&&!pendiente.code&&!pendiente.tokenHash){
         marcarEstadoAuth('restablecerStatus', t.linkExpired, true);
         mostrarPanelAuth('recuperar');
         return;
       }
       marcarEstadoAuth('restablecerStatus', t.resetting, false);
       try{
+        const sesion=await sesionParaNuevaContrasena(pendiente);
+        const access=sesion&&sesion.access_token||pendiente.access||'';
+        if(!access) throw new Error(t.linkExpired);
+        if(sesion&&sesion.refresh_token) pendiente.refresh=sesion.refresh_token;
+        await updateUserPassword(password, access);
         const res=await fetch('/api/contratistas/restablecer',{
           method:'POST',
           credentials:'same-origin',
           headers:{'Content-Type':'application/json',Accept:'application/json'},
-          body:JSON.stringify({
-            password,
-            access_token:pendiente.access||'',
-            code:pendiente.access?'':(pendiente.code||''),
-            code_verifier:pendiente.access?'':(pendiente.verifier||'')
-          })
+          body:JSON.stringify({ password, access_token:access })
         });
         const json=await res.json().catch(()=>({}));
-        if(!res.ok) throw new Error(json.error||t.linkExpired);
+        localStorage.removeItem('auth_pkce_verifier');
         sessionStorage.removeItem('auth_pkce_verifier');
+        sessionStorage.removeItem('auth_recuperacion');
         recuperacionPendiente=null;
-        if(json.token&&json.id){
+        window.__recuperacionEnCurso=false;
+        if(res.ok&&json.token&&json.id){
           guardarSesionContratista(json, true);
           return;
         }
@@ -7615,7 +7751,8 @@
         try{ history.replaceState({view:'login'},'', '/login'); }catch(_){}
         marcarEstadoAuth('loginStatus', t.resetOk, false);
       }catch(err){
-        marcarEstadoAuth('restablecerStatus', err.message||t.linkExpired, true);
+        const mensaje=err&&err.code==='verifier'?t.sameBrowser:(err&&err.message)||t.linkExpired;
+        marcarEstadoAuth('restablecerStatus', mensaje, true);
       }
     });
     async function cerrarSesionActual(){
