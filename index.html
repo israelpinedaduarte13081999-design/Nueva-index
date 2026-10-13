@@ -7366,7 +7366,8 @@
         chooseTitle:'New password', chooseLead:"Use at least 8 characters. You'll go straight to your dashboard.",
         newPassword:'Enter your new password', confirmNew:'Confirm new password',
         sameBrowser:'Open the reset link in the same browser where you requested it.',
-        sending:'Sending link…', sent:'If an account uses that email, we sent a link to reset the password.',
+        sending:'Sending the email…', sent:'We sent the instructions to your email.',
+        mailFail:'We could not send the email. Try again in a moment.',
         resetting:'Saving password…', resetOk:'Password updated. You can log in now.',
         linkExpired:'That link expired or was already used. Request a new one.',
         oauthFail:'Google sign-in did not finish. Try again, or use your email.'
@@ -7391,7 +7392,8 @@
         chooseTitle:'Nueva contraseña', chooseLead:'Usa al menos 8 caracteres. Después entrarás a tu panel.',
         newPassword:'Escribe tu nueva contraseña', confirmNew:'Confirmar nueva contraseña',
         sameBrowser:'Abre el enlace en el mismo navegador donde pediste el cambio.',
-        sending:'Enviando enlace…', sent:'Si hay una cuenta con ese correo, enviamos el enlace para restablecer la contraseña.',
+        sending:'Enviando el correo…', sent:'Te hemos enviado las instrucciones a tu correo',
+        mailFail:'No pudimos enviar el correo. Inténtalo de nuevo en un momento.',
         resetting:'Guardando contraseña…', resetOk:'Contraseña actualizada. Ya puedes iniciar sesión.',
         linkExpired:'El enlace venció o ya se usó. Pide uno nuevo.',
         oauthFail:'No se pudo completar el acceso con Google. Inténtalo de nuevo o usa tu correo.'
@@ -7688,21 +7690,23 @@
       event.preventDefault();
       const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
       const email=String(document.getElementById('recuperarEmail')?.value||'').trim();
+      const boton=document.getElementById('recuperarSubmit');
       marcarEstadoAuth('recuperarStatus', t.sending, false);
-      let challenge='';
-      try{ challenge=await crearRetoPkce(); }catch(_){ challenge=''; }
+      if(boton) boton.disabled=true;
       try{
-        const res=await fetch('/api/contratistas/recuperar',{
+        const res=await fetch('/api/contratistas/recuperar-password',{
           method:'POST',
           credentials:'same-origin',
           headers:{'Content-Type':'application/json',Accept:'application/json'},
-          body:JSON.stringify({email, code_challenge:challenge})
+          body:JSON.stringify({email})
         });
         const json=await res.json().catch(()=>({}));
-        if(!res.ok) throw new Error(json.error||t.linkExpired);
+        if(!res.ok) throw new Error(json.code==='email'?t.badEmail:t.mailFail);
         marcarEstadoAuth('recuperarStatus', t.sent, false);
       }catch(err){
-        marcarEstadoAuth('recuperarStatus', err.message||t.linkExpired, true);
+        marcarEstadoAuth('recuperarStatus', err.message||t.mailFail, true);
+      }finally{
+        if(boton) boton.disabled=false;
       }
     });
     document.getElementById('restablecerContratistaForm')?.addEventListener('submit',async event=>{

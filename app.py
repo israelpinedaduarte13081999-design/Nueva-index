@@ -3601,6 +3601,117 @@ def api_recuperar_contrasena():
     return jsonify({"ok": True})
 
 
+def _enlace_recuperacion_admin(email):
+    cliente = _supabase_client()
+    if cliente is None:
+        raise ErrorAuth("config", "Supabase no configurado", 503)
+    try:
+        respuesta = cliente.auth.admin.generate_link({
+            "type": "recovery",
+            "email": email,
+            "options": {"redirect_to": _origen_publico() + "/restablecer"},
+        })
+    except Exception as err:
+        codigo = str(getattr(err, "code", "") or "").lower()
+        status = getattr(err, "status", None)
+        if status == 404 or codigo == "user_not_found":
+            return ""
+        if status == 429:
+            raise ErrorAuth("limite", "Too many attempts. Wait a moment and try again.", 429)
+        print(f"--> recuperar-password enlace {type(err).__name__} status={status}")
+        raise ErrorAuth("auth_error", "Could not send the reset email.", 502)
+    propiedades = getattr(respuesta, "properties", None)
+    enlace = str(getattr(propiedades, "action_link", "") or "").strip()
+    if not enlace.startswith("https://"):
+        raise ErrorAuth("auth_error", "Could not send the reset email.", 502)
+    return enlace
+
+
+def _html_correo_recuperacion(enlace):
+    import html as html_lib
+    url = html_lib.escape(enlace, quote=True)
+    return f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Restablece tu contraseña - QuantixBuilds</title>
+</head>
+<body style="margin:0;padding:0;background:#eef2f6;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f6;margin:0;padding:0;">
+    <tr>
+      <td align="center" style="padding:28px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background:#ffffff;border-radius:18px;border:1px solid #e2e8f0;">
+          <tr>
+            <td style="padding:32px 24px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;">
+              <p style="margin:0 0 18px;font-size:12px;font-weight:800;letter-spacing:.16em;color:#1d4ed8;">QUANTIXBUILDS</p>
+              <h1 style="margin:0 0 14px;font-size:24px;line-height:1.25;letter-spacing:-.03em;">Restablece tu contraseña</h1>
+              <p style="margin:0 0 22px;font-size:16px;line-height:1.55;color:#334155;">Hola, recibimos una solicitud para cambiar tu contraseña en QuantixBuilds. Haz clic en el botón de abajo para crear una nueva.</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" bgcolor="#0f172a" style="border-radius:12px;">
+                    <a href="{url}" style="display:block;padding:16px 18px;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;text-align:center;">Crear nueva contraseña</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:22px 0 0;font-size:13px;line-height:1.5;color:#64748b;">Si no pediste este cambio, puedes ignorar este correo. Tu contraseña actual sigue igual.</p>
+              <p style="margin:14px 0 0;font-size:12px;line-height:1.5;color:#94a3b8;">Si el botón no abre, copia este enlace en el navegador:<br><span style="word-break:break-all;">{url}</span></p>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:16px 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;color:#94a3b8;">Equipo QuantixBuilds</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+
+def _enviar_correo_recuperacion(destino, enlace):
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from email.utils import formataddr
+    _host, _puerto, _usuario, _clave, smtp_from = _credenciales_smtp()
+    texto = (
+        "Hola, recibimos una solicitud para cambiar tu contraseña en QuantixBuilds. "
+        "Haz clic en el botón de abajo para crear una nueva.\n\n"
+        f"{enlace}\n\n"
+        "Si no pediste este cambio, puedes ignorar este correo.\n\n"
+        "Equipo QuantixBuilds\n"
+    )
+    mensaje = MIMEMultipart("alternative")
+    mensaje["Subject"] = "Restablece tu contraseña - QuantixBuilds"
+    mensaje["From"] = formataddr(("Equipo QuantixBuilds", smtp_from))
+    mensaje["To"] = destino
+    mensaje.attach(MIMEText(texto, "plain", "utf-8"))
+    mensaje.attach(MIMEText(_html_correo_recuperacion(enlace), "html", "utf-8"))
+    _despachar_smtp(mensaje, destino)
+
+
+@app.route("/api/contratistas/recuperar-password", methods=["POST"])
+def api_recuperar_password():
+    body = request.get_json(silent=True) or {}
+    email = str(body.get("email") or "").strip().lower()
+    if not _correo_valido(email):
+        return jsonify({"error": "Enter a valid email.", "code": "email"}), 400
+    try:
+        enlace = _enlace_recuperacion_admin(email)
+    except ErrorAuth as err:
+        return _respuesta_auth(err)
+    except Exception as err:
+        print(f"--> recuperar-password {type(err).__name__}")
+        return jsonify({"error": "Could not send the reset email.", "code": "auth_error"}), 502
+    if not enlace:
+        return jsonify({"ok": True})
+    try:
+        _enviar_correo_recuperacion(email, enlace)
+    except Exception as err:
+        print(f"--> smtp recuperacion {type(err).__name__}")
+        return jsonify({"error": "Could not send the reset email.", "code": "smtp"}), 502
+    print("--> correo recuperacion enviado")
+    return jsonify({"ok": True})
+
+
 @app.route("/api/contratistas/restablecer", methods=["POST"])
 def api_restablecer_contrasena():
     body = request.get_json(silent=True) or {}
