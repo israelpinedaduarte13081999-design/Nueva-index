@@ -45,7 +45,9 @@
     #authContratista .auth-google { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; margin-top:12px; padding:11px 14px; border:1px solid #dbe3ea; border-radius:10px; background:#fff; color:#0f172a; font-weight:700; text-decoration:none; box-shadow:0 1px 2px rgba(15,23,42,.04); }
     #authContratista .auth-google:hover { background:#f8fafc; border-color:#cbd5e1; }
     #authContratista .auth-google svg { width:18px; height:18px; flex:0 0 auto; }
-    #authTabs[hidden], #authKicker[hidden], #authContratista form[hidden], #sesionContratista[hidden] { display:none !important; }
+    #authContratista .auth-switch, #authContratista .auth-legacy { margin:14px 0 0; text-align:center; }
+    #authContratista .auth-legacy { margin-top:4px; }
+    #authTabs[hidden], #authKicker[hidden], #authContratista form[hidden], #sesionContratista[hidden], #authGoogleBloque[hidden], #authPie[hidden], #authLegacy[hidden] { display:none !important; }
     #cerrarSesionNav[hidden] { display:none !important; }
     .view-section:not(.active) .business-modal,
     .view-section:not(.active) .export-modal { display:none!important; pointer-events:none; }
@@ -854,7 +856,6 @@
         </div>
         <form id="loginContratistaForm">
           <h3 id="loginTitulo">Log in</h3>
-          <p id="loginLead">Sign in with the email and password for your company.</p>
           <label for="loginEmail" id="loginEmailLabel">Email</label>
           <input id="loginEmail" name="email" type="email" autocomplete="username" required placeholder="you@company.com">
           <label for="loginPassword" id="loginPasswordLabel">Password</label>
@@ -867,18 +868,6 @@
             <button class="auth-link" type="button" id="olvideContrasenaBtn">Forgot password</button>
           </div>
           <button class="btn btn-primary" type="submit" id="loginSubmit">Log in</button>
-          <div class="auth-divider"><span id="authDivider">or</span></div>
-          <a class="auth-google" id="loginGoogle" href="/api/contratistas/oauth/google">
-            <svg viewBox="0 0 18 18" aria-hidden="true">
-              <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
-              <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
-              <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/>
-              <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.167 6.656 3.58 9 3.58z"/>
-            </svg>
-            <span id="loginGoogleLabel">Continue with Google</span>
-          </a>
-          <button class="btn auth-secondary" type="button" id="crearContrasenaBtn">Create password</button>
-          <p class="auth-note" id="loginCreateLead">If this company was created before passwords, set one now. After that, use Log in.</p>
           <p class="auth-status" id="loginStatus" hidden></p>
         </form>
         <form id="recuperarContratistaForm" hidden>
@@ -913,18 +902,26 @@
           <label for="registroPassword2" id="registroPassword2Label">Confirm password</label>
           <input id="registroPassword2" name="password_confirm" type="password" autocomplete="new-password" required minlength="8" placeholder="••••••••">
           <button class="btn btn-primary" type="submit" id="registroSubmit">Create account</button>
-          <div class="auth-divider"><span id="registroDivider">or</span></div>
-          <a class="auth-google" id="registroGoogle" href="/api/contratistas/oauth/google">
+          <p class="auth-status" id="registroContratistaStatus" hidden></p>
+        </form>
+        <div id="authGoogleBloque">
+          <div class="auth-divider"><span id="authDivider">or</span></div>
+          <a class="auth-google" id="loginGoogle" href="/api/contratistas/oauth/google">
             <svg viewBox="0 0 18 18" aria-hidden="true">
               <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
               <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
               <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/>
               <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.167 6.656 3.58 9 3.58z"/>
             </svg>
-            <span id="registroGoogleLabel">Continue with Google</span>
+            <span id="loginGoogleLabel">Continue with Google</span>
           </a>
-          <p class="auth-status" id="registroContratistaStatus" hidden></p>
-        </form>
+        </div>
+        <p class="auth-switch" id="authPie">
+          <button class="auth-link" type="button" id="authCambiarCuenta">Don't have an account? Sign up</button>
+        </p>
+        <p class="auth-legacy" id="authLegacy">
+          <button class="auth-link" type="button" id="crearContrasenaBtn">Create password</button>
+        </p>
         <div id="sesionContratista" hidden>
           <h3 id="sesionTitulo">Log in</h3>
           <p id="sesionContratistaTexto"></p>
@@ -5249,6 +5246,7 @@
       const error=hash.get('error_description')||q.get('error_description')||hash.get('error')||q.get('error')||'';
       if(path!=='/auth/callback' && path!=='/restablecer' && tipo!=='recovery'){
         if(code){
+          window.__oauthEnCurso=true;
           location.replace('/auth/callback?code='+encodeURIComponent(code));
           return;
         }
@@ -7300,23 +7298,28 @@
     document.querySelector('#businessForm').addEventListener('submit',event=>{ event.preventDefault(); saveBusinessProfile(); });
     document.querySelector('#saveClientButton').addEventListener('click',saveCurrentClient);
     document.querySelector('#selectorClientes').addEventListener('change',event=>{ if(!event.target.value)return; const clients=JSON.parse(localStorage.getItem(savedClientsStorageKey)||'[]'); if(clients[event.target.value]) fillClient(clients[event.target.value]); });
-    const savedPaymentMethods=JSON.parse(localStorage.getItem(paymentMethodsStorageKey)||'null');
+    let savedPaymentMethods=null;
+    try{ savedPaymentMethods=JSON.parse(localStorage.getItem(paymentMethodsStorageKey)||'null'); }catch(_){ savedPaymentMethods=null; }
     if(savedPaymentMethods) document.querySelectorAll('.payment-method-toggle').forEach(toggle=>{ if(savedPaymentMethods[toggle.dataset.paymentMethod]!==undefined) toggle.checked=savedPaymentMethods[toggle.dataset.paymentMethod]; });
     document.querySelectorAll('.payment-method-toggle').forEach(toggle=>toggle.addEventListener('change',updatePaymentMethods));
     updatePaymentMethods();
     const savedCompanyName=localStorage.getItem(companyStorageKey);
-    if(savedCompanyName!==null) document.querySelector('#company').value=savedCompanyName;
-    const savedBusinessProfile=JSON.parse(localStorage.getItem(businessProfileStorageKey)||'null');
+    const companyField=document.querySelector('#company');
+    if(savedCompanyName!==null&&companyField) companyField.value=savedCompanyName;
+    let savedBusinessProfile=null;
+    try{ savedBusinessProfile=JSON.parse(localStorage.getItem(businessProfileStorageKey)||'null'); }catch(_){ savedBusinessProfile=null; }
     if(savedBusinessProfile) applyBusinessProfile(savedBusinessProfile);
-    document.querySelector('#company').addEventListener('input',syncCompanyName);
+    if(companyField) companyField.addEventListener('input',syncCompanyName);
     aplicarMarcaBlanca(window.__NOMBRE_EMPRESA__||document.getElementById('company')?.value||'');
     const TEXTOS_AUTH={
       en:{
         nav:'Log in', tabLogin:'Log in', tabReg:'Create account', loginTitle:'Log in',
-        loginLead:'Sign in with the email and password for your company.',
         email:'Email', password:'Password', company:'Company name', confirm:'Confirm password',
         submitLogin:'Log in', submitReg:'Create account', createPw:'Create password',
-        createPwLead:'If this company was created before passwords, set one now. After that, use Log in.',
+        noAccount:"Don't have an account? Sign up", hasAccount:'Already have an account? Log in',
+        badLogin:'Email or password is incorrect.', noAccountYet:'No company uses this email yet. Sign up.',
+        already:'This email already has an account. Use Log in.', alreadyPw:'This account already has a password. Use Log in.',
+        badEmail:'Enter a valid email.',
         regTitle:'Create account', regLead:'Enter your company name. Clients will only see this name on estimates and contracts.',
         logout:'Log out', session:'Signed in as {email}', saving:'Signing in…', creating:'Creating account…',
         setting:'Saving password…', signed:'Signed in. Client documents will show this name.',
@@ -7334,10 +7337,12 @@
       },
       es:{
         nav:'Iniciar sesión', tabLogin:'Iniciar sesión', tabReg:'Crear cuenta', loginTitle:'Iniciar sesión',
-        loginLead:'Entra con el correo y la contraseña de tu empresa.',
         email:'Correo', password:'Contraseña', company:'Nombre de la empresa', confirm:'Confirmar contraseña',
         submitLogin:'Iniciar sesión', submitReg:'Crear cuenta', createPw:'Crear contraseña',
-        createPwLead:'Si la empresa se creó antes de usar contraseñas, crea una ahora. Después entra con Iniciar sesión.',
+        noAccount:'¿No tienes cuenta? Regístrate', hasAccount:'¿Ya tienes cuenta? Inicia sesión',
+        badLogin:'El correo o la contraseña no son correctos.', noAccountYet:'No hay una empresa con ese correo. Regístrate.',
+        already:'Ese correo ya tiene una cuenta. Inicia sesión.', alreadyPw:'Esa cuenta ya tiene contraseña. Inicia sesión.',
+        badEmail:'Escribe un correo válido.',
         regTitle:'Crear cuenta', regLead:'Escribe el nombre de la empresa. Los clientes solo verán este nombre en estimados y contratos.',
         logout:'Cerrar sesión', session:'Sesión iniciada como {email}', saving:'Entrando…', creating:'Creando cuenta…',
         setting:'Guardando contraseña…', signed:'Sesión iniciada. Los documentos del cliente mostrarán este nombre.',
@@ -7368,16 +7373,13 @@
       poner('authTabLogin', t.tabLogin);
       poner('authTabRegistro', t.tabReg);
       poner('loginTitulo', t.loginTitle);
-      poner('loginLead', t.loginLead);
       poner('loginEmailLabel', t.email);
       poner('loginPasswordLabel', t.password);
       poner('loginSubmit', t.submitLogin);
       poner('loginRecordarmeLabel', t.remember);
       poner('olvideContrasenaBtn', t.forgot);
       poner('authDivider', t.or);
-      poner('registroDivider', t.or);
       poner('loginGoogleLabel', t.google);
-      poner('registroGoogleLabel', t.google);
       poner('recuperarTitulo', t.resetTitle);
       poner('recuperarLead', t.resetLead);
       poner('recuperarEmailLabel', t.email);
@@ -7390,7 +7392,8 @@
       poner('restablecerSubmit', t.savePassword);
       poner('restablecerVolver', t.back);
       poner('crearContrasenaBtn', t.createPw);
-      poner('loginCreateLead', t.createPwLead);
+      const registroVisible=document.getElementById('registroContratistaForm');
+      poner('authCambiarCuenta', registroVisible&&!registroVisible.hidden ? t.hasAccount : t.noAccount);
       poner('registroTitulo', t.regTitle);
       poner('registroLead', t.regLead);
       poner('registroNombreLabel', t.company);
@@ -7420,6 +7423,16 @@
       if(restablecer) restablecer.hidden=modo!=='restablecer';
       if(tabs) tabs.hidden=modo==='recuperar'||modo==='restablecer';
       if(kicker) kicker.hidden=modo==='recuperar'||modo==='restablecer';
+      const google=document.getElementById('authGoogleBloque');
+      const pie=document.getElementById('authPie');
+      const legacy=document.getElementById('authLegacy');
+      const fuera=modo==='recuperar'||modo==='restablecer';
+      if(google) google.hidden=fuera;
+      if(pie) pie.hidden=fuera;
+      if(legacy) legacy.hidden=modo!=='login';
+      const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+      const cambiar=document.getElementById('authCambiarCuenta');
+      if(cambiar) cambiar.textContent=modo==='registro'?t.hasAccount:t.noAccount;
       document.getElementById('authTabLogin')?.classList.toggle('is-active', modo==='login');
       document.getElementById('authTabRegistro')?.classList.toggle('is-active', modo==='registro');
     }
@@ -7432,12 +7445,18 @@
       const tabs=document.getElementById('authTabs');
       const texto=document.getElementById('sesionContratistaTexto');
       const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+      const google=document.getElementById('authGoogleBloque');
+      const pie=document.getElementById('authPie');
+      const legacy=document.getElementById('authLegacy');
       if(row&&row.id){
         if(login) login.hidden=true;
         if(registro) registro.hidden=true;
         if(recuperar) recuperar.hidden=true;
         if(restablecer) restablecer.hidden=true;
         if(tabs) tabs.hidden=true;
+        if(google) google.hidden=true;
+        if(pie) pie.hidden=true;
+        if(legacy) legacy.hidden=true;
         if(sesion){ sesion.hidden=false; sesion.dataset.email=row.email||''; }
         if(texto) texto.textContent=t.session.replace('{email}', row.email||'');
         return;
@@ -7485,6 +7504,19 @@
       sessionStorage.setItem('auth_pkce_verifier', verifier);
       return challenge;
     }
+    function mensajeErrorAuth(json, fallback){
+      const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+      const code=String((json&&json.code)||'');
+      const mapa={
+        credenciales:t.badLogin,
+        sin_cuenta:t.noAccountYet,
+        already_registered:t.already,
+        auth_existe:t.alreadyPw,
+        password:t.short,
+        email:t.badEmail
+      };
+      return mapa[code]||(json&&json.error)||fallback;
+    }
     async function enviarAuth(url, body, statusId, espera, ok, recordar){
       const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
       if(String(body.password||'').length<8){
@@ -7492,8 +7524,6 @@
         return;
       }
       marcarEstadoAuth(statusId, espera, false);
-      borrarTokenContratistaLocal();
-      await fetch('/api/contratistas/sesion',{method:'DELETE',credentials:'same-origin'}).catch(()=>{});
       const res=await fetch(url,{
         method:'POST',
         credentials:'same-origin',
@@ -7501,13 +7531,18 @@
         body:JSON.stringify(body)
       });
       const json=await res.json().catch(()=>({}));
-      if(!res.ok||!json.token) throw new Error(json.error||t.needLogin);
+      if(!res.ok||!json.token) throw new Error(mensajeErrorAuth(json, t.needLogin));
+      borrarTokenContratistaLocal();
       guardarSesionContratista(json, recordar!==false);
       marcarEstadoAuth(statusId, ok, false);
     }
     aplicarTextosAuth();
     document.getElementById('authTabLogin')?.addEventListener('click',()=>mostrarPanelAuth('login'));
     document.getElementById('authTabRegistro')?.addEventListener('click',()=>mostrarPanelAuth('registro'));
+    document.getElementById('authCambiarCuenta')?.addEventListener('click',()=>{
+      const registro=document.getElementById('registroContratistaForm');
+      mostrarPanelAuth(registro&&!registro.hidden?'login':'registro');
+    });
     document.getElementById('olvideContrasenaBtn')?.addEventListener('click',()=>{
       const origen=document.getElementById('loginEmail');
       const destino=document.getElementById('recuperarEmail');
@@ -7640,7 +7675,7 @@
       }
     });
     document.getElementById('cerrarSesionBtn')?.addEventListener('click',cerrarSesionActual);
-    leerContratistaActual().then(row=>{
+    if(!window.__oauthEnCurso) leerContratistaActual().then(row=>{
       sesionActual=row&&row.id?row:null;
       sesionLista=true;
       if(sesionActual&&sesionActual.nombre_empresa) aplicarMarcaBlanca(sesionActual.nombre_empresa);

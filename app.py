@@ -2830,10 +2830,12 @@ def _crear_usuario_auth(email, password, nombre):
 
 
 def _verificar_contrasena(email, password):
+    publica = _clave_publica_supabase()
+    clave = publica if publica and _tipo_clave_supabase(publica) != "service" else None
     status, data = _auth_http("POST", "/auth/v1/token?grant_type=password", {
         "email": email,
         "password": password,
-    })
+    }, clave=clave)
     if status == 200 and (data.get("access_token") or data.get("user")):
         return data
     msg = _mensaje_auth(data).lower()
@@ -3621,11 +3623,9 @@ def _cookie_oauth(respuesta, verifier):
         "secure": seguro,
         "path": "/",
     }
+    respuesta.set_cookie(COOKIE_OAUTH, verifier, **kwargs)
     if _es_dominio_app():
-        respuesta.delete_cookie(COOKIE_OAUTH, path="/", samesite="Lax", secure=seguro)
         respuesta.set_cookie(COOKIE_OAUTH, verifier, domain="." + DOMINIO_APP, **kwargs)
-    else:
-        respuesta.set_cookie(COOKIE_OAUTH, verifier, **kwargs)
     return respuesta
 
 
@@ -3656,15 +3656,13 @@ def _oauth_login_fallo():
     return _olvidar_cookie_oauth(resp)
 
 
-def _pagina_puente(destino_js, destino_html, verifier=""):
-    import html as html_lib
+def _pagina_puente(destino, verifier=""):
     guardar = ""
     if verifier:
         guardar = f"try{{sessionStorage.setItem('oauth_pkce_verifier',{json.dumps(verifier)});}}catch(e){{}}"
     pagina = (
         "<!doctype html><html><head><meta charset=\"utf-8\">"
-        f"<meta http-equiv=\"refresh\" content=\"0;url={html_lib.escape(destino_html, quote=True)}\">"
-        f"<script>{guardar}location.replace({json.dumps(destino_js)});</script>"
+        f"<script>{guardar}location.replace({json.dumps(destino)});</script>"
         "</head><body></body></html>"
     )
     resp = Response(pagina, mimetype="text/html")
@@ -3685,13 +3683,14 @@ var code=q.get("code")||h.get("code")||"";
 var token=h.get("access_token")||"";
 var err=q.get("error_description")||h.get("error_description")||q.get("error")||h.get("error")||"";
 var verifier="";
-try{verifier=sessionStorage.getItem("oauth_pkce_verifier")||"";sessionStorage.removeItem("oauth_pkce_verifier");}catch(e){}
+try{verifier=sessionStorage.getItem("oauth_pkce_verifier")||"";}catch(e){}
 if((err&&!code&&!token)||(!code&&!token)){location.replace("/login?aviso=google");}
 else{
   var extra=document.createElement("input");
   extra.type="hidden";
   extra.name="code_verifier";
   extra.value=verifier;
+  if(verifier){try{sessionStorage.removeItem("oauth_pkce_verifier");}catch(e){}}
   var form=document.getElementById("completar");
   form.appendChild(extra);
   document.getElementById("code").value=code;
@@ -3702,13 +3701,6 @@ else{
     resp = Response(pagina, mimetype="text/html")
     resp.headers["Cache-Control"] = "no-store"
     return resp
-
-
-_PARAMS_GOOGLE_OAUTH = {
-    "client_id", "redirect_uri", "response_type", "scope", "state",
-    "nonce", "code_challenge", "code_challenge_method", "access_type",
-    "prompt", "include_granted_scopes", "login_hint", "hd",
-}
 
 
 def _url_oauth_google_cliente(redirect_to):
@@ -3732,57 +3724,16 @@ def _url_oauth_google_cliente(redirect_to):
     return url, verifier
 
 
-def _seguir_autorizacion_google(url_authorize):
-    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
-    publica = _clave_publica_supabase()
-    if not url_authorize or not publica or _tipo_clave_supabase(publica) == "service":
-        return ""
-    import httpx
-    headers = {"apikey": publica, "Authorization": "Bearer " + publica}
-    res = None
-    ultimo = ""
-    for _ in range(2):
-        try:
-            with httpx.Client(verify=False, timeout=30.0, follow_redirects=False) as http:
-                res = http.get(url_authorize, headers=headers)
-            break
-        except Exception as err:
-            ultimo = type(err).__name__
-            res = None
-    if res is None:
-        print(f"--> oauth google authorize {ultimo}")
-        return ""
-    parts = urlsplit(res.headers.get("location") or "")
-    if "accounts.google.com" not in (parts.netloc or ""):
-        print(f"--> oauth google authorize status={res.status_code}")
-        return ""
-    limpios = []
-    for clave, valor in parse_qsl(parts.query, keep_blank_values=True):
-        if clave not in _PARAMS_GOOGLE_OAUTH:
-            continue
-        if clave == "scope":
-            vistos = []
-            for token in str(valor or "").split():
-                if token not in vistos:
-                    vistos.append(token)
-            valor = " ".join(vistos)
-        limpios.append((clave, valor))
-    if not limpios:
-        return ""
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(limpios), ""))
-
-
 @app.route("/api/contratistas/oauth/google")
 def api_oauth_google():
     url, _key = _supabase_creds()
     if not url:
         return redirect("/login?aviso=config")
     authorize, verifier = _url_oauth_google_cliente(_origen_publico() + "/auth/callback")
-    destino = _seguir_autorizacion_google(authorize)
-    if not destino or not verifier:
-        print(f"--> oauth google inicio incompleto destino={bool(destino)} verifier={bool(verifier)}")
+    if not authorize or not verifier or "code_challenge=" not in authorize:
+        print(f"--> oauth google inicio incompleto destino={bool(authorize)} verifier={bool(verifier)}")
         return redirect("/login?aviso=config")
-    resp = _pagina_puente(destino, destino, verifier)
+    resp = _pagina_puente(authorize, verifier)
     return _cookie_oauth(resp, verifier)
 
 
@@ -3795,8 +3746,9 @@ def _pagina_completar_pkce(code):
 </form>
 <script>
 var verifier="";
-try{{verifier=sessionStorage.getItem("oauth_pkce_verifier")||"";sessionStorage.removeItem("oauth_pkce_verifier");}}catch(e){{}}
+try{{verifier=sessionStorage.getItem("oauth_pkce_verifier")||"";}}catch(e){{}}
 document.getElementById("code_verifier").value=verifier;
+if(verifier){{try{{sessionStorage.removeItem("oauth_pkce_verifier");}}catch(e){{}}}}
 document.getElementById("completar").submit();
 </script></body></html>"""
     resp = Response(pagina, mimetype="text/html")
@@ -3822,6 +3774,15 @@ def auth_callback():
     if request.method == "GET" and not code and not access:
         return _pagina_callback_hash()
     if request.method == "GET" and code and not access:
+        verifier = str(request.cookies.get(COOKIE_OAUTH) or "").strip()
+        if verifier:
+            try:
+                print(f"oauth callback code=True verifier=True")
+                row = sesion_oauth_google(code, verifier)
+            except Exception as e:
+                print(e)
+                return _oauth_login_fallo()
+            return _oauth_entrar(row)
         return _pagina_completar_pkce(code)
     try:
         if access:
