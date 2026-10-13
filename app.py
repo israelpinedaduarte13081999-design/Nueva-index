@@ -2022,6 +2022,83 @@ def _consulta_medida_plano(q):
     return ""
 
 
+_CATALOGO_INDICE = {"id": None, "tokens": {}}
+_INDICE_CATALOGO_LOCK = threading.Lock()
+
+
+def _indice_busqueda_catalogo(filas):
+    marca = id(filas)
+    if _CATALOGO_INDICE.get("id") == marca:
+        return _CATALOGO_INDICE["tokens"]
+    with _INDICE_CATALOGO_LOCK:
+        if _CATALOGO_INDICE.get("id") == marca:
+            return _CATALOGO_INDICE["tokens"]
+        tokens = {}
+        for i, row in enumerate(filas):
+            if not isinstance(row, dict):
+                continue
+            blob = row.get("_busca")
+            if not isinstance(blob, str) or not blob:
+                blob = _sin_acentos(_texto_item_catalogo(row))
+                row["_busca"] = blob
+            for tok in set(re.findall(r"[a-z0-9]{3,}", blob)):
+                bucket = tokens.get(tok)
+                if bucket is None:
+                    tokens[tok] = [i]
+                else:
+                    bucket.append(i)
+            codigo = re.sub(r"[^a-z0-9]", "", _sin_acentos(row.get("codigo") or row.get("code") or ""))
+            if len(codigo) >= 3:
+                bucket = tokens.get(codigo)
+                if bucket is None:
+                    tokens[codigo] = [i]
+                elif i not in bucket:
+                    bucket.append(i)
+        _CATALOGO_INDICE["id"] = marca
+        _CATALOGO_INDICE["tokens"] = tokens
+        return tokens
+
+
+def _postings_catalogo(indice, plano):
+    exacto = indice.get(plano)
+    if exacto:
+        return exacto
+    if len(plano) < 4:
+        return []
+    unidos = []
+    for clave, hits in indice.items():
+        if clave.startswith(plano):
+            unidos.extend(hits)
+            if len(unidos) >= 400:
+                break
+    return unidos
+
+
+def _candidatos_indice_catalogo(filas, tokens):
+    indice = _indice_busqueda_catalogo(filas)
+    listas = []
+    for token in tokens or []:
+        plano = _sin_acentos(token)
+        if len(plano) < 3:
+            continue
+        hits = _postings_catalogo(indice, plano)
+        if hits:
+            listas.append(hits)
+    if not listas:
+        return []
+    listas.sort(key=len)
+    elegidos = set(listas[0])
+    for extra in listas[1:]:
+        if len(elegidos) <= 400:
+            break
+        comun = elegidos.intersection(extra)
+        if len(comun) >= 8:
+            elegidos = comun
+    if len(elegidos) > 400:
+        elegidos = set(list(elegidos)[:400])
+    return [filas[i] for i in elegidos if 0 <= i < len(filas)]
+
+
 def _filas_catalogo_locales(q, unidad="", limite=80):
     """El catálogo ya cabe en memoria. Buscar ahí evita varias consultas lentas a Supabase."""
     from oficios import todas_filas_catalogo
@@ -2031,9 +2108,13 @@ def _filas_catalogo_locales(q, unidad="", limite=80):
     if not filas or not consulta:
         return []
     tokens = _tokens_busqueda_catalogo(consulta)
+    compacto = re.sub(r"[^a-z0-9]", "", _sin_acentos(consulta))
+    if len(compacto) >= 3 and compacto not in tokens:
+        tokens = list(tokens) + [compacto]
     unidad_q = str(unidad or "").upper()
+    candidatos = _candidatos_indice_catalogo(filas, tokens)
     puntuadas = []
-    for row in filas:
+    for row in candidatos:
         score = _puntaje_coincidencia_catalogo(row, consulta, tokens, unidad_q)
         if score < 8:
             continue
@@ -3990,7 +4071,7 @@ def _cargar_cache_traduccion():
     if _CACHE_TRADUCCION_IDIOMA:
         return
     try:
-        if _CACHE_TRAD_RUTA.is_file():
+        if _CACHE_TRAD_RUTA.is_file() and _CACHE_TRAD_RUTA.stat().st_size <= 2_000_000:
             data = json.loads(_CACHE_TRAD_RUTA.read_text(encoding="utf-8"))
             if isinstance(data, dict):
                 _CACHE_TRADUCCION_IDIOMA.update({k: v for k, v in data.items() if isinstance(v, str) and v})
@@ -4020,8 +4101,10 @@ def _traducir_lote_openai(textos, destino, timeout=25.0, modelos=None):
     verify = (os.getenv("GEMINI_SSL_VERIFY") or "1").strip().lower() not in ("0", "false", "no", "off")
     ultimo = None
     import httpx
+    segundos = min(float(timeout or 8), 8.0)
+    limite_http = httpx.Timeout(segundos, connect=3.0)
 
-    with httpx.Client(verify=verify, timeout=float(timeout or 25)) as http:
+    with httpx.Client(verify=verify, timeout=limite_http) as http:
         for modelo in (modelos or ("gpt-4o-mini", "gpt-4.1-mini", "gpt-4o")):
             try:
                 resp = http.post(
@@ -4162,24 +4245,8 @@ def _items_en_idioma_busqueda(items, idioma):
         else:
             pendientes.append(original)
     if pendientes and not finales:
-        try:
-            trads = _traducir_lote_openai(pendientes[:24], idioma, timeout=6, modelos=("gpt-4o-mini",))
-        except Exception as err:
-            print(f"--> traducir catalogo: {err}")
-            trads = []
-        por_texto = {}
-        for pos, texto in enumerate(pendientes[:24]):
-            trad = trads[pos] if pos < len(trads) else ""
-            if trad and _idioma_de_texto(trad) == idioma:
-                por_texto[texto] = trad
-        for item in items or []:
-            original = str(item.get("descripcion") or item.get("desc") or "").strip()
-            trad = por_texto.get(original) or ""
-            if not trad:
-                continue
-            _aplicar_texto_idioma(item, original, trad, idioma)
-            finales.append(item)
-        return finales[:50], False
+        _encolar_traduccion(pendientes[:24], idioma)
+        return list(items or [])[:50], True
     if pendientes:
         _encolar_traduccion(pendientes, idioma)
     return finales[:50], False
@@ -4473,16 +4540,17 @@ def buscar_catalogo():
         unidad_q = (request.args.get("unidad") or request.args.get("unit") or "").upper()
         filas = []
         ultimo_err = None
-        from oficios import esperar_catalogo
-        if not (esperar_catalogo(4) or []):
+        from oficios import catalogo_en_carga, todas_filas_catalogo
+        if not (todas_filas_catalogo() or []):
+            cargando = bool(catalogo_en_carga())
             payload = {
                 "success": True,
                 "items": [],
                 "count": 0,
                 "idioma": idioma,
                 "traduciendo": False,
-                "cargando": False,
-                "listo": True,
+                "cargando": cargando,
+                "listo": not cargando,
             }
             resp = jsonify(payload)
             resp.headers["Access-Control-Allow-Origin"] = "*"
@@ -4568,7 +4636,7 @@ def buscar_catalogo():
             item["precio_zona"] = round(base * factor, 2)
             item["ajuste_zip"] = True
             item["fuente"] = item.get("fuente") or "supabase"
-        items, _ = _items_en_idioma_busqueda(items, idioma)
+        items, traduciendo = _items_en_idioma_busqueda(items, idioma)
         print(f"--> catálogo supabase q='{q_match}' idioma={idioma} filas={len(filas)} items={len(items)}")
         if not items and str(request.args.get("registrar_faltante") or "") in ("1", "true", "si", "yes"):
             registrar_item_faltante(q, oficio, zona.get("zip") or zip_q)
@@ -4577,7 +4645,7 @@ def buscar_catalogo():
             "items": items,
             "count": len(items),
             "idioma": idioma,
-            "traduciendo": False,
+            "traduciendo": bool(traduciendo),
             "cargando": False,
             "listo": True,
         }

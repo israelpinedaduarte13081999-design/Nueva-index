@@ -295,18 +295,20 @@ def _descargar_filas_catalogo():
     ctx = ssl._create_unverified_context()
     offset = 0
     error = False
-    while True:
+    vistos = set()
+    for _pagina in range(40):
         params = {
             "select": "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra",
             "activo": "eq.true",
             "order": "id.asc",
-            "limit": "1000",
-            "offset": str(offset),
         }
         query = urllib.parse.urlencode(params, safe="(),.*")
-        req = urllib.request.Request(f"{url}/rest/v1/catalogo_items?{query}", headers=headers)
+        req = urllib.request.Request(
+            f"{url}/rest/v1/catalogo_items?{query}",
+            headers={**headers, "Range-Unit": "items", "Range": f"{offset}-{offset + 999}"},
+        )
         try:
-            with urllib.request.urlopen(req, timeout=12, context=ctx) as resp:
+            with urllib.request.urlopen(req, timeout=8, context=ctx) as resp:
                 lote = json.loads(resp.read().decode("utf-8") or "[]")
         except Exception as err:
             print(f"oficios catalogo: {err}")
@@ -314,6 +316,11 @@ def _descargar_filas_catalogo():
             break
         if not isinstance(lote, list) or not lote:
             break
+        primero = str((lote[0] or {}).get("id") or "")
+        if primero and primero in vistos:
+            break
+        if primero:
+            vistos.add(primero)
         filas.extend(lote)
         if len(lote) < 1000:
             break
