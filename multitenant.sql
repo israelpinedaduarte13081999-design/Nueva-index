@@ -54,6 +54,45 @@ alter table public.contratistas enable row level security;
 revoke all on table public.historial_estimados from anon, authenticated;
 revoke all on table public.contratistas from anon, authenticated;
 
+-- contratistas: RLS queda activo. anon/authenticated no tienen DML directo.
+-- El 42501 "new row violates row-level security policy" aparece cuando el
+-- INSERT REST no corre como service_role: no hay política que acepte la fila
+-- (deny-all implícito) o una política authenticated con auth.uid() = id falla
+-- porque contratistas.id no es auth.users.id.
+grant select, insert, update on table public.contratistas to service_role;
+
+drop policy if exists contratistas_service_select on public.contratistas;
+drop policy if exists contratistas_service_insert on public.contratistas;
+drop policy if exists contratistas_service_update on public.contratistas;
+drop policy if exists "Enable insert for authenticated users only" on public.contratistas;
+drop policy if exists "Enable read access for all users" on public.contratistas;
+
+create policy contratistas_service_select
+  on public.contratistas
+  for select
+  to service_role
+  using (true);
+
+create policy contratistas_service_insert
+  on public.contratistas
+  for insert
+  to service_role
+  with check (
+    email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'
+    and token is not null
+    and char_length(token) >= 32
+  );
+
+create policy contratistas_service_update
+  on public.contratistas
+  for update
+  to service_role
+  using (true)
+  with check (
+    email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'
+    and token is not null
+  );
+
 create or replace function public.registrar_contratista(p_email text, p_nombre text)
 returns jsonb
 language plpgsql
