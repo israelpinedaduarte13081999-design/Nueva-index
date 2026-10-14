@@ -3014,12 +3014,21 @@ def asegurar_contratista_oauth(email, nombre):
             return row
     except Exception as err:
         texto = str(err or "")
+        print(f"--> oauth registrar contratista {type(err).__name__}: {err}")
         if "already_registered" in texto or re.search(r"duplicate key|contratistas_email", texto, re.I):
             row = _contratista_por_email_tabla(sb, email)
             if row and row.get("token"):
                 return row
-        if not _error_sin_funcion_tenant(err):
-            raise
+        if not (
+            _error_sin_funcion_tenant(err)
+            or "invalid_contractor" in texto
+            or re.search(r"not-null|null value", texto, re.I)
+        ):
+            try:
+                return _registrar_contratista_tabla(sb, email, nombre)
+            except Exception as fallback:
+                print(f"--> oauth registrar tabla {type(fallback).__name__}: {fallback}")
+                raise err
     return _registrar_contratista_tabla(sb, email, nombre)
 
 
@@ -3077,6 +3086,12 @@ def _modelo_auth_dict(obj):
     return {}
 
 
+def _redirect_oauth():
+    if _es_dominio_app():
+        return "https://" + DOMINIO_APP + "/auth/callback"
+    return _origen_publico() + "/auth/callback"
+
+
 def _cliente_auth_oauth():
     url, servicio = _supabase_creds()
     publica = _clave_publica_supabase()
@@ -3094,7 +3109,7 @@ def _intercambiar_codigo_cliente(code, verifier):
             "code_verifier": verifier,
         })
     except Exception as e:
-        print(e)
+        print(f"--> oauth cliente intercambio {_detalle_error(e)}")
         raise
     sesion = getattr(respuesta, "session", None)
     access = getattr(sesion, "access_token", None) if sesion is not None else None
@@ -3119,6 +3134,7 @@ def _intercambiar_codigo_pkce(code, verifier):
         error_cliente = e
     cuerpo = {"auth_code": code, "code_verifier": verifier}
     ultimo_status = 0
+    ultimo_msg = ""
     for clave in _claves_intercambio_oauth():
         status, data = _auth_http(
             "POST",
@@ -3129,12 +3145,13 @@ def _intercambiar_codigo_pkce(code, verifier):
         if status == 200 and data.get("access_token"):
             return data
         ultimo_status = status
-        print(f"--> oauth google intercambio status={status} msg={_mensaje_auth(data)[:180]}")
+        ultimo_msg = _mensaje_auth(data)
+        print(f"--> oauth google intercambio status={status} msg={ultimo_msg[:180]}")
     if error_cliente:
         raise error_cliente
     if not ultimo_status:
         raise ErrorAuth("config", "Supabase no configurado", 503)
-    raise ErrorAuth("oauth", "Could not finish Google sign-in.", 401)
+    raise ErrorAuth("oauth", f"Could not finish Google sign-in. status={ultimo_status} {ultimo_msg[:160]}", 401)
 
 
 def _sesion_contratista_oauth(access_token, user=None):
@@ -3851,7 +3868,6 @@ else{
   extra.type="hidden";
   extra.name="code_verifier";
   extra.value=verifier;
-  if(verifier){try{sessionStorage.removeItem("oauth_pkce_verifier");}catch(e){}}
   var form=document.getElementById("completar");
   form.appendChild(extra);
   document.getElementById("code").value=code;
@@ -3890,7 +3906,7 @@ def api_oauth_google():
     url, _key = _supabase_creds()
     if not url:
         return redirect("/login?aviso=config")
-    authorize, verifier = _url_oauth_google_cliente(_origen_publico() + "/auth/callback")
+    authorize, verifier = _url_oauth_google_cliente(_redirect_oauth())
     if not authorize or not verifier or "code_challenge=" not in authorize:
         print(f"--> oauth google inicio incompleto destino={bool(authorize)} verifier={bool(verifier)}")
         return redirect("/login?aviso=config")
@@ -3909,7 +3925,6 @@ def _pagina_completar_pkce(code):
 var verifier="";
 try{{verifier=sessionStorage.getItem("oauth_pkce_verifier")||"";}}catch(e){{}}
 document.getElementById("code_verifier").value=verifier;
-if(verifier){{try{{sessionStorage.removeItem("oauth_pkce_verifier");}}catch(e){{}}}}
 document.getElementById("completar").submit();
 </script></body></html>"""
     resp = Response(pagina, mimetype="text/html")
@@ -3917,17 +3932,55 @@ document.getElementById("completar").submit();
     return resp
 
 
-def _verifier_oauth_solicitud():
-    enviado = str(request.values.get("code_verifier") or "").strip()
-    if enviado:
-        return enviado
-    return str(request.cookies.get(COOKIE_OAUTH) or "").strip()
+def _verifiers_oauth_solicitud():
+    vistos = []
+    for valor in (request.values.get("code_verifier"), request.cookies.get(COOKIE_OAUTH)):
+        texto = str(valor or "").strip()
+        if texto and texto not in vistos:
+            vistos.append(texto)
+    return vistos
+
+
+def _error_intercambio_pkce(err):
+    codigo = str(getattr(err, "code", "") or "")
+    if codigo in ("oauth_email", "sin_cuenta", "already_registered", "config"):
+        return False
+    texto = str(err or "").lower()
+    return (
+        codigo in ("oauth", "enlace")
+        or "invalid flow" in texto
+        or "flow state" in texto
+        or "code verifier" in texto
+        or "authapierror" in texto
+    )
+
+
+def _sesion_oauth_con_verifiers(code, verifiers):
+    ultimo = None
+    for verifier in verifiers:
+        try:
+            return sesion_oauth_google(code, verifier)
+        except Exception as err:
+            ultimo = err
+            print(f"--> oauth verifier intento {_detalle_error(err)}")
+            if not _error_intercambio_pkce(err):
+                raise
+    if ultimo:
+        raise ultimo
+    raise ErrorAuth("enlace", "The Google sign-in expired. Try again.", 400)
 
 
 @app.route("/auth/callback", methods=["GET", "POST"])
 def auth_callback():
+    import traceback
     code = str(request.values.get("code") or request.values.get("auth_code") or "").strip()
     access = str(request.values.get("access_token") or "").strip()
+    cookie_verifier = bool(str(request.cookies.get(COOKIE_OAUTH) or "").strip())
+    form_verifier = bool(str(request.values.get("code_verifier") or "").strip())
+    print(
+        f"--> oauth callback method={request.method} code={bool(code)} "
+        f"access={bool(access)} cookie={cookie_verifier} form_verifier={form_verifier}"
+    )
     if request.method == "GET" and (request.args.get("error") or request.args.get("error_description")) and not code and not access:
         print(request.args.get("error"))
         print(request.args.get("error_description"))
@@ -3935,25 +3988,16 @@ def auth_callback():
     if request.method == "GET" and not code and not access:
         return _pagina_callback_hash()
     if request.method == "GET" and code and not access:
-        verifier = str(request.cookies.get(COOKIE_OAUTH) or "").strip()
-        if verifier:
-            try:
-                print(f"oauth callback code=True verifier=True")
-                row = sesion_oauth_google(code, verifier)
-            except Exception as e:
-                print(e)
-                return _oauth_login_fallo()
-            return _oauth_entrar(row)
         return _pagina_completar_pkce(code)
     try:
         if access:
             row = sesion_desde_token_google(access)
         else:
-            verifier = _verifier_oauth_solicitud()
-            print(f"oauth callback code={bool(code)} verifier={bool(verifier)}")
-            row = sesion_oauth_google(code, verifier)
+            verifiers = _verifiers_oauth_solicitud()
+            row = _sesion_oauth_con_verifiers(code, verifiers)
     except Exception as e:
-        print(e)
+        print(f"--> oauth callback post {_detalle_error(e)}")
+        traceback.print_exc()
         return _oauth_login_fallo()
     return _oauth_entrar(row)
 

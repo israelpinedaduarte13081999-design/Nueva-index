@@ -5397,6 +5397,7 @@
         if(aviso&&typeof marcarEstadoAuth==='function'){
           const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
           const mapa={google:t.oauthFail,oauth:t.oauthFail,config:t.oauthFail,enlace:t.linkExpired};
+          console.error('oauth aviso', aviso, location.href);
           marcarEstadoAuth('loginStatus', mapa[aviso]||t.oauthFail, true);
         }
         return;
