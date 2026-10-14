@@ -3167,12 +3167,21 @@ def _sesion_contratista_oauth(access_token, user=None):
 def sesion_oauth_google(code, verifier):
     code = str(code or "").strip()
     verifier = str(verifier or "").strip()
+    print(f"--> oauth sesion entra code={bool(code)} verifier={bool(verifier)} verifier_len={len(verifier)}")
     if not code or not verifier:
         print(f"--> oauth google incompleto code={bool(code)} verifier={bool(verifier)}")
         raise ErrorAuth("enlace", "The Google sign-in expired. Try again.", 400)
-    data = _intercambiar_codigo_pkce(code, verifier)
+    try:
+        data = _intercambiar_codigo_pkce(code, verifier)
+    except Exception as err:
+        _log_oauth_fallo("intercambio", err)
+        raise
     user = data.get("user") if isinstance(data.get("user"), dict) else None
-    return _sesion_contratista_oauth(data.get("access_token"), user)
+    try:
+        return _sesion_contratista_oauth(data.get("access_token"), user)
+    except Exception as err:
+        _log_oauth_fallo(_etapa_oauth(err), err, extra="despues_intercambio")
+        raise
 
 
 def sesion_desde_token_google(access_token):
@@ -3828,7 +3837,34 @@ def _oauth_entrar(row):
     return _adjuntar_sesion_contratista(resp, row.get("token"), persistir=True)
 
 
-def _oauth_login_fallo():
+def _log_oauth_fallo(etapa, err=None, extra=""):
+    tipo = type(err).__name__ if err is not None else ""
+    codigo = str(getattr(err, "code", "") or "")
+    status = getattr(err, "status", "")
+    detalle = _detalle_error(err) if err is not None else ""
+    print(
+        f"--> oauth fallo etapa={etapa} tipo={tipo} status={status} "
+        f"code={codigo} {extra} {detalle}".strip()
+    )
+
+
+def _etapa_oauth(err):
+    codigo = str(getattr(err, "code", "") or "")
+    texto = str(err or "").lower()
+    if codigo in ("oauth_email",):
+        return "email"
+    if codigo in ("sin_cuenta", "already_registered") or "contratista" in texto:
+        return "contratista"
+    if codigo in ("enlace", "oauth") or "flow" in texto or "verifier" in texto or "authapierror" in type(err).__name__.lower():
+        return "intercambio"
+    if codigo == "config":
+        return "config"
+    return codigo or "desconocido"
+
+
+def _oauth_login_fallo(etapa="desconocido", err=None):
+    _log_oauth_fallo(etapa, err)
+    print(f"--> oauth redirige /login?aviso=google desde etapa={etapa}")
     resp = redirect("/login?aviso=google")
     resp.headers["Cache-Control"] = "no-store"
     return _olvidar_cookie_oauth(resp)
@@ -3984,7 +4020,7 @@ def auth_callback():
     if request.method == "GET" and (request.args.get("error") or request.args.get("error_description")) and not code and not access:
         print(request.args.get("error"))
         print(request.args.get("error_description"))
-        return _oauth_login_fallo()
+        return _oauth_login_fallo("supabase_redirect")
     if request.method == "GET" and not code and not access:
         return _pagina_callback_hash()
     if request.method == "GET" and code and not access:
@@ -3998,7 +4034,7 @@ def auth_callback():
     except Exception as e:
         print(f"--> oauth callback post {_detalle_error(e)}")
         traceback.print_exc()
-        return _oauth_login_fallo()
+        return _oauth_login_fallo(_etapa_oauth(e), e)
     return _oauth_entrar(row)
 
 
