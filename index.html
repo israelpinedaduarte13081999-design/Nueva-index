@@ -2525,8 +2525,7 @@
     function redondearPrecio(n){ return Math.round((Number(n)||0)*100)/100; }
     function precioUnitarioDeItem(item){
       if(!item)return 0;
-      const suma=numeroPrecio(item.priceLabor)+numeroPrecio(item.priceMaterial)+numeroPrecio(item.priceDemo||item.precio_remocion);
-      return numeroPrecio(item.precio_base,item.precio_unitario,item.price,item.precio,item.precio_install,item.precioInstall,suma,item.precio_zona);
+      return numeroPrecio(item.precio_base,item.precio_unitario,item.price,item.precio,item.precio_zona);
     }
     function alcanceExclusivoDescripcion(texto){
       const t=String(texto||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -2536,51 +2535,12 @@
       return '';
     }
     function rolesDesdeItemCatalogo(item){
-      const paquete=precioUnitarioDeItem(item);
-      let labor=numeroPrecio(item&&item.priceLabor,item&&item.precio_labor,item&&item.precio_mano_obra);
-      let material=numeroPrecio(item&&item.priceMaterial,item&&item.precio_material);
-      let demo=numeroPrecio(item&&item.priceDemo,item&&item.precio_demo,item&&item.precio_remocion,item&&item.precioDemo);
-      let exclusivo=alcanceExclusivoDescripcion((item&&(item.desc||item.descripcion))||'');
-      if(!exclusivo&&paquete>0){
-        const nLab=labor>0?1:0, nMat=material>0?1:0, nDem=demo>0?1:0;
-        if(nLab+nMat+nDem===1){
-          if(nMat&&Math.abs(material-paquete)<=0.05)exclusivo='material';
-          else if(nLab&&Math.abs(labor-paquete)<=0.05)exclusivo='install';
-          else if(nDem&&Math.abs(demo-paquete)<=0.05)exclusivo='demo';
-        }
-      }
-      if(exclusivo==='material'){
-        material=material||paquete;
-        return {install:0,labor:0,material,demo:0,replace:0,paquete:material||paquete};
-      }
-      if(exclusivo==='install'){
-        labor=labor||paquete;
-        return {install:labor,labor,material:0,demo:0,replace:0,paquete:labor||paquete};
-      }
-      if(exclusivo==='demo'){
-        demo=demo||paquete;
-        return {install:0,labor:0,material:0,demo,replace:0,paquete:demo||paquete};
-      }
-      const conocidos=(labor>0?labor:0)+(material>0?material:0)+(demo>0?demo:0);
-      if(paquete>0){
-        if(!(labor>0&&material>0&&demo>0)&&conocidos>0&&conocidos<=paquete+0.05){
-          const falta=redondearPrecio(Math.max(0,paquete-conocidos));
-          if(!(labor>0))labor=falta;
-          else if(!(material>0))material=falta;
-          else if(!(demo>0))demo=falta;
-        }
-        if(!(labor>0))labor=redondearPrecio(paquete*0.45);
-        if(!(material>0))material=redondearPrecio(paquete*0.40);
-        if(!(demo>0))demo=redondearPrecio(Math.max(0.01,paquete-labor-material));
-        const suma=labor+material+demo;
-        if(suma>0&&Math.abs(suma-paquete)>0.02){
-          const f=paquete/suma;
-          labor=redondearPrecio(labor*f);
-          material=redondearPrecio(material*f);
-          demo=redondearPrecio(paquete-labor-material);
-        }
-      }
-      return {install:labor,labor,material,demo,replace:redondearPrecio(labor+demo),paquete};
+      const labor=numeroPrecio(item&&item.precio_mano_obra,item&&item.precio_labor,item&&item.priceLabor);
+      const material=numeroPrecio(item&&item.precio_material,item&&item.priceMaterial);
+      const demo=numeroPrecio(item&&item.precio_remocion,item&&item.precio_demo,item&&item.priceDemo,item&&item.precioDemo);
+      const suma=redondearPrecio(labor+material+demo);
+      const paquete=numeroPrecio(item&&item.precio_base,item&&item.precio_unitario,item&&item.price,item&&item.precio)||suma;
+      return {labor,material,demo,install:labor,replace:redondearPrecio(labor+demo),paquete};
     }
     function accionDesdeItemCatalogo(item){
       const exclusivo=alcanceExclusivoDescripcion((item&&(item.desc||item.descripcion))||'');
@@ -2663,47 +2623,47 @@
       });
       return roles;
     }
+    function topePaquete(valor,paquete){
+      const n=redondearPrecio(valor);
+      if(!(n>0))return 0;
+      if(paquete>0&&n>paquete+0.009)return paquete;
+      return n;
+    }
     function precioDesdeRolesVariantes(roles,accion){
       const r=roles||{};
-      const labor=numeroPrecio(r.labor,r.install);
+      const labor=numeroPrecio(r.labor);
       const demo=numeroPrecio(r.demo);
       const material=numeroPrecio(r.material);
       const paquete=numeroPrecio(r.paquete);
       const a=normalizarAccion(accion);
-      if(a==='demo')return demo||paquete;
-      if(a==='material')return material||paquete;
-      if(a==='install'||a==='labor')return labor||paquete;
-      if(a==='install_material'){
-        const suma=redondearPrecio((labor||0)+(material||0));
-        return suma||paquete;
-      }
-      if(a==='replace'){
-        const suma=redondearPrecio((demo||0)+(labor||0));
-        return suma||paquete;
-      }
-      if(a==='replace_material'){
-        const suma=redondearPrecio((demo||0)+(labor||0)+(material||0));
-        return suma||paquete;
-      }
-      return labor||paquete;
+      if(a==='replace_material')return paquete||redondearPrecio(labor+material+demo);
+      if(a==='install_material')return topePaquete(material+labor,paquete);
+      if(a==='replace')return topePaquete(demo+labor,paquete);
+      if(a==='material')return topePaquete(material,paquete);
+      if(a==='demo')return topePaquete(demo,paquete);
+      if(a==='install'||a==='labor')return topePaquete(labor,paquete);
+      return topePaquete(labor,paquete);
     }
     function guardarRolesEnFila(row,roles){
       if(!row||!roles)return;
-      row.dataset.precioMatLabor=String(roles.install||roles.labor||0);
-      row.dataset.precioDemo=String(roles.demo||0);
+      row.dataset.precioLabor=String(roles.labor||0);
       row.dataset.precioMaterial=String(roles.material||0);
-      row.dataset.precioLabor=String(roles.labor||roles.install||0);
-      row.dataset.precioReplace=String(roles.replace||0);
-      if(roles.paquete!=null)row.dataset.precioPaquete=String(roles.paquete||0);
+      row.dataset.precioDemo=String(roles.demo||0);
+      row.dataset.precioMatLabor=String(roles.labor||0);
+      row.dataset.precioReplace=String(redondearPrecio((roles.labor||0)+(roles.demo||0)));
+      if(roles.paquete!=null){
+        row.dataset.precioPaquete=String(roles.paquete||0);
+        row.setAttribute('data-precio-paquete',String(roles.paquete||0));
+      }
     }
     function rolesDesdeFila(row){
       return {
-        install:Number(row.dataset.precioMatLabor)||0,
-        demo:Number(row.dataset.precioDemo)||0,
-        material:Number(row.dataset.precioMaterial)||0,
         labor:Number(row.dataset.precioLabor)||0,
+        material:Number(row.dataset.precioMaterial)||0,
+        demo:Number(row.dataset.precioDemo)||0,
+        install:Number(row.dataset.precioLabor)||0,
         replace:Number(row.dataset.precioReplace)||0,
-        paquete:Number(row.dataset.precioPaquete)||Number(row.getAttribute('data-precio-base'))||0
+        paquete:Number(row.dataset.precioPaquete)||Number(row.getAttribute('data-precio-paquete'))||Number(row.getAttribute('data-precio-base'))||0
       };
     }
     function desgloseDesdeItem(item,unit,text,category,opts){
@@ -2806,14 +2766,15 @@
       const autoOn=typeof preciosAutomaticosActivos==='function'?preciosAutomaticosActivos():true;
       const factor=skipZip||!autoOn?1:((typeof factorZipActual==='function'?factorZipActual():1)||1);
       const priceInput=row.querySelector('.price')||row.querySelector('.input-precio')||row.querySelector('.input-precio-unit');
-      const precioActual=numeroPrecio(priceInput&&priceInput.value);
-      let unitarioBase=Math.max(0,precioDesdeRolesVariantes(roles,accion));
-      if(!(unitarioBase>0))unitarioBase=numeroPrecio(row.dataset.precioPaquete,row.getAttribute('data-precio-base'),precioActual);
-      const unitario=Math.max(0,unitarioBase*factor);
-      if(!(unitario>0)&&precioActual>0)return precioActual;
-      if(priceInput&&unitario>0)priceInput.value=unitario.toFixed(2);
+      const columnas=Object.assign({},rolesDesdeFila(row),roles||{});
+      const paquete=numeroPrecio(columnas.paquete);
+      let unitarioBase=precioDesdeRolesVariantes(columnas,accion);
+      const unitario=topePaquete(unitarioBase*factor, paquete>0?redondearPrecio(paquete*factor):0);
+      if(priceInput){
+        if(unitario>0)priceInput.value=unitario.toFixed(2);
+        else if(paquete>0)priceInput.value='0.00';
+      }
       row.dataset.accion=accion;
-      if(unitarioBase>0)row.setAttribute('data-precio-base',String(unitarioBase));
       const subtotal=typeof recalcularSubtotalFila==='function'?recalcularSubtotalFila(row):0;
       if(!silent&&typeof update==='function')update();
       return subtotal;
@@ -2834,20 +2795,9 @@
         const extra=listarItemsCatalogoSupabase().filter(item=>sonVariantesDelMismoMaterial({codigo:code,desc:nucleo,itemGroup:ctx.itemGroup,unit,familia:categoria,categoria},item));
         extra.forEach(item=>{ if(!variantes.some(v=>(v.codigo||v.code)===(item.codigo||item.code)&&v.desc===item.desc))variantes.push(item); });
       }
-      let roles=preciosRolesDesdeVariantes(variantes);
       const guardados=rolesDesdeFila(row);
-      if(guardados.paquete>0||guardados.labor||guardados.material||guardados.demo){
-        roles={
-          install:roles.install||guardados.install,
-          labor:roles.labor||guardados.labor,
-          material:roles.material||guardados.material,
-          demo:roles.demo||guardados.demo,
-          replace:roles.replace||guardados.replace,
-          paquete:guardados.paquete||roles.paquete
-        };
-      }
-      if(!(roles.install||roles.demo||roles.material||roles.labor||roles.replace||roles.paquete))roles=guardados;
-      else guardarRolesEnFila(row,roles);
+      const roles=(guardados.paquete>0||guardados.labor||guardados.material||guardados.demo)?guardados:preciosRolesDesdeVariantes(variantes);
+      if(roles.paquete||roles.labor||roles.material||roles.demo)guardarRolesEnFila(row,roles);
       const subtotal=aplicarPrecioAccionEnFila(row,roles,opts);
       if(!fromRemote&&row.dataset.materialLock==='1'&&row.dataset.precioCatalogo!=='1'&&typeof consultarVariantesYAplicar==='function')consultarVariantesYAplicar(row);
       return subtotal;
@@ -2883,21 +2833,26 @@
       const precioAnterior=priceInput.value;
       const solicitud=++secuenciaPrecioAccion;
       const accion=normalizarAccion(select.value);
-      const local=typeof precioDesdeRolesVariantes==='function'?precioDesdeRolesVariantes(rolesDesdeFila(row),accion):0;
+      row.dataset.accion=accion;
       delete row.dataset.iaCatalogo;
+      delete row.dataset.precioDesdeApi;
       priceInput.classList.remove('precio-sin-ia');
+      const columnas=rolesDesdeFila(row);
+      const local=aplicarPrecioAccionEnFila(row,columnas,{silent:true});
       row.dataset.precioAccionReq=String(solicitud);
-      row.dataset.precioAccionPendiente='1';
-      if(local>0){
-        priceInput.value=local.toFixed(2);
+      if(columnas.paquete>0||columnas.labor>0||columnas.material>0||columnas.demo>0){
         priceInput.placeholder='';
-        if(typeof recalcularSubtotalFila==='function')recalcularSubtotalFila(row);
-      }else if(numeroPrecio(precioAnterior)>0){
-        priceInput.value=precioAnterior;
-        priceInput.placeholder='';
-      }else{
-        priceInput.placeholder='cargando...';
+        priceInput.classList.remove('precio-cargando');
+        priceInput.removeAttribute('aria-busy');
+        delete row.dataset.precioAccionPendiente;
+        if(typeof update==='function')update();
+        return;
       }
+      row.dataset.precioAccionPendiente='1';
+      if(!(numeroPrecio(priceInput.value)>0)&&numeroPrecio(precioAnterior)>0){
+        priceInput.value=precioAnterior;
+      }
+      if(!(numeroPrecio(priceInput.value)>0))priceInput.placeholder='cargando...';
       priceInput.classList.toggle('precio-cargando',!(local>0));
       priceInput.setAttribute('aria-busy','true');
       if(typeof sincronizarBotonIaPrecio==='function')sincronizarBotonIaPrecio(row);
@@ -2928,15 +2883,15 @@
         if(!res.ok||!data.success)throw new Error(data.error||('HTTP '+res.status));
         const precio=Number(data.precio);
         if(!Number.isFinite(precio)||precio<=0)throw new Error('Invalid price');
-        priceInput.value=precio.toFixed(2);
+        const paquete=numeroPrecio(row.dataset.precioPaquete);
+        const tope=paquete>0?paquete:precio;
+        priceInput.value=topePaquete(precio,tope).toFixed(2);
         priceInput.placeholder='';
         row.dataset.precioDesdeApi='1';
         row.dataset.skipZipFactor='1';
-        row.setAttribute('data-precio-base',precio.toFixed(2));
         if(Number(data.labor)>0)row.dataset.precioLabor=String(data.labor);
         if(Number(data.material)>0)row.dataset.precioMaterial=String(data.material);
         if(Number(data.demolicion)>0)row.dataset.precioDemo=String(data.demolicion);
-        if(Number(data.labor)>0)row.dataset.precioMatLabor=String(data.labor);
         if(data.fuente==='gemini'){
           row.dataset.origenPrecio='gemini';
           delete row.dataset.precioCatalogo;
@@ -3171,11 +3126,11 @@
         const variantes=filas.filter(item=>sonVariantesDelMismoMaterial(seed,item));
         if(!variantes.length)return;
         const guardados=rolesDesdeFila(row);
+        if(guardados.paquete>0||guardados.labor||guardados.material||guardados.demo){
+          aplicarPrecioAccionEnFila(row,guardados,{silent:false});
+          return;
+        }
         const roles=Object.assign({},preciosRolesDesdeVariantes(variantes),{paquete:guardados.paquete});
-        roles.labor=roles.labor||guardados.labor;
-        roles.install=roles.install||guardados.install;
-        roles.material=roles.material||guardados.material;
-        roles.demo=roles.demo||guardados.demo;
         const accion=normalizarAccion(row.querySelector('.item-action')?.value||row.dataset.accion||'replace_material');
         if(!(precioDesdeRolesVariantes(roles,accion)>0)&&!(guardados.paquete>0))return;
         guardarRolesEnFila(row,roles);
@@ -3216,6 +3171,11 @@
       if(!row||filaPrecioDesdeApi(row))return;
       if(row.dataset.precioImportado==='1')return;
       const skipDesc=row.dataset.descManual==='1';
+      const columnasGuardadas=rolesDesdeFila(row);
+      if(columnasGuardadas.paquete>0||columnasGuardadas.labor||columnasGuardadas.material||columnasGuardadas.demo){
+        if(typeof recalcularPrecioPorAccion==='function')recalcularPrecioPorAccion(row,{silent:true,fromRemote:true,skipDesc});
+        return;
+      }
       if(row.dataset.materialLock==='1'){
         if(typeof recalcularPrecioPorAccion==='function')recalcularPrecioPorAccion(row,{silent:true,fromRemote:false,skipDesc});
         return;
@@ -3418,7 +3378,7 @@
         precio_zona:precioZona,
         price:precioBase,
         fuente:String(row.fuente||row.origen||'supabase'),
-        precio_install:numeroPrecio(row.precio_install,row.precio_instalacion,row.precio_mano_obra,row.priceLabor,precioBase),
+        precio_install:numeroPrecio(row.precio_install,row.precio_instalacion,row.precio_mano_obra,row.priceLabor),
         ajuste_zip:row.ajuste_zip!==false,
         ciudad:row.ciudad||'',
         estado:row.estado||'',
@@ -3541,7 +3501,7 @@
       return 'descripcion';
     }
     function esCampoCatalogoVivo(el){
-      return !!(el&&el.matches&&el.matches('.fila-trabajo .item-desc, .fila-trabajo .description, .fila-trabajo .code, .fila-trabajo .item-action, tr .item-desc, tr .description, tr .code, tr .item-action'));
+      return !!(el&&el.matches&&el.matches('.fila-trabajo .item-desc, .fila-trabajo .description, .fila-trabajo .code, tr .item-desc, tr .description, tr .code'));
     }
     function enriquecerItemSugerencia(item){
       if(!item)return null;
@@ -3559,7 +3519,7 @@
       mapped.priceLabor=roles.labor;
       mapped.priceMaterial=roles.material;
       mapped.priceDemo=roles.demo;
-      mapped.precioInstall=roles.labor||p;
+      mapped.precioInstall=roles.labor;
       mapped.precioDemo=roles.demo;
       mapped.precioPaquete=p;
       mapped.accionCatalogo=accionDesdeItemCatalogo(mapped);
@@ -3929,11 +3889,6 @@
         if(input.matches('.item-desc, .description')&&descripcionEsTextoPersonalizado(input.value))return;
         const texto=(input.value||'').trim()||(input.tagName==='SELECT'&&input.selectedOptions[0]?input.selectedOptions[0].textContent.trim():'');
         if(texto)buscarYMostrarCatalogo(input);
-      });
-      document.addEventListener('change',e=>{
-        const input=e.target;
-        if(!input||!input.matches||!input.matches('.fila-trabajo .item-action'))return;
-        if((input.value||'').trim())buscarYMostrarCatalogo(input);
       });
       document.addEventListener('keydown',e=>{
         const menu=document.getElementById('menu-sugerencias-catalogo');
@@ -4534,7 +4489,7 @@
     const draftStorageKey='solid-remodeling-estimate-draft';
     function serializarFilaEstimado(row){
       const meta={};
-      ['codigoBase','itemGroup','nucleoDesc','precioBase','precioDemo','precioMatLabor','precioMaterial','precioLabor','precioReplace','catalogoRama','origenPrecio','precioCatalogo','measureKey','skipZipFactor','skipMinimo','materialLock','descManual','unidadManual','precioImportado','accion','descCustom','descEs','descEn'].forEach(k=>{
+      ['codigoBase','itemGroup','nucleoDesc','precioBase','precioPaquete','precioDemo','precioMatLabor','precioMaterial','precioLabor','precioReplace','catalogoRama','origenPrecio','precioCatalogo','measureKey','skipZipFactor','skipMinimo','materialLock','descManual','unidadManual','precioImportado','accion','descCustom','descEs','descEn'].forEach(k=>{
         if(row.dataset[k])meta[k]=row.dataset[k];
       });
       delete meta.descCustom;

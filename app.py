@@ -5044,9 +5044,6 @@ def buscar_catalogo():
             labor = _num(item.get("precio_labor") or item.get("precio_mano_obra") or item.get("priceLabor"))
             material = _num(item.get("precio_material") or item.get("priceMaterial"))
             demo = _num(item.get("precio_remocion") or item.get("precio_demo") or item.get("priceDemo"))
-            labor, material, demo = _componentes_desde_columnas(
-                base, material, labor, demo, item.get("categoria") or "", item.get("descripcion") or item.get("desc") or ""
-            )
             item["precio_base"] = round(base, 2)
             item["factor_zip"] = round(factor, 4)
             item["zip_code"] = zona.get("zip")
@@ -5516,28 +5513,32 @@ def _componentes_desde_columnas(precio_base, precio_material, precio_mano_obra, 
 
 
 def _precio_roles_por_accion(install, demo, material, labor, accion, paquete=0):
-    mano = labor if labor > 0 else install
     def _pos(valor):
         numero = _num(valor)
         return numero if numero > 0 else 0.0
 
-    paquete = _pos(paquete) or round(_pos(mano) + _pos(material) + _pos(demo), 2)
-    if accion == "demo":
-        return _pos(demo) or paquete
-    if accion == "material":
-        return _pos(material) or paquete
-    if accion in ("install", "labor"):
-        return _pos(mano) or paquete
-    if accion == "install_material":
-        suma = round(_pos(mano) + _pos(material), 2)
-        return suma if suma > 0 else paquete
-    if accion == "replace":
-        suma = round(_pos(demo) + _pos(mano), 2)
-        return suma if suma > 0 else paquete
+    def _tope(valor):
+        numero = round(_pos(valor), 2)
+        tope = _pos(paquete)
+        if tope > 0 and numero > tope + 0.009:
+            return round(tope, 2)
+        return numero
+
+    mano = _pos(labor) if _pos(labor) > 0 else 0.0
+    paquete = _pos(paquete)
     if accion == "replace_material":
-        suma = round(_pos(demo) + _pos(mano) + _pos(material), 2)
-        return suma if suma > 0 else paquete
-    return _pos(mano) or paquete
+        return paquete or round(_pos(mano) + _pos(material) + _pos(demo), 2)
+    if accion == "install_material":
+        return _tope(_pos(material) + mano)
+    if accion == "replace":
+        return _tope(_pos(demo) + mano)
+    if accion == "demo":
+        return _tope(demo)
+    if accion == "material":
+        return _tope(material)
+    if accion in ("install", "labor"):
+        return _tope(mano)
+    return _tope(mano)
 
 
 def _openai_api_key():
@@ -5969,16 +5970,16 @@ def _precio_supabase_por_accion(descripcion, unidad, accion):
     principal = max(trabajo, key=lambda c: c[0])[1] if trabajo else None
     fila_demo = max(demolicion, key=lambda c: c[0])[1] if demolicion else None
     item_ref = principal or fila_demo or {}
-    demo_col = _num((principal or {}).get("precio_demo")) or _num((fila_demo or {}).get("precio_unitario"))
+    demo_col = (
+        _num((principal or {}).get("precio_remocion"))
+        or _num((principal or {}).get("precio_demo"))
+        or _num((fila_demo or {}).get("precio_remocion"))
+        or _num((fila_demo or {}).get("precio_unitario"))
+    )
     if principal:
-        labor, material, demo = _componentes_desde_columnas(
-            principal.get("precio_unitario"),
-            principal.get("precio_material"),
-            principal.get("precio_labor"),
-            demo_col,
-            principal.get("categoria") or "",
-            principal.get("descripcion") or nucleo,
-        )
+        labor = _num(principal.get("precio_mano_obra") or principal.get("precio_labor"))
+        material = _num(principal.get("precio_material"))
+        demo = demo_col
     elif fila_demo:
         labor, material, demo = 0.0, 0.0, demo_col
     else:
