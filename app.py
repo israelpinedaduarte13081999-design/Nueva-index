@@ -1,3 +1,4 @@
+import atexit
 import base64
 import hashlib
 import json
@@ -5506,6 +5507,123 @@ def _openai_api_key():
     )
 
 
+def _openai_ssl_verify():
+    return (os.getenv("GEMINI_SSL_VERIFY") or "1").strip().lower() not in ("0", "false", "no", "off")
+
+
+_OPENAI_HTTP = None
+_OPENAI_HTTP_CFG = None
+_OPENAI_HTTP_LOCK = threading.Lock()
+_OPENAI_HTTP_LISTO = False
+_CACHE_EMBEDDING_TEXTO = OrderedDict()
+_CACHE_EMBEDDING_LOCK = threading.Lock()
+_CACHE_EMBEDDING_MAX = 400
+_openai_async_local = threading.local()
+
+
+def _cerrar_cliente_openai_locked():
+    global _OPENAI_HTTP, _OPENAI_HTTP_CFG
+    if _OPENAI_HTTP is not None:
+        try:
+            _OPENAI_HTTP.close()
+        except Exception:
+            pass
+        _OPENAI_HTTP = None
+        _OPENAI_HTTP_CFG = None
+
+
+def _cerrar_cliente_openai():
+    with _OPENAI_HTTP_LOCK:
+        _cerrar_cliente_openai_locked()
+
+
+atexit.register(_cerrar_cliente_openai)
+
+
+def _cfg_cliente_openai():
+    key = _openai_api_key()
+    verify = _openai_ssl_verify()
+    return (verify, len(key), key[:8] if key else ""), key, verify
+
+
+def _limites_openai():
+    import httpx
+
+    return httpx.Limits(max_keepalive_connections=8, max_connections=16, keepalive_expiry=120.0)
+
+
+def _timeout_openai():
+    import httpx
+
+    return httpx.Timeout(connect=4.0, read=30.0, write=15.0, pool=4.0)
+
+
+def _cliente_openai_http():
+    """Un httpx.Client por proceso: keep-alive + TLS ya negociado entre búsquedas."""
+    global _OPENAI_HTTP, _OPENAI_HTTP_CFG, _OPENAI_HTTP_LISTO
+    import httpx
+
+    cfg, key, verify = _cfg_cliente_openai()
+    if not key:
+        return None
+    with _OPENAI_HTTP_LOCK:
+        if _OPENAI_HTTP is not None and _OPENAI_HTTP_CFG == cfg:
+            return _OPENAI_HTTP
+        _cerrar_cliente_openai_locked()
+        headers = {
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+        kwargs = {
+            "base_url": "https://api.openai.com/v1",
+            "headers": headers,
+            "verify": verify,
+            "timeout": _timeout_openai(),
+            "limits": _limites_openai(),
+            "http2": True,
+        }
+        try:
+            cliente = httpx.Client(**kwargs)
+        except Exception:
+            kwargs.pop("http2", None)
+            cliente = httpx.Client(**kwargs)
+        _OPENAI_HTTP = cliente
+        _OPENAI_HTTP_CFG = cfg
+        _OPENAI_HTTP_LISTO = False
+        return cliente
+
+
+def _precalentar_openai():
+    """Negocia TLS y deja el keep-alive listo antes de la primera búsqueda del contratista."""
+    global _OPENAI_HTTP_LISTO
+    http = _cliente_openai_http()
+    if http is None:
+        return
+    try:
+        resp = http.get("/models")
+        _OPENAI_HTTP_LISTO = resp.status_code < 500
+        print(f"--> OpenAI keep-alive listo HTTP {resp.status_code}")
+    except Exception as err:
+        print(f"--> OpenAI keep-alive: {type(err).__name__}: {str(err)[:160]}")
+
+
+def _vectores_de_respuesta_openai(entradas, datos):
+    por_indice = {int(item.get("index", i)): item.get("embedding") for i, item in enumerate(datos)}
+    vectores = []
+    for i, texto in enumerate(entradas):
+        vector = por_indice.get(i)
+        if not texto or not isinstance(vector, list) or len(vector) != EMBEDDING_DIM:
+            print(
+                f"--> OpenAI embeddings: vector invalido i={i} "
+                f"tipo={type(vector).__name__} dim={len(vector) if isinstance(vector, list) else 0}"
+            )
+            vectores.append(None)
+        else:
+            vectores.append(vector)
+    return vectores
+
+
 def _texto_para_embedding(descripcion, unidad=""):
     texto = _descripcion_catalogo_normalizada(descripcion) or re.sub(r"\s+", " ", str(descripcion or "")).strip()
     unidad = str(unidad or "").strip().upper()
@@ -5520,43 +5638,23 @@ def _embeddings_openai(textos):
     entradas = [re.sub(r"\s+", " ", str(t or "")).strip()[:4000] for t in textos]
     if not any(entradas):
         return [None] * len(textos)
-    import httpx
-
-    verify = (os.getenv("GEMINI_SSL_VERIFY") or "1").strip().lower() not in ("0", "false", "no", "off")
-    prefijo = key[:7]
-    print(
-        f"--> OpenAI embeddings: modelo={EMBEDDING_MODELO} textos={len(entradas)} "
-        f"clave={prefijo}… len={len(key)} ssl_verify={verify}"
-    )
+    http = _cliente_openai_http()
+    if http is None:
+        raise RuntimeError("Falta OPENAI_API_KEY en .env")
     try:
-        with httpx.Client(verify=verify, timeout=60.0) as http:
-            resp = http.post(
-                "https://api.openai.com/v1/embeddings",
-                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                json={"model": EMBEDDING_MODELO, "input": entradas},
-            )
+        resp = http.post("/embeddings", json={"model": EMBEDDING_MODELO, "input": entradas})
     except Exception as err:
         print(f"--> OpenAI embeddings: fallo de conexion {type(err).__name__}: {err}")
+        _cerrar_cliente_openai()
         raise
-    print(f"--> OpenAI embeddings: HTTP {resp.status_code}")
     if resp.status_code >= 400:
         cuerpo = (resp.text or "")[:300]
         print(f"--> OpenAI embeddings: error {cuerpo}")
         raise RuntimeError(f"OpenAI embeddings HTTP {resp.status_code}: {cuerpo}")
     datos = (resp.json() or {}).get("data") or []
-    por_indice = {int(item.get("index", i)): item.get("embedding") for i, item in enumerate(datos)}
-    vectores = []
-    for i, texto in enumerate(entradas):
-        vector = por_indice.get(i)
-        if not texto or not isinstance(vector, list) or len(vector) != EMBEDDING_DIM:
-            print(
-                f"--> OpenAI embeddings: vector invalido i={i} "
-                f"tipo={type(vector).__name__} dim={len(vector) if isinstance(vector, list) else 0}"
-            )
-            vectores.append(None)
-        else:
-            vectores.append(vector)
-    print(f"--> OpenAI embeddings: vectores_ok={sum(1 for v in vectores if v)}")
+    vectores = _vectores_de_respuesta_openai(entradas, datos)
+    if len(entradas) > 1:
+        print(f"--> OpenAI embeddings: lote={len(entradas)} ok={sum(1 for v in vectores if v)}")
     return vectores
 
 
@@ -5564,8 +5662,19 @@ def _embedding_texto(descripcion, unidad=""):
     texto = _texto_para_embedding(descripcion, unidad)
     if len(texto) < 3:
         return None
+    clave = texto.lower()
+    with _CACHE_EMBEDDING_LOCK:
+        if clave in _CACHE_EMBEDDING_TEXTO:
+            _CACHE_EMBEDDING_TEXTO.move_to_end(clave)
+            return _CACHE_EMBEDDING_TEXTO[clave]
     vectores = _embeddings_openai([texto])
-    return vectores[0] if vectores else None
+    vector = vectores[0] if vectores else None
+    if vector:
+        with _CACHE_EMBEDDING_LOCK:
+            _CACHE_EMBEDDING_TEXTO[clave] = vector
+            while len(_CACHE_EMBEDDING_TEXTO) > _CACHE_EMBEDDING_MAX:
+                _CACHE_EMBEDDING_TEXTO.popitem(last=False)
+    return vector
 
 
 EMBEDDINGS_LOTE = 80
@@ -6615,35 +6724,58 @@ def _preciar_medidas_por_vector(filas):
     return filas
 
 
-async def _embeddings_openai_async(textos):
-    """OpenAI text-embedding-3-small. No lee el PDF."""
-    key = _openai_api_key()
+async def _cliente_openai_http_async():
+    """Un AsyncClient por hilo y event loop, con keep-alive."""
+    import asyncio
+    import httpx
+
+    cfg, key, verify = _cfg_cliente_openai()
     if not key:
         raise RuntimeError("Falta OPENAI_API_KEY en .env")
+    loop = asyncio.get_running_loop()
+    cliente = getattr(_openai_async_local, "client", None)
+    if cliente is not None and getattr(_openai_async_local, "cfg", None) == cfg and getattr(_openai_async_local, "loop", None) is loop:
+        return cliente
+    if cliente is not None:
+        try:
+            await cliente.aclose()
+        except Exception:
+            pass
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    kwargs = {
+        "base_url": "https://api.openai.com/v1",
+        "headers": headers,
+        "verify": verify,
+        "timeout": _timeout_openai(),
+        "limits": _limites_openai(),
+        "http2": True,
+    }
+    try:
+        cliente = httpx.AsyncClient(**kwargs)
+    except Exception:
+        kwargs.pop("http2", None)
+        cliente = httpx.AsyncClient(**kwargs)
+    _openai_async_local.client = cliente
+    _openai_async_local.cfg = cfg
+    _openai_async_local.loop = loop
+    return cliente
+
+
+async def _embeddings_openai_async(textos):
+    """OpenAI text-embedding-3-small. No lee el PDF."""
     entradas = [re.sub(r"\s+", " ", str(t or "")).strip()[:4000] for t in textos]
     if not any(entradas):
         return [None] * len(textos)
-    import httpx
-
-    verify = (os.getenv("GEMINI_SSL_VERIFY") or "1").strip().lower() not in ("0", "false", "no", "off")
-    async with httpx.AsyncClient(verify=verify, timeout=60.0) as http:
-        resp = await http.post(
-            "https://api.openai.com/v1/embeddings",
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-            json={"model": EMBEDDING_MODELO, "input": entradas},
-        )
+    http = await _cliente_openai_http_async()
+    resp = await http.post("/embeddings", json={"model": EMBEDDING_MODELO, "input": entradas})
     if resp.status_code >= 400:
         raise RuntimeError(f"OpenAI embeddings HTTP {resp.status_code}: {(resp.text or '')[:300]}")
     datos = (resp.json() or {}).get("data") or []
-    por_indice = {int(item.get("index", i)): item.get("embedding") for i, item in enumerate(datos)}
-    vectores = []
-    for i, texto in enumerate(entradas):
-        vector = por_indice.get(i)
-        if not texto or not isinstance(vector, list) or len(vector) != EMBEDDING_DIM:
-            vectores.append(None)
-        else:
-            vectores.append(vector)
-    return vectores
+    return _vectores_de_respuesta_openai(entradas, datos)
 
 
 async def _rpc_match_catalogo_async(http, url, key, vector, unidad=""):
@@ -8521,6 +8653,10 @@ def aceptar_contrato_publico(token_aceptacion):
 
 
 def _precalentar_busquedas():
+    try:
+        _precalentar_openai()
+    except Exception as err:
+        print(f"--> OpenAI keep-alive: {err}")
     try:
         from oficios import todas_filas_catalogo
         print(f"--> Catálogo listo en memoria: {len(todas_filas_catalogo() or [])} ítems")

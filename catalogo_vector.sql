@@ -51,8 +51,12 @@ $$;
 grant execute on function public.match_items(vector, double precision, integer, text)
   to anon, authenticated, service_role;
 
--- Import measurements from PDF: la coincidencia más alta por coseno.
-create or replace function public.match_catalog_items(
+-- Barra de búsqueda e importación de medidas.
+-- La subconsulta solo ordena por distancia con LIMIT para que la resuelva el índice HNSW;
+-- umbral, activo y unidad se filtran después sobre ese grupo pequeño de candidatos.
+drop function if exists public.match_catalog_items(vector, double precision, integer, text);
+
+create function public.match_catalog_items(
   query_embedding vector(1536),
   match_threshold double precision default 0.70,
   match_count integer default 5,
@@ -70,22 +74,39 @@ returns table (
 )
 language sql
 stable
+set enable_seqscan = off
+set hnsw.ef_search = 200
 as $$
+  with candidatos as (
+    select
+      ci.id,
+      ci.codigo,
+      ci.descripcion,
+      ci.unidad,
+      ci.precio_base,
+      ci.precio_material,
+      ci.precio_mano_obra,
+      ci.activo,
+      ci.embedding <=> query_embedding as distancia
+    from public.catalogo_items ci
+    where ci.embedding is not null
+    order by ci.embedding <=> query_embedding
+    limit least(greatest(match_count, 1) * 4, 200)
+  )
   select
-    ci.id::bigint,
-    ci.codigo,
-    ci.descripcion,
-    ci.unidad,
-    ci.precio_base,
-    ci.precio_material,
-    ci.precio_mano_obra,
-    (1 - (ci.embedding <=> query_embedding))::double precision as similarity
-  from public.catalogo_items ci
-  where ci.embedding is not null
-    and ci.activo = true
-    and (filter_unidad is null or upper(ci.unidad) = upper(filter_unidad))
-    and 1 - (ci.embedding <=> query_embedding) >= match_threshold
-  order by ci.embedding <=> query_embedding
+    c.id::bigint,
+    c.codigo,
+    c.descripcion,
+    c.unidad,
+    c.precio_base,
+    c.precio_material,
+    c.precio_mano_obra,
+    (1 - c.distancia)::double precision as similarity
+  from candidatos c
+  where c.activo = true
+    and (filter_unidad is null or upper(c.unidad) = upper(filter_unidad))
+    and 1 - c.distancia >= match_threshold
+  order by c.distancia
   limit greatest(match_count, 1);
 $$;
 
