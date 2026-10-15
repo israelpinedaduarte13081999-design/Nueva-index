@@ -68,7 +68,7 @@ TABLA_FACTORES = "factores_regionales_usa"
 TABLA_FALTANTES = "items_faltantes"
 TABLA_HISTORIAL = "historial_estimados"
 TABLA_CONTRATISTAS = "contratistas"
-COLUMNAS_CATALOGO = "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra"
+COLUMNAS_CATALOGO = "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra,precio_remocion"
 _SQL_MULTITENANT = "Ejecuta multitenant.sql en el editor SQL de Supabase."
 
 def _tipo_clave_supabase(key):
@@ -1458,6 +1458,8 @@ def normalizar_item_catalogo(row, idioma="es"):
         "priceLabor": round(_num_catalogo(row, "precio_labor", "labor", "precio_mano_obra", "labor_price"), 2),
         "priceMaterial": round(_num_catalogo(row, "precio_material", "material", "material_price", "precio_mat"), 2),
         "priceDemo": round(_num_catalogo(row, "precio_remocion", "precio_demo", "demo", "precio_demolicion", "tear_off"), 2),
+        "precio_mano_obra": round(_num_catalogo(row, "precio_mano_obra", "precio_labor", "labor"), 2),
+        "alcance": _alcance_exclusivo_descripcion(desc_ui) or "completo",
         "fuente": "supabase",
     }
 
@@ -5041,12 +5043,26 @@ def buscar_catalogo():
         factor = float(zona.get("factor") or 1.0)
         for item in items:
             base = _num(item.get("precio_unitario"))
+            labor = _num(item.get("precio_labor") or item.get("precio_mano_obra") or item.get("priceLabor"))
+            material = _num(item.get("precio_material") or item.get("priceMaterial"))
+            demo = _num(item.get("precio_remocion") or item.get("precio_demo") or item.get("priceDemo"))
+            labor, material, demo = _componentes_desde_columnas(
+                base, material, labor, demo, item.get("categoria") or "", item.get("descripcion") or item.get("desc") or ""
+            )
             item["precio_base"] = round(base, 2)
             item["factor_zip"] = round(factor, 4)
             item["zip_code"] = zona.get("zip")
             item["ciudad"] = zona.get("ciudad")
             item["estado"] = zona.get("estado")
             item["precio_zona"] = round(base * factor, 2)
+            item["precio_labor"] = round(labor, 2)
+            item["precio_mano_obra"] = round(labor, 2)
+            item["precio_material"] = round(material, 2)
+            item["precio_demo"] = round(demo, 2)
+            item["precio_remocion"] = round(demo, 2)
+            item["priceLabor"] = round(labor, 2)
+            item["priceMaterial"] = round(material, 2)
+            item["priceDemo"] = round(demo, 2)
             item["ajuste_zip"] = True
             item["fuente"] = item.get("fuente") or "supabase"
         items, traduciendo = _items_en_idioma_busqueda(items, idioma)
@@ -5430,65 +5446,100 @@ def _desglose_desde_precio_base(precio_base, categoria="", descripcion=""):
     return round(base * labor_f, 2), round(base * material_f, 2), round(base * demo_f, 2)
 
 
+def _alcance_exclusivo_descripcion(descripcion):
+    """Solo si el texto dice claramente 'only'. Si no, precio_base incluye las 3 columnas."""
+    texto = _sin_acentos(descripcion)
+    if re.search(r"material only|solo material|supply only|suministro de material", texto) and not re.search(r"instal", texto):
+        return "material"
+    if re.search(r"labor only|solo mano|solo instalacion|install(?:ation)? only|mano de obra solamente", texto):
+        return "labor"
+    if re.search(r"demolition only|solo demol|solo remoc|removal only|tear[\s-]*(out|off) only|demo only", texto):
+        return "demo"
+    return ""
+
+
+def _alinear_componentes_a_paquete(labor, material, demo, paquete):
+    suma = labor + material + demo
+    if paquete <= 0 or suma <= 0:
+        return round(labor, 2), round(material, 2), round(demo, 2)
+    if abs(suma - paquete) <= 0.02:
+        return round(labor, 2), round(material, 2), round(demo, 2)
+    factor = paquete / suma
+    labor = round(labor * factor, 2)
+    material = round(material * factor, 2)
+    demo = round(paquete - labor - material, 2)
+    return labor, material, demo
+
+
 def _componentes_desde_columnas(precio_base, precio_material, precio_mano_obra, precio_demo=0, categoria="", descripcion=""):
-    """Arma labor, material y remoción sin sumar precio_base dos veces."""
+    """precio_base incluye material + mano de obra + remoción, salvo que la descripción diga 'only'."""
     base = _num(precio_base)
     material = _num(precio_material)
     labor = _num(precio_mano_obra)
     demo = _num(precio_demo)
-    if labor > 0 and material > 0:
-        if demo <= 0:
-            _, _, demo = _desglose_desde_precio_base(labor, categoria, descripcion)
+    exclusivo = _alcance_exclusivo_descripcion(descripcion)
+    if not exclusivo and base > 0:
+        n_lab, n_mat, n_dem = int(labor > 0), int(material > 0), int(demo > 0)
+        if n_lab + n_mat + n_dem == 1:
+            if n_mat and abs(material - base) <= 0.05:
+                exclusivo = "material"
+            elif n_lab and abs(labor - base) <= 0.05:
+                exclusivo = "labor"
+            elif n_dem and abs(demo - base) <= 0.05:
+                exclusivo = "demo"
+    if exclusivo == "material":
+        return 0.0, round(material or base, 2), 0.0
+    if exclusivo == "labor":
+        return round(labor or base, 2), 0.0, 0.0
+    if exclusivo == "demo":
+        return 0.0, 0.0, round(demo or base, 2)
+    if base <= 0:
         return round(labor, 2), round(material, 2), round(demo, 2)
-    if labor > 0:
-        if base > labor + 0.05:
-            material = round(base - labor, 2)
-        else:
-            _, material, est_demo = _desglose_desde_precio_base(labor, categoria, descripcion)
-            if demo <= 0:
-                demo = est_demo
+    conocidos = (labor if labor > 0 else 0.0) + (material if material > 0 else 0.0) + (demo if demo > 0 else 0.0)
+    if labor > 0 and material > 0 and demo > 0:
+        return _alinear_componentes_a_paquete(labor, material, demo, base)
+    if conocidos > 0 and conocidos <= base + 0.05:
+        falta = round(max(0.0, base - conocidos), 2)
+        if labor <= 0:
+            labor = falta
+        elif material <= 0:
+            material = falta
+        elif demo <= 0:
+            demo = falta
+    if labor <= 0 or material <= 0 or demo <= 0:
+        est_l, est_m, est_d = _desglose_desde_precio_base(base, categoria, descripcion)
+        if labor <= 0:
+            labor = est_l
+        if material <= 0:
+            material = est_m
         if demo <= 0:
-            _, _, demo = _desglose_desde_precio_base(labor, categoria, descripcion)
-        return round(labor, 2), round(material, 2), round(demo, 2)
-    if material > 0:
-        if base > material + 0.05:
-            labor = round(base - material, 2)
-        elif base > 0:
-            labor = base
-        else:
-            _lf, mf, df = DESGLOSE_POR_CATEGORIA.get(
-                _clave_desglose_categoria(categoria, descripcion),
-                DESGLOSE_POR_CATEGORIA["GENERAL"],
-            )
-            labor = round(material / mf, 2) if mf > 0 else 0.0
-            if demo <= 0:
-                demo = round(labor * df, 2)
-        if demo <= 0:
-            _, _, demo = _desglose_desde_precio_base(labor, categoria, descripcion)
-        return round(labor, 2), round(material, 2), round(demo, 2)
-    if base > 0:
-        labor, material, est_demo = _desglose_desde_precio_base(base, categoria, descripcion)
-        if demo <= 0:
-            demo = est_demo
-        return labor, material, demo
-    return 0.0, 0.0, round(demo, 2)
+            demo = round(max(0.01, base - labor - material), 2) if labor > 0 and material > 0 else est_d
+    return _alinear_componentes_a_paquete(labor, material, demo, base)
 
 
-def _precio_roles_por_accion(install, demo, material, labor, accion):
+def _precio_roles_por_accion(install, demo, material, labor, accion, paquete=0):
     mano = labor if labor > 0 else install
+    def _pos(valor):
+        numero = _num(valor)
+        return numero if numero > 0 else 0.0
+
+    paquete = _pos(paquete) or round(_pos(mano) + _pos(material) + _pos(demo), 2)
     if accion == "demo":
-        return demo if demo > 0 else 0.0
+        return _pos(demo) or paquete
     if accion == "material":
-        return material if material > 0 else 0.0
+        return _pos(material) or paquete
     if accion in ("install", "labor"):
-        return mano if mano > 0 else 0.0
+        return _pos(mano) or paquete
     if accion == "install_material":
-        return round(mano + material, 2) if mano > 0 and material > 0 else 0.0
+        suma = round(_pos(mano) + _pos(material), 2)
+        return suma if suma > 0 else paquete
     if accion == "replace":
-        return round(demo + mano, 2) if demo > 0 and mano > 0 else 0.0
+        suma = round(_pos(demo) + _pos(mano), 2)
+        return suma if suma > 0 else paquete
     if accion == "replace_material":
-        return round(demo + mano + material, 2) if demo > 0 and mano > 0 and material > 0 else 0.0
-    return mano if mano > 0 else 0.0
+        suma = round(_pos(demo) + _pos(mano) + _pos(material), 2)
+        return suma if suma > 0 else paquete
+    return _pos(mano) or paquete
 
 
 def _openai_api_key():
@@ -5958,7 +6009,8 @@ def _precio_supabase_por_accion(descripcion, unidad, accion):
     if fila_demo:
         referencias["codigo_demolicion"] = fila_demo.get("codigo") or ""
         referencias["descripcion_demolicion"] = (fila_demo.get("descripcion") or "")[:180]
-    precio = _precio_roles_por_accion(install, demo, material, labor, accion)
+    paquete = _num((principal or {}).get("precio_unitario")) or _num(demo_col)
+    precio = _precio_roles_por_accion(install, demo, material, labor, accion, paquete)
     return (precio if precio > 0 else None), (principal or fila_demo), referencias
 
 
