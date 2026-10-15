@@ -271,15 +271,17 @@
     }
     .area td:nth-child(1), .area td:nth-child(2), .area td:nth-child(3), td.desc-cell { overflow:visible; position:relative; z-index:20; height:auto; }
     .task-autocomplete-container { position:relative; width:100%; }
+    .task-autocomplete-container > .task-dropdown-menu { display:none !important; }
     .task-dropdown-menu { position:fixed; top:0; left:0; width:min(320px,calc(100vw - 16px)); min-width:0; max-width:calc(100vw - 16px); max-height:250px; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; background:#ffffff; border:1px solid #c9d5e3; border-radius:6px; box-shadow:0 8px 20px rgba(0,0,0,.15); z-index:5000; display:none; font-family:inherit; box-sizing:border-box; }
-    #menu-sugerencias-catalogo { position:fixed !important; z-index:2147483000; min-width:0 !important; width:min(320px,calc(100vw - 16px)); max-width:min(640px,calc(100vw - 16px)); max-height:250px; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; background:#fff; }
+    #menu-sugerencias-catalogo { position:fixed !important; z-index:10050 !important; isolation:isolate; min-width:0 !important; width:min(320px,calc(100vw - 16px)); max-width:min(640px,calc(100vw - 16px)); max-height:min(280px,45vh); overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; background:#fff; pointer-events:auto; }
     #menu-sugerencias-catalogo.is-open { display:block !important; }
+    .sugerencia-desc-menu { display:none !important; }
     .task-dropdown-group { background:#f0f4f8; color:#19385f; font-weight:700; font-size:11px; padding:6px 10px; text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid #e1e8f0; }
     .task-dropdown-item { padding:8px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:4px 8px; font-size:13px; color:#333333; border:0; border-bottom:1px solid #f2f5f8; width:100%; max-width:100%; background:#fff; text-align:left; font-family:inherit; transition:background .15s ease; white-space:normal; }
     .task-dropdown-item:hover, .task-dropdown-item.is-active { background:#eef5fc; color:#19385f; }
     .task-dropdown-item > span:first-child { min-width:0; flex:1 1 140px; }
     .task-dropdown-item .item-meta { font-size:11px; color:#627d98; background:#e2e8f0; padding:2px 6px; border-radius:4px; margin-left:0; white-space:normal; }
-    .sugerencia-desc-menu { position:fixed; z-index:6000; margin:0; padding:4px 0; background:#fff; border:1px solid #d0d7e2; border-radius:8px; box-shadow:0 10px 24px rgba(15,23,42,.16); width:min(320px,calc(100vw - 16px)); max-width:calc(100vw - 16px); max-height:min(220px,45vh); overflow-y:auto; box-sizing:border-box; }
+    .sugerencia-desc-menu { position:fixed; z-index:10040; margin:0; padding:4px 0; background:#fff; border:1px solid #d0d7e2; border-radius:8px; box-shadow:0 10px 24px rgba(15,23,42,.16); width:min(320px,calc(100vw - 16px)); max-width:calc(100vw - 16px); max-height:min(220px,45vh); overflow-y:auto; box-sizing:border-box; }
     .sugerencia-desc-item { display:block; width:100%; border:0; background:#fff; text-align:left; padding:8px 12px; font:13px/1.35 inherit; color:#1e293b; cursor:pointer; }
     .sugerencia-desc-item:hover, .sugerencia-desc-item:focus { background:#eef5fc; color:#19385f; outline:0; }
     .price-ia-wrap { position:relative; display:flex; align-items:center; gap:4px; overflow:visible; z-index:5; }
@@ -1323,7 +1325,7 @@
     </div>
   </section>
   <template id="areaTemplate"><section class="area"><div class="area-header"><div class="area-name"><span class="area-index"></span><input class="area-title" value="Kitchen area"><span>(</span><input class="area-reference" value="PLANO 85999"><span>)</span></div><div class="area-actions"><button class="icon-btn add-row-btn" type="button">+ Row</button><button class="icon-btn remove-area-btn" type="button">Remove area</button></div></div><table><thead><tr><th class="code-heading">Code</th><th class="action-heading">Action</th><th class="description-heading">Work description</th><th class="quantity-heading">Qty</th><th class="unit-heading">Unit</th><th class="price-heading">Unit price ($)</th><th class="tax-heading">TAX (%)</th><th class="subtotal-heading">Subtotal ($)</th><th></th></tr></thead><tbody></tbody></table><button class="add-row" type="button">+ Add row</button></section></template>
-    <template id="rowTemplate"><tr class="fila-trabajo"><td><input class="code" value=""></td><td><select class="item-action" aria-label="Action" onchange="onCambioAccionPartida(this)"><option value="replace">Remove and install</option><option value="replace_material">Remove, install plus materials</option><option value="install_material" selected>Install plus materials</option><option value="install">Install only</option><option value="demo">Demolition only</option><option value="material">Material only</option></select></td><td class="desc-cell"><div class="task-autocomplete-container"><textarea class="item-desc description" data-line-desc="1" rows="1" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea><div class="task-dropdown-menu" role="listbox" aria-label="Trades and tasks"></div></div></td><td><div class="quantity-cell"><input type="number" class="input-cantidad quantity" value="1" min="0" step="any" placeholder="0" style="width: 100%; max-width: 100%; padding: 4px; border: 1px solid #ced4da; border-radius: 4px; text-align: center; font-weight: bold;" oninput="recalcularSubtotalFila(this.closest('tr')); if(typeof update==='function')update();"></div></td><td><select class="select-unidad unit-select item-unit" aria-label="Unit"><option value="SQ">SQ (Squares, 100 sq ft)</option><option value="SF" selected>SF (Square Feet)</option><option value="LF">LF (Linear Feet)</option><option value="EA">EA (Each)</option>
+    <template id="rowTemplate"><tr class="fila-trabajo"><td><input class="code" value="" autocomplete="off"></td><td><select class="item-action" aria-label="Action" onchange="onCambioAccionPartida(this)"><option value="replace">Remove and install</option><option value="replace_material">Remove, install plus materials</option><option value="install_material" selected>Install plus materials</option><option value="install">Install only</option><option value="demo">Demolition only</option><option value="material">Material only</option></select></td><td class="desc-cell"><div class="task-autocomplete-container"><textarea class="item-desc description" data-line-desc="1" rows="1" name="item_desc_catalogo" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-form-type="other"></textarea></div></td><td><div class="quantity-cell"><input type="number" class="input-cantidad quantity" value="1" min="0" step="any" placeholder="0" style="width: 100%; max-width: 100%; padding: 4px; border: 1px solid #ced4da; border-radius: 4px; text-align: center; font-weight: bold;" oninput="recalcularSubtotalFila(this.closest('tr')); if(typeof update==='function')update();"></div></td><td><select class="select-unidad unit-select item-unit" aria-label="Unit"><option value="SQ">SQ (Squares, 100 sq ft)</option><option value="SF" selected>SF (Square Feet)</option><option value="LF">LF (Linear Feet)</option><option value="EA">EA (Each)</option>
             <option value="PC">PC (Piece, 10 ft)</option><option value="HR">HR (Hours)</option><option value="CY">CY (Cubic Yards)</option><option value="BAG">BAG (Bag)</option><option value="LS">LS (Lump Sum)</option></select></td><td class="price-cell"><div class="price-ia-wrap"><input class="price number-input input-precio" type="number" min="0" step="0.01" value="0"><button type="button" class="btn-ia-precio no-print" hidden title="Suggest market price with AI">IA</button><div class="ia-precio-menu no-print" hidden></div></div></td><td><input class="tax number-input" type="number" min="0" step="0.01" value="0" aria-label="TAX (%)"></td><td class="subtotal-cell"><span class="row-total span-subtotal input-subtotal">$0.00</span><small class="minimum-tag tag-minimo"></small></td><td><button class="remove-row" type="button" aria-label="Remove row">×</button></td></tr></template>
   <datalist id="listaSugerenciasMateriales">
     <option value="Instalación de piso Luxury Vinyl Tile (LVT) pegado (Glue-down)"></option>
@@ -3564,7 +3566,13 @@
       if(!(p>0))return null;
       return mapped;
     }
-    function menuSugerenciasCatalogo(){
+    function destruirMenusCatalogo(){
+      if(typeof cerrarSugerenciasDescripcion==='function')cerrarSugerenciasDescripcion();
+      document.querySelectorAll('#menu-sugerencias-catalogo, .sugerencia-desc-menu').forEach(el=>el.remove());
+      document.querySelectorAll('.task-autocomplete-container > .task-dropdown-menu').forEach(el=>el.remove());
+    }
+    function menuSugerenciasCatalogo(forzarNuevo){
+      if(forzarNuevo)destruirMenusCatalogo();
       let menu=document.getElementById('menu-sugerencias-catalogo');
       if(!menu){
         menu=document.createElement('div');
@@ -3637,21 +3645,24 @@
     }
     function posicionarMenuTareas(input, menu){
       if(!input||!menu)return;
-      colocarMenuEnPantalla(input,menu,{minAncho:Math.min(320,window.innerWidth-16),maxAlto:250,z:2147483000});
+      colocarMenuEnPantalla(input,menu,{minAncho:Math.min(320,window.innerWidth-16),maxAlto:250,z:10050});
       menu.style.display='block';
       menu.classList.add('is-open');
     }
     function cerrarMenusTareas(except){
-      const global=document.getElementById('menu-sugerencias-catalogo');
+      if(typeof cerrarSugerenciasDescripcion==='function')cerrarSugerenciasDescripcion();
       document.querySelectorAll('.task-dropdown-menu').forEach(m=>{
         if(m===except)return;
         m.style.display='none';
         m.classList.remove('is-open');
-        if(m===global)m.innerHTML='';
+        m.innerHTML='';
+      });
+      document.querySelectorAll('.task-autocomplete-container > .task-dropdown-menu').forEach(el=>{
+        if(el!==except)el.remove();
       });
     }
     function pintarSugerenciasCatalogo(input, resultados){
-      const menu=menuSugerenciasCatalogo();
+      const menu=menuSugerenciasCatalogo(true);
       menu.innerHTML='';
       const items=(resultados||[]).map(enriquecerItemSugerencia).filter(Boolean);
       if(!items.length){
@@ -3704,7 +3715,6 @@
       if(input.matches('.item-action, .select-alcance')&&fila){
         texto=((fila.querySelector('.code')?.value||'')+' '+((fila.querySelector('.item-desc')||fila.querySelector('.description'))?.value||'')).trim();
       }
-      const menu=menuSugerenciasCatalogo();
       if(!texto){
         cerrarMenusTareas();
         return;
@@ -3715,7 +3725,8 @@
       const controller=new AbortController();
       buscarYMostrarCatalogo._abort=controller;
       const corte=setTimeout(()=>controller.abort(),8000);
-      if(!silencioso || !menu.querySelector('.task-dropdown-item')){
+      const menu=menuSugerenciasCatalogo(!silencioso);
+      if(!silencioso){
         menu.innerHTML='<div class="task-dropdown-group">Buscando en catálogo…</div>';
         posicionarMenuTareas(input,menu);
       }
@@ -3887,13 +3898,14 @@
       if(!inputElement||inputElement.classList.contains('no-autocomplete'))return;
       iniciarBuscadorCatalogoGlobal();
       inputElement.dataset.taskAuto='1';
-      if(inputElement.matches('.item-desc, .description')){
-        inputElement.setAttribute('autocomplete','new-password');
-        inputElement.setAttribute('autocorrect','off');
-        inputElement.setAttribute('autocapitalize','off');
-        inputElement.setAttribute('spellcheck','false');
-      }else{
-        inputElement.setAttribute('autocomplete','off');
+      inputElement.setAttribute('autocomplete','off');
+      inputElement.setAttribute('autocorrect','off');
+      inputElement.setAttribute('autocapitalize','off');
+      inputElement.setAttribute('spellcheck','false');
+      inputElement.setAttribute('data-lpignore','true');
+      inputElement.setAttribute('data-1p-ignore','true');
+      if(inputElement.matches('.item-desc, .description, .code')){
+        inputElement.setAttribute('name', inputElement.getAttribute('name')||'item_desc_catalogo');
       }
     }
     function iniciarBuscadorCatalogoGlobal(){
@@ -4008,32 +4020,7 @@
     document.addEventListener('input',evento=>{
       const input=evento.target;
       if(!input||!input.matches||!input.matches('.fila-trabajo .item-desc, .fila-trabajo .description, tr .item-desc, tr .description'))return;
-      if(input.closest('.fila-trabajo')?.dataset.updatingDesc==='1')return;
-      clearTimeout(temporizadorSugerenciaDesc);
-      const texto=(input.value||'').trim();
-      if(texto.length<3){
-        cerrarSugerenciasDescripcion();
-        return;
-      }
-      const solicitud=++secuenciaSugerenciaDesc;
-      temporizadorSugerenciaDesc=setTimeout(async()=>{
-        if(solicitud!==secuenciaSugerenciaDesc||!input.isConnected)return;
-        if((input.value||'').trim()!==texto)return;
-        try{
-          const res=await fetch('/api/sugerir_descripcion',{
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({query:texto})
-          });
-          const data=await res.json().catch(()=>({}));
-          if(solicitud!==secuenciaSugerenciaDesc||(input.value||'').trim()!==texto)return;
-          const lista=(data.sugerencias||[]).map(item=>String(item||'').trim()).filter(Boolean).slice(0,4);
-          if(res.ok&&lista.length)pintarSugerenciasDescripcion(input, lista);
-          else cerrarSugerenciasDescripcion();
-        }catch(error){
-          if(solicitud===secuenciaSugerenciaDesc)cerrarSugerenciasDescripcion();
-        }
-      },500);
+      if(typeof cerrarSugerenciasDescripcion==='function')cerrarSugerenciasDescripcion();
     });
     document.addEventListener('pointerdown',evento=>{
       const menu=document.querySelector('.sugerencia-desc-menu');
@@ -6176,7 +6163,7 @@
         return '<tr class="fila-trabajo" data-precio-importado="1" data-precio-catalogo="1" data-material-lock="1" data-desc-manual="1" data-unidad-manual="1" data-skip-zip-factor="1" data-catalogo-rama="TECHO" data-item-group="'+esc(group)+'" data-codigo-base="'+esc(f.codigoBase||codigo)+'" data-nucleo-desc="'+esc(nucleo)+'" data-precio-base="'+esc(f.unitPrice)+'" data-measure-key="'+esc(f.measureKey)+'" data-precio-demo="'+esc(f.precioDemo||0)+'" data-precio-mat-labor="'+esc(f.precioInstall||f.unitPrice)+'"'+(skipMinimos?' data-skip-minimo="1"':'')+'>'
           +'<td><input class="code" value="'+esc(codigo)+'"></td>'
           +'<td><select class="item-action" aria-label="Action" onchange="onCambioAccionPartida(this)"><option value="replace">Remove and install</option><option value="replace_material">Remove, install plus materials</option><option value="install_material" selected>Install plus materials</option><option value="install">Install only</option><option value="demo">Demolition only</option><option value="material">Material only</option></select></td>'
-          +'<td class="desc-cell"><div class="task-autocomplete-container"><textarea class="item-desc description" data-line-desc="1" rows="1" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false">'+esc(f.desc)+'</textarea></div></td>'
+          +'<td class="desc-cell"><div class="task-autocomplete-container"><textarea class="item-desc description" data-line-desc="1" rows="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true">'+esc(f.desc)+'</textarea></div></td>'
           +'<td><input type="number" class="input-cantidad quantity" value="'+esc(f.qty)+'" min="0" step="any"></td>'
           +'<td><select class="select-unidad"><option value="SQ"'+(unit==='SQ'?' selected':'')+'>SQ</option><option value="SF"'+(unit==='SF'?' selected':'')+'>SF</option><option value="LF"'+(unit==='LF'?' selected':'')+'>LF</option><option value="EA"'+(unit==='EA'?' selected':'')+'>EA</option></select></td>'
           +'<td><input class="price input-precio" type="number" min="0" step="0.01" value="'+Number(f.unitPrice).toFixed(2)+'"></td>'

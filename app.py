@@ -2142,11 +2142,6 @@ def _grupos_busqueda_catalogo(consulta, indice):
             grupo += [_sin_acentos(p) for p in _SINONIMOS_BUSQUEDA[clave] if " " not in p]
             if _SINONIMOS_BUSQUEDA[clave] is _SINONIMOS_DEMOLICION:
                 grupo.append(_TOKEN_REMOCION)
-        if len(palabra) >= 5 and palabra not in indice:
-            grupo += [
-                k for k in indice
-                if abs(len(k) - len(palabra)) <= 1 and k[:1] == palabra[:1] and _distancia_token(palabra, k) <= 1
-            ][:6]
         grupo = list(dict.fromkeys(p for p in grupo if len(p) >= 3))
         if grupo not in grupos:
             grupos.append(grupo)
@@ -4806,7 +4801,7 @@ def api_direcciones():
 
 UMBRAL_VECTOR_BARRA = 0.40
 PESO_VECTOR_BARRA = 400
-ESPERA_VECTOR_BARRA = 1.5
+ESPERA_VECTOR_BARRA = 0
 _CACHE_VECTOR_BARRA = OrderedDict()
 _VECTOR_BARRA_EN_CURSO = {}
 _CACHE_VECTOR_BARRA_LOCK = threading.Lock()
@@ -4871,13 +4866,16 @@ def _vector_busqueda_barra(q, clave, limite=40):
         return {}
     payload = {"query_embedding": vector, "match_threshold": UMBRAL_VECTOR_BARRA, "match_count": limite}
     datos = None
-    for nombre in ("match_catalog_items", "match_items"):
+    try:
+        datos = client.rpc("match_catalog_items", payload).execute().data or []
+    except Exception as err:
+        print(f"--> barra vector match_catalog_items: {type(err).__name__}: {str(err)[:160]}")
         try:
-            datos = client.rpc(nombre, payload).execute().data or []
-            break
-        except Exception as err:
-            print(f"--> barra vector {nombre}: {type(err).__name__}: {str(err)[:160]}")
-    if datos is None:
+            datos = client.rpc("match_items", payload).execute().data or []
+        except Exception as err2:
+            print(f"--> barra vector match_items: {type(err2).__name__}: {str(err2)[:160]}")
+            return {}
+    if not datos:
         return {}
     resultado = {
         row["id"]: float(row.get("similarity") or 0)
@@ -5600,17 +5598,17 @@ def _cfg_cliente_openai():
 def _limites_openai():
     import httpx
 
-    return httpx.Limits(max_keepalive_connections=8, max_connections=16, keepalive_expiry=120.0)
+    return httpx.Limits(max_keepalive_connections=8, max_connections=16, keepalive_expiry=180.0)
 
 
 def _timeout_openai():
     import httpx
 
-    return httpx.Timeout(connect=4.0, read=30.0, write=15.0, pool=4.0)
+    return httpx.Timeout(connect=4.0, read=20.0, write=10.0, pool=4.0)
 
 
 def _cliente_openai_http():
-    """Un httpx.Client por proceso: keep-alive + TLS ya negociado entre búsquedas."""
+    """Un httpx.Client por proceso: keep-alive HTTP/1.1, reutilizado entre hilos."""
     global _OPENAI_HTTP, _OPENAI_HTTP_CFG, _OPENAI_HTTP_LISTO
     import httpx
 
@@ -5625,24 +5623,19 @@ def _cliente_openai_http():
             "Authorization": f"Bearer {key}",
             "Content-Type": "application/json",
             "Accept": "application/json",
+            "Connection": "keep-alive",
         }
-        kwargs = {
-            "base_url": "https://api.openai.com/v1",
-            "headers": headers,
-            "verify": verify,
-            "timeout": _timeout_openai(),
-            "limits": _limites_openai(),
-            "http2": True,
-        }
-        try:
-            cliente = httpx.Client(**kwargs)
-        except Exception:
-            kwargs.pop("http2", None)
-            cliente = httpx.Client(**kwargs)
-        _OPENAI_HTTP = cliente
+        _OPENAI_HTTP = httpx.Client(
+            base_url="https://api.openai.com/v1",
+            headers=headers,
+            verify=verify,
+            timeout=_timeout_openai(),
+            limits=_limites_openai(),
+            http2=False,
+        )
         _OPENAI_HTTP_CFG = cfg
         _OPENAI_HTTP_LISTO = False
-        return cliente
+        return _OPENAI_HTTP
 
 
 def _precalentar_openai():
@@ -5696,7 +5689,6 @@ def _embeddings_openai(textos):
         resp = http.post("/embeddings", json={"model": EMBEDDING_MODELO, "input": entradas})
     except Exception as err:
         print(f"--> OpenAI embeddings: fallo de conexion {type(err).__name__}: {err}")
-        _cerrar_cliente_openai()
         raise
     if resp.status_code >= 400:
         cuerpo = (resp.text or "")[:300]
@@ -6793,24 +6785,19 @@ async def _cliente_openai_http_async():
             await cliente.aclose()
         except Exception:
             pass
-    headers = {
-        "Authorization": f"Bearer {key}",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-    }
-    kwargs = {
-        "base_url": "https://api.openai.com/v1",
-        "headers": headers,
-        "verify": verify,
-        "timeout": _timeout_openai(),
-        "limits": _limites_openai(),
-        "http2": True,
-    }
-    try:
-        cliente = httpx.AsyncClient(**kwargs)
-    except Exception:
-        kwargs.pop("http2", None)
-        cliente = httpx.AsyncClient(**kwargs)
+    cliente = httpx.AsyncClient(
+        base_url="https://api.openai.com/v1",
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Connection": "keep-alive",
+        },
+        verify=verify,
+        timeout=_timeout_openai(),
+        limits=_limites_openai(),
+        http2=False,
+    )
     _openai_async_local.client = cliente
     _openai_async_local.cfg = cfg
     _openai_async_local.loop = loop
