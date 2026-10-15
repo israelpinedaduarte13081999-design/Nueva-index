@@ -2615,6 +2615,129 @@ def _fila_historial_desde_body(body):
     return fila
 
 
+def _partida_estimado_ejemplo(desc, qty, price, material, labor, remocion=0.0, unit="SF", action="install_material"):
+    desc = str(desc or "").strip()
+    qty = float(qty)
+    price = round(float(price), 2)
+    material = round(float(material), 2)
+    labor = round(float(labor), 2)
+    remocion = round(float(remocion), 2)
+    paquete = round(material + labor + remocion, 2)
+    columnas = json.dumps({
+        "precio_base": paquete,
+        "precio_material": material,
+        "precio_mano_obra": labor,
+        "precio_remocion": remocion,
+    })
+    meta = {
+        "descManual": "1",
+        "descCustom": desc,
+        "skipZipFactor": "1",
+        "skipMinimo": "1",
+        "accion": action,
+        "columnasCatalogo": columnas,
+        "precioBase": str(paquete),
+        "precioPaquete": str(paquete),
+        "precioMaterial": str(material),
+        "precioLabor": str(labor),
+        "precioDemo": str(remocion),
+        "precioImportado": "1",
+        "unidadManual": "1",
+    }
+    return {
+        "descripcion": desc,
+        "description": desc,
+        "desc": desc,
+        "descCustom": desc,
+        "cantidad": qty,
+        "qty": qty,
+        "precio_unitario": price,
+        "price": price,
+        "unidad": unit,
+        "unit": unit,
+        "accion": action,
+        "action": action,
+        "tax": 0,
+        "codigo": "",
+        "code": "",
+        "meta": meta,
+        "subtotal": round(qty * price, 2),
+    }
+
+
+def _fila_estimado_ejemplo():
+    proyecto = "Ejemplo: Remodelación Básica (Pintura y Drywall)"
+    drywall = _partida_estimado_ejemplo(
+        "Reparación de Drywall", 120, 4.75, material=1.60, labor=3.15
+    )
+    pintura = _partida_estimado_ejemplo(
+        "Pintura Interior a dos manos", 380, 2.85, material=0.90, labor=1.95
+    )
+    drywall["area"] = proyecto
+    pintura["area"] = proyecto
+    items = [drywall, pintura]
+    total = round(sum(float(it["subtotal"]) for it in items), 2)
+    hoy = datetime.now(timezone.utc).date().isoformat()
+    cliente = {
+        "name": "Cliente de Prueba",
+        "email": "cliente.prueba@example.com",
+        "phone": "(404) 555-0148",
+        "street": proyecto,
+        "city": "Atlanta",
+        "state": "GA",
+        "zip": "30318",
+    }
+    areas = [{
+        "title": proyecto,
+        "titleEn": "Example: Basic remodel (paint and drywall)",
+        "titleEs": proyecto,
+        "reference": "DEMO",
+        "rows": [
+            {k: it[k] for k in ("code", "desc", "description", "descripcion", "descCustom", "qty", "price", "unit", "tax", "action", "meta")}
+            for it in items
+        ],
+    }]
+    snapshot = {
+        "docMode": "estimate",
+        "language": "en",
+        "quote": "EST-EXAMPLE",
+        "date": hoy,
+        "status": "open",
+        "client": cliente,
+        "areas": areas,
+        "projectNotes": "Este es un estimado de ejemplo. Revisa las partidas para ver cantidades × precio unitario y cambia la Acción para ver material, mano de obra y remoción.",
+        "terms": "Sample document for training only. Replace these items with your own scope when you start a real estimate.",
+        "zip": "30318",
+        "tipoProyecto": "residencial",
+        "contratista": "general",
+        "autoPrecios": False,
+        "minimos": False,
+    }
+    return {
+        "folio": "EST-EXAMPLE",
+        "tipo": "estimate",
+        "cliente_nombre": cliente["name"],
+        "fecha": hoy,
+        "total": total,
+        "estado": "pending",
+        "cliente": cliente,
+        "items": items,
+        "areas": areas,
+        "snapshot": snapshot,
+        "notas": snapshot["projectNotes"],
+        "terminos": snapshot["terms"],
+        "firmas": {},
+        "payload": {
+            "type": "estimate",
+            "docMode": "estimate",
+            "folio": "EST-EXAMPLE",
+            "client": cliente["name"],
+            "clienteNombre": cliente["name"],
+            "total": total,
+        },
+    }
+
+
 def _token_contratista_solicitud():
     auth = str(request.headers.get("Authorization") or "").strip()
     if auth.lower().startswith("bearer "):
@@ -3207,7 +3330,7 @@ def registrar_contratista(email, nombre, password, plan=""):
         data = _rpc_tenant(sb, "registrar_contratista", params)
         row = _dict_rpc(data)
         if row and row.get("token"):
-            return _asegurar_user_id_contratista(sb, row, uid)
+            return _completar_alta_contratista(sb, row, uid)
     except Exception as err:
         texto = str(err or "")
         if "already_registered" in texto or re.search(r"duplicate key|contratistas_email", texto, re.I):
@@ -3217,21 +3340,21 @@ def registrar_contratista(email, nombre, password, plan=""):
                 data = _rpc_tenant(sb, "registrar_contratista", {"p_email": email, "p_nombre": nombre})
                 row = _dict_rpc(data)
                 if row and row.get("token"):
-                    return _asegurar_user_id_contratista(sb, row, uid)
+                    return _completar_alta_contratista(sb, row, uid)
             except Exception as err2:
                 err = err2
                 texto = str(err2 or "")
         if "already_registered" in texto or re.search(r"duplicate key|contratistas_email", texto, re.I):
             raise ErrorAuth("already_registered", "This email already has an account. Use Log in.", 409)
         if "invalid_contractor" in texto and not nombre:
-            return _asegurar_user_id_contratista(sb, _registrar_contratista_tabla(sb, email, None, uid), uid)
+            return _completar_alta_contratista(sb, _registrar_contratista_tabla(sb, email, None, uid), uid)
         if "invalid_contractor" in texto:
             raise ErrorAuth("email", "Enter a valid email.", 400)
         print(f"--> registrar contratista {type(err).__name__}: {err}")
         if not _error_sin_funcion_tenant(err):
             raise
         _aviso_multitenant(err)
-    return _asegurar_user_id_contratista(sb, _registrar_contratista_tabla(sb, email, nombre, uid), uid)
+    return _completar_alta_contratista(sb, _registrar_contratista_tabla(sb, email, nombre, uid), uid)
 
 
 def iniciar_sesion_contratista(email, password):
@@ -3357,7 +3480,7 @@ def asegurar_contratista_oauth(email, nombre, user_id=""):
         data = _rpc_tenant(sb, "registrar_contratista", params)
         row = _dict_rpc(data)
         if row and row.get("token"):
-            return _asegurar_user_id_contratista(sb, row, uid)
+            return _completar_alta_contratista(sb, row, uid)
     except Exception as err:
         texto = str(err or "")
         print(f"--> oauth registrar contratista {type(err).__name__}: {err}")
@@ -3371,13 +3494,13 @@ def asegurar_contratista_oauth(email, nombre, user_id=""):
             or re.search(r"not-null|null value", texto, re.I)
         ):
             try:
-                return _asegurar_user_id_contratista(
+                return _completar_alta_contratista(
                     sb, _registrar_contratista_tabla(sb, email, nombre, uid), uid
                 )
             except Exception as fallback:
                 print(f"--> oauth registrar tabla {type(fallback).__name__}: {fallback}")
                 raise err
-    return _asegurar_user_id_contratista(sb, _registrar_contratista_tabla(sb, email, nombre, uid), uid)
+    return _completar_alta_contratista(sb, _registrar_contratista_tabla(sb, email, nombre, uid), uid)
 
 
 def _email_usuario_auth(user):
@@ -3769,6 +3892,26 @@ def listar_historial_tenant(contratista):
         .execute()
     )
     return list(res.data or [])
+
+
+def _sembrar_estimado_ejemplo(contratista):
+    if not contratista or not contratista.get("id") or not contratista.get("token"):
+        return
+    try:
+        existentes = listar_historial_tenant(contratista)
+        if existentes:
+            return
+        guardado = guardar_historial_tenant(contratista, _fila_estimado_ejemplo())
+        if guardado and guardado.get("id"):
+            print(f"--> estimado ejemplo id={guardado.get('id')} contratista={contratista.get('id')}")
+    except Exception as err:
+        print(f"--> estimado ejemplo: {err}")
+
+
+def _completar_alta_contratista(sb, row, uid):
+    row = _asegurar_user_id_contratista(sb, row, uid)
+    _sembrar_estimado_ejemplo(row)
+    return row
 
 
 def obtener_historial_tenant(contratista, ident):
