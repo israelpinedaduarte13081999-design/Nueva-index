@@ -83,6 +83,31 @@
     .home-pdf-drop strong { display:block; color:#0f172a; font-size:.92rem; }
     .home-pdf-drop small { display:block; color:#64748b; font-size:.8rem; margin-top:2px; }
     @media (max-width:800px) { .action-cards-grid { grid-template-columns:1fr; } }
+    #view-login.active { flex-direction:column; justify-content:flex-start; gap:40px; max-width:1100px; margin:0 auto; padding:32px 16px 64px; }
+    .pricing-section { width:100%; }
+    .pricing-header { text-align:center; margin:0 auto 28px; max-width:640px; }
+    .pricing-kicker { margin:0 0 8px; color:#1d4ed8; font-size:11px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
+    .pricing-header h2 { margin:0 0 8px; color:#0f172a; font-size:1.7rem; letter-spacing:-.03em; }
+    .pricing-header p { margin:0; color:#64748b; font-size:.95rem; line-height:1.5; }
+    .pricing-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; align-items:stretch; }
+    .pricing-card { display:flex; flex-direction:column; background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:26px 22px 22px; box-shadow:0 4px 12px rgba(0,0,0,.03); min-width:0; }
+    .pricing-card h3 { margin:0 0 6px; color:#0f172a; font-size:1.15rem; }
+    .pricing-price { margin:0 0 6px; color:#0f172a; font-size:2rem; font-weight:800; letter-spacing:-.03em; line-height:1.1; }
+    .pricing-price span { color:#64748b; font-size:.95rem; font-weight:600; }
+    .pricing-lead { margin:0 0 18px; color:#64748b; font-size:.88rem; line-height:1.45; min-height:2.6em; }
+    .pricing-features { list-style:none; margin:0 0 22px; padding:0; display:flex; flex-direction:column; gap:10px; flex:1; }
+    .pricing-features li { position:relative; padding-left:22px; color:#334155; font-size:.9rem; line-height:1.4; }
+    .pricing-features li:before { content:"✓"; position:absolute; left:0; top:0; color:#15803d; font-size:.85rem; font-weight:800; }
+    .pricing-card .pricing-cta { width:100%; margin-top:auto; border-radius:10px; padding:12px 14px; }
+    .pricing-card.is-featured { border-color:#0284c7; background:linear-gradient(#fff,#f0f9ff); box-shadow:0 14px 32px rgba(2,132,199,.16); transform:translateY(-6px); }
+    .pricing-card.is-featured .pricing-cta { background:#0284c7; border-color:#0284c7; color:#fff; }
+    .pricing-card.is-featured .pricing-cta:hover { background:#0369a1; border-color:#0369a1; color:#fff; }
+    .pricing-badge { display:inline-block; margin-bottom:12px; background:#e0f2fe; color:#0369a1; font-size:.72rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:4px 10px; border-radius:999px; }
+    .pricing-card:not(.is-featured) .pricing-badge { visibility:hidden; }
+    @media (max-width:900px) {
+      .pricing-grid { grid-template-columns:1fr; max-width:420px; margin:0 auto; }
+      .pricing-card.is-featured { transform:none; order:-1; }
+    }
     .history-container { background:#ffffff; padding:28px; border-radius:12px; border:1px solid #e2e8f0; }
     .history-header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
     .history-container h2 { margin:0; color:#0f172a; }
@@ -923,6 +948,51 @@
           <button class="btn" type="button" id="cerrarSesionBtn">Log out</button>
         </div>
       </div>
+      <section class="pricing-section" id="pricing-section" aria-labelledby="pricing-heading">
+        <header class="pricing-header">
+          <p class="pricing-kicker">Planes</p>
+          <h2 id="pricing-heading">Elige el plan de tu empresa</h2>
+          <p>Empieza con 14 días de prueba gratis. Sin tarjeta para comenzar, cancela cuando quieras.</p>
+        </header>
+        <div class="pricing-grid">
+          <article class="pricing-card">
+            <span class="pricing-badge">Recomendado</span>
+            <h3>Plan Básico</h3>
+            <p class="pricing-price">$29<span>/mes</span></p>
+            <p class="pricing-lead">Para contratistas que arman documentos a mano y quieren un panel ordenado.</p>
+            <ul class="pricing-features">
+              <li>Creación manual de estimados</li>
+              <li>Facturas y contratos</li>
+              <li>Panel de clientes</li>
+            </ul>
+            <button class="btn pricing-cta" type="button" data-start-trial="basico">Iniciar prueba gratuita de 14 días</button>
+          </article>
+          <article class="pricing-card is-featured">
+            <span class="pricing-badge">Recomendado</span>
+            <h3>Plan Profesional</h3>
+            <p class="pricing-price">$49<span>/mes</span></p>
+            <p class="pricing-lead">Todo lo del Plan Básico, con catálogo completo y precios que se calculan solos.</p>
+            <ul class="pricing-features">
+              <li>Todo lo del Plan Básico</li>
+              <li>Acceso a la base de datos completa</li>
+              <li>Lógica matemática automática</li>
+            </ul>
+            <button class="btn btn-primary pricing-cta" type="button" data-start-trial="profesional">Iniciar prueba gratuita de 14 días</button>
+          </article>
+          <article class="pricing-card">
+            <span class="pricing-badge">Recomendado</span>
+            <h3>Plan Premium</h3>
+            <p class="pricing-price">$99<span>/mes</span></p>
+            <p class="pricing-lead">Todo lo del Plan Profesional, más lectura de planos y alcances con IA.</p>
+            <ul class="pricing-features">
+              <li>Todo lo del Plan Profesional</li>
+              <li>Importación de planos PDF</li>
+              <li>Lectura de alcances con Inteligencia Artificial</li>
+            </ul>
+            <button class="btn pricing-cta" type="button" data-start-trial="premium">Iniciar prueba gratuita de 14 días</button>
+          </article>
+        </div>
+      </section>
   </section>
   <section id="view-home" class="view-section{{ ' active' if vista == 'home' else '' }} no-print">
     <div class="hero-card">
@@ -7698,6 +7768,15 @@
     aplicarTextosAuth();
     document.getElementById('authTabLogin')?.addEventListener('click',()=>mostrarPanelAuth('login'));
     document.getElementById('authTabRegistro')?.addEventListener('click',()=>mostrarPanelAuth('registro'));
+    document.querySelectorAll('[data-start-trial]').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const registro=document.getElementById('registroContratistaForm');
+        if(registro) registro.dataset.plan=btn.getAttribute('data-start-trial')||'';
+        if(typeof mostrarPanelAuth==='function')mostrarPanelAuth('registro');
+        document.getElementById('authContratista')?.scrollIntoView({behavior:'smooth',block:'center'});
+        document.getElementById('registroEmail')?.focus();
+      });
+    });
     document.getElementById('authCambiarCuenta')?.addEventListener('click',()=>{
       const registro=document.getElementById('registroContratistaForm');
       mostrarPanelAuth(registro&&!registro.hidden?'login':'registro');
