@@ -2771,25 +2771,97 @@ def _contratista_publico(row):
         "id": row.get("id"),
         "email": row.get("email"),
         "nombre_empresa": row.get("nombre_empresa") or "",
+        "user_id": row.get("user_id") or "",
     }
+
+
+_sin_columna_user_id = False
+
+
+def _es_error_columna_user_id(err):
+    return bool(re.search(r"\buser_id\b", str(err or ""), re.I))
+
+
+def _marcar_sin_user_id(err):
+    global _sin_columna_user_id
+    if _es_error_columna_user_id(err):
+        _sin_columna_user_id = True
+        return True
+    return False
+
+
+def _cols_contratista():
+    if _sin_columna_user_id:
+        return "id,email,nombre_empresa,token"
+    return "id,email,nombre_empresa,token,user_id"
+
+
+def _select_contratista(sb, **filtros):
+    query = sb.table(TABLA_CONTRATISTAS).select(_cols_contratista())
+    for clave, valor in filtros.items():
+        query = query.eq(clave, valor)
+    try:
+        return list(query.limit(1).execute().data or [])
+    except Exception as err:
+        if _marcar_sin_user_id(err):
+            query = sb.table(TABLA_CONTRATISTAS).select("id,email,nombre_empresa,token")
+            for clave, valor in filtros.items():
+                query = query.eq(clave, valor)
+            return list(query.limit(1).execute().data or [])
+        raise
+
+
+def _asegurar_user_id_contratista(sb, row, user_id):
+    uid = str(user_id or "").strip()
+    if not sb or not row or not row.get("id") or not _es_uuid(uid) or _sin_columna_user_id:
+        return row
+    if str(row.get("user_id") or "") == uid:
+        return row
+    try:
+        sb.table(TABLA_CONTRATISTAS).update({"user_id": uid}).eq("id", row["id"]).execute()
+        row["user_id"] = uid
+    except Exception as err:
+        if not _marcar_sin_user_id(err):
+            print(f"--> user_id contratista: {err}")
+    return row
+
+
+def _user_id_de_contratista(sb, contratista):
+    uid = str((contratista or {}).get("user_id") or "").strip()
+    if _es_uuid(uid):
+        return uid
+    if not sb or _sin_columna_user_id:
+        return ""
+    cid = str((contratista or {}).get("id") or "").strip()
+    email = str((contratista or {}).get("email") or "").strip().lower()
+    if cid:
+        try:
+            rows = _select_contratista(sb, id=cid)
+            if rows and _es_uuid(rows[0].get("user_id")):
+                return str(rows[0]["user_id"])
+            if rows:
+                email = email or str(rows[0].get("email") or "").strip().lower()
+        except Exception:
+            pass
+    if email:
+        user = _usuario_auth_por_email(email)
+        uid = str((user or {}).get("id") or "").strip()
+        if _es_uuid(uid):
+            if cid:
+                _asegurar_user_id_contratista(sb, {"id": cid}, uid)
+            return uid
+    return ""
 
 
 def _contratista_por_email_tabla(sb, email):
     email = str(email or "").strip().lower()
     if not email:
         return None
-    res = (
-        sb.table(TABLA_CONTRATISTAS)
-        .select("id,email,nombre_empresa,token")
-        .eq("email", email)
-        .limit(1)
-        .execute()
-    )
-    rows = list(res.data or [])
+    rows = _select_contratista(sb, email=email)
     return rows[0] if rows else None
 
 
-def _registrar_contratista_tabla(sb, email, nombre):
+def _registrar_contratista_tabla(sb, email, nombre, user_id=""):
     email = str(email or "").strip().lower()
     nombre = str(nombre or "").strip() or None
     if _contratista_por_email_tabla(sb, email):
@@ -2798,13 +2870,28 @@ def _registrar_contratista_tabla(sb, email, nombre):
     es_primero = not list(previos.data or [])
     token = secrets.token_hex(32)
     payload = {"nombre_empresa": nombre, "email": email, "token": token}
+    uid = str(user_id or "").strip()
+    if _es_uuid(uid) and not _sin_columna_user_id:
+        payload["user_id"] = uid
+
+    def _insertar(fila):
+        return sb.table(TABLA_CONTRATISTAS).insert(fila).execute()
+
     try:
-        res = sb.table(TABLA_CONTRATISTAS).insert(payload).execute()
+        res = _insertar(payload)
     except Exception as err:
-        if nombre is not None or not re.search(r"not-null|null value", str(err or ""), re.I):
-            raise
-        payload["nombre_empresa"] = ""
-        res = sb.table(TABLA_CONTRATISTAS).insert(payload).execute()
+        if "user_id" in payload and _marcar_sin_user_id(err):
+            payload.pop("user_id", None)
+            try:
+                res = _insertar(payload)
+                err = None
+            except Exception as err2:
+                err = err2
+        if err is not None:
+            if nombre is not None or not re.search(r"not-null|null value", str(err or ""), re.I):
+                raise err
+            payload["nombre_empresa"] = ""
+            res = _insertar(payload)
     rows = list(res.data or [])
     if not rows:
         raise RuntimeError("No se pudo registrar el contratista")
@@ -2815,18 +2902,13 @@ def _registrar_contratista_tabla(sb, email, nombre):
         except Exception as err:
             print(f"--> no se pudieron asignar documentos previos: {err}")
     row["token"] = token
+    if uid:
+        row["user_id"] = uid
     return row
 
 
 def _contratista_por_token_tabla(sb, token):
-    res = (
-        sb.table(TABLA_CONTRATISTAS)
-        .select("id,email,nombre_empresa")
-        .eq("token", token)
-        .limit(1)
-        .execute()
-    )
-    rows = list(res.data or [])
+    rows = _select_contratista(sb, token=token)
     return rows[0] if rows else None
 
 
@@ -2953,6 +3035,7 @@ def _sesion_desde_fila(row):
         "email": row.get("email"),
         "nombre_empresa": row.get("nombre_empresa") or "",
         "token": row.get("token"),
+        "user_id": row.get("user_id") or "",
     }
 
 
@@ -3041,24 +3124,38 @@ def registrar_contratista(email, nombre, password, plan=""):
         auth_user = auth_user or (sesion or {}).get("user") or _usuario_auth_por_email(email)
     uid = str((auth_user or {}).get("id") or "").strip()
     _guardar_perfil(sb, uid, email, nombre or "", plan)
+    params = {"p_email": email, "p_nombre": nombre}
+    if _es_uuid(uid):
+        params["p_user_id"] = uid
     try:
-        data = _rpc_tenant(sb, "registrar_contratista", {"p_email": email, "p_nombre": nombre})
+        data = _rpc_tenant(sb, "registrar_contratista", params)
         row = _dict_rpc(data)
         if row and row.get("token"):
-            return row
+            return _asegurar_user_id_contratista(sb, row, uid)
     except Exception as err:
         texto = str(err or "")
         if "already_registered" in texto or re.search(r"duplicate key|contratistas_email", texto, re.I):
             raise ErrorAuth("already_registered", "This email already has an account. Use Log in.", 409)
+        if params.get("p_user_id") and _error_sin_funcion_tenant(err):
+            try:
+                data = _rpc_tenant(sb, "registrar_contratista", {"p_email": email, "p_nombre": nombre})
+                row = _dict_rpc(data)
+                if row and row.get("token"):
+                    return _asegurar_user_id_contratista(sb, row, uid)
+            except Exception as err2:
+                err = err2
+                texto = str(err2 or "")
+        if "already_registered" in texto or re.search(r"duplicate key|contratistas_email", texto, re.I):
+            raise ErrorAuth("already_registered", "This email already has an account. Use Log in.", 409)
         if "invalid_contractor" in texto and not nombre:
-            return _registrar_contratista_tabla(sb, email, None)
+            return _asegurar_user_id_contratista(sb, _registrar_contratista_tabla(sb, email, None, uid), uid)
         if "invalid_contractor" in texto:
             raise ErrorAuth("email", "Enter a valid email.", 400)
         print(f"--> registrar contratista {type(err).__name__}: {err}")
         if not _error_sin_funcion_tenant(err):
             raise
         _aviso_multitenant(err)
-    return _registrar_contratista_tabla(sb, email, nombre)
+    return _asegurar_user_id_contratista(sb, _registrar_contratista_tabla(sb, email, nombre, uid), uid)
 
 
 def iniciar_sesion_contratista(email, password):
@@ -3071,6 +3168,9 @@ def iniciar_sesion_contratista(email, password):
     row = _contratista_por_email_tabla(sb, email)
     if not row or not row.get("token"):
         raise ErrorAuth("sin_cuenta", "No contractor account uses this email. Create one first.", 404)
+    uid = _user_id_de_contratista(sb, row)
+    if uid:
+        row["user_id"] = uid
     print(f"--> sesion iniciada email={email}")
     return row
 
@@ -3164,36 +3264,42 @@ def _nombre_oauth(user):
     return (base.title() or "My company")[:120]
 
 
-def asegurar_contratista_oauth(email, nombre):
+def asegurar_contratista_oauth(email, nombre, user_id=""):
     sb = _supabase_client()
     if sb is None:
         raise ErrorAuth("config", "Supabase no configurado", 503)
+    uid = str(user_id or "").strip()
     row = _contratista_por_email_tabla(sb, email)
     if row and row.get("token"):
-        return row
+        return _asegurar_user_id_contratista(sb, row, uid)
+    params = {"p_email": email, "p_nombre": nombre}
+    if _es_uuid(uid):
+        params["p_user_id"] = uid
     try:
-        data = _rpc_tenant(sb, "registrar_contratista", {"p_email": email, "p_nombre": nombre})
+        data = _rpc_tenant(sb, "registrar_contratista", params)
         row = _dict_rpc(data)
         if row and row.get("token"):
-            return row
+            return _asegurar_user_id_contratista(sb, row, uid)
     except Exception as err:
         texto = str(err or "")
         print(f"--> oauth registrar contratista {type(err).__name__}: {err}")
         if "already_registered" in texto or re.search(r"duplicate key|contratistas_email", texto, re.I):
             row = _contratista_por_email_tabla(sb, email)
             if row and row.get("token"):
-                return row
+                return _asegurar_user_id_contratista(sb, row, uid)
         if not (
             _error_sin_funcion_tenant(err)
             or "invalid_contractor" in texto
             or re.search(r"not-null|null value", texto, re.I)
         ):
             try:
-                return _registrar_contratista_tabla(sb, email, nombre)
+                return _asegurar_user_id_contratista(
+                    sb, _registrar_contratista_tabla(sb, email, nombre, uid), uid
+                )
             except Exception as fallback:
                 print(f"--> oauth registrar tabla {type(fallback).__name__}: {fallback}")
                 raise err
-    return _registrar_contratista_tabla(sb, email, nombre)
+    return _asegurar_user_id_contratista(sb, _registrar_contratista_tabla(sb, email, nombre, uid), uid)
 
 
 def _email_usuario_auth(user):
@@ -3321,7 +3427,8 @@ def _intercambiar_codigo_pkce(code, verifier):
 def _sesion_contratista_oauth(access_token, user=None):
     user = _usuario_oauth(access_token, user)
     email = _email_usuario_auth(user)
-    row = asegurar_contratista_oauth(email, _nombre_oauth(user))
+    uid = str((user or {}).get("id") or "").strip()
+    row = asegurar_contratista_oauth(email, _nombre_oauth(user), uid)
     if not row or not row.get("token"):
         raise ErrorAuth("sin_cuenta", "Could not open the contractor account.", 404)
     print(f"--> sesion google email={email}")
@@ -3442,6 +3549,11 @@ def _exigir_contratista():
     if not contratista or not _correo_valido(contratista.get("email")):
         return None, (jsonify({"error": "Contractor not authorized"}), 403)
     contratista["token"] = token
+    sb = _supabase_client()
+    if sb is not None:
+        uid = _user_id_de_contratista(sb, contratista)
+        if uid:
+            contratista["user_id"] = uid
     return contratista, None
 
 
@@ -3479,7 +3591,7 @@ def _buscar_historial_por_id(sb, ident, contratista_id=None):
 def _fila_tenant_json(fila):
     limpia = {}
     for clave, valor in (fila or {}).items():
-        if clave == "contratista_id":
+        if clave in ("contratista_id", "user_id"):
             continue
         if valor is None or isinstance(valor, (str, int, float, bool, dict, list)):
             limpia[clave] = valor
@@ -3492,6 +3604,11 @@ def _guardar_historial_tabla(sb, contratista, fila):
     cid = contratista["id"]
     fila = dict(fila)
     fila["contratista_id"] = cid
+    uid = _user_id_de_contratista(sb, contratista)
+    if uid:
+        fila["user_id"] = uid
+    else:
+        fila.pop("user_id", None)
     fila.pop("id", None) if not _es_uuid(fila.get("id")) else None
     tipo = str(fila.get("tipo") or "").lower()
     existente = None
@@ -3506,13 +3623,30 @@ def _guardar_historial_tabla(sb, contratista, fila):
         fila["token_aceptacion"] = existente.get("token_aceptacion")
     if existente and str(existente.get("estado") or "").lower() == "accepted":
         fila["estado"] = "accepted"
+
+    def _escribir(metodo, payload, ident=None):
+        query = getattr(sb.table(TABLA_HISTORIAL), metodo)(payload)
+        if ident:
+            query = query.eq("id", ident).eq("contratista_id", cid)
+        try:
+            return query.execute()
+        except Exception as err:
+            if "user_id" in payload and _marcar_sin_user_id(err):
+                limpio = dict(payload)
+                limpio.pop("user_id", None)
+                query = getattr(sb.table(TABLA_HISTORIAL), metodo)(limpio)
+                if ident:
+                    query = query.eq("id", ident).eq("contratista_id", cid)
+                return query.execute()
+            raise
+
     if existente:
         ident = existente.get("id")
         update = {k: v for k, v in fila.items() if k != "id"}
-        sb.table(TABLA_HISTORIAL).update(update).eq("id", ident).eq("contratista_id", cid).execute()
+        _escribir("update", update, ident)
         return _buscar_historial_por_id(sb, ident, cid) or {**existente, **update, "id": ident}
     insert = {k: v for k, v in fila.items() if k != "id"}
-    res = sb.table(TABLA_HISTORIAL).insert(insert).execute()
+    res = _escribir("insert", insert)
     rows = list(res.data or [])
     return rows[0] if rows else insert
 
@@ -3728,6 +3862,7 @@ def api_contratistas():
             "email": row.get("email"),
             "nombre_empresa": row.get("nombre_empresa"),
             "token": row.get("token"),
+            "user_id": row.get("user_id") or "",
         })
         return _adjuntar_sesion_contratista(resp, row.get("token"), persistir=True)
     contratista, error = _exigir_contratista()
@@ -4241,6 +4376,7 @@ def api_contratista_actual():
         "id": contratista.get("id"),
         "email": contratista.get("email"),
         "nombre_empresa": contratista.get("nombre_empresa"),
+        "user_id": contratista.get("user_id") or "",
     })
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
 

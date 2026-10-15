@@ -1871,8 +1871,20 @@
     let documentoHistorialId = null;
     const contratistaTokenKey = 'contratista_sesion';
     const contratistaIdKey = 'contratista_id';
+    const authUserIdKey = 'auth_user_id';
     function leerTokenContratistaLocal(){
       return localStorage.getItem(contratistaTokenKey)||sessionStorage.getItem(contratistaTokenKey)||'';
+    }
+    function leerUserIdAuthLocal(){
+      return localStorage.getItem(authUserIdKey)||sessionStorage.getItem(authUserIdKey)||'';
+    }
+    function guardarUserIdAuthLocal(uid, recordar){
+      const id=String(uid||'').trim();
+      if(!id) return;
+      const principal=recordar===false?sessionStorage:localStorage;
+      const otro=recordar===false?localStorage:sessionStorage;
+      principal.setItem(authUserIdKey, id);
+      otro.removeItem(authUserIdKey);
     }
     function guardarTokenContratistaLocal(token, id, recordar){
       const principal=recordar===false?sessionStorage:localStorage;
@@ -1885,8 +1897,10 @@
     function borrarTokenContratistaLocal(){
       localStorage.removeItem(contratistaTokenKey);
       localStorage.removeItem(contratistaIdKey);
+      localStorage.removeItem(authUserIdKey);
       sessionStorage.removeItem(contratistaTokenKey);
       sessionStorage.removeItem(contratistaIdKey);
+      sessionStorage.removeItem(authUserIdKey);
     }
     function nombreEmpresaActiva(){
       const campo=String(document.getElementById('company')?.value||'').trim();
@@ -1920,6 +1934,7 @@
       }
       const json=await res.json().catch(()=>null);
       if(json&&json.id) localStorage.setItem(contratistaIdKey, json.id);
+      if(json&&json.user_id) guardarUserIdAuthLocal(json.user_id);
       if(json&&json.nombre_empresa) aplicarMarcaBlanca(json.nombre_empresa);
       return json;
     }
@@ -1934,6 +1949,8 @@
     function perteneceAlContratista(item){
       if(!item) return false;
       const id=localStorage.getItem(contratistaIdKey)||'';
+      const uid=leerUserIdAuthLocal();
+      if(item.user_id&&uid&&String(item.user_id)!==String(uid)) return false;
       if(item.contratista_id&&id&&String(item.contratista_id)!==String(id)) return false;
       return true;
     }
@@ -5064,6 +5081,7 @@
         firmaCliente:firmas.cliente,
         firmaContratista:firmas.contratista,
         contratista_id:localStorage.getItem(contratistaIdKey)||undefined,
+        user_id:leerUserIdAuthLocal()||undefined,
         status:(typeof paymentState!=='undefined'&&paymentState&&paymentState.status==='paid')?'paid':'pending'
       };
     }
@@ -7705,6 +7723,7 @@
     }
     function guardarSesionContratista(json, recordar){
       if(json&&(json.token||json.id)) guardarTokenContratistaLocal(json.token||'', json.id||'', recordar!==false);
+      if(json&&json.user_id) guardarUserIdAuthLocal(json.user_id, recordar!==false);
       const nombre=json&&(json.nombre_empresa||'');
       if(nombre){
         aplicarMarcaBlanca(nombre);
@@ -8038,6 +8057,8 @@
           const msg=String(error.message||'').toLowerCase();
           if(!/already|registered|exists/.test(msg)) throw error;
         }
+        const uidAuth=(data&&data.user&&data.user.id)||(data&&data.session&&data.session.user&&data.session.user.id)||'';
+        if(uidAuth) guardarUserIdAuthLocal(uidAuth);
         if(!(data&&data.session)){
           const login=await cliente.auth.signInWithPassword({ email, password });
           if(login.error){

@@ -5,9 +5,11 @@ create table if not exists public.contratistas (
   nombre_empresa text,
   email text not null unique,
   token text not null unique,
+  user_id uuid references auth.users(id) on delete cascade,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.contratistas add column if not exists user_id uuid references auth.users(id) on delete cascade;
 
 -- white-label: historial_estimados stores line-item WORK DESCRIPTION in jsonb
 -- (items, areas, snapshot) — unlimited text, not VARCHAR.
@@ -15,6 +17,7 @@ create table if not exists public.contratistas (
 create table if not exists public.historial_estimados (
   id uuid primary key default gen_random_uuid(),
   contratista_id uuid not null references public.contratistas(id),
+  user_id uuid references auth.users(id) on delete cascade,
   folio text,
   tipo text not null default 'estimate',
   cliente_nombre text,
@@ -46,26 +49,85 @@ create index if not exists historial_estimados_tipo_idx
 create index if not exists historial_estimados_contratista_idx
   on public.historial_estimados (contratista_id, updated_at desc);
 
+alter table public.historial_estimados
+  add column if not exists user_id uuid references auth.users(id) on delete cascade;
+
+create unique index if not exists contratistas_user_id_uidx
+  on public.contratistas (user_id)
+  where user_id is not null;
+
+create index if not exists historial_estimados_user_id_idx
+  on public.historial_estimados (user_id);
+
 alter table public.contratistas alter column nombre_empresa drop not null;
 
 alter table public.historial_estimados enable row level security;
 alter table public.contratistas enable row level security;
 
-revoke all on table public.historial_estimados from anon, authenticated;
-revoke all on table public.contratistas from anon, authenticated;
+revoke all on table public.historial_estimados from anon, public;
+revoke all on table public.contratistas from anon, public;
 
 -- contratistas: RLS queda activo. anon/authenticated no tienen DML directo.
 -- El 42501 "new row violates row-level security policy" aparece cuando el
 -- INSERT REST no corre como service_role: no hay política que acepte la fila
 -- (deny-all implícito) o una política authenticated con auth.uid() = id falla
 -- porque contratistas.id no es auth.users.id.
+grant select, insert, update, delete on table public.historial_estimados to authenticated;
+grant select, insert, update, delete on table public.historial_estimados to service_role;
+grant select (id, email, nombre_empresa, user_id, created_at, updated_at)
+  on table public.contratistas to authenticated;
 grant select, insert, update on table public.contratistas to service_role;
+revoke select (token) on table public.contratistas from authenticated, anon;
 
+drop policy if exists contratistas_select_own on public.contratistas;
 drop policy if exists contratistas_service_select on public.contratistas;
 drop policy if exists contratistas_service_insert on public.contratistas;
 drop policy if exists contratistas_service_update on public.contratistas;
 drop policy if exists "Enable insert for authenticated users only" on public.contratistas;
 drop policy if exists "Enable read access for all users" on public.contratistas;
+drop policy if exists historial_select_own on public.historial_estimados;
+drop policy if exists historial_insert_own on public.historial_estimados;
+drop policy if exists historial_update_own on public.historial_estimados;
+drop policy if exists historial_delete_own on public.historial_estimados;
+drop policy if exists historial_service_all on public.historial_estimados;
+
+create policy historial_select_own
+  on public.historial_estimados
+  for select
+  to authenticated
+  using (user_id = auth.uid());
+
+create policy historial_insert_own
+  on public.historial_estimados
+  for insert
+  to authenticated
+  with check (user_id = auth.uid());
+
+create policy historial_update_own
+  on public.historial_estimados
+  for update
+  to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+create policy historial_delete_own
+  on public.historial_estimados
+  for delete
+  to authenticated
+  using (user_id = auth.uid());
+
+create policy historial_service_all
+  on public.historial_estimados
+  for all
+  to service_role
+  using (true)
+  with check (true);
+
+create policy contratistas_select_own
+  on public.contratistas
+  for select
+  to authenticated
+  using (user_id = auth.uid());
 
 create policy contratistas_service_select
   on public.contratistas
@@ -93,7 +155,33 @@ create policy contratistas_service_update
     and token is not null
   );
 
-create or replace function public.registrar_contratista(p_email text, p_nombre text)
+create or replace function public.forzar_user_id_historial()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is not null then
+    new.user_id := auth.uid();
+  elsif new.user_id is null and new.contratista_id is not null then
+    select c.user_id into new.user_id
+    from public.contratistas c
+    where c.id = new.contratista_id;
+  end if;
+  if tg_op = 'UPDATE' and old.user_id is not null and auth.uid() is not null then
+    new.user_id := old.user_id;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists historial_forzar_user_id on public.historial_estimados;
+create trigger historial_forzar_user_id
+  before insert or update on public.historial_estimados
+  for each row execute procedure public.forzar_user_id_historial();
+
+create or replace function public.registrar_contratista(p_email text, p_nombre text, p_user_id uuid default null)
 returns jsonb
 language plpgsql
 security definer
@@ -104,6 +192,7 @@ declare
   v_nombre text := nullif(trim(coalesce(p_nombre, '')), '');
   v_id uuid;
   v_token text;
+  v_uid uuid := p_user_id;
 begin
   if v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then
     raise exception 'invalid_contractor';
@@ -111,15 +200,19 @@ begin
   if exists (select 1 from public.contratistas where email = v_email) then
     raise exception 'already_registered';
   end if;
+  if v_uid is null then
+    select u.id into v_uid from auth.users u where lower(u.email) = v_email limit 1;
+  end if;
   v_token := replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
-  insert into public.contratistas (nombre_empresa, email, token)
-  values (v_nombre, v_email, v_token)
+  insert into public.contratistas (nombre_empresa, email, token, user_id)
+  values (v_nombre, v_email, v_token, v_uid)
   returning id into v_id;
   return jsonb_build_object(
     'id', v_id,
     'email', v_email,
     'nombre_empresa', v_nombre,
-    'token', v_token
+    'token', v_token,
+    'user_id', v_uid
   );
 end;
 $$;
@@ -143,7 +236,8 @@ begin
   return jsonb_build_object(
     'id', v_row.id,
     'email', v_row.email,
-    'nombre_empresa', v_row.nombre_empresa
+    'nombre_empresa', v_row.nombre_empresa,
+    'user_id', v_row.user_id
   );
 end;
 $$;
@@ -252,13 +346,16 @@ set search_path = public
 as $$
 declare
   v_cid uuid;
+  v_uid uuid;
   v_id uuid;
   v_existente uuid;
   v_token_aceptacion uuid;
   v_tipo text;
   v_row public.historial_estimados%rowtype;
 begin
-  select id into v_cid from public.contratistas where token = trim(coalesce(p_token, ''));
+  select id, user_id into v_cid, v_uid
+  from public.contratistas
+  where token = trim(coalesce(p_token, ''));
   if v_cid is null then
     raise exception 'unauthorized';
   end if;
@@ -315,6 +412,7 @@ begin
       firmas = coalesce(p_fila->'firmas', '{}'::jsonb),
       payload = p_fila->'payload',
       contratista_id = v_cid,
+      user_id = coalesce(v_uid, user_id),
       token_aceptacion = coalesce(v_token_aceptacion, token_aceptacion),
       updated_at = now()
     where id = v_existente and contratista_id = v_cid
@@ -323,7 +421,7 @@ begin
     insert into public.historial_estimados (
       folio, tipo, cliente_nombre, fecha, total, estado,
       cliente, items, areas, snapshot, notas, terminos, firmas, payload,
-      contratista_id, token_aceptacion
+      contratista_id, user_id, token_aceptacion
     ) values (
       nullif(p_fila->>'folio', ''),
       v_tipo,
@@ -340,6 +438,7 @@ begin
       coalesce(p_fila->'firmas', '{}'::jsonb),
       p_fila->'payload',
       v_cid,
+      v_uid,
       v_token_aceptacion
     )
     returning * into v_row;
