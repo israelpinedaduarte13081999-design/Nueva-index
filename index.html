@@ -2644,6 +2644,32 @@
       if(a==='install'||a==='labor')return topePaquete(labor,paquete);
       return topePaquete(labor,paquete);
     }
+    function guardarSnapshotRolesFila(row,roles){
+      if(!row||!roles)return;
+      row.dataset.columnasCatalogo=JSON.stringify({
+        precio_base:roles.paquete||0,
+        precio_material:roles.material||0,
+        precio_mano_obra:roles.labor||0,
+        precio_remocion:roles.demo||0
+      });
+    }
+    function snapshotRolesFila(row){
+      if(!row||!row.dataset.columnasCatalogo)return null;
+      try{
+        const o=JSON.parse(row.dataset.columnasCatalogo);
+        return {
+          labor:Number(o.precio_mano_obra||o.labor)||0,
+          material:Number(o.precio_material||o.material)||0,
+          demo:Number(o.precio_remocion||o.demo)||0,
+          paquete:Number(o.precio_base||o.paquete)||0
+        };
+      }catch(e){
+        return null;
+      }
+    }
+    function tieneDesgloseCatalogo(roles){
+      return !!(roles&&(numeroPrecio(roles.labor)||numeroPrecio(roles.material)||numeroPrecio(roles.demo)));
+    }
     function guardarRolesEnFila(row,roles){
       if(!row||!roles)return;
       row.dataset.precioLabor=String(roles.labor||0);
@@ -2655,16 +2681,32 @@
         row.dataset.precioPaquete=String(roles.paquete||0);
         row.setAttribute('data-precio-paquete',String(roles.paquete||0));
       }
+      guardarSnapshotRolesFila(row,roles);
     }
     function rolesDesdeFila(row){
+      const snap=snapshotRolesFila(row)||{};
       return {
-        labor:Number(row.dataset.precioLabor)||0,
-        material:Number(row.dataset.precioMaterial)||0,
-        demo:Number(row.dataset.precioDemo)||0,
-        install:Number(row.dataset.precioLabor)||0,
+        labor:Number(row.dataset.precioLabor)||snap.labor||0,
+        material:Number(row.dataset.precioMaterial)||snap.material||0,
+        demo:Number(row.dataset.precioDemo)||snap.demo||0,
+        install:Number(row.dataset.precioLabor)||snap.labor||0,
         replace:Number(row.dataset.precioReplace)||0,
-        paquete:Number(row.dataset.precioPaquete)||Number(row.getAttribute('data-precio-paquete'))||Number(row.getAttribute('data-precio-base'))||0
+        paquete:Number(row.dataset.precioPaquete)||Number(row.getAttribute('data-precio-paquete'))||snap.paquete||Number(row.getAttribute('data-precio-base'))||0
       };
+    }
+    function hidratarRolesCatalogoFila(row){
+      let roles=rolesDesdeFila(row);
+      if(tieneDesgloseCatalogo(roles))return roles;
+      const code=(row.querySelector('.code')?.value||row.dataset.codigoBase||'').trim();
+      const item=code&&typeof buscarPartidaSupabaseFlexible==='function'?buscarPartidaSupabaseFlexible(code,'',''):null;
+      if(item){
+        const fromItem=rolesDesdeItemCatalogo(item);
+        if(tieneDesgloseCatalogo(fromItem)||fromItem.paquete>0){
+          roles=Object.assign({},roles,fromItem,{paquete:roles.paquete||fromItem.paquete});
+          guardarRolesEnFila(row,roles);
+        }
+      }
+      return roles;
     }
     function desgloseDesdeItem(item,unit,text,category,opts){
       const p=precioUnitarioDeItem(item);
@@ -2766,13 +2808,22 @@
       const autoOn=typeof preciosAutomaticosActivos==='function'?preciosAutomaticosActivos():true;
       const factor=skipZip||!autoOn?1:((typeof factorZipActual==='function'?factorZipActual():1)||1);
       const priceInput=row.querySelector('.price')||row.querySelector('.input-precio')||row.querySelector('.input-precio-unit');
-      const columnas=Object.assign({},rolesDesdeFila(row),roles||{});
+      const hidratados=hidratarRolesCatalogoFila(row);
+      const extra=roles||{};
+      const columnas={
+        labor:numeroPrecio(extra.labor,hidratados.labor),
+        material:numeroPrecio(extra.material,hidratados.material),
+        demo:numeroPrecio(extra.demo,hidratados.demo),
+        install:numeroPrecio(extra.labor,hidratados.labor),
+        replace:numeroPrecio(extra.replace,hidratados.replace),
+        paquete:numeroPrecio(extra.paquete,hidratados.paquete)
+      };
       const paquete=numeroPrecio(columnas.paquete);
       let unitarioBase=precioDesdeRolesVariantes(columnas,accion);
       const unitario=topePaquete(unitarioBase*factor, paquete>0?redondearPrecio(paquete*factor):0);
       if(priceInput){
         if(unitario>0)priceInput.value=unitario.toFixed(2);
-        else if(paquete>0)priceInput.value='0.00';
+        else if(tieneDesgloseCatalogo(columnas)||row.dataset.columnasCatalogo)priceInput.value='0.00';
       }
       row.dataset.accion=accion;
       const subtotal=typeof recalcularSubtotalFila==='function'?recalcularSubtotalFila(row):0;
@@ -2795,9 +2846,9 @@
         const extra=listarItemsCatalogoSupabase().filter(item=>sonVariantesDelMismoMaterial({codigo:code,desc:nucleo,itemGroup:ctx.itemGroup,unit,familia:categoria,categoria},item));
         extra.forEach(item=>{ if(!variantes.some(v=>(v.codigo||v.code)===(item.codigo||item.code)&&v.desc===item.desc))variantes.push(item); });
       }
-      const guardados=rolesDesdeFila(row);
-      const roles=(guardados.paquete>0||guardados.labor||guardados.material||guardados.demo)?guardados:preciosRolesDesdeVariantes(variantes);
-      if(roles.paquete||roles.labor||roles.material||roles.demo)guardarRolesEnFila(row,roles);
+      const guardados=hidratarRolesCatalogoFila(row);
+      const roles=(tieneDesgloseCatalogo(guardados)||guardados.paquete>0)?guardados:preciosRolesDesdeVariantes(variantes);
+      if(roles.paquete||tieneDesgloseCatalogo(roles))guardarRolesEnFila(row,roles);
       const subtotal=aplicarPrecioAccionEnFila(row,roles,opts);
       if(!fromRemote&&row.dataset.materialLock==='1'&&row.dataset.precioCatalogo!=='1'&&typeof consultarVariantesYAplicar==='function')consultarVariantesYAplicar(row);
       return subtotal;
@@ -2837,10 +2888,10 @@
       delete row.dataset.iaCatalogo;
       delete row.dataset.precioDesdeApi;
       priceInput.classList.remove('precio-sin-ia');
-      const columnas=rolesDesdeFila(row);
+      const columnas=hidratarRolesCatalogoFila(row);
       const local=aplicarPrecioAccionEnFila(row,columnas,{silent:true});
       row.dataset.precioAccionReq=String(solicitud);
-      if(columnas.paquete>0||columnas.labor>0||columnas.material>0||columnas.demo>0){
+      if(tieneDesgloseCatalogo(columnas)||(accion==='replace_material'&&columnas.paquete>0)||row.dataset.columnasCatalogo){
         priceInput.placeholder='';
         priceInput.classList.remove('precio-cargando');
         priceInput.removeAttribute('aria-busy');
@@ -3061,7 +3112,7 @@
       const out=[];
       Object.keys(CATALOGO_TRABAJOS||{}).forEach(cat=>{
         (CATALOGO_TRABAJOS[cat]||[]).forEach(item=>{
-          const mapped={desc:item.desc,unit:item.unit,price:item.price,priceLabor:item.priceLabor,priceMaterial:item.priceMaterial,priceDemo:item.priceDemo,familia:cat,categoria:item.categoria||cat,codigo:item.codigo||item.code||'',fuente:'supabase',ajuste_zip:item.ajuste_zip};
+          const mapped={desc:item.desc,unit:item.unit,price:item.price,precio_base:item.price,priceLabor:item.priceLabor,precio_mano_obra:item.priceLabor,precio_labor:item.priceLabor,priceMaterial:item.priceMaterial,precio_material:item.priceMaterial,priceDemo:item.priceDemo,precio_remocion:item.priceDemo,precio_demo:item.priceDemo,familia:cat,categoria:item.categoria||cat,codigo:item.codigo||item.code||'',fuente:'supabase',ajuste_zip:item.ajuste_zip};
           if(oficio&&typeof itemPerteneceAOficio==='function'&&!itemPerteneceAOficio(mapped,oficio))return;
           out.push(mapped);
         });
@@ -3171,8 +3222,8 @@
       if(!row||filaPrecioDesdeApi(row))return;
       if(row.dataset.precioImportado==='1')return;
       const skipDesc=row.dataset.descManual==='1';
-      const columnasGuardadas=rolesDesdeFila(row);
-      if(columnasGuardadas.paquete>0||columnasGuardadas.labor||columnasGuardadas.material||columnasGuardadas.demo){
+      const columnasGuardadas=hidratarRolesCatalogoFila(row);
+      if(tieneDesgloseCatalogo(columnasGuardadas)||columnasGuardadas.paquete>0||row.dataset.columnasCatalogo){
         if(typeof recalcularPrecioPorAccion==='function')recalcularPrecioPorAccion(row,{silent:true,fromRemote:true,skipDesc});
         return;
       }
@@ -3506,7 +3557,7 @@
     function enriquecerItemSugerencia(item){
       if(!item)return null;
       const mapped=item.desc||item.descripcion||item.descripcion_es||item.codigo||item.code
-        ? (item.desc?item:(typeof mapearItemCatalogoApi==='function'?mapearItemCatalogoApi(item)||item:item))
+        ? Object.assign({},item,(typeof mapearItemCatalogoApi==='function'&&mapearItemCatalogoApi(item))||{})
         : null;
       if(!mapped)return null;
       if(!mapped.desc)mapped.desc=mapped.descripcion||mapped.descripcion_es||mapped.descripcion_en||'';
@@ -3844,9 +3895,10 @@
         fila.dataset.accion=accionCatalogo;
       }
       guardarRolesEnFila(fila,roles);
+      guardarSnapshotRolesFila(fila,roles);
       const priceInput=fila.querySelector('.price, .input-precio');
       if(typeof aplicarPrecioAccionEnFila==='function')aplicarPrecioAccionEnFila(fila,roles,{silent:true});
-      if(priceInput&&!(numeroPrecio(priceInput.value)>0)){
+      if(priceInput&&!(numeroPrecio(priceInput.value)>0)&&accionCatalogo==='replace_material'){
         const autoOn=typeof preciosAutomaticosActivos==='function'?preciosAutomaticosActivos():true;
         const factor=fila.dataset.skipZipFactor==='1'||!autoOn?1:((typeof factorZipActual==='function'?factorZipActual():1)||1);
         priceInput.value=(precioVisible>0?precioVisible:precioBase*factor).toFixed(2);
@@ -4489,7 +4541,7 @@
     const draftStorageKey='solid-remodeling-estimate-draft';
     function serializarFilaEstimado(row){
       const meta={};
-      ['codigoBase','itemGroup','nucleoDesc','precioBase','precioPaquete','precioDemo','precioMatLabor','precioMaterial','precioLabor','precioReplace','catalogoRama','origenPrecio','precioCatalogo','measureKey','skipZipFactor','skipMinimo','materialLock','descManual','unidadManual','precioImportado','accion','descCustom','descEs','descEn'].forEach(k=>{
+      ['codigoBase','itemGroup','nucleoDesc','precioBase','precioPaquete','columnasCatalogo','precioDemo','precioMatLabor','precioMaterial','precioLabor','precioReplace','catalogoRama','origenPrecio','precioCatalogo','measureKey','skipZipFactor','skipMinimo','materialLock','descManual','unidadManual','precioImportado','accion','descCustom','descEs','descEn'].forEach(k=>{
         if(row.dataset[k])meta[k]=row.dataset[k];
       });
       delete meta.descCustom;
