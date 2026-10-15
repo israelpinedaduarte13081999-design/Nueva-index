@@ -285,7 +285,7 @@ def catalogo_en_carga():
 
 def _leer_pagina_catalogo(url, headers, ctx, offset, tamano):
     params = {
-        "select": "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra",
+        "select": "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra,precio_remocion",
         "activo": "eq.true",
         "order": "id.asc",
     }

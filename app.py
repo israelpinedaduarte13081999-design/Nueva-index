@@ -173,6 +173,7 @@ def _iniciar_uszipcode():
 
 import tempfile
 import threading
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 import time
 
@@ -1451,10 +1452,11 @@ def normalizar_item_catalogo(row, idioma="es"):
         "price": precio,
         "precio_labor": round(_num_catalogo(row, "precio_labor", "labor", "precio_mano_obra", "labor_price"), 2),
         "precio_material": round(_num_catalogo(row, "precio_material", "material", "material_price", "precio_mat"), 2),
-        "precio_demo": round(_num_catalogo(row, "precio_demo", "demo", "precio_demolicion", "tear_off"), 2),
+        "precio_demo": round(_num_catalogo(row, "precio_remocion", "precio_demo", "demo", "precio_demolicion", "tear_off"), 2),
+        "precio_remocion": round(_num_catalogo(row, "precio_remocion"), 2),
         "priceLabor": round(_num_catalogo(row, "precio_labor", "labor", "precio_mano_obra", "labor_price"), 2),
         "priceMaterial": round(_num_catalogo(row, "precio_material", "material", "material_price", "precio_mat"), 2),
-        "priceDemo": round(_num_catalogo(row, "precio_demo", "demo", "precio_demolicion", "tear_off"), 2),
+        "priceDemo": round(_num_catalogo(row, "precio_remocion", "precio_demo", "demo", "precio_demolicion", "tear_off"), 2),
         "fuente": "supabase",
     }
 
@@ -1716,21 +1718,25 @@ JSON array únicamente:
 _STOP_BUSQUEDA_CATALOGO = {
     "de", "la", "el", "the", "of", "and", "y", "a", "en", "con", "para", "un", "una",
     "del", "los", "las", "to", "for", "or", "con", "por", "que", "mas", "más",
+    "out", "off",
 }
+_SINONIMOS_DEMOLICION = (
+    "remover", "remove", "removal", "remocion", "quitar", "tear", "tearoff", "demo",
+    "demoler", "demolicion", "demolition", "arrancar", "retiro", "retirar", "desmontar",
+    "desinstalar", "pull", "rip", "haul", "raspar", "raspado", "decapar", "decapado", "stripping",
+)
 _SINONIMOS_BUSQUEDA = {
-    "remover": (
-        "remover", "remove", "tear", "demo", "demolicion", "demolition", "arrancar",
-        "tearoff", "retiro", "retirar", "pull", "rip", "haul",
-    ),
-    "arrancar": (
-        "arrancar", "remover", "remove", "tear", "demo", "retiro", "retirar", "pull", "rip",
-    ),
-    "retiro": ("retiro", "retirar", "remover", "remove", "demo", "arrancar", "haul"),
+    "remover": _SINONIMOS_DEMOLICION,
+    "quitar": _SINONIMOS_DEMOLICION,
+    "arrancar": _SINONIMOS_DEMOLICION,
+    "retiro": _SINONIMOS_DEMOLICION,
+    "retirar": _SINONIMOS_DEMOLICION,
+    "remove": _SINONIMOS_DEMOLICION,
+    "tear": _SINONIMOS_DEMOLICION,
+    "demoler": _SINONIMOS_DEMOLICION,
+    "demo": _SINONIMOS_DEMOLICION,
     "instalar": ("instalar", "install", "instalacion", "installation", "replace", "reemplazo", "poner", "colocar"),
-    "pintar": (
-        "pintar", "pintura", "paint", "painting", "primer", "esmalte", "pared", "paredes",
-        "wall", "walls", "cielo", "ceiling",
-    ),
+    "pintar": ("pintar", "pintura", "paint", "painting", "primer", "esmalte"),
     "material": ("material", "materials", "suministro", "mat", "supply"),
     "eaves": ("eaves", "eave", "starter", "alero"),
     "valleys": ("valleys", "valley", "limahoya"),
@@ -2029,6 +2035,7 @@ def _consulta_medida_plano(q):
 
 
 _CATALOGO_INDICE = {"id": None, "tokens": {}}
+_TOKEN_REMOCION = "__remocion__"
 _INDICE_CATALOGO_LOCK = threading.Lock()
 
 
@@ -2060,6 +2067,8 @@ def _indice_busqueda_catalogo(filas):
                     tokens[codigo] = [i]
                 elif i not in bucket:
                     bucket.append(i)
+            if _num_catalogo(row, "precio_remocion") > 0:
+                tokens.setdefault(_TOKEN_REMOCION, []).append(i)
         _CATALOGO_INDICE["id"] = marca
         _CATALOGO_INDICE["tokens"] = tokens
         return tokens
@@ -2080,32 +2089,88 @@ def _postings_catalogo(indice, plano):
     return unidos
 
 
-def _candidatos_indice_catalogo(filas, tokens):
-    indice = _indice_busqueda_catalogo(filas)
-    listas = []
-    for token in tokens or []:
-        plano = _sin_acentos(token)
-        if len(plano) < 3:
+def _parece_codigo_catalogo(q):
+    texto = str(q or "").strip()
+    return bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9\-_.]*", texto) and re.search(r"[-_.]|\d", texto))
+
+
+def _es_consulta_demolicion(q):
+    palabras = set(re.findall(r"[a-z]{3,}", _sin_acentos(q)))
+    return bool(palabras & set(_SINONIMOS_DEMOLICION)) or bool(re.search(r"tear[\s-]*(out|off)", str(q or ""), re.I))
+
+
+def _puntaje_demolicion(row):
+    """Para 'remover/quitar/tear out': primero los ítems de demolición o con precio_remocion."""
+    score = 0
+    if _num_catalogo(row, "precio_remocion") > 0:
+        score += 20
+    codigo = str(row.get("codigo") or row.get("code") or "").upper()
+    blob = row.get("_busca") or _sin_acentos(_texto_item_catalogo(row))
+    if "-DEM-" in codigo or re.search(r"remoc|retiro|retirar|demolic|tear|remov|desmont|arranc", blob):
+        score += 25
+    return score
+
+
+def _clave_sinonimo_catalogo(palabra):
+    if palabra in _SINONIMOS_BUSQUEDA:
+        return palabra
+    if len(palabra) < 4:
+        return None
+    tope = 2 if len(palabra) >= 6 else 1
+    mejor, distancia = None, tope + 1
+    for clave in _SINONIMOS_BUSQUEDA:
+        if " " in clave:
             continue
-        hits = _postings_catalogo(indice, plano)
-        if hits:
-            listas.append(hits)
-    if not listas:
-        return []
-    listas.sort(key=len)
-    elegidos = set(listas[0])
-    for extra in listas[1:]:
-        if len(elegidos) <= 400:
-            break
-        comun = elegidos.intersection(extra)
-        if len(comun) >= 8:
-            elegidos = comun
-    if len(elegidos) > 400:
-        elegidos = set(list(elegidos)[:400])
-    return [filas[i] for i in elegidos if 0 <= i < len(filas)]
+        d = 0 if clave.startswith(palabra) else _distancia_token(palabra, clave)
+        if d < distancia:
+            mejor, distancia = clave, d
+    return mejor
 
 
-def _filas_catalogo_locales(q, unidad="", limite=80):
+def _grupos_busqueda_catalogo(consulta, indice):
+    """Un grupo de sinónimos por palabra escrita: una fila debe cubrir cada grupo, no solo el sinónimo más raro."""
+    grupos = []
+    for palabra in re.findall(r"[a-z0-9]{3,}", _sin_acentos(consulta)):
+        if palabra in _STOP_BUSQUEDA_CATALOGO:
+            continue
+        grupo = [palabra]
+        clave = _clave_sinonimo_catalogo(palabra)
+        if clave:
+            grupo += [_sin_acentos(p) for p in _SINONIMOS_BUSQUEDA[clave] if " " not in p]
+            if _SINONIMOS_BUSQUEDA[clave] is _SINONIMOS_DEMOLICION:
+                grupo.append(_TOKEN_REMOCION)
+        if len(palabra) >= 5 and palabra not in indice:
+            grupo += [
+                k for k in indice
+                if abs(len(k) - len(palabra)) <= 1 and k[:1] == palabra[:1] and _distancia_token(palabra, k) <= 1
+            ][:6]
+        grupo = list(dict.fromkeys(p for p in grupo if len(p) >= 3))
+        if grupo not in grupos:
+            grupos.append(grupo)
+    return grupos[:6]
+
+
+def _candidatos_indice_catalogo(filas, grupos):
+    indice = _indice_busqueda_catalogo(filas)
+    cobertura = {}
+    for grupo in grupos or []:
+        hits = set()
+        for token in grupo:
+            hits.update(_postings_catalogo(indice, token))
+        for i in hits:
+            cobertura[i] = cobertura.get(i, 0) + 1
+    if not cobertura:
+        return [], {}
+    orden = sorted(cobertura, key=lambda i: -cobertura[i])
+    maximo = cobertura[orden[0]]
+    elegidos = [i for i in orden if cobertura[i] >= maximo]
+    if len(elegidos) < 30:
+        elegidos = [i for i in orden if cobertura[i] >= max(1, maximo - 1)]
+    elegidos = [i for i in elegidos[:600] if 0 <= i < len(filas)]
+    return [filas[i] for i in elegidos], {id(filas[i]): cobertura[i] for i in elegidos}
+
+
+def _filas_catalogo_locales(q, unidad="", limite=80, con_puntaje=False):
     """El catálogo ya cabe en memoria. Buscar ahí evita varias consultas lentas a Supabase."""
     from oficios import todas_filas_catalogo
 
@@ -2118,10 +2183,20 @@ def _filas_catalogo_locales(q, unidad="", limite=80):
     if len(compacto) >= 3 and compacto not in tokens:
         tokens = list(tokens) + [compacto]
     unidad_q = str(unidad or "").upper()
-    candidatos = _candidatos_indice_catalogo(filas, tokens)
+    indice = _indice_busqueda_catalogo(filas)
+    if len(compacto) >= 3 and _parece_codigo_catalogo(consulta):
+        grupos = [[compacto]]
+    else:
+        grupos = _grupos_busqueda_catalogo(consulta, indice)
+    candidatos, cobertura = _candidatos_indice_catalogo(filas, grupos)
+    demolicion = _es_consulta_demolicion(consulta)
     puntuadas = []
     for row in candidatos:
+        cubiertos = cobertura.get(id(row), 0)
         score = _puntaje_coincidencia_catalogo(row, consulta, tokens, unidad_q)
+        score += 30 * cubiertos - 30 * (len(grupos) - cubiertos)
+        if demolicion:
+            score += _puntaje_demolicion(row)
         if score < 8:
             continue
         precio = _num_catalogo(row, "precio_base", "precio_unitario", "precio", "price")
@@ -2129,7 +2204,7 @@ def _filas_catalogo_locales(q, unidad="", limite=80):
     puntuadas.sort(key=lambda par: (par[0], par[1]), reverse=True)
     salida = []
     vistos = set()
-    for _score, _precio, row in puntuadas:
+    for score, _precio, row in puntuadas:
         clave = (
             str(row.get("codigo") or row.get("code") or "").strip().lower(),
             _sin_acentos(row.get("descripcion") or row.get("description") or ""),
@@ -2137,7 +2212,7 @@ def _filas_catalogo_locales(q, unidad="", limite=80):
         if clave in vistos:
             continue
         vistos.add(clave)
-        salida.append(row)
+        salida.append((score, row) if con_puntaje else row)
         if len(salida) >= int(limite or 60):
             break
     return salida
@@ -4726,6 +4801,100 @@ def api_direcciones():
     return jsonify({"items": unicos[:8], "errors": errores[:2]})
 
 
+UMBRAL_VECTOR_BARRA = 0.40
+PESO_VECTOR_BARRA = 400
+ESPERA_VECTOR_BARRA = 1.5
+_CACHE_VECTOR_BARRA = OrderedDict()
+_VECTOR_BARRA_EN_CURSO = {}
+_CACHE_VECTOR_BARRA_LOCK = threading.Lock()
+_FILAS_POR_ID = {"id": None, "mapa": {}}
+
+
+def _clave_vector_barra(q):
+    clave = re.sub(r"\s+", " ", _sin_acentos(q)).strip()
+    if len(clave) < 4 or not _openai_api_key():
+        return ""
+    return clave
+
+
+def _iniciar_vector_barra(q):
+    """Lanza la búsqueda semántica sin bloquear; si ya hay una igual en curso, la reutiliza."""
+    clave = _clave_vector_barra(q)
+    if not clave:
+        return "", None
+    with _CACHE_VECTOR_BARRA_LOCK:
+        if clave in _CACHE_VECTOR_BARRA:
+            _CACHE_VECTOR_BARRA.move_to_end(clave)
+            return clave, None
+        evento = _VECTOR_BARRA_EN_CURSO.get(clave)
+        if evento is not None:
+            return clave, evento
+        evento = threading.Event()
+        _VECTOR_BARRA_EN_CURSO[clave] = evento
+
+    def correr():
+        try:
+            _vector_busqueda_barra(q, clave)
+        except Exception as err:
+            print(f"--> barra vector: {type(err).__name__}: {str(err)[:160]}")
+        finally:
+            with _CACHE_VECTOR_BARRA_LOCK:
+                _VECTOR_BARRA_EN_CURSO.pop(clave, None)
+            evento.set()
+
+    threading.Thread(target=correr, daemon=True, name="barra-vector").start()
+    return clave, evento
+
+
+def _resultado_vector_barra(clave, evento, espera):
+    """(similitudes, pendiente). Si la base tarda, se responde sin esperar y el frontend vuelve a pedir."""
+    if not clave:
+        return {}, False
+    if evento is not None:
+        evento.wait(espera)
+    with _CACHE_VECTOR_BARRA_LOCK:
+        if clave in _CACHE_VECTOR_BARRA:
+            return dict(_CACHE_VECTOR_BARRA[clave]), False
+        return {}, clave in _VECTOR_BARRA_EN_CURSO
+
+
+def _vector_busqueda_barra(q, clave, limite=40):
+    """{id: similitud} de match_catalog_items (o match_items) para la frase escrita en la barra."""
+    client = _supabase_client()
+    if client is None:
+        return {}
+    vector = _embedding_texto(q)
+    if not vector:
+        return {}
+    payload = {"query_embedding": vector, "match_threshold": UMBRAL_VECTOR_BARRA, "match_count": limite}
+    datos = None
+    for nombre in ("match_catalog_items", "match_items"):
+        try:
+            datos = client.rpc(nombre, payload).execute().data or []
+            break
+        except Exception as err:
+            print(f"--> barra vector {nombre}: {type(err).__name__}: {str(err)[:160]}")
+    if datos is None:
+        return {}
+    resultado = {
+        row["id"]: float(row.get("similarity") or 0)
+        for row in datos
+        if isinstance(row, dict) and row.get("id") is not None
+    }
+    with _CACHE_VECTOR_BARRA_LOCK:
+        _CACHE_VECTOR_BARRA[clave] = resultado
+        while len(_CACHE_VECTOR_BARRA) > 300:
+            _CACHE_VECTOR_BARRA.popitem(last=False)
+    return dict(resultado)
+
+
+def _filas_catalogo_por_id(filas):
+    if _FILAS_POR_ID.get("id") != id(filas):
+        _FILAS_POR_ID["mapa"] = {row.get("id"): row for row in filas if isinstance(row, dict)}
+        _FILAS_POR_ID["id"] = id(filas)
+    return _FILAS_POR_ID["mapa"]
+
+
 @app.route("/api/search-catalog", methods=["GET"])
 @app.route("/api/buscar-catalogo", methods=["GET"])
 def buscar_catalogo():
@@ -4763,9 +4932,15 @@ def buscar_catalogo():
             resp = jsonify(payload)
             resp.headers["Access-Control-Allow-Origin"] = "*"
             return resp
+        clave_vector, evento_vector = "", None
+        if q_match and not medida and campo not in ("code", "codigo") and not _parece_codigo_catalogo(q_match):
+            clave_vector, evento_vector = _iniciar_vector_barra(q_norm)
+        puntaje_lexico = {}
         if q_match:
             try:
-                filas = _filas_catalogo_locales(q_match, unidad_q)
+                for score, row in _filas_catalogo_locales(q_match, unidad_q, con_puntaje=True):
+                    puntaje_lexico[id(row)] = score
+                    filas.append(row)
             except Exception as err:
                 ultimo_err = err
                 print(f"--> buscar-catalogo local: {err}")
@@ -4773,8 +4948,18 @@ def buscar_catalogo():
             raise RuntimeError("Cliente supabase es None (revisa SUPABASE_URL y SUPABASE_KEY en .env)")
         else:
             filas = _filas_catalogo_locales(q or "", unidad_q)
+        similitud, semantica_pendiente = _resultado_vector_barra(clave_vector, evento_vector, ESPERA_VECTOR_BARRA)
+        if similitud:
+            por_id = _filas_catalogo_por_id(todas_filas_catalogo() or [])
+            vistos = {row.get("id") for row in filas}
+            for item_id in sorted(similitud, key=similitud.get, reverse=True):
+                row = por_id.get(item_id)
+                if row is not None and item_id not in vistos:
+                    filas.append(row)
+                    vistos.add(item_id)
         if ultimo_err and not filas:
             raise ultimo_err
+        demolicion = _es_consulta_demolicion(q_norm)
         tokens = _tokens_busqueda_catalogo(_consulta_medida_plano(q_match) or q_match)
         busca_baldosa = any(
             "baldosa" in grupo or "tile" in grupo
@@ -4782,7 +4967,12 @@ def buscar_catalogo():
             for grupo in _familias_de_token(token)
         )
         if oficio and not busca_baldosa:
-            filtradas = [row for row in filas if fila_es_oficio(row, oficio)]
+            filtradas = [
+                row for row in filas
+                if fila_es_oficio(row, oficio)
+                or similitud.get(row.get("id"), 0) >= 0.55
+                or (demolicion and _puntaje_demolicion(row) >= 25)
+            ]
             if len(filtradas) >= 8:
                 filas = filtradas
         if busca_baldosa:
@@ -4819,8 +5009,22 @@ def buscar_catalogo():
             if not unidad_q:
                 unidad_q = "LF"
         umbral = 4 if campo in ("code", "codigo") else 6
+
+        def _puntaje_hibrido(row):
+            """Texto (sinónimos y cobertura de palabras) + semántica (embeddings)."""
+            if id(row) in puntaje_lexico:
+                score = puntaje_lexico[id(row)]
+            else:
+                score = _puntaje_coincidencia_catalogo(row, q_match, tokens, unidad_q)
+                if demolicion:
+                    score += _puntaje_demolicion(row)
+            sim = similitud.get(row.get("id"), 0)
+            if sim:
+                score += PESO_VECTOR_BARRA * max(0.0, sim - UMBRAL_VECTOR_BARRA)
+            return score
+
         def _orden_catalogo(row):
-            score = _puntaje_coincidencia_catalogo(row, q_match, tokens, unidad_q) + _puntaje_catalogo_zip(row, zona)
+            score = _puntaje_hibrido(row) + _puntaje_catalogo_zip(row, zona)
             precio = _num_catalogo(row, "precio_base", "precio_unitario", "precio", "price")
             if consulta_ridge:
                 return (score, -abs((precio or 0) - 13.5))
@@ -4828,7 +5032,7 @@ def buscar_catalogo():
         filas.sort(key=_orden_catalogo, reverse=True)
         razonables = [
             row for row in filas
-            if _puntaje_coincidencia_catalogo(row, q_match, tokens, unidad_q) >= umbral
+            if _puntaje_hibrido(row) >= umbral or similitud.get(row.get("id"), 0) >= UMBRAL_VECTOR_BARRA
         ] or filas
         limite = 50
         candidatos = [item for item in (normalizar_item_catalogo(row, idioma) for row in razonables[:200]) if item]
@@ -4845,7 +5049,10 @@ def buscar_catalogo():
             item["ajuste_zip"] = True
             item["fuente"] = item.get("fuente") or "supabase"
         items, traduciendo = _items_en_idioma_busqueda(items, idioma)
-        print(f"--> catálogo supabase q='{q_match}' idioma={idioma} filas={len(filas)} items={len(items)}")
+        print(
+            f"--> catálogo supabase q='{q_match}' idioma={idioma} filas={len(filas)} items={len(items)} "
+            f"vector={len(similitud)} pendiente={semantica_pendiente} demolicion={demolicion}"
+        )
         if not items and str(request.args.get("registrar_faltante") or "") in ("1", "true", "si", "yes"):
             registrar_item_faltante(q, oficio, zona.get("zip") or zip_q)
         payload = {
@@ -4856,6 +5063,7 @@ def buscar_catalogo():
             "traduciendo": bool(traduciendo),
             "cargando": False,
             "listo": True,
+            "semantica_pendiente": bool(semantica_pendiente),
         }
         resp = jsonify(payload)
         resp.headers["Access-Control-Allow-Origin"] = "*"

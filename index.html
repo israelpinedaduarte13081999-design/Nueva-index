@@ -3334,7 +3334,7 @@
         const price=Number(valorCatalogoFila(row,['precio_base','precio_unitario','precio','price','unit_price','costo','precio_install','precio_completo']))||0;
         const priceLabor=Number(valorCatalogoFila(row,['precio_labor','labor','precio_mano_obra','labor_price']))||0;
         const priceMaterial=Number(valorCatalogoFila(row,['precio_material','material','material_price','precio_mat']))||0;
-        const priceDemo=Number(valorCatalogoFila(row,['precio_demo','demo','precio_demolicion','tear_off','precio_tearoff']))||0;
+        const priceDemo=Number(valorCatalogoFila(row,['precio_remocion','precio_demo','demo','precio_demolicion','tear_off','precio_tearoff']))||0;
         const codigo=String(valorCatalogoFila(row,['codigo','code','sku'])||'').trim();
         (grouped[categoria]||=[]).push({desc,unit,price,priceLabor,priceMaterial,priceDemo,codigo});
       });
@@ -3623,6 +3623,16 @@
             if(!input.isConnected||(input.value||'').trim()!==textoAhora)return;
             buscarYMostrarCatalogo(input,true,(intento||0)+1);
           },400);
+        }
+        if(data&&data.semantica_pendiente&&(intento||0)<11){
+          const seqAhora=seq;
+          const textoAhora=texto;
+          const siguiente=Math.max(intento||0,9)+1;
+          setTimeout(()=>{
+            if(seqAhora!==buscarYMostrarCatalogo._seq)return;
+            if(!input.isConnected||(input.value||'').trim()!==textoAhora)return;
+            buscarYMostrarCatalogo(input,true,siguiente);
+          },2500);
         }
         if(data&&data.error){
           errorMsg=String(data.error);
