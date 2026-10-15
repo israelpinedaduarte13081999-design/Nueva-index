@@ -2874,7 +2874,10 @@ def _auth_http(method, path, body=None, clave=None):
         "Content-Type": "application/json",
     }
     with httpx.Client(verify=False, timeout=30.0) as http:
-        res = http.request(method, url + path, headers=headers, json=body)
+        kwargs = {"headers": headers}
+        if body is not None and str(method or "").upper() not in ("GET", "HEAD"):
+            kwargs["json"] = body
+        res = http.request(method, url + path, **kwargs)
     try:
         data = res.json()
     except Exception:
@@ -2894,12 +2897,24 @@ def _mensaje_auth(data):
     )
 
 
-def _crear_usuario_auth(email, password, nombre):
+_PLANES_VALIDOS = {"basico", "profesional", "premium"}
+
+
+def _plan_valido(plan):
+    clave = str(plan or "").strip().lower()
+    return clave if clave in _PLANES_VALIDOS else ""
+
+
+def _crear_usuario_auth(email, password, nombre, plan=""):
     status, data = _auth_http("POST", "/auth/v1/admin/users", {
         "email": email,
         "password": password,
         "email_confirm": True,
-        "user_metadata": {"nombre_empresa": nombre or ""},
+        "user_metadata": {
+            "nombre": nombre or "",
+            "plan_seleccionado": _plan_valido(plan),
+            "nombre_empresa": "",
+        },
     })
     if status in (200, 201) and data.get("id"):
         return data
@@ -2941,21 +2956,91 @@ def _sesion_desde_fila(row):
     }
 
 
-def registrar_contratista(email, nombre, password):
+def _usuario_auth_por_email(email):
+    from urllib.parse import quote
+    status, data = _auth_http("GET", "/auth/v1/admin/users?email=" + quote(email))
+    if status != 200:
+        return None
+    if isinstance(data, dict) and data.get("id"):
+        return data
+    usuarios = (data or {}).get("users") if isinstance(data, dict) else data
+    if not isinstance(usuarios, list):
+        return None
+    email_n = str(email or "").strip().lower()
+    for user in usuarios:
+        if str((user or {}).get("email") or "").strip().lower() == email_n:
+            return user
+    return usuarios[0] if usuarios else None
+
+
+def _confirmar_email_auth(email):
+    user = _usuario_auth_por_email(email)
+    uid = str((user or {}).get("id") or "").strip()
+    if not uid:
+        return user
+    _auth_http("PUT", "/auth/v1/admin/users/" + uid, {"email_confirm": True})
+    return user
+
+
+def _guardar_perfil(sb, user_id, email, nombre, plan):
+    uid = str(user_id or "").strip()
+    if not uid or sb is None:
+        return
+    ahora = datetime.now(timezone.utc).isoformat()
+    trial_inicio = ahora
+    try:
+        existente = sb.table("perfiles").select("trial_inicio").eq("id", uid).limit(1).execute()
+        filas = existente.data if existente else None
+        if isinstance(filas, list) and filas and filas[0].get("trial_inicio"):
+            trial_inicio = filas[0]["trial_inicio"]
+    except Exception:
+        pass
+    fila = {
+        "id": uid,
+        "email": email,
+        "nombre": str(nombre or "").strip(),
+        "plan_seleccionado": _plan_valido(plan),
+        "trial_inicio": trial_inicio,
+        "updated_at": ahora,
+    }
+    try:
+        sb.table("perfiles").upsert(fila, on_conflict="id").execute()
+        return
+    except Exception as err:
+        print(f"--> perfil columnas extra: {err}")
+    minimo = {"id": uid, "email": email, "nombre_empresa": str(nombre or "").strip(), "updated_at": ahora}
+    try:
+        sb.table("perfiles").upsert(minimo, on_conflict="id").execute()
+    except Exception as err:
+        print(f"--> perfil no guardado: {err}")
+
+
+def registrar_contratista(email, nombre, password, plan=""):
     sb = _supabase_client()
     if sb is None:
         raise RuntimeError("Supabase no configurado")
     email = str(email or "").strip().lower()
     nombre = str(nombre or "").strip() or None
     password = _validar_password(password)
+    plan = _plan_valido(plan)
     if _contratista_por_email_tabla(sb, email):
         raise ErrorAuth("already_registered", "This email already has an account. Use Log in.", 409)
+    auth_user = None
     try:
-        _crear_usuario_auth(email, password, nombre)
+        auth_user = _crear_usuario_auth(email, password, nombre or "", plan)
     except ErrorAuth as err:
         if err.code != "auth_existe":
             raise
-        _verificar_contrasena(email, password)
+        try:
+            sesion = _verificar_contrasena(email, password)
+        except ErrorAuth as err2:
+            if err2.code != "sin_confirmar":
+                raise
+            auth_user = _confirmar_email_auth(email)
+            sesion = _verificar_contrasena(email, password)
+        auth_user = auth_user or (sesion or {}).get("user") or _usuario_auth_por_email(email)
+    uid = str((auth_user or {}).get("id") or "").strip()
+    _guardar_perfil(sb, uid, email, nombre or "", plan)
     try:
         data = _rpc_tenant(sb, "registrar_contratista", {"p_email": email, "p_nombre": nombre})
         row = _dict_rpc(data)
@@ -3622,12 +3707,13 @@ def api_contratistas():
     body = request.get_json(silent=True) or {}
     if request.method == "POST":
         email = str(body.get("email") or "").strip().lower()
-        nombre = str(body.get("nombre_empresa") or body.get("company") or "").strip()
+        nombre = str(body.get("nombre") or body.get("nombre_empresa") or body.get("company") or "").strip()
         password = body.get("password") or body.get("contrasena") or ""
+        plan = str(body.get("plan_seleccionado") or body.get("plan") or "").strip()
         if not _correo_valido(email):
             return jsonify({"error": "Enter a valid email.", "code": "email"}), 400
         try:
-            row = registrar_contratista(email, nombre, password)
+            row = registrar_contratista(email, nombre, password, plan)
         except ErrorAuth as err:
             print(f"--> registro contratista {err.code} status={err.status}: {err}")
             return _respuesta_auth(err)

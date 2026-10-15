@@ -486,10 +486,16 @@ grant execute on function public.revertir_aceptacion_contrato(text, text) to ano
 create table if not exists public.perfiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text,
+  nombre text not null default '',
   nombre_empresa text not null default '',
+  plan_seleccionado text not null default '',
+  trial_inicio timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.perfiles add column if not exists nombre text not null default '';
+alter table public.perfiles add column if not exists plan_seleccionado text not null default '';
+alter table public.perfiles add column if not exists trial_inicio timestamptz;
 
 alter table public.perfiles enable row level security;
 
@@ -502,18 +508,27 @@ as $$
 begin
   -- El perfil es auxiliar. Un fallo aquí no puede revertir auth.users.
   begin
-    insert into public.perfiles (id, email, nombre_empresa)
+    insert into public.perfiles (id, email, nombre, nombre_empresa, plan_seleccionado, trial_inicio)
     values (
       new.id,
       new.email,
-      coalesce(new.raw_user_meta_data->>'nombre_empresa', '')
+      coalesce(new.raw_user_meta_data->>'nombre', ''),
+      coalesce(new.raw_user_meta_data->>'nombre_empresa', ''),
+      coalesce(new.raw_user_meta_data->>'plan_seleccionado', ''),
+      now()
     )
     on conflict (id) do update
       set email = excluded.email,
+          nombre = case when excluded.nombre <> '' then excluded.nombre else public.perfiles.nombre end,
           nombre_empresa = case
             when excluded.nombre_empresa <> '' then excluded.nombre_empresa
             else public.perfiles.nombre_empresa
           end,
+          plan_seleccionado = case
+            when excluded.plan_seleccionado <> '' then excluded.plan_seleccionado
+            else public.perfiles.plan_seleccionado
+          end,
+          trial_inicio = coalesce(public.perfiles.trial_inicio, excluded.trial_inicio),
           updated_at = now();
   exception
     when others then
@@ -532,4 +547,30 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert or update on auth.users
   for each row execute procedure public.handle_nuevo_usuario();
+
+grant select, insert, update on table public.perfiles to service_role;
+grant select, insert, update on table public.perfiles to authenticated;
+
+drop policy if exists perfiles_service_all on public.perfiles;
+create policy perfiles_service_all
+  on public.perfiles
+  for all
+  to service_role
+  using (true)
+  with check (true);
+
+drop policy if exists perfiles_own_select on public.perfiles;
+create policy perfiles_own_select
+  on public.perfiles
+  for select
+  to authenticated
+  using (id = auth.uid());
+
+drop policy if exists perfiles_own_update on public.perfiles;
+create policy perfiles_own_update
+  on public.perfiles
+  for update
+  to authenticated
+  using (id = auth.uid())
+  with check (id = auth.uid());
 

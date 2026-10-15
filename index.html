@@ -920,7 +920,10 @@
         </form>
         <form id="registroContratistaForm" hidden>
           <h3 id="registroTitulo">Create account</h3>
-          <p id="registroLead">Use your email and a password. You can add the company name later from the panel.</p>
+          <p id="registroLead">Enter your name, email, and a password to start the 14-day free trial.</p>
+          <p class="auth-note" id="registroPlanNota" hidden></p>
+          <label for="registroNombre" id="registroNombreLabel">Name</label>
+          <input id="registroNombre" name="nombre" type="text" autocomplete="name" required maxlength="80" placeholder="Your name">
           <label for="registroEmail" id="registroEmailLabel">Email</label>
           <input id="registroEmail" name="email" type="email" autocomplete="username" required placeholder="you@company.com">
           <label for="registroPassword" id="registroPasswordLabel">Password</label>
@@ -7534,16 +7537,17 @@
     const TEXTOS_AUTH={
       en:{
         nav:'Log in', tabLogin:'Log in', tabReg:'Create account', loginTitle:'Log in',
-        email:'Email', password:'Password', company:'Company name', confirm:'Confirm password',
+        email:'Email', password:'Password', name:'Name', company:'Company name', confirm:'Confirm password',
         submitLogin:'Log in', submitReg:'Create account', createPw:'Create password',
         noAccount:"Don't have an account? Sign up", hasAccount:'Already have an account? Log in',
         badLogin:'Email or password is incorrect.', noAccountYet:'No company uses this email yet. Sign up.',
         already:'This email already has an account. Use Log in.', alreadyPw:'This account already has a password. Use Log in.',
         badEmail:'Enter a valid email.',
-        regTitle:'Create account', regLead:'Use your email and a password. You can add the company name later from the panel.',
+        regTitle:'Create account', regLead:'Enter your name, email, and a password to start the 14-day free trial.',
+        missingName:'Enter your name.', planNote:'Selected plan: {plan}',
         logout:'Log out', session:'Signed in as {email}', saving:'Signing in…', creating:'Creating account…',
         setting:'Saving password…', signed:'Signed in. Client documents will show this name.',
-        created:'Account created.', mismatch:'The passwords do not match.', short:'Password must be at least 8 characters.',
+        created:'Account created. Opening your dashboard…', mismatch:'The passwords do not match.', short:'Password must be at least 8 characters.',
         needLogin:'Log in with your email and password before continuing.',
         kicker:'Contractor access', remember:'Remember me', forgot:'Forgot password', or:'or',
         google:'Continue with Google', resetTitle:'Reset password',
@@ -7560,16 +7564,17 @@
       },
       es:{
         nav:'Iniciar sesión', tabLogin:'Iniciar sesión', tabReg:'Crear cuenta', loginTitle:'Iniciar sesión',
-        email:'Correo', password:'Contraseña', company:'Nombre de la empresa', confirm:'Confirmar contraseña',
+        email:'Correo', password:'Contraseña', name:'Nombre', company:'Nombre de la empresa', confirm:'Confirmar contraseña',
         submitLogin:'Iniciar sesión', submitReg:'Crear cuenta', createPw:'Crear contraseña',
         noAccount:'¿No tienes cuenta? Regístrate', hasAccount:'¿Ya tienes cuenta? Inicia sesión',
         badLogin:'El correo o la contraseña no son correctos.', noAccountYet:'No hay una empresa con ese correo. Regístrate.',
         already:'Ese correo ya tiene una cuenta. Inicia sesión.', alreadyPw:'Esa cuenta ya tiene contraseña. Inicia sesión.',
         badEmail:'Escribe un correo válido.',
-        regTitle:'Crear cuenta', regLead:'Usa tu correo y una contraseña. El nombre de la empresa se pide después, dentro del panel.',
+        regTitle:'Crear cuenta', regLead:'Escribe tu nombre, correo y una contraseña para empezar la prueba de 14 días.',
+        missingName:'Escribe tu nombre.', planNote:'Plan seleccionado: {plan}',
         logout:'Cerrar sesión', session:'Sesión iniciada como {email}', saving:'Entrando…', creating:'Creando cuenta…',
         setting:'Guardando contraseña…', signed:'Sesión iniciada. Los documentos del cliente mostrarán este nombre.',
-        created:'Cuenta creada.', mismatch:'Las contraseñas no coinciden.', short:'La contraseña debe tener al menos 8 caracteres.',
+        created:'Cuenta creada. Abriendo tu panel…', mismatch:'Las contraseñas no coinciden.', short:'La contraseña debe tener al menos 8 caracteres.',
         needLogin:'Inicia sesión con tu correo y contraseña antes de continuar.',
         kicker:'Acceso de contratista', remember:'Recordarme', forgot:'Olvidé mi contraseña', or:'o',
         google:'Continuar con Google', resetTitle:'Restablecer contraseña',
@@ -7622,10 +7627,19 @@
       poner('authCambiarCuenta', registroVisible&&!registroVisible.hidden ? t.hasAccount : t.noAccount);
       poner('registroTitulo', t.regTitle);
       poner('registroLead', t.regLead);
+      poner('registroNombreLabel', t.name);
       poner('registroEmailLabel', t.email);
       poner('registroPasswordLabel', t.password);
       poner('registroPassword2Label', t.confirm);
       poner('registroSubmit', t.submitReg);
+      const planNota=document.getElementById('registroPlanNota');
+      const planForm=document.getElementById('registroContratistaForm');
+      const planId=String(planForm&&planForm.dataset.plan||'').trim();
+      const planEtiqueta={basico:'Básico',profesional:'Profesional',premium:'Premium'}[planId]||'';
+      if(planNota){
+        planNota.hidden=!planEtiqueta;
+        planNota.textContent=planEtiqueta?(t.planNote||'').replace('{plan}', planEtiqueta):'';
+      }
       poner('sesionTitulo', t.loginTitle);
       poner('cerrarSesionBtn', t.logout);
       const sesion=document.getElementById('sesionContratista');
@@ -7764,6 +7778,7 @@
       borrarTokenContratistaLocal();
       guardarSesionContratista(json, recordar!==false);
       marcarEstadoAuth(statusId, ok, false);
+      return json;
     }
     aplicarTextosAuth();
     document.getElementById('authTabLogin')?.addEventListener('click',()=>mostrarPanelAuth('login'));
@@ -7773,8 +7788,9 @@
         const registro=document.getElementById('registroContratistaForm');
         if(registro) registro.dataset.plan=btn.getAttribute('data-start-trial')||'';
         if(typeof mostrarPanelAuth==='function')mostrarPanelAuth('registro');
+        if(typeof aplicarTextosAuth==='function')aplicarTextosAuth();
         document.getElementById('authContratista')?.scrollIntoView({behavior:'smooth',block:'center'});
-        document.getElementById('registroEmail')?.focus();
+        document.getElementById('registroNombre')?.focus();
       });
     });
     document.getElementById('authCambiarCuenta')?.addEventListener('click',()=>{
@@ -7996,17 +8012,47 @@
     document.getElementById('registroContratistaForm')?.addEventListener('submit',async event=>{
       event.preventDefault();
       const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+      const nombre=String(document.getElementById('registroNombre')?.value||'').trim();
+      const email=String(document.getElementById('registroEmail')?.value||'').trim();
       const password=document.getElementById('registroPassword')?.value||'';
       const password2=document.getElementById('registroPassword2')?.value||'';
+      const plan=String(document.getElementById('registroContratistaForm')?.dataset.plan||'').trim();
+      if(!nombre){
+        marcarEstadoAuth('registroContratistaStatus', t.missingName, true);
+        document.getElementById('registroNombre')?.focus();
+        return;
+      }
       if(password!==password2){
         marcarEstadoAuth('registroContratistaStatus', t.mismatch, true);
         return;
       }
       try{
-        await enviarAuth('/api/contratistas',{
-          email:String(document.getElementById('registroEmail')?.value||'').trim(),
-          password
+        marcarEstadoAuth('registroContratistaStatus', t.creating, false);
+        const cliente=await clienteAuthSupabase();
+        const { data, error }=await cliente.auth.signUp({
+          email,
+          password,
+          options:{ data:{ nombre, plan_seleccionado:plan } }
+        });
+        if(error){
+          const msg=String(error.message||'').toLowerCase();
+          if(!/already|registered|exists/.test(msg)) throw error;
+        }
+        if(!(data&&data.session)){
+          const login=await cliente.auth.signInWithPassword({ email, password });
+          if(login.error){
+            const msg=String(login.error.message||'').toLowerCase();
+            if(!/not confirmed|email_not_confirmed/.test(msg)) throw login.error;
+          }
+        }
+        const cuenta=await enviarAuth('/api/contratistas',{
+          email,
+          password,
+          nombre,
+          plan_seleccionado:plan
         }, 'registroContratistaStatus', t.creating, t.created);
+        if(!cuenta||!cuenta.token) return;
+        location.replace('/estimado');
       }catch(err){
         marcarEstadoAuth('registroContratistaStatus', err.message||t.needLogin, true);
       }
