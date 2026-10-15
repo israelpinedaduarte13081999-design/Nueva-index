@@ -589,12 +589,14 @@ create table if not exists public.perfiles (
   nombre_empresa text not null default '',
   plan_seleccionado text not null default '',
   trial_inicio timestamptz,
+  fecha_fin_prueba timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 alter table public.perfiles add column if not exists nombre text not null default '';
 alter table public.perfiles add column if not exists plan_seleccionado text not null default '';
 alter table public.perfiles add column if not exists trial_inicio timestamptz;
+alter table public.perfiles add column if not exists fecha_fin_prueba timestamptz;
 
 alter table public.perfiles enable row level security;
 
@@ -607,14 +609,15 @@ as $$
 begin
   -- El perfil es auxiliar. Un fallo aquí no puede revertir auth.users.
   begin
-    insert into public.perfiles (id, email, nombre, nombre_empresa, plan_seleccionado, trial_inicio)
+    insert into public.perfiles (id, email, nombre, nombre_empresa, plan_seleccionado, trial_inicio, fecha_fin_prueba)
     values (
       new.id,
       new.email,
       coalesce(new.raw_user_meta_data->>'nombre', ''),
       coalesce(new.raw_user_meta_data->>'nombre_empresa', ''),
       coalesce(new.raw_user_meta_data->>'plan_seleccionado', ''),
-      now()
+      now(),
+      now() + interval '14 days'
     )
     on conflict (id) do update
       set email = excluded.email,
@@ -628,6 +631,7 @@ begin
             else public.perfiles.plan_seleccionado
           end,
           trial_inicio = coalesce(public.perfiles.trial_inicio, excluded.trial_inicio),
+          fecha_fin_prueba = coalesce(public.perfiles.fecha_fin_prueba, excluded.fecha_fin_prueba),
           updated_at = now();
   exception
     when others then

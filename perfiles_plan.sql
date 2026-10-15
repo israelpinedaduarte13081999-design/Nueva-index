@@ -4,6 +4,7 @@
 alter table public.perfiles add column if not exists nombre text not null default '';
 alter table public.perfiles add column if not exists plan_seleccionado text not null default '';
 alter table public.perfiles add column if not exists trial_inicio timestamptz;
+alter table public.perfiles add column if not exists fecha_fin_prueba timestamptz;
 
 grant select, insert, update on table public.perfiles to service_role;
 grant select, insert, update on table public.perfiles to authenticated;

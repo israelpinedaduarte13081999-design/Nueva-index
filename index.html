@@ -56,6 +56,15 @@
     .hero-card { background:#ffffff; padding:36px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 4px 12px rgba(0,0,0,.03); }
     .hero-card h2 { margin-top:0; font-size:1.5rem; color:#0f172a; }
     .hero-card p { color:#64748b; margin-bottom:24px; }
+    .trial-expired-panel { display:none; align-items:center; justify-content:center; text-align:center; min-height:240px; padding:40px 28px; margin:0 0 24px 0; background:#fff7ed; border:1px solid #fdba74; border-radius:12px; }
+    .trial-expired-panel p { margin:0; max-width:36rem; font-size:1.15rem; line-height:1.55; color:#9a3412; }
+    body.prueba-expirada .trial-expired-panel { display:flex; }
+    body.prueba-expirada .main-doc-card,
+    body.prueba-expirada .home-pdf-drop,
+    body.prueba-expirada #home-plans-file,
+    body.prueba-expirada .nav-btn[data-view="quote"],
+    body.prueba-expirada #historyNewButton { display:none !important; }
+    body.prueba-expirada .action-cards-grid { grid-template-columns:1fr; }
     .action-cards-grid { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(260px,1fr); gap:20px; align-items:stretch; }
     .action-card { background:#f8fafc; border:1px solid #e2e8f0; padding:24px; border-radius:10px; text-align:left; transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease; }
     .action-card.history-card { cursor:pointer; color:inherit; text-decoration:none; display:block; }
@@ -1001,6 +1010,9 @@
     <div class="hero-card">
       <h2 data-i18n="home.title">Work dashboard</h2>
       <p data-i18n="home.lead">Create estimates, invoices, and review document history from one place.</p>
+      <div class="trial-expired-panel" id="trialExpiredPanel" hidden>
+        <p id="trialExpiredMessage">Tu prueba gratuita de 14 días ha expirado. Por favor, añade un método de pago para continuar usando QuantixBuilds.</p>
+      </div>
       <div class="action-cards-grid">
         <div class="action-card main-doc-card">
           <div class="card-top">
@@ -1936,6 +1948,8 @@
       if(json&&json.id) localStorage.setItem(contratistaIdKey, json.id);
       if(json&&json.user_id) guardarUserIdAuthLocal(json.user_id);
       if(json&&json.nombre_empresa) aplicarMarcaBlanca(json.nombre_empresa);
+      sesionActual=json&&json.id?json:sesionActual;
+      aplicarBloqueoPrueba();
       return json;
     }
     async function asegurarContratista(){
@@ -5531,10 +5545,38 @@
       document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active',section.id==='view-login'));
       document.querySelectorAll('.nav-btn[data-view]').forEach(btn=>btn.classList.remove('active'));
     }
+    function fechaFinPruebaDe(sesion){
+      const raw=String((sesion||{}).fecha_fin_prueba||'');
+      if(!raw) return null;
+      const fin=new Date(raw);
+      return isNaN(fin.getTime())?null:fin;
+    }
+    function pruebaExpirada(sesion){
+      const actual=sesion||sesionActual||{};
+      if(actual.trial_expirada===true) return true;
+      const fin=fechaFinPruebaDe(actual);
+      return !!(fin&&Date.now()>fin.getTime());
+    }
+    function aplicarBloqueoPrueba(){
+      const expirada=pruebaExpirada(sesionActual);
+      document.body.classList.toggle('prueba-expirada', expirada);
+      const panel=document.getElementById('trialExpiredPanel');
+      if(panel) panel.hidden=!expirada;
+      const quoteBtn=document.querySelector('.nav-btn[data-view="quote"]');
+      if(quoteBtn) quoteBtn.hidden=expirada;
+      const newBtn=document.getElementById('historyNewButton');
+      if(newBtn) newBtn.hidden=expirada;
+      return expirada;
+    }
     function showAppView(view, options={}){
       if(view==='login'||((view==='home'||view==='quote'||view==='history')&&!sesionActual)){
         mostrarVistaLogin();
         return;
+      }
+      if(view==='quote'&&aplicarBloqueoPrueba()){
+        view='home';
+        options={};
+        try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
       }
       document.body.classList.remove('auth-solo');
       document.body.classList.add('con-sesion');
@@ -5557,6 +5599,7 @@
     }
     function crearDocumento(tipo){
       if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
+      if(aplicarBloqueoPrueba()){ showAppView('home'); return; }
       const t=String(tipo||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
       const modo={estimado:'estimate',estimate:'estimate',contrato:'contract',contract:'contract',factura:'invoice',invoice:'invoice'}[t]||'estimate';
       documentoHistorialId=null;
@@ -5609,6 +5652,12 @@
         return;
       }
       if(rutaEsLogin(path)){
+        try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
+        showAppView('home');
+        aplicarBloqueoPrueba();
+        return;
+      }
+      if(aplicarBloqueoPrueba()&&(nuevo||docId||modos[clave]||clave==='/cotizador'||clave==='/quote'||clave==='cotizador'||clave==='quote')){
         try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
         showAppView('home');
         return;
@@ -7733,6 +7782,7 @@
       }
       sesionActual=json&&json.id?json:null;
       sesionLista=true;
+      aplicarBloqueoPrueba();
       if(sesionActual){
         try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
         if(typeof aplicarRutaInicial==='function') aplicarRutaInicial();
@@ -7772,7 +7822,8 @@
         already_registered:t.already,
         auth_existe:t.alreadyPw,
         password:t.short,
-        email:t.badEmail
+        email:t.badEmail,
+        trial_expired:'Tu prueba gratuita de 14 días ha expirado. Por favor, añade un método de pago para continuar usando QuantixBuilds.'
       };
       return mapa[code]||(json&&json.error)||fallback;
     }
@@ -8143,7 +8194,7 @@
       const zona=document.getElementById('home-plans-drop');
       const input=document.getElementById('home-plans-file');
       if(!zona||!input)return;
-      const tomar=file=>{ if(file)enviarPlanosAlServidor(file); };
+      const tomar=file=>{ if(typeof pruebaExpirada==='function'&&pruebaExpirada()) return; if(file)enviarPlanosAlServidor(file); };
       input.addEventListener('change',()=>{ tomar(input.files&&input.files[0]); input.value=''; });
       ['dragenter','dragover'].forEach(ev=>zona.addEventListener(ev,e=>{ e.preventDefault(); e.stopPropagation(); zona.classList.add('is-dragover'); }));
       ['dragleave','drop'].forEach(ev=>zona.addEventListener(ev,e=>{ e.preventDefault(); e.stopPropagation(); zona.classList.remove('is-dragover'); }));

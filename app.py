@@ -8,7 +8,7 @@ import re
 import secrets
 import ssl
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 ssl._create_default_https_context = ssl._create_unverified_context
 from flask import Flask, Response, redirect, request, jsonify, send_file, render_template
@@ -3030,12 +3030,15 @@ def _respuesta_auth(err):
 
 
 def _sesion_desde_fila(row):
+    prueba = _datos_prueba(_supabase_client(), row or {})
     return {
         "id": row.get("id"),
         "email": row.get("email"),
         "nombre_empresa": row.get("nombre_empresa") or "",
         "token": row.get("token"),
         "user_id": row.get("user_id") or "",
+        "fecha_fin_prueba": prueba.get("fecha_fin_prueba") or "",
+        "trial_expirada": bool(prueba.get("trial_expirada")),
     }
 
 
@@ -3065,17 +3068,78 @@ def _confirmar_email_auth(email):
     return user
 
 
+def _parse_ts(valor):
+    if isinstance(valor, datetime):
+        dt = valor
+    else:
+        texto = str(valor or "").strip()
+        if not texto:
+            return None
+        if texto.endswith("Z"):
+            texto = texto[:-1] + "+00:00"
+        try:
+            dt = datetime.fromisoformat(texto)
+        except Exception:
+            return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _fecha_fin_prueba_desde(inicio=None):
+    base = _parse_ts(inicio) or datetime.now(timezone.utc)
+    return base + timedelta(days=14)
+
+
+def _datos_prueba(sb, contratista):
+    datos = {"fecha_fin_prueba": "", "trial_expirada": False}
+    if not sb or not contratista:
+        return datos
+    uid = str(contratista.get("user_id") or "").strip()
+    email = str(contratista.get("email") or "").strip().lower()
+    fila = None
+    try:
+        if uid:
+            res = sb.table("perfiles").select("fecha_fin_prueba,trial_inicio").eq("id", uid).limit(1).execute()
+            rows = list(res.data or [])
+            fila = rows[0] if rows else None
+        if not fila and email:
+            res = sb.table("perfiles").select("fecha_fin_prueba,trial_inicio").eq("email", email).limit(1).execute()
+            rows = list(res.data or [])
+            fila = rows[0] if rows else None
+    except Exception as err:
+        print(f"--> perfil prueba: {err}")
+        return datos
+    fin = _parse_ts((fila or {}).get("fecha_fin_prueba"))
+    if not fin:
+        inicio = _parse_ts((fila or {}).get("trial_inicio"))
+        if inicio:
+            fin = _fecha_fin_prueba_desde(inicio)
+    if not fin:
+        return datos
+    datos["fecha_fin_prueba"] = fin.isoformat()
+    datos["trial_expirada"] = datetime.now(timezone.utc) > fin
+    return datos
+
+
 def _guardar_perfil(sb, user_id, email, nombre, plan):
     uid = str(user_id or "").strip()
     if not uid or sb is None:
         return
-    ahora = datetime.now(timezone.utc).isoformat()
+    ahora_dt = datetime.now(timezone.utc)
+    ahora = ahora_dt.isoformat()
     trial_inicio = ahora
+    fecha_fin = _fecha_fin_prueba_desde(ahora_dt).isoformat()
     try:
-        existente = sb.table("perfiles").select("trial_inicio").eq("id", uid).limit(1).execute()
+        existente = sb.table("perfiles").select("trial_inicio,fecha_fin_prueba").eq("id", uid).limit(1).execute()
         filas = existente.data if existente else None
-        if isinstance(filas, list) and filas and filas[0].get("trial_inicio"):
-            trial_inicio = filas[0]["trial_inicio"]
+        if isinstance(filas, list) and filas:
+            if filas[0].get("trial_inicio"):
+                trial_inicio = filas[0]["trial_inicio"]
+            if filas[0].get("fecha_fin_prueba"):
+                fecha_fin = filas[0]["fecha_fin_prueba"]
+            else:
+                fecha_fin = _fecha_fin_prueba_desde(trial_inicio).isoformat()
     except Exception:
         pass
     fila = {
@@ -3084,6 +3148,7 @@ def _guardar_perfil(sb, user_id, email, nombre, plan):
         "nombre": str(nombre or "").strip(),
         "plan_seleccionado": _plan_valido(plan),
         "trial_inicio": trial_inicio,
+        "fecha_fin_prueba": fecha_fin,
         "updated_at": ahora,
     }
     try:
@@ -3091,6 +3156,12 @@ def _guardar_perfil(sb, user_id, email, nombre, plan):
         return
     except Exception as err:
         print(f"--> perfil columnas extra: {err}")
+    fila.pop("fecha_fin_prueba", None)
+    try:
+        sb.table("perfiles").upsert(fila, on_conflict="id").execute()
+        return
+    except Exception:
+        pass
     minimo = {"id": uid, "email": email, "nombre_empresa": str(nombre or "").strip(), "updated_at": ahora}
     try:
         sb.table("perfiles").upsert(minimo, on_conflict="id").execute()
@@ -3269,6 +3340,8 @@ def asegurar_contratista_oauth(email, nombre, user_id=""):
     if sb is None:
         raise ErrorAuth("config", "Supabase no configurado", 503)
     uid = str(user_id or "").strip()
+    if _es_uuid(uid):
+        _guardar_perfil(sb, uid, email, nombre or "", "")
     row = _contratista_por_email_tabla(sb, email)
     if row and row.get("token"):
         return _asegurar_user_id_contratista(sb, row, uid)
@@ -3554,6 +3627,7 @@ def _exigir_contratista():
         uid = _user_id_de_contratista(sb, contratista)
         if uid:
             contratista["user_id"] = uid
+        contratista.update(_datos_prueba(sb, contratista))
     return contratista, None
 
 
@@ -3857,13 +3931,7 @@ def api_contratistas():
         if not row or not row.get("token"):
             return jsonify({"error": "Could not open the contractor account."}), 503
         print(f"--> contratista registrado id={row.get('id')}")
-        resp = jsonify({
-            "id": row.get("id"),
-            "email": row.get("email"),
-            "nombre_empresa": row.get("nombre_empresa"),
-            "token": row.get("token"),
-            "user_id": row.get("user_id") or "",
-        })
+        resp = jsonify(_sesion_desde_fila(row))
         return _adjuntar_sesion_contratista(resp, row.get("token"), persistir=True)
     contratista, error = _exigir_contratista()
     if error:
@@ -4377,6 +4445,8 @@ def api_contratista_actual():
         "email": contratista.get("email"),
         "nombre_empresa": contratista.get("nombre_empresa"),
         "user_id": contratista.get("user_id") or "",
+        "fecha_fin_prueba": contratista.get("fecha_fin_prueba") or "",
+        "trial_expirada": bool(contratista.get("trial_expirada")),
     })
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
 
@@ -4390,6 +4460,11 @@ def api_historial():
     if error:
         return error
     if request.method == "POST":
+        if contratista.get("trial_expirada"):
+            return jsonify({
+                "error": "Tu prueba gratuita de 14 días ha expirado. Por favor, añade un método de pago para continuar usando QuantixBuilds.",
+                "code": "trial_expired",
+            }), 402
         body = request.get_json(silent=True) or {}
         fila = _fila_historial_desde_body(body)
         try:
