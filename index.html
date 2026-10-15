@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  {% if vista == 'login' %}
+  {% if vista in ('login', 'pago') %}
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   {% else %}
   <meta name="viewport" content="width=1200, user-scalable=yes, minimum-scale=0.25, maximum-scale=5">
@@ -40,6 +40,19 @@
     body.eligiendo-plan { background:radial-gradient(1200px 480px at 50% -80px,#ffffff 0%,#e8eef6 55%,#dfe7f1 100%); }
     body.eligiendo-plan .app-navbar { background:transparent; border-bottom:0; box-shadow:none; }
     body.eligiendo-plan .nav-btn[data-view] { display:none; }
+    body.pagando { background:radial-gradient(1200px 480px at 50% -80px,#ffffff 0%,#e8eef6 55%,#dfe7f1 100%); min-width:0; }
+    body.pagando .app-navbar { background:transparent; border-bottom:0; box-shadow:none; }
+    body.pagando .nav-btn[data-view] { display:none; }
+    #view-pago { max-width:560px; width:100%; margin:0 auto; padding:32px 16px 64px; }
+    #view-pago.active { display:block; }
+    .pago-card { background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:28px 22px 22px; box-shadow:0 8px 24px rgba(15,23,42,.06); }
+    .pago-kicker { margin:0 0 8px; color:#1d4ed8; font-size:11px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
+    .pago-card h2 { margin:0 0 8px; color:#0f172a; font-size:1.5rem; letter-spacing:-.03em; }
+    .pago-plan { margin:0 0 16px; color:#334155; font-size:1rem; }
+    .pago-plan strong { color:#0f172a; }
+    .pago-aviso { margin:0 0 20px; padding:14px 16px; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:12px; color:#065f46; font-size:.98rem; font-weight:700; line-height:1.45; }
+    #stripe-checkout { min-height:120px; }
+    #view-pago .auth-status { text-align:center; margin:16px 0 0; }
     #view-login { max-width:none; margin:0; padding:0; width:100%; }
     #view-login.active { display:flex; flex-direction:column; min-height:100dvh; min-height:100vh; }
     .auth-hero { display:none; }
@@ -917,7 +930,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
-<body class="{{ 'auth-solo' if vista == 'login' else ('eligiendo-plan' if vista == 'planes' else 'con-sesion') }}" data-nombre-empresa="{{ nombre_empresa }}">
+<body class="{{ 'auth-solo' if vista == 'login' else ('pagando' if vista == 'pago' else ('eligiendo-plan' if vista == 'planes' else 'con-sesion')) }}" data-nombre-empresa="{{ nombre_empresa }}">
   <nav class="app-navbar no-print" aria-label="Main navigation">
     <div class="brand-title" data-brand-name>{{ nombre_empresa_visible }}</div>
     <div class="nav-links">
@@ -1019,7 +1032,7 @@
         <header class="pricing-header">
           <p class="pricing-kicker">Planes</p>
           <h2 id="pricing-heading">Elige el plan de tu empresa</h2>
-          <p>Empieza con 14 días de prueba gratis. Sin tarjeta para comenzar, cancela cuando quieras.</p>
+          <p>Empieza con 14 días de prueba gratis. Después agregas tu tarjeta; no se te cobra hoy y puedes cancelar cuando quieras.</p>
         </header>
         <div class="pricing-grid">
           <article class="pricing-card">
@@ -1032,7 +1045,7 @@
               <li>Facturas y contratos</li>
               <li>Panel de clientes</li>
             </ul>
-            <button class="btn pricing-cta" type="button" data-start-trial="basico">Empezar prueba de 14 días</button>
+            <button class="btn pricing-cta" type="button" data-start-trial="basico">Continuar con tarjeta</button>
           </article>
           <article class="pricing-card is-featured">
             <span class="pricing-badge">Recomendado</span>
@@ -1044,7 +1057,7 @@
               <li>Acceso a la base de datos completa</li>
               <li>Lógica matemática automática</li>
             </ul>
-            <button class="btn btn-primary pricing-cta" type="button" data-start-trial="profesional">Empezar prueba de 14 días</button>
+            <button class="btn btn-primary pricing-cta" type="button" data-start-trial="profesional">Continuar con tarjeta</button>
           </article>
           <article class="pricing-card">
             <span class="pricing-badge">Recomendado</span>
@@ -1056,11 +1069,21 @@
               <li>Importación de planos PDF</li>
               <li>Lectura de alcances con Inteligencia Artificial</li>
             </ul>
-            <button class="btn pricing-cta" type="button" data-start-trial="premium">Empezar prueba de 14 días</button>
+            <button class="btn pricing-cta" type="button" data-start-trial="premium">Continuar con tarjeta</button>
           </article>
         </div>
         <p class="auth-status" id="planStatus" hidden></p>
       </section>
+  </section>
+  <section id="view-pago" class="view-section{{ ' active' if vista == 'pago' else '' }} no-print">
+    <div class="pago-card">
+      <p class="pago-kicker">Método de pago</p>
+      <h2>Agrega tu tarjeta</h2>
+      <p class="pago-plan" id="pagoPlanResumen">Elige tu plan para continuar.</p>
+      <p class="pago-aviso">Tus primeros 14 días son gratis. No se te hará ningún cargo hoy. Puedes cancelar en cualquier momento.</p>
+      <div id="stripe-checkout"></div>
+      <p class="auth-status" id="pagoStatus" hidden></p>
+    </div>
   </section>
   <section id="view-home" class="view-section{{ ' active' if vista == 'home' else '' }} no-print">
     <div class="hero-card">
@@ -5534,7 +5557,7 @@
       const legacy=document.getElementById('authLegacy');
       if(legacy) legacy.hidden=modo!=='login';
       document.body.classList.add('auth-solo');
-      document.body.classList.remove('con-sesion');
+      document.body.classList.remove('con-sesion','pagando','eligiendo-plan');
       aplicarViewportApp(true);
       document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active', section.id==='view-login'));
     }
@@ -5606,10 +5629,10 @@
       try{ history.replaceState({view:'login'},'', '/restablecer'); }catch(_){}
     }
     capturarRecuperacion();
-    aplicarViewportApp(document.body.classList.contains('auth-solo'));
+    aplicarViewportApp(document.body.classList.contains('auth-solo')||document.body.classList.contains('pagando'));
     function mostrarVistaLogin(){
       document.body.classList.add('auth-solo');
-      document.body.classList.remove('con-sesion','eligiendo-plan');
+      document.body.classList.remove('con-sesion','eligiendo-plan','pagando');
       aplicarViewportApp(true);
       const salir=document.getElementById('cerrarSesionNav');
       if(salir) salir.hidden=true;
@@ -5624,9 +5647,128 @@
       if(!actual||!actual.id) return false;
       return !['basico','profesional','premium'].includes(planSeleccionadoDe(actual));
     }
+    function necesitaMetodoPago(sesion){
+      const actual=sesion||sesionActual;
+      if(!actual||!actual.id) return false;
+      if(String(actual.pago_cliente_id||'').trim()) return false;
+      return actual.requiere_pago===true;
+    }
+    const PLANES_PAGO={
+      basico:{nombre:'Plan Básico',precio:29},
+      profesional:{nombre:'Plan Profesional',precio:49},
+      premium:{nombre:'Plan Premium',precio:99}
+    };
+    function resumenPlanPago(plan){
+      const info=PLANES_PAGO[plan]||null;
+      const el=document.getElementById('pagoPlanResumen');
+      if(!el) return;
+      if(!info){ el.textContent='Elige tu plan para continuar.'; return; }
+      el.innerHTML='Vas a empezar con <strong>'+info.nombre+'</strong> · $'+info.precio+'/mes después de la prueba.';
+    }
+    let stripeCheckoutActivo=null;
+    function cargarStripeJs(){
+      if(window.Stripe) return Promise.resolve(window.Stripe);
+      return new Promise((resolve,reject)=>{
+        const existente=document.querySelector('script[data-stripe-js]');
+        if(existente){
+          existente.addEventListener('load',()=>resolve(window.Stripe));
+          existente.addEventListener('error',()=>reject(new Error('No se pudo cargar Stripe.')));
+          return;
+        }
+        const s=document.createElement('script');
+        s.src='https://js.stripe.com/v3/';
+        s.async=true;
+        s.dataset.stripeJs='1';
+        s.onload=()=>resolve(window.Stripe);
+        s.onerror=()=>reject(new Error('No se pudo cargar Stripe.'));
+        document.head.appendChild(s);
+      });
+    }
+    async function montarCheckoutPago(){
+      const mount=document.getElementById('stripe-checkout');
+      if(!mount) return;
+      if(stripeCheckoutActivo&&typeof stripeCheckoutActivo.destroy==='function'){
+        try{ stripeCheckoutActivo.destroy(); }catch(_){}
+        stripeCheckoutActivo=null;
+      }
+      mount.innerHTML='';
+      marcarEstadoAuth('pagoStatus', 'Preparando el formulario de tarjeta…', false);
+      const res=await fetch('/api/pagos/checkout',{
+        method:'POST',
+        credentials:'same-origin',
+        headers:headersContratista({'Content-Type':'application/json'})
+      });
+      const json=await res.json().catch(()=>({}));
+      if(!res.ok){
+        marcarEstadoAuth('pagoStatus', json.error||'No se pudo abrir el pago.', true);
+        return;
+      }
+      if(json.nombre_plan){
+        const el=document.getElementById('pagoPlanResumen');
+        if(el) el.innerHTML='Vas a empezar con <strong>'+json.nombre_plan+'</strong> · $'+(json.precio||'')+'/mes después de la prueba.';
+      }
+      if(json.url){
+        marcarEstadoAuth('pagoStatus', 'Te llevamos a Stripe para guardar tu tarjeta. No se te cobra hoy.', false);
+        location.href=json.url;
+        return;
+      }
+      if(!json.clientSecret||!json.publishableKey){
+        marcarEstadoAuth('pagoStatus', 'Falta la clave pública de Stripe (STRIPE_PUBLISHABLE_KEY).', true);
+        return;
+      }
+      await cargarStripeJs();
+      const stripe=window.Stripe(json.publishableKey);
+      stripeCheckoutActivo=await stripe.initEmbeddedCheckout({clientSecret:json.clientSecret});
+      const status=document.getElementById('pagoStatus');
+      if(status) status.hidden=true;
+      stripeCheckoutActivo.mount('#stripe-checkout');
+    }
+    async function confirmarPagoSiPendiente(){
+      const params=new URLSearchParams(location.search||'');
+      const sessionId=params.get('session_id')||'';
+      if(!sessionId) return false;
+      marcarEstadoAuth('pagoStatus', 'Confirmando tu tarjeta…', false);
+      const res=await fetch('/api/pagos/confirmar',{
+        method:'POST',
+        credentials:'same-origin',
+        headers:headersContratista({'Content-Type':'application/json'}),
+        body:JSON.stringify({session_id:sessionId})
+      });
+      const json=await res.json().catch(()=>({}));
+      if(!res.ok){
+        marcarEstadoAuth('pagoStatus', json.error||'No se pudo confirmar la tarjeta.', true);
+        return false;
+      }
+      if(sesionActual){
+        sesionActual.requiere_pago=false;
+        sesionActual.pago_cliente_id=json.pago_cliente_id||sesionActual.pago_cliente_id;
+        if(json.fecha_fin_prueba) sesionActual.fecha_fin_prueba=json.fecha_fin_prueba;
+        if(json.plan_seleccionado) sesionActual.plan_seleccionado=json.plan_seleccionado;
+      }
+      try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
+      showAppView('home');
+      return true;
+    }
+    function mostrarVistaPago(){
+      document.body.classList.add('pagando');
+      document.body.classList.remove('auth-solo','con-sesion','eligiendo-plan');
+      aplicarViewportApp(true);
+      const salir=document.getElementById('cerrarSesionNav');
+      if(salir) salir.hidden=false;
+      document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active',section.id==='view-pago'));
+      document.querySelectorAll('.nav-btn[data-view]').forEach(btn=>btn.classList.remove('active'));
+      resumenPlanPago(planSeleccionadoDe());
+      const path=(location.pathname||'').replace(/\/+$/,'')||'/';
+      if(path!=='/pago'&&path!=='/pago/exito'){
+        try{ history.replaceState({view:'pago'},'', '/pago'); }catch(_){}
+      }
+      confirmarPagoSiPendiente().then(ok=>{ if(!ok) return montarCheckoutPago(); }).catch(err=>{
+        marcarEstadoAuth('pagoStatus', err.message||'No se pudo abrir el pago.', true);
+      });
+    }
     function mostrarVistaPlanes(){
       document.body.classList.add('eligiendo-plan');
-      document.body.classList.remove('auth-solo','con-sesion');
+      document.body.classList.remove('auth-solo','con-sesion','pagando');
       aplicarViewportApp(false);
       const salir=document.getElementById('cerrarSesionNav');
       if(salir) salir.hidden=false;
@@ -5658,12 +5800,16 @@
       return expirada;
     }
     function showAppView(view, options={}){
-      if(view==='login'||((view==='home'||view==='quote'||view==='history'||view==='planes')&&!sesionActual)){
+      if(view==='login'||((view==='home'||view==='quote'||view==='history'||view==='planes'||view==='pago')&&!sesionActual)){
         mostrarVistaLogin();
         return;
       }
-      if(view==='planes'||(view!=='login'&&necesitaElegirPlan())){
+      if(view==='planes'||(view!=='login'&&view!=='pago'&&necesitaElegirPlan())){
         mostrarVistaPlanes();
+        return;
+      }
+      if(view==='pago'||(view!=='login'&&necesitaMetodoPago())){
+        mostrarVistaPago();
         return;
       }
       if(view==='quote'&&aplicarBloqueoPrueba()){
@@ -5671,7 +5817,7 @@
         options={};
         try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
       }
-      document.body.classList.remove('auth-solo','eligiendo-plan');
+      document.body.classList.remove('auth-solo','eligiendo-plan','pagando');
       document.body.classList.add('con-sesion');
       aplicarViewportApp(false);
       const salir=document.getElementById('cerrarSesionNav');
@@ -5694,6 +5840,7 @@
     function crearDocumento(tipo){
       if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
       if(necesitaElegirPlan()){ mostrarVistaPlanes(); return; }
+      if(necesitaMetodoPago()){ mostrarVistaPago(); return; }
       if(aplicarBloqueoPrueba()){ showAppView('home'); return; }
       const t=String(tipo||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
       const modo={estimado:'estimate',estimate:'estimate',contrato:'contract',contract:'contract',factura:'invoice',invoice:'invoice'}[t]||'estimate';
@@ -5706,6 +5853,7 @@
       const view={inicio:'home',home:'home',cotizador:'quote',quote:'quote',historial:'history',history:'history'}[String(vista||'').toLowerCase()]||'home';
       if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
       if(necesitaElegirPlan()){ mostrarVistaPlanes(); return; }
+      if(necesitaMetodoPago()){ mostrarVistaPago(); return; }
       showAppView(view);
       const ruta={home:'/estimado',quote:'/cotizador',history:'/historial'}[view]||'/estimado';
       try{ history.pushState({view},'',ruta); }catch(_){}
@@ -5751,7 +5899,11 @@
         mostrarVistaPlanes();
         return;
       }
-      if(rutaEsLogin(path)||path==='/planes'){
+      if(necesitaMetodoPago()||path==='/pago/exito'){
+        mostrarVistaPago();
+        return;
+      }
+      if(rutaEsLogin(path)||path==='/planes'||path==='/pago'){
         try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
         showAppView('home');
         aplicarBloqueoPrueba();
@@ -7651,6 +7803,7 @@
       if(!el.dataset.view) return;
       if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
       if(necesitaElegirPlan()){ mostrarVistaPlanes(); return; }
+      if(necesitaMetodoPago()){ mostrarVistaPago(); return; }
       const view=el.dataset.view;
       showAppView(view,{mode:el.dataset.mode,reset:el.dataset.reset==='1'});
       const ruta={home:'/estimado',quote:'/cotizador',history:'/historial'}[view]||'/estimado';
@@ -7964,7 +8117,15 @@
           });
           const json=await res.json().catch(()=>({}));
           if(!res.ok) throw new Error(mensajeErrorAuth(json, t.planFail||'Could not save the plan.'));
-          if(sesionActual) sesionActual.plan_seleccionado=json.plan_seleccionado||plan;
+          if(sesionActual){
+            sesionActual.plan_seleccionado=json.plan_seleccionado||plan;
+            if(typeof json.requiere_pago==='boolean') sesionActual.requiere_pago=json.requiere_pago;
+            if(json.pago_cliente_id) sesionActual.pago_cliente_id=json.pago_cliente_id;
+          }
+          if(json.siguiente==='pago'||necesitaMetodoPago()){
+            mostrarVistaPago();
+            return;
+          }
           location.replace('/estimado');
         }catch(err){
           marcarEstadoAuth('planStatus', err.message||t.planFail||'Could not save the plan.', true);

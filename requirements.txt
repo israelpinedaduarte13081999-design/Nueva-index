@@ -18,4 +18,5 @@ PyPDF2
 PyMuPDF
 pdfminer.six
 gunicorn
+stripe
 

@@ -199,6 +199,7 @@ def _motor_uszipcode():
 
 _RUTAS_LOGIN = {"/", "/login", "/iniciar-sesion", "/restablecer"}
 _RUTAS_PLANES = {"/planes"}
+_RUTAS_PAGO = {"/pago", "/pago/exito"}
 _RUTAS_PANEL = {
     "/estimado", "/estimate", "/contrato", "/contract",
     "/factura", "/invoice", "/cotizador", "/quote",
@@ -211,7 +212,7 @@ def _exigir_login_panel():
     if request.method not in ("GET", "HEAD"):
         return None
     path = request.path.rstrip("/") or "/"
-    if path in _RUTAS_PLANES:
+    if path in _RUTAS_PLANES or path in _RUTAS_PAGO:
         if _token_contratista_solicitud():
             return None
         return redirect("/login")
@@ -228,6 +229,8 @@ def _vista_inicial():
         return "login"
     if path in _RUTAS_PLANES:
         return "planes"
+    if path in _RUTAS_PAGO:
+        return "pago"
     if path in ("/historial", "/history"):
         return "history"
     nuevo = str(request.args.get("nuevo") or "") == "1"
@@ -248,6 +251,8 @@ def privacidad():
 @app.route("/iniciar-sesion")
 @app.route("/restablecer")
 @app.route("/planes")
+@app.route("/pago")
+@app.route("/pago/exito")
 @app.route("/estimado")
 @app.route("/estimate")
 @app.route("/contrato")
@@ -3116,6 +3121,11 @@ def _mensaje_auth(data):
 
 
 _PLANES_VALIDOS = {"basico", "profesional", "premium"}
+_PLANES_PRECIOS = {
+    "basico": {"nombre": "Plan Básico", "centavos": 2900},
+    "profesional": {"nombre": "Plan Profesional", "centavos": 4900},
+    "premium": {"nombre": "Plan Premium", "centavos": 9900},
+}
 
 
 def _plan_valido(plan):
@@ -3176,6 +3186,8 @@ def _sesion_desde_fila(row):
         "fecha_fin_prueba": prueba.get("fecha_fin_prueba") or "",
         "trial_expirada": bool(prueba.get("trial_expirada")),
         "plan_seleccionado": prueba.get("plan_seleccionado") or "",
+        "pago_cliente_id": prueba.get("pago_cliente_id") or "",
+        "requiere_pago": bool(prueba.get("requiere_pago")),
     }
 
 
@@ -3229,25 +3241,44 @@ def _fecha_fin_prueba_desde(inicio=None):
 
 
 def _datos_prueba(sb, contratista):
-    datos = {"fecha_fin_prueba": "", "trial_expirada": False, "plan_seleccionado": ""}
+    datos = {
+        "fecha_fin_prueba": "",
+        "trial_expirada": False,
+        "plan_seleccionado": "",
+        "pago_cliente_id": "",
+        "requiere_pago": False,
+    }
     if not sb or not contratista:
         return datos
     uid = str(contratista.get("user_id") or "").strip()
     email = str(contratista.get("email") or "").strip().lower()
     fila = None
+    columnas = "fecha_fin_prueba,trial_inicio,plan_seleccionado,pago_cliente_id,requiere_pago"
     try:
         if uid:
-            res = sb.table("perfiles").select("fecha_fin_prueba,trial_inicio,plan_seleccionado").eq("id", uid).limit(1).execute()
+            res = sb.table("perfiles").select(columnas).eq("id", uid).limit(1).execute()
             rows = list(res.data or [])
             fila = rows[0] if rows else None
         if not fila and email:
-            res = sb.table("perfiles").select("fecha_fin_prueba,trial_inicio,plan_seleccionado").eq("email", email).limit(1).execute()
+            res = sb.table("perfiles").select(columnas).eq("email", email).limit(1).execute()
             rows = list(res.data or [])
             fila = rows[0] if rows else None
-    except Exception as err:
-        print(f"--> perfil prueba: {err}")
-        return datos
+    except Exception:
+        try:
+            if uid:
+                res = sb.table("perfiles").select("fecha_fin_prueba,trial_inicio,plan_seleccionado").eq("id", uid).limit(1).execute()
+                rows = list(res.data or [])
+                fila = rows[0] if rows else None
+            if not fila and email:
+                res = sb.table("perfiles").select("fecha_fin_prueba,trial_inicio,plan_seleccionado").eq("email", email).limit(1).execute()
+                rows = list(res.data or [])
+                fila = rows[0] if rows else None
+        except Exception as err:
+            print(f"--> perfil prueba: {err}")
+            return datos
     datos["plan_seleccionado"] = _plan_valido((fila or {}).get("plan_seleccionado"))
+    datos["pago_cliente_id"] = str((fila or {}).get("pago_cliente_id") or "").strip()
+    datos["requiere_pago"] = bool((fila or {}).get("requiere_pago"))
     fin = _parse_ts((fila or {}).get("fecha_fin_prueba"))
     if not fin:
         inicio = _parse_ts((fila or {}).get("trial_inicio"))
@@ -3260,7 +3291,7 @@ def _datos_prueba(sb, contratista):
     return datos
 
 
-def _guardar_perfil(sb, user_id, email, nombre, plan):
+def _guardar_perfil(sb, user_id, email, nombre, plan, exigir_pago=False):
     uid = str(user_id or "").strip()
     if not uid or sb is None:
         return
@@ -3270,8 +3301,12 @@ def _guardar_perfil(sb, user_id, email, nombre, plan):
     fecha_fin = _fecha_fin_prueba_desde(ahora_dt).isoformat()
     nombre_guardar = str(nombre or "").strip()
     plan_guardar = _plan_valido(plan)
+    pago_cliente_id = ""
+    requiere_pago = bool(exigir_pago)
     try:
-        existente = sb.table("perfiles").select("trial_inicio,fecha_fin_prueba,nombre,plan_seleccionado").eq("id", uid).limit(1).execute()
+        existente = sb.table("perfiles").select(
+            "trial_inicio,fecha_fin_prueba,nombre,plan_seleccionado,pago_cliente_id,requiere_pago"
+        ).eq("id", uid).limit(1).execute()
         filas = existente.data if existente else None
         if isinstance(filas, list) and filas:
             if filas[0].get("trial_inicio"):
@@ -3284,6 +3319,13 @@ def _guardar_perfil(sb, user_id, email, nombre, plan):
                 nombre_guardar = str(filas[0].get("nombre") or "").strip()
             if not plan_guardar:
                 plan_guardar = _plan_valido(filas[0].get("plan_seleccionado"))
+            pago_cliente_id = str(filas[0].get("pago_cliente_id") or "").strip()
+            if pago_cliente_id:
+                requiere_pago = False
+            elif exigir_pago:
+                requiere_pago = True
+            else:
+                requiere_pago = bool(filas[0].get("requiere_pago"))
     except Exception:
         pass
     fila = {
@@ -3293,6 +3335,8 @@ def _guardar_perfil(sb, user_id, email, nombre, plan):
         "plan_seleccionado": plan_guardar,
         "trial_inicio": trial_inicio,
         "fecha_fin_prueba": fecha_fin,
+        "pago_cliente_id": pago_cliente_id,
+        "requiere_pago": requiere_pago,
         "updated_at": ahora,
     }
     try:
@@ -3300,6 +3344,13 @@ def _guardar_perfil(sb, user_id, email, nombre, plan):
         return
     except Exception as err:
         print(f"--> perfil columnas extra: {err}")
+    fila.pop("pago_cliente_id", None)
+    fila.pop("requiere_pago", None)
+    try:
+        sb.table("perfiles").upsert(fila, on_conflict="id").execute()
+        return
+    except Exception:
+        pass
     fila.pop("fecha_fin_prueba", None)
     try:
         sb.table("perfiles").upsert(fila, on_conflict="id").execute()
@@ -3324,6 +3375,11 @@ def guardar_plan_contratista(contratista, plan):
     email = str(contratista.get("email") or "").strip().lower()
     ahora = datetime.now(timezone.utc).isoformat()
     cambios = {"plan_seleccionado": plan, "updated_at": ahora}
+    plan_previo = _plan_valido(contratista.get("plan_seleccionado"))
+    if not str(contratista.get("pago_cliente_id") or "").strip() and (
+        contratista.get("requiere_pago") or not plan_previo
+    ):
+        cambios["requiere_pago"] = True
     try:
         if uid:
             res = sb.table("perfiles").update(cambios).eq("id", uid).execute()
@@ -3336,10 +3392,135 @@ def guardar_plan_contratista(contratista, plan):
     except Exception as err:
         print(f"--> plan perfil: {err}")
     if uid:
-        _guardar_perfil(sb, uid, email, "", plan)
+        _guardar_perfil(sb, uid, email, "", plan, exigir_pago=True)
     else:
         raise ErrorAuth("sin_cuenta", "Could not save the selected plan.", 404)
     return plan
+
+
+def _stripe_secreta():
+    return (os.getenv("STRIPE_SECRET_KEY") or os.getenv("STRIPE_API_KEY") or "").strip()
+
+
+def _stripe_publica():
+    return (os.getenv("STRIPE_PUBLISHABLE_KEY") or os.getenv("STRIPE_PUBLIC_KEY") or "").strip()
+
+
+def _stripe_webhook_secreta():
+    return (os.getenv("STRIPE_WEBHOOK_SECRET") or "").strip()
+
+
+def _stripe_mod():
+    try:
+        import stripe
+    except ImportError:
+        return None
+    clave = _stripe_secreta()
+    if not clave:
+        return None
+    stripe.api_key = clave
+    return stripe
+
+
+def _url_publica_app():
+    env = (os.getenv("APP_BASE_URL") or "").strip().rstrip("/")
+    if env:
+        return env
+    try:
+        if _es_dominio_app():
+            return "https://" + DOMINIO_APP
+        return (request.host_url or "").strip().rstrip("/")
+    except Exception:
+        return "https://" + DOMINIO_APP
+
+
+def _guardar_pago_cliente(sb, uid, email, customer_id, plan=""):
+    uid = str(uid or "").strip()
+    customer_id = str(customer_id or "").strip()
+    if not sb or not uid or not customer_id:
+        return False
+    ahora_dt = datetime.now(timezone.utc)
+    ahora = ahora_dt.isoformat()
+    fecha_fin = _fecha_fin_prueba_desde(ahora_dt).isoformat()
+    plan_guardar = _plan_valido(plan)
+    try:
+        existente = sb.table("perfiles").select(
+            "fecha_fin_prueba,trial_inicio,plan_seleccionado"
+        ).eq("id", uid).limit(1).execute()
+        filas = list(existente.data or [])
+        if filas:
+            if filas[0].get("fecha_fin_prueba"):
+                fecha_fin = filas[0]["fecha_fin_prueba"]
+            elif filas[0].get("trial_inicio"):
+                fecha_fin = _fecha_fin_prueba_desde(filas[0]["trial_inicio"]).isoformat()
+            if not plan_guardar:
+                plan_guardar = _plan_valido(filas[0].get("plan_seleccionado"))
+    except Exception:
+        pass
+    cambios = {
+        "pago_cliente_id": customer_id,
+        "requiere_pago": False,
+        "fecha_fin_prueba": fecha_fin,
+        "updated_at": ahora,
+    }
+    if plan_guardar:
+        cambios["plan_seleccionado"] = plan_guardar
+    try:
+        res = sb.table("perfiles").update(cambios).eq("id", uid).execute()
+        if list(res.data or []):
+            print(f"--> pago cliente guardado uid={uid}")
+            return True
+    except Exception as err:
+        print(f"--> pago cliente columnas: {err}")
+    if email:
+        try:
+            res = sb.table("perfiles").update(cambios).eq("email", str(email).strip().lower()).execute()
+            if list(res.data or []):
+                return True
+        except Exception as err:
+            print(f"--> pago cliente email: {err}")
+    _guardar_perfil(sb, uid, email, "", plan_guardar, exigir_pago=False)
+    try:
+        sb.table("perfiles").update({
+            "pago_cliente_id": customer_id,
+            "requiere_pago": False,
+            "fecha_fin_prueba": fecha_fin,
+            "updated_at": ahora,
+        }).eq("id", uid).execute()
+        return True
+    except Exception as err:
+        print(f"--> pago cliente no guardado: {err}")
+        return False
+
+
+def _aplicar_sesion_checkout(session_obj, contratista=None):
+    if not session_obj:
+        return False
+    meta = session_obj.get("metadata") if isinstance(session_obj, dict) else (getattr(session_obj, "metadata", None) or {})
+    meta = meta if isinstance(meta, dict) else {}
+    uid = str(
+        meta.get("user_id")
+        or (session_obj.get("client_reference_id") if isinstance(session_obj, dict) else getattr(session_obj, "client_reference_id", ""))
+        or ((contratista or {}).get("user_id") or "")
+    ).strip()
+    email = str(
+        (contratista or {}).get("email")
+        or meta.get("email")
+        or ""
+    ).strip().lower()
+    customer = session_obj.get("customer") if isinstance(session_obj, dict) else getattr(session_obj, "customer", None)
+    if isinstance(customer, dict):
+        customer = customer.get("id")
+    customer_id = str(customer or "").strip()
+    plan = _plan_valido(meta.get("plan") or ((contratista or {}).get("plan_seleccionado") or ""))
+    status = str(session_obj.get("status") if isinstance(session_obj, dict) else getattr(session_obj, "status", "") or "").lower()
+    pago = str(session_obj.get("payment_status") if isinstance(session_obj, dict) else getattr(session_obj, "payment_status", "") or "").lower()
+    if status and status not in ("complete",):
+        if pago not in ("paid", "no_payment_required"):
+            return False
+    if not uid or not customer_id:
+        return False
+    return _guardar_pago_cliente(_supabase_client(), uid, email, customer_id, plan)
 
 
 def registrar_contratista(email, nombre, password, plan=""):
@@ -3367,7 +3548,7 @@ def registrar_contratista(email, nombre, password, plan=""):
             sesion = _verificar_contrasena(email, password)
         auth_user = auth_user or (sesion or {}).get("user") or _usuario_auth_por_email(email)
     uid = str((auth_user or {}).get("id") or "").strip()
-    _guardar_perfil(sb, uid, email, nombre or "", plan)
+    _guardar_perfil(sb, uid, email, nombre or "", plan, exigir_pago=True)
     params = {"p_email": email, "p_nombre": nombre}
     if _es_uuid(uid):
         params["p_user_id"] = uid
@@ -3513,9 +3694,9 @@ def asegurar_contratista_oauth(email, nombre, user_id=""):
     if sb is None:
         raise ErrorAuth("config", "Supabase no configurado", 503)
     uid = str(user_id or "").strip()
-    if _es_uuid(uid):
-        _guardar_perfil(sb, uid, email, nombre or "", "")
     row = _contratista_por_email_tabla(sb, email)
+    if _es_uuid(uid):
+        _guardar_perfil(sb, uid, email, nombre or "", "", exigir_pago=not row)
     if row and row.get("token"):
         return _asegurar_user_id_contratista(sb, row, uid)
     params = {"p_email": email, "p_nombre": nombre}
@@ -4160,8 +4341,145 @@ def api_guardar_plan_contratista():
         print(f"--> guardar plan {type(err).__name__}: {err}")
         return _respuesta_tenant(err)
     contratista["plan_seleccionado"] = plan
+    sb = _supabase_client()
+    if sb is not None:
+        contratista.update(_datos_prueba(sb, contratista))
+    payload = _sesion_desde_fila(contratista)
+    payload["siguiente"] = "pago" if payload.get("requiere_pago") else "estimado"
+    resp = jsonify(payload)
+    return _adjuntar_sesion_contratista(resp, contratista.get("token"))
+
+
+@app.route("/api/pagos/checkout", methods=["POST"])
+def api_pagos_checkout():
+    contratista, error = _exigir_contratista()
+    if error:
+        return error
+    stripe = _stripe_mod()
+    if stripe is None:
+        return jsonify({
+            "error": "Pagos no configurados. Agrega STRIPE_SECRET_KEY en Render.",
+            "code": "stripe_config",
+        }), 503
+    plan = _plan_valido(contratista.get("plan_seleccionado"))
+    if not plan:
+        return jsonify({"error": "Elige un plan antes de agregar tu tarjeta.", "code": "plan"}), 400
+    info = _PLANES_PRECIOS[plan]
+    uid = str(contratista.get("user_id") or "").strip()
+    email = str(contratista.get("email") or "").strip().lower()
+    customer_id = str(contratista.get("pago_cliente_id") or "").strip()
+    base = _url_publica_app()
+    params = {
+        "mode": "subscription",
+        "line_items": [{
+            "price_data": {
+                "currency": "usd",
+                "product_data": {"name": "QuantixBuilds · " + info["nombre"]},
+                "unit_amount": info["centavos"],
+                "recurring": {"interval": "month"},
+            },
+            "quantity": 1,
+        }],
+        "subscription_data": {
+            "trial_period_days": 14,
+            "metadata": {"user_id": uid, "plan": plan, "email": email},
+        },
+        "metadata": {"user_id": uid, "plan": plan, "email": email},
+        "payment_method_collection": "always",
+        "locale": "es",
+    }
+    if uid:
+        params["client_reference_id"] = uid
+    if customer_id:
+        params["customer"] = customer_id
+    elif email:
+        params["customer_email"] = email
+    publica = _stripe_publica()
+    extra = {
+        "plan": plan,
+        "nombre_plan": info["nombre"],
+        "precio": info["centavos"] // 100,
+    }
+    if publica:
+        try:
+            session = stripe.checkout.Session.create(
+                ui_mode="embedded",
+                return_url=base + "/pago/exito?session_id={CHECKOUT_SESSION_ID}",
+                **params,
+            )
+            extra["clientSecret"] = session.client_secret
+            extra["publishableKey"] = publica
+            return jsonify(extra)
+        except Exception as err:
+            print(f"--> stripe embedded: {type(err).__name__}: {err}")
+    try:
+        session = stripe.checkout.Session.create(
+            success_url=base + "/pago/exito?session_id={CHECKOUT_SESSION_ID}",
+            cancel_url=base + "/pago",
+            **params,
+        )
+    except Exception as err:
+        print(f"--> stripe checkout: {type(err).__name__}: {err}")
+        return jsonify({"error": "No se pudo abrir el formulario de pago.", "code": "stripe"}), 502
+    extra["url"] = session.url
+    return jsonify(extra)
+
+
+@app.route("/api/pagos/confirmar", methods=["POST"])
+def api_pagos_confirmar():
+    contratista, error = _exigir_contratista()
+    if error:
+        return error
+    stripe = _stripe_mod()
+    if stripe is None:
+        return jsonify({"error": "Pagos no configurados.", "code": "stripe_config"}), 503
+    body = request.get_json(silent=True) or {}
+    session_id = str(body.get("session_id") or request.args.get("session_id") or "").strip()
+    if not session_id:
+        return jsonify({"error": "Falta la sesión de pago.", "code": "sesion"}), 400
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+    except Exception as err:
+        print(f"--> stripe confirmar: {type(err).__name__}: {err}")
+        return jsonify({"error": "No se pudo confirmar el pago.", "code": "stripe"}), 502
+    meta = session.get("metadata") or {}
+    uid = str(contratista.get("user_id") or "").strip()
+    email = str(contratista.get("email") or "").strip().lower()
+    dueño = str(meta.get("user_id") or session.get("client_reference_id") or "").strip()
+    if dueño and uid and dueño != uid:
+        return jsonify({"error": "Esta sesión de pago no coincide con tu cuenta.", "code": "dueño"}), 403
+    if not _aplicar_sesion_checkout(session, contratista):
+        return jsonify({"error": "Stripe aún no confirmó la tarjeta. Intenta de nuevo.", "code": "incompleto"}), 409
+    sb = _supabase_client()
+    if sb is not None:
+        contratista.update(_datos_prueba(sb, contratista))
     resp = jsonify(_sesion_desde_fila(contratista))
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
+
+
+@app.route("/api/pagos/webhook", methods=["POST"])
+def api_pagos_webhook():
+    stripe = _stripe_mod()
+    if stripe is None:
+        return jsonify({"error": "stripe"}), 503
+    payload = request.get_data()
+    sig = request.headers.get("Stripe-Signature")
+    secret = _stripe_webhook_secreta()
+    try:
+        if secret:
+            event = stripe.Webhook.construct_event(payload, sig, secret)
+        else:
+            event = json.loads(payload.decode("utf-8") if isinstance(payload, (bytes, bytearray)) else payload)
+    except Exception as err:
+        print(f"--> stripe webhook: {type(err).__name__}: {err}")
+        return jsonify({"error": "firma"}), 400
+    if not isinstance(event, dict):
+        event = dict(event)
+    tipo = str(event.get("type") or "")
+    data = ((event.get("data") or {}).get("object")) or {}
+    if tipo in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
+        _aplicar_sesion_checkout(data)
+    return jsonify({"ok": True})
 
 
 @app.route("/api/contratistas/login", methods=["POST"])
@@ -4662,6 +4980,8 @@ def api_contratista_actual():
         "fecha_fin_prueba": contratista.get("fecha_fin_prueba") or "",
         "trial_expirada": bool(contratista.get("trial_expirada")),
         "plan_seleccionado": contratista.get("plan_seleccionado") or "",
+        "pago_cliente_id": contratista.get("pago_cliente_id") or "",
+        "requiere_pago": bool(contratista.get("requiere_pago")),
     })
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
 
