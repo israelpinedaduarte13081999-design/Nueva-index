@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=1024">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Comprehensive estimating and invoicing platform for professional contractors. Generate accurate quotes with localized ZIP code pricing, extract measurements from PDFs using AI, and automate your contracts in a single tool.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,41 +21,63 @@
     .nav-btn.active { background-color:#e2e8f0; color:#0f172a; font-weight:600; }
     .view-section { display:none; padding:28px 16px; max-width:1100px; margin:0 auto; }
     .view-section.active { display:block; }
-    #view-login.active { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:calc(100vh - 64px); padding:32px 16px; gap:16px; }
-    #view-login .signup-card { max-width:440px; width:100%; margin:0; }
-    body.auth-solo { background:radial-gradient(1200px 480px at 50% -80px,#ffffff 0%,#e8eef6 55%,#dfe7f1 100%); }
-    body.auth-solo .app-navbar { background:transparent; border-bottom:0; box-shadow:none; }
-    body.auth-solo .nav-links { display:none; }
+    body.auth-solo { background:#fff; min-height:100dvh; overflow-x:hidden; }
+    body.auth-solo .app-navbar { display:none !important; }
     body.eligiendo-plan { background:radial-gradient(1200px 480px at 50% -80px,#ffffff 0%,#e8eef6 55%,#dfe7f1 100%); }
     body.eligiendo-plan .app-navbar { background:transparent; border-bottom:0; box-shadow:none; }
     body.eligiendo-plan .nav-btn[data-view] { display:none; }
-    #authContratista { padding:28px 26px 22px; border:1px solid rgba(255,255,255,.8); border-radius:22px; background:#fff; box-shadow:0 24px 60px rgba(15,23,42,.12); }
-    #authContratista .auth-kicker { margin:0 0 14px; color:#1d4ed8; font-size:11px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
-    #authContratista h3 { font-size:1.35rem; letter-spacing:-.03em; }
-    #authContratista p { line-height:1.45; }
-    #authContratista input { padding:11px 12px; border-radius:10px; border-color:#d5dee8; }
+    #view-login { max-width:none; margin:0; padding:0; width:100%; }
+    #view-login.active { display:flex; flex-direction:column; min-height:100dvh; min-height:100vh; }
+    .auth-hero { display:none; }
+    .auth-panel-brand { display:block; margin:0 0 28px; color:#0f172a; font-size:1.35rem; font-weight:800; letter-spacing:-.03em; }
+    .auth-panel { flex:1; display:flex; flex-direction:column; width:100%; min-height:100dvh; min-height:100vh; background:#fff; padding:max(28px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom)); overflow-y:auto; }
+    #view-login .signup-card,
+    #authContratista { max-width:none; width:100%; flex:1; margin:0; padding:0; border:0; border-radius:0; background:#fff; box-shadow:none; }
+    #authContratista .auth-kicker { margin:0 0 10px; color:#0284c7; font-size:12px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
+    #authContratista h3 { margin:0 0 8px; font-size:1.7rem; letter-spacing:-.04em; }
+    #authContratista p { line-height:1.5; font-size:1rem; }
+    #authContratista label { margin:16px 0 8px; font-size:.95rem; }
+    #authContratista input[type="email"],
+    #authContratista input[type="password"],
+    #authContratista input[type="text"] { min-height:52px; padding:16px 14px; border-radius:12px; border:1px solid #cbd5e1; font-size:16px; }
     #authContratista input:focus { outline:2px solid #bfdbfe; border-color:#2563eb; }
-    #authContratista .btn-primary { width:100%; margin-top:16px; border:0; border-radius:10px; padding:12px 14px; background:#0f172a; }
+    #authContratista .btn { width:100%; min-height:52px; border-radius:12px; padding:16px 18px; font-size:16px; }
+    #authContratista .btn-primary { width:100%; min-height:52px; margin-top:20px; border:0; border-radius:12px; padding:16px 18px; background:#0f172a; font-size:16px; }
     #authContratista .btn-primary:hover { background:#1e293b; }
-    #authContratista .auth-secondary { width:100%; margin-top:8px; border-radius:10px; background:#fff; }
-    #authContratista .auth-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:12px; }
-    #authContratista .auth-check { display:flex; align-items:center; gap:8px; margin:0; font-size:13px; font-weight:600; color:#334155; }
-    #authContratista .auth-check input { width:16px; height:16px; margin:0; accent-color:#0f172a; }
-    #authContratista .auth-link { margin:0; padding:0; border:0; background:transparent; color:#1d4ed8; font-size:13px; font-weight:700; }
+    #authContratista .auth-secondary { width:100%; margin-top:8px; border-radius:12px; background:#fff; }
+    #authContratista .auth-row { display:flex; align-items:center; justify-content:space-between; gap:14px 16px; flex-wrap:wrap; margin-top:16px; }
+    #authContratista .auth-check { display:flex; align-items:center; gap:10px; margin:0; font-size:16px; font-weight:600; color:#334155; min-height:44px; }
+    #authContratista .auth-check input { width:22px; height:22px; margin:0; accent-color:#0f172a; flex:0 0 auto; }
+    #authContratista .auth-link { margin:0; padding:10px 0; border:0; background:transparent; color:#1d4ed8; font-size:16px; font-weight:700; min-height:44px; }
     #authContratista .auth-link:hover { color:#1e3a8a; }
-    #authContratista .auth-privacy-link { display:block; margin:10px 0 0; text-align:center; color:#1d4ed8; font-size:13px; font-weight:700; text-decoration:none; }
+    #authContratista .auth-privacy-link { display:block; margin:16px 0 0; text-align:center; color:#1d4ed8; font-size:15px; font-weight:700; text-decoration:none; min-height:44px; padding:10px 0; }
     #authContratista .auth-privacy-link:hover { color:#1e3a8a; text-decoration:underline; }
-    .site-legal-footer { width:100%; margin:8px 0 0; padding:18px 8px 0; text-align:center; color:#64748b; font-size:13px; }
+    .site-legal-footer { width:100%; margin:auto 0 0; padding:20px 0 0; text-align:center; color:#64748b; font-size:14px; }
     .site-legal-footer a { color:#1d4ed8; font-weight:700; text-decoration:none; }
     .site-legal-footer a:hover { color:#1e3a8a; text-decoration:underline; }
-    #authContratista .auth-back { display:inline-block; margin-top:14px; }
-    #authContratista .auth-divider { display:flex; align-items:center; gap:12px; margin:16px 0 0; color:#94a3b8; font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+    #authContratista .auth-back { display:inline-flex; align-items:center; margin-top:14px; }
+    #authContratista .auth-divider { display:flex; align-items:center; gap:12px; margin:20px 0 0; color:#94a3b8; font-size:12px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
     #authContratista .auth-divider:before, #authContratista .auth-divider:after { content:""; flex:1; height:1px; background:#e2e8f0; }
-    #authContratista .auth-google { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; margin-top:12px; padding:11px 14px; border:1px solid #dbe3ea; border-radius:10px; background:#fff; color:#0f172a; font-weight:700; text-decoration:none; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+    #authContratista .auth-google { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:52px; margin-top:14px; padding:14px 16px; border:1px solid #dbe3ea; border-radius:12px; background:#fff; color:#0f172a; font-size:16px; font-weight:700; text-decoration:none; }
     #authContratista .auth-google:hover { background:#f8fafc; border-color:#cbd5e1; }
-    #authContratista .auth-google svg { width:18px; height:18px; flex:0 0 auto; }
+    #authContratista .auth-google svg { width:20px; height:20px; flex:0 0 auto; }
     #authContratista .auth-switch, #authContratista .auth-legacy { margin:14px 0 0; text-align:center; }
     #authContratista .auth-legacy { margin-top:4px; }
+    .auth-tabs { display:flex; gap:8px; margin-bottom:18px; }
+    .auth-tabs button { flex:1; margin-top:0; min-height:48px; border:1px solid #e2e8f0; background:#f8fafc; color:#334155; border-radius:12px; padding:12px 16px; font-size:15px; font-weight:700; }
+    .auth-tabs button.is-active { background:#0f172a; color:#fff; border-color:#0f172a; }
+    @media (min-width:900px) {
+      #view-login.active { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); min-height:100vh; }
+      .auth-hero { position:relative; display:flex; flex-direction:column; justify-content:center; gap:16px; padding:120px 56px 64px; background:linear-gradient(165deg,#19385f 0%,#2d70ad 58%,#0284c7 100%); color:#fff; }
+      .auth-hero-brand { position:absolute; top:40px; left:56px; margin:0; font-size:1.5rem; font-weight:800; letter-spacing:-.04em; }
+      .auth-hero-kicker { margin:0; color:#bae6fd; font-size:12px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
+      .auth-hero-title { margin:0; max-width:18ch; font-size:2.4rem; line-height:1.15; letter-spacing:-.04em; font-weight:800; }
+      .auth-hero-lead { margin:0; max-width:34ch; color:rgba(255,255,255,.86); font-size:1.05rem; line-height:1.55; }
+      .auth-panel { min-height:100vh; justify-content:center; padding:48px 64px; }
+      .auth-panel-brand { display:none; }
+      #view-login .signup-card, #authContratista { max-width:440px; width:100%; margin:0 auto; flex:0 1 auto; }
+      .site-legal-footer { margin-top:28px; padding-top:0; }
+    }
     #authTabs[hidden], #authKicker[hidden], #authContratista form[hidden], #sesionContratista[hidden], #authGoogleBloque[hidden], #authPie[hidden], #authLegacy[hidden] { display:none !important; }
     #cerrarSesionNav[hidden] { display:none !important; }
     .view-section:not(.active) .business-modal,
@@ -151,9 +173,9 @@
     .signup-card label { display:block; font-size:.8rem; font-weight:700; color:#334155; margin:8px 0 4px; }
     .signup-card input { width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:8px 10px; background:#fff; }
     .signup-card button { margin-top:12px; }
-    .auth-tabs { display:flex; gap:8px; margin-bottom:4px; }
-    .auth-tabs button { margin-top:0; border:1px solid #e2e8f0; background:#f8fafc; color:#334155; border-radius:999px; padding:7px 14px; font-size:13px; font-weight:700; white-space:nowrap; }
-    .auth-tabs button.is-active { background:#0f172a; color:#fff; border-color:#0f172a; }
+    #view-login .auth-tabs { display:flex; gap:8px; margin-bottom:18px; }
+    #view-login .auth-tabs button { flex:1; margin-top:0; min-height:48px; border:1px solid #e2e8f0; background:#f8fafc; color:#334155; border-radius:12px; padding:12px 16px; font-size:15px; font-weight:700; white-space:nowrap; }
+    #view-login .auth-tabs button.is-active { background:#0f172a; color:#fff; border-color:#0f172a; }
     .signup-card .auth-note { margin:10px 0 0; color:#64748b; font-size:.8rem; font-weight:600; }
     .signup-card .auth-status { margin:10px 0 0; font-size:.85rem; font-weight:700; color:#0f172a; }
     .signup-card .auth-status.is-error { color:#b91c1c; }
@@ -895,7 +917,15 @@
     </div>
   </nav>
   <section id="view-login" class="view-section{{ ' active' if vista == 'login' else '' }} no-print">
-      <div class="signup-card" id="authContratista">
+      <aside class="auth-hero" aria-hidden="true">
+        <div class="auth-hero-brand">QuantixBuilds</div>
+        <p class="auth-hero-kicker">For professional contractors</p>
+        <h2 class="auth-hero-title">Estimates, invoices, and contracts in one place.</h2>
+        <p class="auth-hero-lead">Build accurate quotes with ZIP pricing, PDF takeoff, and a clean work dashboard.</p>
+      </aside>
+      <div class="auth-panel">
+        <div class="auth-panel-brand">QuantixBuilds</div>
+        <div class="signup-card" id="authContratista">
         <p class="auth-kicker" id="authKicker">Contractor access</p>
         <div class="auth-tabs" id="authTabs">
           <button type="button" id="authTabLogin" class="is-active">Log in</button>
@@ -967,10 +997,11 @@
           <p id="sesionContratistaTexto"></p>
           <button class="btn" type="button" id="cerrarSesionBtn">Log out</button>
         </div>
+        </div>
+        <footer class="site-legal-footer">
+          <a href="/privacidad">Política de Privacidad</a>
+        </footer>
       </div>
-      <footer class="site-legal-footer">
-        <a href="/privacidad">Política de Privacidad</a>
-      </footer>
   </section>
   <section id="view-planes" class="view-section{{ ' active' if vista == 'planes' else '' }} no-print">
       <section class="pricing-section" id="pricing-section" aria-labelledby="pricing-heading">
