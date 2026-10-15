@@ -21,11 +21,14 @@
     .nav-btn.active { background-color:#e2e8f0; color:#0f172a; font-weight:600; }
     .view-section { display:none; padding:28px 16px; max-width:1100px; margin:0 auto; }
     .view-section.active { display:block; }
-    #view-login.active { display:flex; align-items:center; justify-content:center; min-height:calc(100vh - 64px); padding:32px 16px; }
+    #view-login.active { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:calc(100vh - 64px); padding:32px 16px; gap:16px; }
     #view-login .signup-card { max-width:440px; width:100%; margin:0; }
     body.auth-solo { background:radial-gradient(1200px 480px at 50% -80px,#ffffff 0%,#e8eef6 55%,#dfe7f1 100%); }
     body.auth-solo .app-navbar { background:transparent; border-bottom:0; box-shadow:none; }
     body.auth-solo .nav-links { display:none; }
+    body.eligiendo-plan { background:radial-gradient(1200px 480px at 50% -80px,#ffffff 0%,#e8eef6 55%,#dfe7f1 100%); }
+    body.eligiendo-plan .app-navbar { background:transparent; border-bottom:0; box-shadow:none; }
+    body.eligiendo-plan .nav-btn[data-view] { display:none; }
     #authContratista { padding:28px 26px 22px; border:1px solid rgba(255,255,255,.8); border-radius:22px; background:#fff; box-shadow:0 24px 60px rgba(15,23,42,.12); }
     #authContratista .auth-kicker { margin:0 0 14px; color:#1d4ed8; font-size:11px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
     #authContratista h3 { font-size:1.35rem; letter-spacing:-.03em; }
@@ -97,7 +100,7 @@
     .home-pdf-drop strong { display:block; color:#0f172a; font-size:.92rem; }
     .home-pdf-drop small { display:block; color:#64748b; font-size:.8rem; margin-top:2px; }
     @media (max-width:800px) { .action-cards-grid { grid-template-columns:1fr; } }
-    #view-login.active { flex-direction:column; justify-content:flex-start; gap:40px; max-width:1100px; margin:0 auto; padding:32px 16px 64px; }
+    #view-planes.active { display:flex; flex-direction:column; justify-content:flex-start; gap:24px; max-width:1100px; margin:0 auto; padding:32px 16px 64px; min-height:calc(100vh - 64px); }
     .pricing-section { width:100%; }
     .pricing-header { text-align:center; margin:0 auto 28px; max-width:640px; }
     .pricing-kicker { margin:0 0 8px; color:#1d4ed8; font-size:11px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
@@ -122,6 +125,8 @@
       .pricing-grid { grid-template-columns:1fr; max-width:420px; margin:0 auto; }
       .pricing-card.is-featured { transform:none; order:-1; }
     }
+    #view-planes .auth-status { text-align:center; margin:18px 0 0; font-weight:700; color:#0f172a; }
+    #view-planes .auth-status.is-error { color:#b91c1c; }
     .history-container { background:#ffffff; padding:28px; border-radius:12px; border:1px solid #e2e8f0; }
     .history-header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
     .history-container h2 { margin:0; color:#0f172a; }
@@ -879,7 +884,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
-<body class="{{ 'con-sesion' if vista != 'login' else 'auth-solo' }}" data-nombre-empresa="{{ nombre_empresa }}">
+<body class="{{ 'auth-solo' if vista == 'login' else ('eligiendo-plan' if vista == 'planes' else 'con-sesion') }}" data-nombre-empresa="{{ nombre_empresa }}">
   <nav class="app-navbar no-print" aria-label="Main navigation">
     <div class="brand-title" data-brand-name>{{ nombre_empresa_visible }}</div>
     <div class="nav-links">
@@ -934,10 +939,7 @@
         </form>
         <form id="registroContratistaForm" hidden>
           <h3 id="registroTitulo">Create account</h3>
-          <p id="registroLead">Enter your name, email, and a password to start the 14-day free trial.</p>
-          <p class="auth-note" id="registroPlanNota" hidden></p>
-          <label for="registroNombre" id="registroNombreLabel">Name</label>
-          <input id="registroNombre" name="nombre" type="text" autocomplete="name" required maxlength="80" placeholder="Your name">
+          <p id="registroLead">Enter your email and a password to create your account.</p>
           <label for="registroEmail" id="registroEmailLabel">Email</label>
           <input id="registroEmail" name="email" type="email" autocomplete="username" required placeholder="you@company.com">
           <label for="registroPassword" id="registroPasswordLabel">Password</label>
@@ -966,6 +968,11 @@
           <button class="btn" type="button" id="cerrarSesionBtn">Log out</button>
         </div>
       </div>
+      <footer class="site-legal-footer">
+        <a href="/privacidad">Política de Privacidad</a>
+      </footer>
+  </section>
+  <section id="view-planes" class="view-section{{ ' active' if vista == 'planes' else '' }} no-print">
       <section class="pricing-section" id="pricing-section" aria-labelledby="pricing-heading">
         <header class="pricing-header">
           <p class="pricing-kicker">Planes</p>
@@ -983,7 +990,7 @@
               <li>Facturas y contratos</li>
               <li>Panel de clientes</li>
             </ul>
-            <button class="btn pricing-cta" type="button" data-start-trial="basico">Iniciar prueba gratuita de 14 días</button>
+            <button class="btn pricing-cta" type="button" data-start-trial="basico">Empezar prueba de 14 días</button>
           </article>
           <article class="pricing-card is-featured">
             <span class="pricing-badge">Recomendado</span>
@@ -995,7 +1002,7 @@
               <li>Acceso a la base de datos completa</li>
               <li>Lógica matemática automática</li>
             </ul>
-            <button class="btn btn-primary pricing-cta" type="button" data-start-trial="profesional">Iniciar prueba gratuita de 14 días</button>
+            <button class="btn btn-primary pricing-cta" type="button" data-start-trial="profesional">Empezar prueba de 14 días</button>
           </article>
           <article class="pricing-card">
             <span class="pricing-badge">Recomendado</span>
@@ -1007,13 +1014,11 @@
               <li>Importación de planos PDF</li>
               <li>Lectura de alcances con Inteligencia Artificial</li>
             </ul>
-            <button class="btn pricing-cta" type="button" data-start-trial="premium">Iniciar prueba gratuita de 14 días</button>
+            <button class="btn pricing-cta" type="button" data-start-trial="premium">Empezar prueba de 14 días</button>
           </article>
         </div>
+        <p class="auth-status" id="planStatus" hidden></p>
       </section>
-      <footer class="site-legal-footer">
-        <a href="/privacidad">Política de Privacidad</a>
-      </footer>
   </section>
   <section id="view-home" class="view-section{{ ' active' if vista == 'home' else '' }} no-print">
     <div class="hero-card">
@@ -5548,11 +5553,28 @@
     capturarRecuperacion();
     function mostrarVistaLogin(){
       document.body.classList.add('auth-solo');
-      document.body.classList.remove('con-sesion');
+      document.body.classList.remove('con-sesion','eligiendo-plan');
       const salir=document.getElementById('cerrarSesionNav');
       if(salir) salir.hidden=true;
       document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active',section.id==='view-login'));
       document.querySelectorAll('.nav-btn[data-view]').forEach(btn=>btn.classList.remove('active'));
+    }
+    function planSeleccionadoDe(sesion){
+      return String((sesion||sesionActual||{}).plan_seleccionado||'').trim().toLowerCase();
+    }
+    function necesitaElegirPlan(sesion){
+      const actual=sesion||sesionActual;
+      if(!actual||!actual.id) return false;
+      return !['basico','profesional','premium'].includes(planSeleccionadoDe(actual));
+    }
+    function mostrarVistaPlanes(){
+      document.body.classList.add('eligiendo-plan');
+      document.body.classList.remove('auth-solo','con-sesion');
+      const salir=document.getElementById('cerrarSesionNav');
+      if(salir) salir.hidden=false;
+      document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active',section.id==='view-planes'));
+      document.querySelectorAll('.nav-btn[data-view]').forEach(btn=>btn.classList.remove('active'));
+      try{ history.replaceState({view:'planes'},'', '/planes'); }catch(_){}
     }
     function fechaFinPruebaDe(sesion){
       const raw=String((sesion||{}).fecha_fin_prueba||'');
@@ -5578,8 +5600,12 @@
       return expirada;
     }
     function showAppView(view, options={}){
-      if(view==='login'||((view==='home'||view==='quote'||view==='history')&&!sesionActual)){
+      if(view==='login'||((view==='home'||view==='quote'||view==='history'||view==='planes')&&!sesionActual)){
         mostrarVistaLogin();
+        return;
+      }
+      if(view==='planes'||(view!=='login'&&necesitaElegirPlan())){
+        mostrarVistaPlanes();
         return;
       }
       if(view==='quote'&&aplicarBloqueoPrueba()){
@@ -5587,7 +5613,7 @@
         options={};
         try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
       }
-      document.body.classList.remove('auth-solo');
+      document.body.classList.remove('auth-solo','eligiendo-plan');
       document.body.classList.add('con-sesion');
       const salir=document.getElementById('cerrarSesionNav');
       if(salir) salir.hidden=false;
@@ -5608,6 +5634,7 @@
     }
     function crearDocumento(tipo){
       if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
+      if(necesitaElegirPlan()){ mostrarVistaPlanes(); return; }
       if(aplicarBloqueoPrueba()){ showAppView('home'); return; }
       const t=String(tipo||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
       const modo={estimado:'estimate',estimate:'estimate',contrato:'contract',contract:'contract',factura:'invoice',invoice:'invoice'}[t]||'estimate';
@@ -5619,6 +5646,7 @@
     function cambiarVista(vista){
       const view={inicio:'home',home:'home',cotizador:'quote',quote:'quote',historial:'history',history:'history'}[String(vista||'').toLowerCase()]||'home';
       if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
+      if(necesitaElegirPlan()){ mostrarVistaPlanes(); return; }
       showAppView(view);
       const ruta={home:'/estimado',quote:'/cotizador',history:'/historial'}[view]||'/estimado';
       try{ history.pushState({view},'',ruta); }catch(_){}
@@ -5649,7 +5677,7 @@
       }
       if(!sesionActual){
         mostrarVistaLogin();
-        if(!rutaEsLogin(path)){ try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} }
+        if(!rutaEsLogin(path)&&path!=='/planes'){ try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} }
         if(typeof mostrarPanelAuth==='function') mostrarPanelAuth('login');
         const aviso=new URLSearchParams(location.search||'').get('aviso');
         if(aviso&&typeof marcarEstadoAuth==='function'){
@@ -5660,7 +5688,11 @@
         }
         return;
       }
-      if(rutaEsLogin(path)){
+      if(necesitaElegirPlan()){
+        mostrarVistaPlanes();
+        return;
+      }
+      if(rutaEsLogin(path)||path==='/planes'){
         try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
         showAppView('home');
         aplicarBloqueoPrueba();
@@ -7559,6 +7591,7 @@
     document.querySelectorAll('.nav-btn').forEach(el=>el.addEventListener('click',()=>{
       if(!el.dataset.view) return;
       if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
+      if(necesitaElegirPlan()){ mostrarVistaPlanes(); return; }
       const view=el.dataset.view;
       showAppView(view,{mode:el.dataset.mode,reset:el.dataset.reset==='1'});
       const ruta={home:'/estimado',quote:'/cotizador',history:'/historial'}[view]||'/estimado';
@@ -7619,11 +7652,12 @@
         badLogin:'Email or password is incorrect.', noAccountYet:'No company uses this email yet. Sign up.',
         already:'This email already has an account. Use Log in.', alreadyPw:'This account already has a password. Use Log in.',
         badEmail:'Enter a valid email.',
-        regTitle:'Create account', regLead:'Enter your name, email, and a password to start the 14-day free trial.',
+        regTitle:'Create account', regLead:'Enter your email and a password to create your account.',
         missingName:'Enter your name.', planNote:'Selected plan: {plan}',
         logout:'Log out', session:'Signed in as {email}', saving:'Signing in…', creating:'Creating account…',
         setting:'Saving password…', signed:'Signed in. Client documents will show this name.',
-        created:'Account created. Opening your dashboard…', mismatch:'The passwords do not match.', short:'Password must be at least 8 characters.',
+        created:'Account created. Choose your 14-day plan.', mismatch:'The passwords do not match.', short:'Password must be at least 8 characters.',
+        savingPlan:'Saving your plan…', planFail:'Could not save the plan. Try again.',
         needLogin:'Log in with your email and password before continuing.',
         kicker:'Contractor access', remember:'Remember me', forgot:'Forgot password', or:'or',
         google:'Continue with Google', resetTitle:'Reset password',
@@ -7646,11 +7680,12 @@
         badLogin:'El correo o la contraseña no son correctos.', noAccountYet:'No hay una empresa con ese correo. Regístrate.',
         already:'Ese correo ya tiene una cuenta. Inicia sesión.', alreadyPw:'Esa cuenta ya tiene contraseña. Inicia sesión.',
         badEmail:'Escribe un correo válido.',
-        regTitle:'Crear cuenta', regLead:'Escribe tu nombre, correo y una contraseña para empezar la prueba de 14 días.',
+        regTitle:'Crear cuenta', regLead:'Escribe tu correo y una contraseña para crear tu cuenta.',
         missingName:'Escribe tu nombre.', planNote:'Plan seleccionado: {plan}',
         logout:'Cerrar sesión', session:'Sesión iniciada como {email}', saving:'Entrando…', creating:'Creando cuenta…',
         setting:'Guardando contraseña…', signed:'Sesión iniciada. Los documentos del cliente mostrarán este nombre.',
-        created:'Cuenta creada. Abriendo tu panel…', mismatch:'Las contraseñas no coinciden.', short:'La contraseña debe tener al menos 8 caracteres.',
+        created:'Cuenta creada. Elige tu plan de 14 días.', mismatch:'Las contraseñas no coinciden.', short:'La contraseña debe tener al menos 8 caracteres.',
+        savingPlan:'Guardando tu plan…', planFail:'No se pudo guardar el plan. Inténtalo de nuevo.',
         needLogin:'Inicia sesión con tu correo y contraseña antes de continuar.',
         kicker:'Acceso de contratista', remember:'Recordarme', forgot:'Olvidé mi contraseña', or:'o',
         google:'Continuar con Google', resetTitle:'Restablecer contraseña',
@@ -7703,19 +7738,10 @@
       poner('authCambiarCuenta', registroVisible&&!registroVisible.hidden ? t.hasAccount : t.noAccount);
       poner('registroTitulo', t.regTitle);
       poner('registroLead', t.regLead);
-      poner('registroNombreLabel', t.name);
       poner('registroEmailLabel', t.email);
       poner('registroPasswordLabel', t.password);
       poner('registroPassword2Label', t.confirm);
       poner('registroSubmit', t.submitReg);
-      const planNota=document.getElementById('registroPlanNota');
-      const planForm=document.getElementById('registroContratistaForm');
-      const planId=String(planForm&&planForm.dataset.plan||'').trim();
-      const planEtiqueta={basico:'Básico',profesional:'Profesional',premium:'Premium'}[planId]||'';
-      if(planNota){
-        planNota.hidden=!planEtiqueta;
-        planNota.textContent=planEtiqueta?(t.planNote||'').replace('{plan}', planEtiqueta):'';
-      }
       poner('sesionTitulo', t.loginTitle);
       poner('cerrarSesionBtn', t.logout);
       const sesion=document.getElementById('sesionContratista');
@@ -7792,10 +7818,7 @@
       sesionActual=json&&json.id?json:null;
       sesionLista=true;
       aplicarBloqueoPrueba();
-      if(sesionActual){
-        try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
-        if(typeof aplicarRutaInicial==='function') aplicarRutaInicial();
-      }
+      if(sesionActual && typeof aplicarRutaInicial==='function') aplicarRutaInicial();
     }
     function marcarEstadoAuth(id, mensaje, error){
       const status=document.getElementById(id);
@@ -7832,7 +7855,8 @@
         auth_existe:t.alreadyPw,
         password:t.short,
         email:t.badEmail,
-        trial_expired:'Tu prueba gratuita de 14 días ha expirado. Por favor, añade un método de pago para continuar usando QuantixBuilds.'
+        trial_expired:'Tu prueba gratuita de 14 días ha expirado. Por favor, añade un método de pago para continuar usando QuantixBuilds.',
+        plan:'Choose a plan to start your trial.'
       };
       return mapa[code]||(json&&json.error)||fallback;
     }
@@ -7863,13 +7887,31 @@
     document.getElementById('authTabLogin')?.addEventListener('click',()=>mostrarPanelAuth('login'));
     document.getElementById('authTabRegistro')?.addEventListener('click',()=>mostrarPanelAuth('registro'));
     document.querySelectorAll('[data-start-trial]').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        const registro=document.getElementById('registroContratistaForm');
-        if(registro) registro.dataset.plan=btn.getAttribute('data-start-trial')||'';
-        if(typeof mostrarPanelAuth==='function')mostrarPanelAuth('registro');
-        if(typeof aplicarTextosAuth==='function')aplicarTextosAuth();
-        document.getElementById('authContratista')?.scrollIntoView({behavior:'smooth',block:'center'});
-        document.getElementById('registroNombre')?.focus();
+      btn.addEventListener('click',async ()=>{
+        const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+        const plan=String(btn.getAttribute('data-start-trial')||'').trim();
+        if(!sesionActual){
+          if(typeof mostrarPanelAuth==='function')mostrarPanelAuth('registro');
+          return;
+        }
+        try{
+          btn.disabled=true;
+          marcarEstadoAuth('planStatus', t.savingPlan||'Saving your plan…', false);
+          const res=await fetch('/api/contratistas/plan',{
+            method:'POST',
+            credentials:'same-origin',
+            headers:headersContratista({'Content-Type':'application/json'}),
+            body:JSON.stringify({plan_seleccionado:plan})
+          });
+          const json=await res.json().catch(()=>({}));
+          if(!res.ok) throw new Error(mensajeErrorAuth(json, t.planFail||'Could not save the plan.'));
+          if(sesionActual) sesionActual.plan_seleccionado=json.plan_seleccionado||plan;
+          location.replace('/estimado');
+        }catch(err){
+          marcarEstadoAuth('planStatus', err.message||t.planFail||'Could not save the plan.', true);
+        }finally{
+          btn.disabled=false;
+        }
       });
     });
     document.getElementById('authCambiarCuenta')?.addEventListener('click',()=>{
@@ -8091,16 +8133,9 @@
     document.getElementById('registroContratistaForm')?.addEventListener('submit',async event=>{
       event.preventDefault();
       const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
-      const nombre=String(document.getElementById('registroNombre')?.value||'').trim();
       const email=String(document.getElementById('registroEmail')?.value||'').trim();
       const password=document.getElementById('registroPassword')?.value||'';
       const password2=document.getElementById('registroPassword2')?.value||'';
-      const plan=String(document.getElementById('registroContratistaForm')?.dataset.plan||'').trim();
-      if(!nombre){
-        marcarEstadoAuth('registroContratistaStatus', t.missingName, true);
-        document.getElementById('registroNombre')?.focus();
-        return;
-      }
       if(password!==password2){
         marcarEstadoAuth('registroContratistaStatus', t.mismatch, true);
         return;
@@ -8111,7 +8146,7 @@
         const { data, error }=await cliente.auth.signUp({
           email,
           password,
-          options:{ data:{ nombre, plan_seleccionado:plan } }
+          options:{ data:{ plan_seleccionado:'' } }
         });
         if(error){
           const msg=String(error.message||'').toLowerCase();
@@ -8128,12 +8163,9 @@
         }
         const cuenta=await enviarAuth('/api/contratistas',{
           email,
-          password,
-          nombre,
-          plan_seleccionado:plan
+          password
         }, 'registroContratistaStatus', t.creating, t.created);
         if(!cuenta||!cuenta.token) return;
-        location.replace('/estimado');
       }catch(err){
         marcarEstadoAuth('registroContratistaStatus', err.message||t.needLogin, true);
       }

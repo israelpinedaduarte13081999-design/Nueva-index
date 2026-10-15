@@ -198,6 +198,7 @@ def _motor_uszipcode():
         return motor
 
 _RUTAS_LOGIN = {"/", "/login", "/iniciar-sesion", "/restablecer"}
+_RUTAS_PLANES = {"/planes"}
 _RUTAS_PANEL = {
     "/estimado", "/estimate", "/contrato", "/contract",
     "/factura", "/invoice", "/cotizador", "/quote",
@@ -210,6 +211,10 @@ def _exigir_login_panel():
     if request.method not in ("GET", "HEAD"):
         return None
     path = request.path.rstrip("/") or "/"
+    if path in _RUTAS_PLANES:
+        if _token_contratista_solicitud():
+            return None
+        return redirect("/login")
     if path not in _RUTAS_PANEL:
         return None
     if _token_contratista_solicitud():
@@ -221,6 +226,8 @@ def _vista_inicial():
     path = request.path.rstrip("/") or "/"
     if path in _RUTAS_LOGIN or not _token_contratista_solicitud():
         return "login"
+    if path in _RUTAS_PLANES:
+        return "planes"
     if path in ("/historial", "/history"):
         return "history"
     nuevo = str(request.args.get("nuevo") or "") == "1"
@@ -240,6 +247,7 @@ def privacidad():
 @app.route("/login")
 @app.route("/iniciar-sesion")
 @app.route("/restablecer")
+@app.route("/planes")
 @app.route("/estimado")
 @app.route("/estimate")
 @app.route("/contrato")
@@ -3167,6 +3175,7 @@ def _sesion_desde_fila(row):
         "user_id": row.get("user_id") or "",
         "fecha_fin_prueba": prueba.get("fecha_fin_prueba") or "",
         "trial_expirada": bool(prueba.get("trial_expirada")),
+        "plan_seleccionado": prueba.get("plan_seleccionado") or "",
     }
 
 
@@ -3220,7 +3229,7 @@ def _fecha_fin_prueba_desde(inicio=None):
 
 
 def _datos_prueba(sb, contratista):
-    datos = {"fecha_fin_prueba": "", "trial_expirada": False}
+    datos = {"fecha_fin_prueba": "", "trial_expirada": False, "plan_seleccionado": ""}
     if not sb or not contratista:
         return datos
     uid = str(contratista.get("user_id") or "").strip()
@@ -3228,16 +3237,17 @@ def _datos_prueba(sb, contratista):
     fila = None
     try:
         if uid:
-            res = sb.table("perfiles").select("fecha_fin_prueba,trial_inicio").eq("id", uid).limit(1).execute()
+            res = sb.table("perfiles").select("fecha_fin_prueba,trial_inicio,plan_seleccionado").eq("id", uid).limit(1).execute()
             rows = list(res.data or [])
             fila = rows[0] if rows else None
         if not fila and email:
-            res = sb.table("perfiles").select("fecha_fin_prueba,trial_inicio").eq("email", email).limit(1).execute()
+            res = sb.table("perfiles").select("fecha_fin_prueba,trial_inicio,plan_seleccionado").eq("email", email).limit(1).execute()
             rows = list(res.data or [])
             fila = rows[0] if rows else None
     except Exception as err:
         print(f"--> perfil prueba: {err}")
         return datos
+    datos["plan_seleccionado"] = _plan_valido((fila or {}).get("plan_seleccionado"))
     fin = _parse_ts((fila or {}).get("fecha_fin_prueba"))
     if not fin:
         inicio = _parse_ts((fila or {}).get("trial_inicio"))
@@ -3258,8 +3268,10 @@ def _guardar_perfil(sb, user_id, email, nombre, plan):
     ahora = ahora_dt.isoformat()
     trial_inicio = ahora
     fecha_fin = _fecha_fin_prueba_desde(ahora_dt).isoformat()
+    nombre_guardar = str(nombre or "").strip()
+    plan_guardar = _plan_valido(plan)
     try:
-        existente = sb.table("perfiles").select("trial_inicio,fecha_fin_prueba").eq("id", uid).limit(1).execute()
+        existente = sb.table("perfiles").select("trial_inicio,fecha_fin_prueba,nombre,plan_seleccionado").eq("id", uid).limit(1).execute()
         filas = existente.data if existente else None
         if isinstance(filas, list) and filas:
             if filas[0].get("trial_inicio"):
@@ -3268,13 +3280,17 @@ def _guardar_perfil(sb, user_id, email, nombre, plan):
                 fecha_fin = filas[0]["fecha_fin_prueba"]
             else:
                 fecha_fin = _fecha_fin_prueba_desde(trial_inicio).isoformat()
+            if not nombre_guardar:
+                nombre_guardar = str(filas[0].get("nombre") or "").strip()
+            if not plan_guardar:
+                plan_guardar = _plan_valido(filas[0].get("plan_seleccionado"))
     except Exception:
         pass
     fila = {
         "id": uid,
         "email": email,
-        "nombre": str(nombre or "").strip(),
-        "plan_seleccionado": _plan_valido(plan),
+        "nombre": nombre_guardar,
+        "plan_seleccionado": plan_guardar,
         "trial_inicio": trial_inicio,
         "fecha_fin_prueba": fecha_fin,
         "updated_at": ahora,
@@ -3295,6 +3311,35 @@ def _guardar_perfil(sb, user_id, email, nombre, plan):
         sb.table("perfiles").upsert(minimo, on_conflict="id").execute()
     except Exception as err:
         print(f"--> perfil no guardado: {err}")
+
+
+def guardar_plan_contratista(contratista, plan):
+    sb = _supabase_client()
+    if sb is None:
+        raise ErrorAuth("config", "Supabase no configurado", 503)
+    plan = _plan_valido(plan)
+    if not plan:
+        raise ErrorAuth("plan", "Choose a plan to start your trial.", 400)
+    uid = str(contratista.get("user_id") or _user_id_de_contratista(sb, contratista) or "").strip()
+    email = str(contratista.get("email") or "").strip().lower()
+    ahora = datetime.now(timezone.utc).isoformat()
+    cambios = {"plan_seleccionado": plan, "updated_at": ahora}
+    try:
+        if uid:
+            res = sb.table("perfiles").update(cambios).eq("id", uid).execute()
+            if list(res.data or []):
+                return plan
+        if email:
+            res = sb.table("perfiles").update(cambios).eq("email", email).execute()
+            if list(res.data or []):
+                return plan
+    except Exception as err:
+        print(f"--> plan perfil: {err}")
+    if uid:
+        _guardar_perfil(sb, uid, email, "", plan)
+    else:
+        raise ErrorAuth("sin_cuenta", "Could not save the selected plan.", 404)
+    return plan
 
 
 def registrar_contratista(email, nombre, password, plan=""):
@@ -4098,6 +4143,27 @@ def api_contratistas():
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
 
 
+@app.route("/api/contratistas/plan", methods=["POST"])
+def api_guardar_plan_contratista():
+    body = request.get_json(silent=True) or {}
+    contratista, error = _exigir_contratista()
+    if error:
+        return error
+    try:
+        plan = guardar_plan_contratista(
+            contratista,
+            body.get("plan_seleccionado") or body.get("plan") or "",
+        )
+    except ErrorAuth as err:
+        return _respuesta_auth(err)
+    except Exception as err:
+        print(f"--> guardar plan {type(err).__name__}: {err}")
+        return _respuesta_tenant(err)
+    contratista["plan_seleccionado"] = plan
+    resp = jsonify(_sesion_desde_fila(contratista))
+    return _adjuntar_sesion_contratista(resp, contratista.get("token"))
+
+
 @app.route("/api/contratistas/login", methods=["POST"])
 def api_login_contratista():
     body = request.get_json(silent=True) or {}
@@ -4595,6 +4661,7 @@ def api_contratista_actual():
         "user_id": contratista.get("user_id") or "",
         "fecha_fin_prueba": contratista.get("fecha_fin_prueba") or "",
         "trial_expirada": bool(contratista.get("trial_expirada")),
+        "plan_seleccionado": contratista.get("plan_seleccionado") or "",
     })
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
 
