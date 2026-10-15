@@ -40,6 +40,11 @@
     #authContratista .auth-check input { width:16px; height:16px; margin:0; accent-color:#0f172a; }
     #authContratista .auth-link { margin:0; padding:0; border:0; background:transparent; color:#1d4ed8; font-size:13px; font-weight:700; }
     #authContratista .auth-link:hover { color:#1e3a8a; }
+    #authContratista .auth-privacy-link { display:block; margin:10px 0 0; text-align:center; color:#1d4ed8; font-size:13px; font-weight:700; text-decoration:none; }
+    #authContratista .auth-privacy-link:hover { color:#1e3a8a; text-decoration:underline; }
+    .site-legal-footer { width:100%; margin:8px 0 0; padding:18px 8px 0; text-align:center; color:#64748b; font-size:13px; }
+    .site-legal-footer a { color:#1d4ed8; font-weight:700; text-decoration:none; }
+    .site-legal-footer a:hover { color:#1e3a8a; text-decoration:underline; }
     #authContratista .auth-back { display:inline-block; margin-top:14px; }
     #authContratista .auth-divider { display:flex; align-items:center; gap:12px; margin:16px 0 0; color:#94a3b8; font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
     #authContratista .auth-divider:before, #authContratista .auth-divider:after { content:""; flex:1; height:1px; background:#e2e8f0; }
@@ -940,6 +945,7 @@
           <label for="registroPassword2" id="registroPassword2Label">Confirm password</label>
           <input id="registroPassword2" name="password_confirm" type="password" autocomplete="new-password" required minlength="8" placeholder="••••••••">
           <button class="btn btn-primary" type="submit" id="registroSubmit">Create account</button>
+          <a class="auth-privacy-link" href="/privacidad">Política de Privacidad</a>
           <p class="auth-status" id="registroContratistaStatus" hidden></p>
         </form>
         <div id="authGoogleBloque">
@@ -1005,6 +1011,9 @@
           </article>
         </div>
       </section>
+      <footer class="site-legal-footer">
+        <a href="/privacidad">Política de Privacidad</a>
+      </footer>
   </section>
   <section id="view-home" class="view-section{{ ' active' if vista == 'home' else '' }} no-print">
     <div class="hero-card">

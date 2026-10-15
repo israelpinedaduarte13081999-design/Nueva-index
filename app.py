@@ -231,6 +231,11 @@ def _vista_inicial():
     return "login"
 
 
+@app.route("/privacidad")
+def privacidad():
+    return render_template("privacidad.html")
+
+
 @app.route("/")
 @app.route("/login")
 @app.route("/iniciar-sesion")
