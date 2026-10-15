@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  {% if vista == 'login' %}
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  {% else %}
+  <meta name="viewport" content="width=1200, user-scalable=yes, minimum-scale=0.25, maximum-scale=5">
+  {% endif %}
   <meta name="description" content="Comprehensive estimating and invoicing platform for professional contractors. Generate accurate quotes with localized ZIP code pricing, extract measurements from PDFs using AI, and automate your contracts in a single tool.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,8 +25,18 @@
     .nav-btn.active { background-color:#e2e8f0; color:#0f172a; font-weight:600; }
     .view-section { display:none; padding:28px 16px; max-width:1100px; margin:0 auto; }
     .view-section.active { display:block; }
-    body.auth-solo { background:#fff; min-height:100dvh; overflow-x:hidden; }
+    body.auth-solo { background:#fff; min-height:100dvh; min-width:0; overflow-x:hidden; }
     body.auth-solo .app-navbar { display:none !important; }
+    body.con-sesion,
+    body.eligiendo-plan { min-width:1200px; overflow-x:auto; }
+    body.con-sesion .app-navbar,
+    body.eligiendo-plan .app-navbar { flex-wrap:nowrap; min-width:1200px; }
+    body.con-sesion .brand-title,
+    body.eligiendo-plan .brand-title { overflow-wrap:normal; white-space:nowrap; min-width:auto; max-width:none; }
+    body.con-sesion .nav-btn,
+    body.eligiendo-plan .nav-btn { white-space:nowrap; }
+    body.con-sesion table,
+    body.eligiendo-plan table { max-width:none; }
     body.eligiendo-plan { background:radial-gradient(1200px 480px at 50% -80px,#ffffff 0%,#e8eef6 55%,#dfe7f1 100%); }
     body.eligiendo-plan .app-navbar { background:transparent; border-bottom:0; box-shadow:none; }
     body.eligiendo-plan .nav-btn[data-view] { display:none; }
@@ -121,7 +135,7 @@
     .home-pdf-drop:hover, .home-pdf-drop.is-dragover { border-color:#0284c7; background:#f0f9ff; }
     .home-pdf-drop strong { display:block; color:#0f172a; font-size:.92rem; }
     .home-pdf-drop small { display:block; color:#64748b; font-size:.8rem; margin-top:2px; }
-    @media (max-width:800px) { .action-cards-grid { grid-template-columns:1fr; } }
+    body.con-sesion .action-cards-grid { grid-template-columns:minmax(0,1.45fr) minmax(260px,1fr); }
     #view-planes.active { display:flex; flex-direction:column; justify-content:flex-start; gap:24px; max-width:1100px; margin:0 auto; padding:32px 16px 64px; min-height:calc(100vh - 64px); }
     .pricing-section { width:100%; }
     .pricing-header { text-align:center; margin:0 auto 28px; max-width:640px; }
@@ -143,10 +157,7 @@
     .pricing-card.is-featured .pricing-cta:hover { background:#0369a1; border-color:#0369a1; color:#fff; }
     .pricing-badge { display:inline-block; margin-bottom:12px; background:#e0f2fe; color:#0369a1; font-size:.72rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:4px 10px; border-radius:999px; }
     .pricing-card:not(.is-featured) .pricing-badge { visibility:hidden; }
-    @media (max-width:900px) {
-      .pricing-grid { grid-template-columns:1fr; max-width:420px; margin:0 auto; }
-      .pricing-card.is-featured { transform:none; order:-1; }
-    }
+    body.eligiendo-plan .pricing-grid { grid-template-columns:repeat(3,minmax(0,1fr)); max-width:none; }
     #view-planes .auth-status { text-align:center; margin:18px 0 0; font-weight:700; color:#0f172a; }
     #view-planes .auth-status.is-error { color:#b91c1c; }
     .history-container { background:#ffffff; padding:28px; border-radius:12px; border:1px solid #e2e8f0; }
@@ -531,7 +542,7 @@
     .minimum-tag { display:none; color:#856404; font-size:10px; font-weight:700; white-space:normal; overflow-wrap:anywhere; }
     .pricing-terms { margin-top:25px; padding:10px 14px; border-left:3px solid #6c757d; background:#fafafa; color:#555; font-size:10px; line-height:1.4; text-align:justify; }
     .select-alcance,.codigo-item { width:100%; margin-top:3px; padding:4px; border:1px solid #ced4da; border-radius:4px; color:var(--ink); background:#fff; font-size:11px; }
-    @media (max-width:900px) { .tech-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);} }
+    body.con-sesion .tech-grid { grid-template-columns:minmax(280px,1.15fr) minmax(240px,1fr); }
     @media print {
       @page { size: Letter; margin: 0.5in; }
       html, body {
@@ -5497,6 +5508,18 @@
       return path==='/'||path==='/login'||path==='/iniciar-sesion'||path==='/restablecer';
     }
     let recuperacionPendiente=null;
+    const VIEWPORT_LOGIN='width=device-width, initial-scale=1, viewport-fit=cover';
+    const VIEWPORT_ESCRITORIO='width=1200, user-scalable=yes, minimum-scale=0.25, maximum-scale=5';
+    function aplicarViewportApp(esLogin){
+      const content=esLogin?VIEWPORT_LOGIN:VIEWPORT_ESCRITORIO;
+      let meta=document.querySelector('meta[name="viewport"]');
+      if(meta&&meta.getAttribute('content')===content) return;
+      if(meta) meta.remove();
+      meta=document.createElement('meta');
+      meta.setAttribute('name','viewport');
+      meta.setAttribute('content',content);
+      document.head.appendChild(meta);
+    }
     function abrirPanelAuthBasico(modo){
       const formularios={login:'loginContratistaForm',registro:'registroContratistaForm',recuperar:'recuperarContratistaForm',restablecer:'restablecerContratistaForm'};
       Object.entries(formularios).forEach(([nombre,id])=>{
@@ -5512,6 +5535,7 @@
       if(legacy) legacy.hidden=modo!=='login';
       document.body.classList.add('auth-solo');
       document.body.classList.remove('con-sesion');
+      aplicarViewportApp(true);
       document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active', section.id==='view-login'));
     }
     function leerRecuperacionGuardada(){
@@ -5582,9 +5606,11 @@
       try{ history.replaceState({view:'login'},'', '/restablecer'); }catch(_){}
     }
     capturarRecuperacion();
+    aplicarViewportApp(document.body.classList.contains('auth-solo'));
     function mostrarVistaLogin(){
       document.body.classList.add('auth-solo');
       document.body.classList.remove('con-sesion','eligiendo-plan');
+      aplicarViewportApp(true);
       const salir=document.getElementById('cerrarSesionNav');
       if(salir) salir.hidden=true;
       document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active',section.id==='view-login'));
@@ -5601,6 +5627,7 @@
     function mostrarVistaPlanes(){
       document.body.classList.add('eligiendo-plan');
       document.body.classList.remove('auth-solo','con-sesion');
+      aplicarViewportApp(false);
       const salir=document.getElementById('cerrarSesionNav');
       if(salir) salir.hidden=false;
       document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active',section.id==='view-planes'));
@@ -5646,6 +5673,7 @@
       }
       document.body.classList.remove('auth-solo','eligiendo-plan');
       document.body.classList.add('con-sesion');
+      aplicarViewportApp(false);
       const salir=document.getElementById('cerrarSesionNav');
       if(salir) salir.hidden=false;
       document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active',section.id==='view-'+view));
