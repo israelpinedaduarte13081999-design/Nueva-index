@@ -173,6 +173,7 @@ def _iniciar_uszipcode():
 
 import tempfile
 import threading
+from concurrent.futures import ThreadPoolExecutor
 import time
 
 _search_lock = threading.Lock()
@@ -5359,6 +5360,110 @@ def _embedding_texto(descripcion, unidad=""):
     return vectores[0] if vectores else None
 
 
+EMBEDDINGS_LOTE = 80
+EMBEDDINGS_INTERVALO = 600
+EMBEDDINGS_HILOS = 4
+_EMBEDDINGS_LOCK = threading.Lock()
+
+
+def _filas_sin_embedding(sb, forzar=False, tamano=500):
+    """Pagina por id con keyset: así no se salta filas mientras se van rellenando."""
+    ultimo_id = 0
+    while True:
+        query = (
+            sb.table(TABLA_CATALOGO)
+            .select("id,descripcion,unidad")
+            .gt("id", ultimo_id)
+            .order("id")
+            .limit(tamano)
+        )
+        if not forzar:
+            query = query.is_("embedding", "null")
+        lote = query.execute().data or []
+        if not lote:
+            return
+        for row in lote:
+            if str(row.get("descripcion") or "").strip():
+                yield row
+        ultimo_id = lote[-1]["id"]
+        if len(lote) < tamano:
+            return
+
+
+def _guardar_embedding_catalogo(sb, item_id, vector):
+    try:
+        sb.rpc("set_item_embedding", {"item_id": int(item_id), "item_embedding": vector}).execute()
+        return
+    except Exception as err:
+        print(f"--> set_item_embedding id={item_id}: {err}")
+    time.sleep(2)
+    sb.table(TABLA_CATALOGO).update({"embedding": vector}).eq("id", item_id).execute()
+
+
+def _guardar_lote_embeddings(sb, pares):
+    """Cada update tarda varios segundos en Supabase; con más de 4 hilos corta conexiones."""
+    def guardar(par):
+        row, vector = par
+        if not vector:
+            return False
+        try:
+            _guardar_embedding_catalogo(sb, row["id"], vector)
+            return True
+        except Exception as err:
+            print(f"--> embeddings update id={row.get('id')}: {err}")
+            return False
+
+    with ThreadPoolExecutor(max_workers=EMBEDDINGS_HILOS) as ex:
+        return sum(ex.map(guardar, pares))
+
+
+def rellenar_embeddings_catalogo(forzar=False):
+    """Genera el vector de cada catalogo_items sin embedding. Devuelve (guardados, pendientes)."""
+    if not _EMBEDDINGS_LOCK.acquire(blocking=False):
+        print("--> embeddings: ya hay un relleno en curso")
+        return 0, 0
+    try:
+        if not _openai_api_key():
+            print("--> embeddings: falta OPENAI_API_KEY")
+            return 0, 0
+        sb = _supabase_client()
+        if sb is None:
+            print("--> embeddings: sin cliente Supabase")
+            return 0, 0
+        pendientes = list(_filas_sin_embedding(sb, forzar))
+        if not pendientes:
+            return 0, 0
+        print(f"--> embeddings: {len(pendientes)} ítems sin vector")
+        ok = 0
+        for i in range(0, len(pendientes), EMBEDDINGS_LOTE):
+            lote = pendientes[i : i + EMBEDDINGS_LOTE]
+            textos = [_texto_para_embedding(r.get("descripcion"), r.get("unidad")) for r in lote]
+            try:
+                vectores = _embeddings_openai(textos)
+            except Exception as err:
+                texto = str(err)
+                print(f"--> embeddings lote {i}: {texto[:200]}")
+                if any(s in texto for s in ("insufficient_quota", "credit_balance", "401", "Incorrect API key")):
+                    break
+                continue
+            ok += _guardar_lote_embeddings(sb, list(zip(lote, vectores)))
+            print(f"--> embeddings progreso {min(i + EMBEDDINGS_LOTE, len(pendientes))}/{len(pendientes)}")
+        print(f"--> embeddings guardados: {ok}")
+        return ok, len(pendientes)
+    finally:
+        _EMBEDDINGS_LOCK.release()
+
+
+def _embeddings_automaticos():
+    time.sleep(30)
+    while True:
+        try:
+            rellenar_embeddings_catalogo()
+        except Exception as err:
+            print(f"--> embeddings automáticos: {err}")
+        time.sleep(EMBEDDINGS_INTERVALO)
+
+
 def _solo_activos_catalogo(client, filas):
     """La consulta vectorial solo conserva catalogo_items con activo = true."""
     ids = []
@@ -8224,6 +8329,11 @@ def _precalentar_busquedas():
 
 
 threading.Thread(target=_precalentar_busquedas, daemon=True, name="catalogo-cache").start()
+
+_EMBEDDINGS_AUTO = (os.getenv("EMBEDDINGS_AUTO") or "1").strip().lower() not in ("0", "false", "no", "off")
+_RECARGADOR_PADRE = __name__ == "__main__" and os.environ.get("WERKZEUG_RUN_MAIN") != "true"
+if _EMBEDDINGS_AUTO and not _RECARGADOR_PADRE:
+    threading.Thread(target=_embeddings_automaticos, daemon=True, name="catalogo-embeddings").start()
 
 
 if __name__ == "__main__":
