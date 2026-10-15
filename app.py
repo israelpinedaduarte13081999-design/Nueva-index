@@ -1717,8 +1717,19 @@ _STOP_BUSQUEDA_CATALOGO = {
     "del", "los", "las", "to", "for", "or", "con", "por", "que", "mas", "más",
 }
 _SINONIMOS_BUSQUEDA = {
-    "remover": ("remover", "remove", "tear", "demo", "demolicion", "demolition", "arrancar", "tearoff"),
-    "instalar": ("instalar", "install", "instalacion", "installation", "replace", "reemplazo", "poner"),
+    "remover": (
+        "remover", "remove", "tear", "demo", "demolicion", "demolition", "arrancar",
+        "tearoff", "retiro", "retirar", "pull", "rip", "haul",
+    ),
+    "arrancar": (
+        "arrancar", "remover", "remove", "tear", "demo", "retiro", "retirar", "pull", "rip",
+    ),
+    "retiro": ("retiro", "retirar", "remover", "remove", "demo", "arrancar", "haul"),
+    "instalar": ("instalar", "install", "instalacion", "installation", "replace", "reemplazo", "poner", "colocar"),
+    "pintar": (
+        "pintar", "pintura", "paint", "painting", "primer", "esmalte", "pared", "paredes",
+        "wall", "walls", "cielo", "ceiling",
+    ),
     "material": ("material", "materials", "suministro", "mat", "supply"),
     "eaves": ("eaves", "eave", "starter", "alero"),
     "valleys": ("valleys", "valley", "limahoya"),
@@ -1756,7 +1767,8 @@ _SINONIMOS_BUSQUEDA = {
         "backsplash", "baldosa", "tile", "ceramica", "porcelanato", "cocina", "kitchen",
     ),
     "floor": ("floor", "flooring", "piso", "pisos", "lvt", "lvp", "vinyl", "hardwood", "laminate", "carpet", "alfombra", "spc"),
-    "piso": ("piso", "pisos", "floor", "flooring", "lvt", "lvp", "vinyl", "hardwood", "laminate", "carpet"),
+    "piso": ("piso", "pisos", "floor", "flooring", "lvt", "lvp", "vinyl", "hardwood", "laminate", "carpet", "alfombra", "spc"),
+    "pisos": ("pisos", "piso", "floor", "flooring", "lvt", "lvp", "vinyl", "hardwood", "laminate", "carpet", "alfombra"),
     "ceiling": ("ceiling", "cielo", "drywall", "tablaroca", "pintura", "paint"),
     "cielo": ("cielo", "ceiling", "drywall", "tablaroca", "pintura"),
     "wall": ("wall", "walls", "pared", "paredes", "drywall", "tablaroca", "pintura", "paint"),
@@ -2007,18 +2019,11 @@ _RE_MEDIDA_PLANO = re.compile(
 
 
 def _consulta_medida_plano(q):
-    """'Kitchen — Floor' se busca como piso, no como el nombre del cuarto."""
+    """Solo 'Kitchen — Floor' (importar medidas). No recorta 'pintar paredes' ni 'remover pisos'."""
     texto = str(q or "")
     match = _RE_MEDIDA_PLANO.search(texto)
     if match:
         return match.group(1).split("/")[0].strip()
-    final = re.search(
-        r"\b(floor|ceiling|walls?|trim|baseboard|cabinets?|piso|cielo|pared(?:es)?|zocalo|gabinetes?)\s*$",
-        _sin_acentos(texto),
-        re.I,
-    )
-    if final and re.search(r"\s", texto.strip()):
-        return final.group(1)
     return ""
 
 

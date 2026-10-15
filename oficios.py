@@ -35,7 +35,7 @@ OFICIOS = {
         "label": "Pisos",
         "codigo_ui": "FCT",
         "prefijos": ("FCT", "WDH", "CPR", "FCC", "FLR", "EXT-FLR"),
-        "include": r"piso|floor(?:ing)?|lvt|lvp|hardwood|alfombra|carpet|laminat|vinilo(?!\s*siding)|spc",
+        "include": r"piso|pisos|floor(?:ing)?|lvt|lvp|hardwood|alfombra|carpet|laminat|vinilo(?!\s*siding)|spc",
         "exclude": r"techo|roofing|siding|drywall|ducha|shower pan",
         "busquedas": ("piso", "lvt", "alfombra", "FCC", "FCT", "hardwood"),
     },
@@ -67,7 +67,7 @@ OFICIOS = {
         "label": "Pintura",
         "codigo_ui": "PNT",
         "prefijos": ("PNT", "PXT", "EXT-PNT"),
-        "include": r"pintura|paint(?:ing)?|esmalte|primer",
+        "include": r"pintura|pintar|paint(?:ing)?|esmalte|primer",
         "exclude": r"teja asfalt|siding hardie",
         "busquedas": ("pintura", "PNT", "paint"),
     },
@@ -131,7 +131,7 @@ OFICIOS = {
         "label": "Demolición",
         "codigo_ui": "DEM",
         "prefijos": ("DEM",),
-        "include": r"demolici[oó]n|demolition|haul off|retiro de escombros",
+        "include": r"demolici[oó]n|demolition|haul off|retiro de escombros|remover|arrancar|tear.?off",
         "exclude": r"",
         "busquedas": ("demolici", "DEM"),
     },
@@ -182,10 +182,11 @@ def normalizar_oficio(valor):
         return _CODIGO_UI[compact]
     alias = {
         "techo": "roofing", "roof": "roofing", "roofs": "roofing", "roof_report": "roofing",
-        "pisos": "flooring", "floor": "flooring", "floors": "flooring",
+        "pisos": "flooring", "piso": "flooring", "floor": "flooring", "floors": "flooring",
+        "alfombra": "flooring", "carpet": "flooring",
         "bano": "bathroom", "baño": "bathroom", "bath": "bathroom",
         "cocina": "kitchen", "revestimiento": "siding",
-        "pintura": "painting", "tablaroca": "drywall",
+        "pintura": "painting", "pintar": "painting", "paint": "painting", "tablaroca": "drywall",
         "azulejo": "tile", "estructura": "framing",
         "canaletas": "gutters", "plomeria": "plumbing", "plomería": "plumbing",
         "electricidad": "electrical",
@@ -282,6 +283,34 @@ def catalogo_en_carga():
         return _CACHE_REFRESHING and not _CACHE_CATALOGO
 
 
+def _leer_pagina_catalogo(url, headers, ctx, offset, tamano):
+    params = {
+        "select": "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra",
+        "activo": "eq.true",
+        "order": "id.asc",
+    }
+    query = urllib.parse.urlencode(params, safe="(),.*")
+    req = urllib.request.Request(
+        f"{url}/rest/v1/catalogo_items?{query}",
+        headers={
+            **headers,
+            "Range-Unit": "items",
+            "Range": f"{offset}-{offset + tamano - 1}",
+            "Prefer": "count=none",
+        },
+    )
+    ultimo = None
+    for intento in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=25, context=ctx) as resp:
+                lote = json.loads(resp.read().decode("utf-8") or "[]")
+            return lote if isinstance(lote, list) else []
+        except Exception as err:
+            ultimo = err
+            time.sleep(0.35 * (intento + 1))
+    raise ultimo
+
+
 def _descargar_filas_catalogo():
     url, key = _creds()
     filas = []
@@ -296,25 +325,15 @@ def _descargar_filas_catalogo():
     offset = 0
     error = False
     vistos = set()
-    for _pagina in range(40):
-        params = {
-            "select": "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra",
-            "activo": "eq.true",
-            "order": "id.asc",
-        }
-        query = urllib.parse.urlencode(params, safe="(),.*")
-        req = urllib.request.Request(
-            f"{url}/rest/v1/catalogo_items?{query}",
-            headers={**headers, "Range-Unit": "items", "Range": f"{offset}-{offset + 999}"},
-        )
+    tamano = 500
+    for _pagina in range(80):
         try:
-            with urllib.request.urlopen(req, timeout=8, context=ctx) as resp:
-                lote = json.loads(resp.read().decode("utf-8") or "[]")
+            lote = _leer_pagina_catalogo(url, headers, ctx, offset, tamano)
         except Exception as err:
             print(f"oficios catalogo: {err}")
             error = True
             break
-        if not isinstance(lote, list) or not lote:
+        if not lote:
             break
         primero = str((lote[0] or {}).get("id") or "")
         if primero and primero in vistos:
@@ -322,9 +341,9 @@ def _descargar_filas_catalogo():
         if primero:
             vistos.add(primero)
         filas.extend(lote)
-        if len(lote) < 1000:
+        if len(lote) < tamano:
             break
-        offset += 1000
+        offset += tamano
     return filas, error
 
 
@@ -333,7 +352,10 @@ def _guardar_descarga_catalogo(filas, error):
     with _CACHE_LOCK:
         if filas:
             _CACHE_CATALOGO = filas
-            _CACHE_CATALOGO_TS = time.time()
+            if error:
+                _CACHE_CATALOGO_TS = time.time() - _CACHE_CATALOGO_TTL + 20
+            else:
+                _CACHE_CATALOGO_TS = time.time()
             print(f"--> Catálogo recargado desde Supabase: {len(filas)} ítems")
         elif _CACHE_CATALOGO:
             _CACHE_CATALOGO_TS = time.time() - _CACHE_CATALOGO_TTL + 45
