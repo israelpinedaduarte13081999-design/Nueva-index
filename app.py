@@ -2714,12 +2714,12 @@ def _partida_estimado_ejemplo(desc, qty, price, material, labor, remocion=0.0, u
 
 
 def _fila_estimado_ejemplo():
-    proyecto = "Ejemplo: Remodelación Básica (Pintura y Drywall)"
+    proyecto = "Sample: Kitchen & living refresh"
     drywall = _partida_estimado_ejemplo(
-        "Reparación de Drywall", 120, 4.75, material=1.60, labor=3.15
+        'Hang, tape, and finish 1/2" drywall', 420, 4.75, material=1.60, labor=3.15
     )
     pintura = _partida_estimado_ejemplo(
-        "Pintura Interior a dos manos", 380, 2.85, material=0.90, labor=1.95
+        "Interior paint, two coats (walls)", 680, 2.85, material=0.90, labor=1.95
     )
     drywall["area"] = proyecto
     pintura["area"] = proyecto
@@ -2727,18 +2727,18 @@ def _fila_estimado_ejemplo():
     total = round(sum(float(it["subtotal"]) for it in items), 2)
     hoy = datetime.now(timezone.utc).date().isoformat()
     cliente = {
-        "name": "Cliente de Prueba",
-        "email": "cliente.prueba@example.com",
-        "phone": "(404) 555-0148",
-        "street": proyecto,
+        "name": "Jordan Hale",
+        "email": "jordan.hale@example.com",
+        "phone": "(404) 555-0198",
+        "street": "1842 Oakridge Lane",
         "city": "Atlanta",
         "state": "GA",
         "zip": "30318",
     }
     areas = [{
         "title": proyecto,
-        "titleEn": "Example: Basic remodel (paint and drywall)",
-        "titleEs": proyecto,
+        "titleEn": proyecto,
+        "titleEs": "Ejemplo: cocina y sala",
         "reference": "DEMO",
         "rows": [
             {k: it[k] for k in ("code", "desc", "description", "descripcion", "descCustom", "qty", "price", "unit", "tax", "action", "meta")}
@@ -2753,7 +2753,7 @@ def _fila_estimado_ejemplo():
         "status": "open",
         "client": cliente,
         "areas": areas,
-        "projectNotes": "Este es un estimado de ejemplo. Revisa las partidas para ver cantidades × precio unitario y cambia la Acción para ver material, mano de obra y remoción.",
+        "projectNotes": "This is a sample QuantixBuilds estimate. Review quantities × unit price, then change Action to see material, labor, and demo.",
         "terms": "Sample document for training only. Replace these items with your own scope when you start a real estimate.",
         "zip": "30318",
         "tipoProyecto": "residencial",
@@ -3157,9 +3157,9 @@ def _mensaje_auth(data):
 
 _PLANES_VALIDOS = {"basico", "profesional", "premium"}
 _PLANES_PRECIOS = {
-    "basico": {"nombre": "Plan Básico", "centavos": 2900},
-    "profesional": {"nombre": "Plan Profesional", "centavos": 4900},
-    "premium": {"nombre": "Plan Premium", "centavos": 9900},
+    "basico": {"nombre": "Basic Plan", "centavos": 2900},
+    "profesional": {"nombre": "Professional Plan", "centavos": 4900},
+    "premium": {"nombre": "Premium Plan", "centavos": 9900},
 }
 
 
@@ -3203,7 +3203,7 @@ def _prueba_expirada(contratista):
 
 def _respuesta_prueba_expirada():
     return jsonify({
-        "error": "Tu prueba de 14 días ha terminado. Activa tu cuenta para seguir usando QuantixBuilds.",
+        "error": "Your 14-day trial has ended. Activate your account to keep using QuantixBuilds.",
         "code": "trial_expired",
         "siguiente": "suscripcion",
     }), 402
@@ -3211,7 +3211,7 @@ def _respuesta_prueba_expirada():
 
 def _nombre_plan(plan):
     info = _PLANES_PRECIOS.get(_plan_valido(plan)) or {}
-    return str(info.get("nombre") or "tu plan")
+    return str(info.get("nombre") or "plan")
 
 
 def _crear_usuario_auth(email, password, nombre, plan=""):
@@ -4460,13 +4460,13 @@ def api_pagos_simular():
     vencimiento = re.sub(r"\D", "", str(body.get("vencimiento") or body.get("fecha") or ""))
     cvc = re.sub(r"\D", "", str(body.get("cvc") or ""))
     if not numero or not vencimiento or not cvc:
-        return jsonify({"error": "Completa el número de tarjeta, la fecha y el CVC.", "code": "tarjeta"}), 400
+        return jsonify({"error": "Enter the card number, expiration date, and CVC.", "code": "tarjeta"}), 400
     activar = bool(body.get("activar") or body.get("paywall") or _prueba_expirada(contratista))
     uid = str(contratista.get("user_id") or "").strip()
     email = str(contratista.get("email") or "").strip().lower()
     plan = _plan_valido(contratista.get("plan_seleccionado"))
     if not plan:
-        return jsonify({"error": "Elige un plan antes de agregar tu tarjeta.", "code": "plan"}), 400
+        return jsonify({"error": "Choose a plan before adding your card.", "code": "plan"}), 400
     if not uid:
         return jsonify({"error": "No se pudo identificar tu cuenta.", "code": "sin_cuenta"}), 404
     customer_id = "sim_" + uid.replace("-", "")[:12] + "_" + (numero[-4:] if len(numero) >= 4 else numero)
@@ -4504,7 +4504,7 @@ def api_pagos_checkout():
         }), 503
     plan = _plan_valido(contratista.get("plan_seleccionado"))
     if not plan:
-        return jsonify({"error": "Elige un plan antes de agregar tu tarjeta.", "code": "plan"}), 400
+        return jsonify({"error": "Choose a plan before adding your card.", "code": "plan"}), 400
     info = _PLANES_PRECIOS[plan]
     uid = str(contratista.get("user_id") or "").strip()
     email = str(contratista.get("email") or "").strip().lower()
@@ -5139,7 +5139,7 @@ def api_historial():
     if request.method == "POST":
         if contratista.get("trial_expirada"):
             return jsonify({
-                "error": "Tu prueba gratuita de 14 días ha expirado. Por favor, añade un método de pago para continuar usando QuantixBuilds.",
+                "error": "Your 14-day free trial has expired. Please add a payment method to keep using QuantixBuilds.",
                 "code": "trial_expired",
             }), 402
         body = request.get_json(silent=True) or {}

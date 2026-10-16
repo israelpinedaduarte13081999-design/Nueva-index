@@ -146,6 +146,35 @@
     body.prueba-expirada #historyNewButton { display:none !important; }
     body.prueba-expirada .action-cards-grid { grid-template-columns:1fr; }
     .action-cards-grid { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(260px,1fr); gap:20px; align-items:stretch; }
+    .sample-estimate-banner { display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap; margin:0 0 24px; padding:20px 22px; border:1px solid #bfdbfe; border-radius:12px; background:linear-gradient(135deg,#eff6ff 0%,#f8fafc 72%); }
+    .sample-kicker { margin:0 0 6px; color:#1d4ed8; font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+    .sample-estimate-banner h3 { margin:0 0 4px; color:#0f172a; font-size:1.15rem; }
+    .sample-estimate-banner p { margin:0; color:#475569; font-size:.92rem; line-height:1.45; }
+    .sample-estimate-banner .btn { flex:0 0 auto; white-space:nowrap; min-height:44px; }
+    .sample-modal { position:fixed; inset:0; z-index:90; display:flex; align-items:flex-start; justify-content:center; padding:28px 16px; overflow:auto; background:rgba(15,23,42,.55); }
+    .sample-modal[hidden] { display:none !important; }
+    .sample-modal-panel { width:min(840px,100%); margin:auto; background:#e8eef4; border-radius:16px; box-shadow:0 24px 64px rgba(15,23,42,.28); }
+    .sample-modal-bar { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 16px; background:#fff; border-bottom:1px solid #e2e8f0; border-radius:16px 16px 0 0; position:sticky; top:0; z-index:1; }
+    .sample-modal-bar strong { color:#0f172a; }
+    .sample-doc { margin:20px auto 24px; width:min(740px,calc(100% - 32px)); background:#fff; padding:36px 40px 28px; color:#1e293b; box-shadow:0 8px 24px rgba(15,23,42,.08); }
+    .sample-doc-top { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; border-bottom:2px solid #19385f; padding-bottom:16px; margin-bottom:18px; }
+    .sample-logo { display:flex; align-items:center; gap:10px; }
+    .sample-logo-mark { width:42px; height:42px; border-radius:10px; background:linear-gradient(165deg,#19385f,#2d70ad); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; letter-spacing:-.04em; }
+    .sample-logo h4 { margin:0; font-size:1.05rem; color:#0f172a; }
+    .sample-logo small { color:#64748b; }
+    .sample-doc-title { text-align:right; }
+    .sample-doc-title p { margin:0; font-size:1.45rem; font-weight:800; letter-spacing:.08em; color:#19385f; }
+    .sample-doc-title span { color:#64748b; font-size:.82rem; }
+    .sample-doc-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px; font-size:.88rem; }
+    .sample-doc-grid h5 { margin:0 0 6px; font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:#64748b; }
+    .sample-doc table { width:100%; border-collapse:collapse; font-size:.86rem; }
+    .sample-doc th { text-align:left; background:#f1f5f9; color:#334155; font-size:.72rem; letter-spacing:.04em; text-transform:uppercase; padding:8px 10px; }
+    .sample-doc td { padding:10px; border-bottom:1px solid #e2e8f0; vertical-align:top; }
+    .sample-doc td.num { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+    .sample-doc-totals { margin-top:12px; margin-left:auto; width:min(280px,100%); }
+    .sample-doc-totals div { display:flex; justify-content:space-between; gap:16px; padding:6px 0; font-size:.9rem; }
+    .sample-doc-totals .grand { border-top:2px solid #19385f; margin-top:6px; padding-top:10px; font-weight:800; color:#0f172a; }
+    .sample-doc-note { margin:18px 0 0; padding:12px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; color:#475569; font-size:.82rem; line-height:1.45; }
     .action-card { background:#f8fafc; border:1px solid #e2e8f0; padding:24px; border-radius:10px; text-align:left; transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease; }
     .action-card.history-card { cursor:pointer; color:inherit; text-decoration:none; display:block; }
     .action-card.history-card:hover, .action-carsd.main-doc-card:hover { transform:translateY(-2px); border-color:#0284c7; background:#ffffff; box-shadow:0 8px 16px rgba(2,132,199,.08); }
@@ -1034,7 +1063,7 @@
           <label for="registroPassword2" id="registroPassword2Label">Confirm password</label>
           <input id="registroPassword2" name="password_confirm" type="password" autocomplete="new-password" required minlength="8" placeholder="••••••••">
           <button class="btn btn-primary" type="submit" id="registroSubmit">Create account</button>
-          <a class="auth-privacy-link" href="/privacidad">Política de Privacidad</a>
+          <a class="auth-privacy-link" href="/privacidad">Privacy Policy</a>
           <p class="auth-status" id="registroContratistaStatus" hidden></p>
         </form>
         <div id="authGoogleBloque">
@@ -1056,119 +1085,119 @@
         </div>
         </div>
         <footer class="site-legal-footer">
-          <a href="/privacidad">Política de Privacidad</a>
+          <a href="/privacidad">Privacy Policy</a>
         </footer>
       </div>
   </section>
   <section id="view-planes" class="view-section{{ ' active' if vista == 'planes' else '' }} no-print">
       <section class="pricing-section" id="pricing-section" aria-labelledby="pricing-heading">
-        <nav class="onboarding-stepper" aria-label="Progreso del alta">
-          <div class="onboarding-step is-done"><span class="onboarding-step-index">✓</span><span>Cuenta creada</span></div>
+        <nav class="onboarding-stepper" aria-label="Onboarding progress">
+          <div class="onboarding-step is-done"><span class="onboarding-step-index">✓</span><span>Account created</span></div>
           <div class="onboarding-step-line" aria-hidden="true"></div>
-          <div class="onboarding-step is-current" aria-current="step"><span class="onboarding-step-index">2</span><span>Elige tu plan</span></div>
+          <div class="onboarding-step is-current" aria-current="step"><span class="onboarding-step-index">2</span><span>Choose your plan</span></div>
           <div class="onboarding-step-line" aria-hidden="true"></div>
-          <div class="onboarding-step"><span class="onboarding-step-index">3</span><span>Pago seguro</span></div>
+          <div class="onboarding-step"><span class="onboarding-step-index">3</span><span>Secure checkout</span></div>
         </nav>
         <header class="pricing-header">
-          <p class="pricing-welcome">¡Bienvenido a QuantixBuilds! Vamos a configurar tu espacio de trabajo.</p>
-          <p class="pricing-kicker">Paso 2 de 3</p>
-          <h2 id="pricing-heading">Elige el plan de tu empresa</h2>
-          <p>Empieza con 14 días de prueba gratis. Después agregas tu tarjeta; no se te cobra hoy y puedes cancelar cuando quieras.</p>
+          <p class="pricing-welcome">Welcome to QuantixBuilds! Let's set up your workspace.</p>
+          <p class="pricing-kicker">Step 2 of 3</p>
+          <h2 id="pricing-heading">Choose your company plan</h2>
+          <p>Start with a 14-day free trial. You'll add a card next — you won't be charged today, and you can cancel anytime.</p>
         </header>
-        <div class="pricing-grid" role="radiogroup" aria-label="Planes disponibles">
+        <div class="pricing-grid" role="radiogroup" aria-label="Available plans">
           <article class="pricing-card" role="radio" tabindex="0" aria-checked="false" data-plan="basico">
             <span class="plan-check" aria-hidden="true"></span>
-            <span class="pricing-badge">Recomendado</span>
-            <h3>Plan Básico</h3>
-            <p class="pricing-price">$29<span>/mes</span></p>
-            <p class="pricing-lead">Para contratistas que arman documentos a mano y quieren un panel ordenado.</p>
+            <span class="pricing-badge">Starter</span>
+            <h3>Basic Plan</h3>
+            <p class="pricing-price">$29<span>/mo</span></p>
+            <p class="pricing-lead">For contractors who build documents by hand and want a clean dashboard.</p>
             <ul class="pricing-features">
-              <li>Creación manual de estimados</li>
-              <li>Facturas y contratos</li>
-              <li>Panel de clientes</li>
+              <li>Manual estimate creation</li>
+              <li>Invoices and contracts</li>
+              <li>Client panel</li>
             </ul>
           </article>
           <article class="pricing-card is-featured" role="radio" tabindex="0" aria-checked="false" data-plan="profesional">
             <span class="plan-check" aria-hidden="true"></span>
-            <span class="pricing-badge">Recomendado</span>
-            <h3>Plan Profesional</h3>
-            <p class="pricing-price">$49<span>/mes</span></p>
-            <p class="pricing-lead">Todo lo del Plan Básico, con catálogo completo y precios que se calculan solos.</p>
+            <span class="pricing-badge">Recommended</span>
+            <h3>Professional Plan</h3>
+            <p class="pricing-price">$49<span>/mo</span></p>
+            <p class="pricing-lead">Everything in Basic, plus the full catalog and automatic pricing.</p>
             <ul class="pricing-features">
-              <li>Todo lo del Plan Básico</li>
-              <li>Acceso a la base de datos completa</li>
-              <li>Lógica matemática automática</li>
+              <li>Everything in the Basic Plan</li>
+              <li>Full database access</li>
+              <li>Automatic pricing logic</li>
             </ul>
           </article>
           <article class="pricing-card" role="radio" tabindex="0" aria-checked="false" data-plan="premium">
             <span class="plan-check" aria-hidden="true"></span>
-            <span class="pricing-badge">Recomendado</span>
-            <h3>Plan Premium</h3>
-            <p class="pricing-price">$99<span>/mes</span></p>
-            <p class="pricing-lead">Todo lo del Plan Profesional, más lectura de planos y alcances con IA.</p>
+            <span class="pricing-badge">AI included</span>
+            <h3>Premium Plan</h3>
+            <p class="pricing-price">$99<span>/mo</span></p>
+            <p class="pricing-lead">Everything in Professional, plus plan reading and AI scopes.</p>
             <ul class="pricing-features">
-              <li>Todo lo del Plan Profesional</li>
-              <li>Importación de planos PDF</li>
-              <li>Lectura de alcances con Inteligencia Artificial</li>
+              <li>Everything in the Professional Plan</li>
+              <li>PDF plan import</li>
+              <li>AI scope reading</li>
             </ul>
           </article>
         </div>
         <div class="pricing-cta-wrap">
-          <button class="btn btn-primary pricing-continue" type="button" id="continuarPagoBtn" disabled>Continuar al pago seguro</button>
+          <button class="btn btn-primary pricing-continue" type="button" id="continuarPagoBtn" disabled>Start 14-Day Free Trial</button>
           <p class="auth-status" id="planStatus" hidden></p>
         </div>
       </section>
   </section>
   <section id="view-pago" class="view-section{{ ' active' if vista == 'pago' else '' }} no-print">
-    <nav class="onboarding-stepper" aria-label="Progreso del alta">
-      <div class="onboarding-step is-done"><span class="onboarding-step-index">✓</span><span>Cuenta creada</span></div>
+    <nav class="onboarding-stepper" aria-label="Onboarding progress">
+      <div class="onboarding-step is-done"><span class="onboarding-step-index">✓</span><span>Account created</span></div>
       <div class="onboarding-step-line" aria-hidden="true"></div>
-      <div class="onboarding-step is-done"><span class="onboarding-step-index">✓</span><span>Elige tu plan</span></div>
+      <div class="onboarding-step is-done"><span class="onboarding-step-index">✓</span><span>Choose your plan</span></div>
       <div class="onboarding-step-line" aria-hidden="true"></div>
-      <div class="onboarding-step is-current" aria-current="step"><span class="onboarding-step-index">3</span><span>Pago seguro</span></div>
+      <div class="onboarding-step is-current" aria-current="step"><span class="onboarding-step-index">3</span><span>Secure checkout</span></div>
     </nav>
     <div class="pago-card">
-      <p class="pago-kicker">Método de pago</p>
-      <h2>Agrega tu tarjeta</h2>
-      <p class="pago-plan" id="pagoPlanResumen">Elige tu plan para continuar.</p>
-      <p class="pago-aviso">Tus primeros 14 días son gratis. No se te hará ningún cargo hoy. Puedes cancelar en cualquier momento.</p>
+      <p class="pago-kicker">Payment method</p>
+      <h2>Add your card</h2>
+      <p class="pago-plan" id="pagoPlanResumen">Choose a plan to continue.</p>
+      <p class="pago-aviso">Your first 14 days are free. You will not be charged today. Cancel anytime.</p>
       <form class="pago-form" id="pagoTarjetaForm" autocomplete="off">
-        <label for="pagoNumero">Número de Tarjeta</label>
+        <label for="pagoNumero">Card number</label>
         <input id="pagoNumero" name="numero" inputmode="numeric" autocomplete="cc-number" placeholder="ACCT-000015" required>
         <div class="pago-form-row">
           <div>
-            <label for="pagoVencimiento">Fecha (MM/AA)</label>
-            <input id="pagoVencimiento" name="vencimiento" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/AA" maxlength="5" required>
+            <label for="pagoVencimiento">Expiration (MM/YY)</label>
+            <input id="pagoVencimiento" name="vencimiento" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" maxlength="5" required>
           </div>
           <div>
             <label for="pagoCvc">CVC</label>
             <input id="pagoCvc" name="cvc" inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="4" required>
           </div>
         </div>
-        <button class="btn btn-primary pago-submit" type="submit" id="pagoSubmit">Iniciar prueba de 14 días</button>
+        <button class="btn btn-primary pago-submit" type="submit" id="pagoSubmit">Start 14-Day Free Trial</button>
       </form>
       <p class="auth-status" id="pagoStatus" hidden></p>
     </div>
   </section>
   <section id="view-paywall" class="view-section{{ ' active' if vista == 'paywall' else '' }} no-print">
     <div class="pago-card">
-      <p class="pago-kicker">Suscripción expirada</p>
-      <h2>Activar cuenta</h2>
-      <p class="pago-aviso pago-aviso-alerta" id="paywallMensaje">Tu prueba de 14 días ha terminado. Para seguir usando QuantixBuilds y no perder el acceso a tus cotizaciones, ingresa tu tarjeta para activar tu plan.</p>
+      <p class="pago-kicker">Subscription expired</p>
+      <h2>Activate your account</h2>
+      <p class="pago-aviso pago-aviso-alerta" id="paywallMensaje">Your 14-day trial has ended. To keep using QuantixBuilds and retain access to your estimates, enter your card to activate your plan.</p>
       <form class="pago-form" id="paywallTarjetaForm" autocomplete="off">
-        <label for="paywallNumero">Número de Tarjeta</label>
+        <label for="paywallNumero">Card number</label>
         <input id="paywallNumero" name="numero" inputmode="numeric" autocomplete="cc-number" placeholder="ACCT-000015" required>
         <div class="pago-form-row">
           <div>
-            <label for="paywallVencimiento">Fecha (MM/AA)</label>
-            <input id="paywallVencimiento" name="vencimiento" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/AA" maxlength="5" required>
+            <label for="paywallVencimiento">Expiration (MM/YY)</label>
+            <input id="paywallVencimiento" name="vencimiento" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" maxlength="5" required>
           </div>
           <div>
             <label for="paywallCvc">CVC</label>
             <input id="paywallCvc" name="cvc" inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="4" required>
           </div>
         </div>
-        <button class="btn btn-primary pago-submit" type="submit" id="paywallSubmit">Activar mi cuenta</button>
+        <button class="btn btn-primary pago-submit" type="submit" id="paywallSubmit">Activate my account</button>
       </form>
       <p class="auth-status" id="paywallStatus" hidden></p>
     </div>
@@ -1178,7 +1207,69 @@
       <h2 data-i18n="home.title">Work dashboard</h2>
       <p data-i18n="home.lead">Create estimates, invoices, and review document history from one place.</p>
       <div class="trial-expired-panel" id="trialExpiredPanel" hidden>
-        <p id="trialExpiredMessage">Tu prueba gratuita de 14 días ha expirado. Por favor, añade un método de pago para continuar usando QuantixBuilds.</p>
+        <p id="trialExpiredMessage">Your 14-day free trial has expired. Please add a payment method to keep using QuantixBuilds.</p>
+      </div>
+      <div class="sample-estimate-banner" id="sampleEstimateBanner">
+        <div>
+          <p class="sample-kicker">Demo project</p>
+          <h3>View Sample Estimate</h3>
+          <p>See a finished QuantixBuilds document with a generic logo, sample line items, and totals.</p>
+        </div>
+        <button class="btn btn-primary" type="button" id="viewSampleEstimateBtn">View Sample Estimate</button>
+      </div>
+      <div class="sample-modal" id="sampleEstimateModal" hidden>
+        <div class="sample-modal-panel" role="dialog" aria-modal="true" aria-labelledby="sampleEstimateTitle">
+          <div class="sample-modal-bar">
+            <strong id="sampleEstimateTitle">Sample estimate preview</strong>
+            <button class="btn" type="button" id="closeSampleEstimateBtn">Close</button>
+          </div>
+          <article class="sample-doc">
+            <div class="sample-doc-top">
+              <div class="sample-logo">
+                <span class="sample-logo-mark">QB</span>
+                <div>
+                  <h4>Northline Builders</h4>
+                  <small>Marietta, GA · (770) 555-0142</small>
+                </div>
+              </div>
+              <div class="sample-doc-title">
+                <p>ESTIMATE</p>
+                <span>EST-1042 · Oct 15, 2026</span>
+              </div>
+            </div>
+            <div class="sample-doc-grid">
+              <div>
+                <h5>Contractor</h5>
+                <div>Northline Builders</div>
+                <div>Alex Rivera, Project Manager</div>
+                <div>hello@northlinebuilders.example</div>
+              </div>
+              <div>
+                <h5>Client</h5>
+                <div>Jordan Hale</div>
+                <div>1842 Oakridge Lane, Atlanta, GA 30318</div>
+                <div>(404) 555-0198</div>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr><th>Area / item</th><th>Qty</th><th>Unit</th><th class="num">Price</th><th class="num">Total</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><strong>Kitchen</strong><br>Hang, tape, and finish 1/2" drywall</td><td>420</td><td>SF</td><td class="num">$4.75</td><td class="num">$1,995.00</td></tr>
+                <tr><td>Interior paint, two coats (walls)</td><td>680</td><td>SF</td><td class="num">$2.85</td><td class="num">$1,938.00</td></tr>
+                <tr><td>LVP flooring install over ready subfloor</td><td>310</td><td>SF</td><td class="num">$5.40</td><td class="num">$1,674.00</td></tr>
+                <tr><td><strong>Living room</strong><br>Baseboard and trim, paint-grade</td><td>86</td><td>LF</td><td class="num">$6.25</td><td class="num">$537.50</td></tr>
+              </tbody>
+            </table>
+            <div class="sample-doc-totals">
+              <div><span>Subtotal</span><span>$6,144.50</span></div>
+              <div><span>Overhead &amp; profit</span><span>$1,228.90</span></div>
+              <div class="grand"><span>Total</span><span>$7,373.40</span></div>
+            </div>
+            <p class="sample-doc-note">Sample document generated by QuantixBuilds. Line items, ZIP pricing, and totals are examples so new users can see a finished estimate before creating their own.</p>
+          </article>
+        </div>
       </div>
       <div class="action-cards-grid">
         <div class="action-card main-doc-card">
@@ -1296,8 +1387,8 @@
         <button class="btn btn-primary" id="printButton" type="button">Save to history</button>
         <label class="estimate-lang-control no-print" for="selectIdiomaEstimado">Estimate Language
           <select id="selectIdiomaEstimado" aria-label="Estimate Language">
+            <option value="en" selected>English</option>
             <option value="es">Spanish</option>
-            <option value="en">English</option>
           </select>
         </label>
         <button class="btn" id="exportButton" type="button" data-i18n="export">📤 Share</button>
@@ -1336,8 +1427,8 @@
         <div class="export-options">
           <label class="estimate-lang-control" for="selectIdiomaEstimadoModal">Estimate Language
             <select id="selectIdiomaEstimadoModal" aria-label="Estimate Language">
+              <option value="en" selected>English</option>
               <option value="es">Spanish</option>
-              <option value="en">English</option>
             </select>
           </label>
           <button class="export-action export-action-preview" id="previewPdfButton" type="button">
@@ -3951,7 +4042,7 @@
       if(!items.length){
         const empty=document.createElement('div');
         empty.className='task-dropdown-group';
-        empty.textContent='Sin coincidencias en el catálogo';
+        empty.textContent='No catalog matches';
         menu.appendChild(empty);
         posicionarMenuTareas(input,menu);
         return;
@@ -5762,7 +5853,7 @@
       const actual=sesion||sesionActual||{};
       if(actual.nombre_plan) return String(actual.nombre_plan);
       const info=PLANES_PAGO[planSeleccionadoDe(actual)];
-      return info?info.nombre:'tu plan';
+      return info?info.nombre:'plan';
     }
     function necesitaMetodoPago(sesion){
       const actual=sesion||sesionActual;
@@ -5772,16 +5863,23 @@
       return ['basico','profesional','premium'].includes(planSeleccionadoDe(actual));
     }
     const PLANES_PAGO={
-      basico:{nombre:'Plan Básico',precio:29},
-      profesional:{nombre:'Plan Profesional',precio:49},
-      premium:{nombre:'Plan Premium',precio:99}
+      basico:{nombre:'Basic Plan',precio:29},
+      profesional:{nombre:'Professional Plan',precio:49},
+      premium:{nombre:'Premium Plan',precio:99}
     };
+    function textoCtaOnboarding(plan){
+      return String(plan||'').toLowerCase()==='premium'?'Start Trial & Enable AI':'Start 14-Day Free Trial';
+    }
+    function actualizarCtaOnboarding(plan){
+      const cta=document.getElementById('continuarPagoBtn');
+      if(cta) cta.textContent=textoCtaOnboarding(plan);
+    }
     function resumenPlanPago(plan){
       const info=PLANES_PAGO[plan]||null;
       const el=document.getElementById('pagoPlanResumen');
       if(!el) return;
-      if(!info){ el.textContent='Elige tu plan para continuar.'; return; }
-      el.innerHTML='Vas a empezar con <strong>'+info.nombre+'</strong> · $'+info.precio+'/mes después de la prueba.';
+      if(!info){ el.textContent='Choose a plan to continue.'; return; }
+      el.innerHTML="You're starting with <strong>"+info.nombre+'</strong> · $'+info.precio+'/mo after the trial.';
     }
     function mostrarVistaPago(){
       if(necesitaPaywall()){ mostrarVistaPaywall(); return; }
@@ -5798,7 +5896,7 @@
         try{ history.replaceState({view:'pago'},'', '/pago'); }catch(_){}
       }
       const submit=document.getElementById('pagoSubmit');
-      if(submit){ submit.disabled=false; submit.textContent='Iniciar prueba de 14 días'; }
+      if(submit){ submit.disabled=false; submit.textContent=textoCtaOnboarding(planSeleccionadoDe()); }
     }
     async function enviarPagoSimulado(ev){
       if(ev) ev.preventDefault();
@@ -5808,7 +5906,7 @@
       const cvc=String(document.getElementById('pagoCvc')?.value||'').replace(/\D/g,'');
       const submit=document.getElementById('pagoSubmit');
       if(!numero||!vencimiento||!cvc){
-        marcarEstadoAuth('pagoStatus', 'Completa el número de tarjeta, la fecha y el CVC.', true);
+        marcarEstadoAuth('pagoStatus', 'Enter the card number, expiration date, and CVC.', true);
         return;
       }
       if(!sesionActual){
@@ -5816,8 +5914,8 @@
         return;
       }
       try{
-        if(submit){ submit.disabled=true; submit.textContent='Cargando...'; }
-        marcarEstadoAuth('pagoStatus', 'Procesando tu método de pago…', false);
+        if(submit){ submit.disabled=true; submit.textContent='Loading...'; }
+        marcarEstadoAuth('pagoStatus', 'Processing your payment method…', false);
         await new Promise(ok=>setTimeout(ok,1000));
         const res=await fetch('/api/pagos/simular',{
           method:'POST',
@@ -5826,7 +5924,7 @@
           body:JSON.stringify({numero,vencimiento,cvc})
         });
         const json=await res.json().catch(()=>({}));
-        if(!res.ok) throw new Error(json.error||t.planFail||'No se pudo guardar el método de pago.');
+        if(!res.ok) throw new Error(json.error||t.planFail||'Could not save the payment method.');
         if(sesionActual){
           sesionActual.requiere_pago=false;
           sesionActual.trial_expirada=false;
@@ -5838,8 +5936,8 @@
         try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
         showAppView('home');
       }catch(err){
-        marcarEstadoAuth('pagoStatus', err.message||'No se pudo guardar el método de pago.', true);
-        if(submit){ submit.disabled=false; submit.textContent='Iniciar prueba de 14 días'; }
+        marcarEstadoAuth('pagoStatus', err.message||'Could not save the payment method.', true);
+        if(submit){ submit.disabled=false; submit.textContent=textoCtaOnboarding(planSeleccionadoDe()); }
       }
     }
     function mostrarVistaPlanes(){
@@ -5856,7 +5954,7 @@
       if(pendiente) marcarPlanOnboarding(pendiente);
     }
     function mensajePaywall(sesion){
-      return 'Tu prueba de 14 días ha terminado. Para seguir usando QuantixBuilds y no perder el acceso a tus cotizaciones, ingresa tu tarjeta para activar tu plan '+nombrePlanDe(sesion)+'.';
+      return 'Your 14-day trial has ended. To keep using QuantixBuilds and retain access to your estimates, enter your card to activate your '+nombrePlanDe(sesion)+'.';
     }
     function mostrarVistaPaywall(){
       document.body.classList.add('paywall');
@@ -5873,7 +5971,7 @@
         try{ history.replaceState({view:'paywall'},'', '/suscripcion'); }catch(_){}
       }
       const submit=document.getElementById('paywallSubmit');
-      if(submit){ submit.disabled=false; submit.textContent='Activar mi cuenta'; }
+      if(submit){ submit.disabled=false; submit.textContent='Activate my account'; }
     }
     async function enviarPaywallSimulado(ev){
       if(ev) ev.preventDefault();
@@ -5883,7 +5981,7 @@
       const cvc=String(document.getElementById('paywallCvc')?.value||'').replace(/\D/g,'');
       const submit=document.getElementById('paywallSubmit');
       if(!numero||!vencimiento||!cvc){
-        marcarEstadoAuth('paywallStatus', 'Completa el número de tarjeta, la fecha y el CVC.', true);
+        marcarEstadoAuth('paywallStatus', 'Enter the card number, expiration date, and CVC.', true);
         return;
       }
       if(!sesionActual){
@@ -5891,8 +5989,8 @@
         return;
       }
       try{
-        if(submit){ submit.disabled=true; submit.textContent='Cargando...'; }
-        marcarEstadoAuth('paywallStatus', 'Procesando tu método de pago…', false);
+        if(submit){ submit.disabled=true; submit.textContent='Loading...'; }
+        marcarEstadoAuth('paywallStatus', 'Processing your payment method…', false);
         await new Promise(ok=>setTimeout(ok,1000));
         const res=await fetch('/api/pagos/simular',{
           method:'POST',
@@ -5901,7 +5999,7 @@
           body:JSON.stringify({numero,vencimiento,cvc,activar:true})
         });
         const json=await res.json().catch(()=>({}));
-        if(!res.ok) throw new Error(json.error||t.planFail||'No se pudo activar la cuenta.');
+        if(!res.ok) throw new Error(json.error||t.planFail||'Could not activate the account.');
         if(sesionActual){
           sesionActual.requiere_pago=false;
           sesionActual.trial_expirada=false;
@@ -5913,8 +6011,8 @@
         try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
         showAppView('home');
       }catch(err){
-        marcarEstadoAuth('paywallStatus', err.message||'No se pudo activar la cuenta.', true);
-        if(submit){ submit.disabled=false; submit.textContent='Activar mi cuenta'; }
+        marcarEstadoAuth('paywallStatus', err.message||'Could not activate the account.', true);
+        if(submit){ submit.disabled=false; submit.textContent='Activate my account'; }
       }
     }
     function aplicarBloqueoPrueba(){
@@ -6317,7 +6415,7 @@
       }
       const tabla=area.querySelector('tbody');
       if(!tabla){
-        alert('No se encontró la tabla de partidas.');
+        alert('The line-item table was not found.');
         return 0;
       }
       tabla.replaceChildren();
@@ -7017,7 +7115,7 @@
       const msg=document.getElementById('medidas-pdf-msg');
       if(!msg)return;
       const en=typeof idiomaEstimadoActual==='function'&&idiomaEstimadoActual()==='en';
-      msg.textContent=en?'Analyzing document... This may take a minute or more.':'Analizando documento... Esto puede tardar un minuto o más.';
+      msg.textContent='Analyzing document... This may take a minute or more.';
     }
     function mostrarCargaMedidasPdf(){
       const overlay=document.getElementById('medidas-pdf-overlay');
@@ -7037,7 +7135,7 @@
     }
     async function enviarRoofReportAlServidor(file){
       if(!file||(file.type&&file.type!=='application/pdf'&&!/\.pdf$/i.test(file.name))){
-        alert('Selecciona un PDF de Roof Report.');
+        alert('Select a Roof Report PDF.');
         return;
       }
       if(document.body.classList.contains('medidas-pdf-busy'))return;
@@ -7050,7 +7148,7 @@
       if(zipActivo.length===5)form.append('zip_code',zipActivo);
       form.append('oficio','roofing');
       form.append('project_type','roofing');
-      if(status){ status.textContent='Procesando Roof Report…'; status.className='pdf-api-status'; }
+      if(status){ status.textContent='Processing Roof Report…'; status.className='pdf-api-status'; }
       mostrarCargaMedidasPdf();
       try{
         if(typeof showAppView==='function')showAppView('quote',{noScroll:true,mode:'estimate'});
@@ -7062,7 +7160,7 @@
         }
         const partidas=extraerRenglonesRoof(payload);
         if(!partidas.length){
-          alert('El servidor no devolvió partidas del Roof Report.');
+          alert('The server did not return Roof Report line items.');
           return;
         }
         window.__roofPayload=payload;
@@ -7083,7 +7181,7 @@
         const heading=document.getElementById('areas')||document.getElementById('itemsHeading');
         if(heading)heading.scrollIntoView({behavior:'smooth',block:'start'});
       }catch(error){
-        const msg=error&&error.message?error.message:'No se pudo conectar con el servidor en el puerto 5000.';
+        const msg=error&&error.message?error.message:'Could not connect to the server.';
         if(status){ status.textContent=msg; status.className='pdf-api-status is-error'; }
         else alert(msg);
       }finally{
@@ -7096,13 +7194,13 @@
       const btn=document.getElementById('btn-process-pdf-api');
       const file=archivoOpcional||(input&&input.files&&input.files[0]);
       if(!file){
-        if(status){ status.textContent='Selecciona un PDF primero.'; status.className='pdf-api-status is-error'; }
-        else alert('Selecciona un PDF primero.');
+        if(status){ status.textContent='Select a PDF first.'; status.className='pdf-api-status is-error'; }
+        else alert('Select a PDF first.');
         return;
       }
       if(file.type&&file.type!=='application/pdf'&&!/\.pdf$/i.test(file.name)){
-        if(status){ status.textContent='El archivo debe ser un PDF.'; status.className='pdf-api-status is-error'; }
-        else alert('El archivo debe ser un PDF.');
+        if(status){ status.textContent='The file must be a PDF.'; status.className='pdf-api-status is-error'; }
+        else alert('The file must be a PDF.');
         return;
       }
       const form=new FormData();
@@ -7113,7 +7211,7 @@
       if(zipActivo.length===5)form.append('zip_code',zipActivo);
       const oficioPdf=typeof oficioDesdeUI==='function'?oficioDesdeUI():'';
       if(oficioPdf){ form.append('oficio',oficioPdf); form.append('project_type',oficioPdf); }
-      if(status){ status.textContent='Procesando PDF…'; status.className='pdf-api-status'; }
+      if(status){ status.textContent='Processing PDF…'; status.className='pdf-api-status'; }
       if(btn)btn.disabled=true;
       try{
         if(typeof showAppView==='function')showAppView('quote');
@@ -7128,7 +7226,7 @@
         const partidas=extraerItemsHttp(payload);
         await aplicarPreciosRealesCatalogo(partidas, payload&&payload.factor_zona);
         if(!partidas.length){
-          if(status){ status.textContent='El servidor no devolvió partidas.'; status.className='pdf-api-status is-error'; }
+          if(status){ status.textContent='The server did not return line items.'; status.className='pdf-api-status is-error'; }
           return;
         }
         mostrarPartidasPdfApi(partidas);
@@ -7139,8 +7237,8 @@
         }
         if(typeof showAppView==='function')showAppView('quote');
       }catch(error){
-        if(status){ status.textContent=error&&error.message?error.message:'No se pudo conectar con el servidor en el puerto 5000.'; status.className='pdf-api-status is-error'; }
-        else alert(error&&error.message?error.message:'No se pudo conectar con el servidor.');
+        if(status){ status.textContent=error&&error.message?error.message:'Could not connect to the server.'; status.className='pdf-api-status is-error'; }
+        else alert(error&&error.message?error.message:'Could not connect to the server.');
       }finally{
         if(btn)btn.disabled=false;
       }
@@ -7807,8 +7905,8 @@
       if(typeof clearTechnicalPreview==='function')clearTechnicalPreview();
       await mostrarVisorPDFConCierre(file,message||('Reporte PDF adjunto: '+file.name));
     }
-    async function importEsx(file){ if(typeof JSZip!=='function')throw new Error('JSZip no está disponible'); clearTechnicalPreview(); const zip=await JSZip.loadAsync(file); const xmlTexts=[]; let imageFile=null; for(const entry of Object.values(zip.files)){ if(entry.dir)continue; const lower=entry.name.toLowerCase(); if(lower.endsWith('.xml'))xmlTexts.push(await entry.async('string')); if(!imageFile&&/\.(jpg|jpeg|png|gif|webp)$/i.test(lower))imageFile=entry; } const rowCount=importMeasurements(xmlTexts); if(imageFile){ const imageBlob=await imageFile.async('blob'); reportPreviewUrl=URL.createObjectURL(imageBlob); const image=document.createElement('img'); image.alt='Croquis técnico extraído del reporte ESX'; image.src=reportPreviewUrl; showTechnicalPreview(image,rowCount?'Mediciones y croquis extraídos de '+file.name:'Croquis extraído de '+file.name); } else if(rowCount){ const note=document.createElement('p'); note.textContent='Mediciones extraídas de '+file.name+'. No se encontró una imagen de croquis dentro del archivo.'; showTechnicalPreview(note); } else { alert('No se encontraron mediciones reconocibles dentro del archivo ESX.'); } }
-    async function importReport(file){ const extension=file.name.split('.').pop().toLowerCase(); try { if(extension==='esx')await importEsx(file); else if(extension==='xml') { clearTechnicalPreview(); const xml=await file.text(); const rowCount=importMeasurements([xml]); if(rowCount) { const note=document.createElement('p'); note.textContent='Mediciones XML importadas: '+file.name; showTechnicalPreview(note); } else alert('No se encontraron mediciones reconocibles en el XML.'); } else if(extension==='pdf') { await enviarRoofReportAlServidor(file); } else if(['jpg','jpeg','png'].includes(extension))await showImagePreview(file); } catch(error){ alert('No se pudo procesar el reporte técnico.'); console.error(error); } finally { document.querySelector('#reportFileInput').value=''; } }
+    async function importEsx(file){ if(typeof JSZip!=='function')throw new Error('JSZip no está disponible'); clearTechnicalPreview(); const zip=await JSZip.loadAsync(file); const xmlTexts=[]; let imageFile=null; for(const entry of Object.values(zip.files)){ if(entry.dir)continue; const lower=entry.name.toLowerCase(); if(lower.endsWith('.xml'))xmlTexts.push(await entry.async('string')); if(!imageFile&&/\.(jpg|jpeg|png|gif|webp)$/i.test(lower))imageFile=entry; } const rowCount=importMeasurements(xmlTexts); if(imageFile){ const imageBlob=await imageFile.async('blob'); reportPreviewUrl=URL.createObjectURL(imageBlob); const image=document.createElement('img'); image.alt='Croquis técnico extraído del reporte ESX'; image.src=reportPreviewUrl; showTechnicalPreview(image,rowCount?'Mediciones y croquis extraídos de '+file.name:'Croquis extraído de '+file.name); } else if(rowCount){ const note=document.createElement('p'); note.textContent='Mediciones extraídas de '+file.name+'. No se encontró una imagen de croquis dentro del archivo.'; showTechnicalPreview(note); } else { alert('No recognizable measurements were found in the ESX file.'); } }
+    async function importReport(file){ const extension=file.name.split('.').pop().toLowerCase(); try { if(extension==='esx')await importEsx(file); else if(extension==='xml') { clearTechnicalPreview(); const xml=await file.text(); const rowCount=importMeasurements([xml]); if(rowCount) { const note=document.createElement('p'); note.textContent='Mediciones XML importadas: '+file.name; showTechnicalPreview(note); } else alert('No recognizable measurements were found in the XML.'); } else if(extension==='pdf') { await enviarRoofReportAlServidor(file); } else if(['jpg','jpeg','png'].includes(extension))await showImagePreview(file); } catch(error){ alert('Could not process the technical report.'); console.error(error); } finally { document.querySelector('#reportFileInput').value=''; } }
     function update(){ const paymentWasFocused=document.activeElement?.id==='paidAmount'; let subtotalTotal=0; let taxTotal=0; const lines=[]; document.querySelectorAll('.area').forEach((area,index)=>{ let areaSubtotal=0; area.querySelectorAll('tbody tr').forEach(row=>{ const taxRate=Math.max(Number(row.querySelector('.tax').value)||0,0); const lineSubtotal=recalcularSubtotalFila(row); const lineTax=lineSubtotal*taxRate/100; areaSubtotal+=lineSubtotal; subtotalTotal+=lineSubtotal; taxTotal+=lineTax; }); const title=area.querySelector('.area-title').value||`Area ${index+1}`; lines.push({title,subtotal:areaSubtotal}); }); const gc=typeof esContratistaGeneral==='function'?esContratistaGeneral():true; const montoOverhead=gc?subtotalTotal*(typeof MARGEN_OVERHEAD==='number'?MARGEN_OVERHEAD:.10):0; const montoProfit=gc?subtotalTotal*(typeof MARGEN_PROFIT==='number'?MARGEN_PROFIT:.10):0; const ajusteMinimo=ajusteCargoMinimoProyecto(subtotalTotal); const grand=subtotalTotal+ajusteMinimo+taxTotal+montoOverhead+montoProfit; const paid=Math.max(Number(paymentState.paidAmount)||0,0); const balance=Math.max(grand-paid,0); markPaidIfNeeded(balance,grand); const isPaid=paymentState.status==='paid'||(grand>0&&balance<=0); const minimoLine=ajusteMinimo>0?`<div class="summary-line" id="fila-cargo-minimo"><span>Minimum charge <small>(project under ${money.format(UMBRAL_CARGO_MINIMO_PROYECTO)})</small></span><strong id="val-cargo-minimo">${money.format(ajusteMinimo)} USD</strong></div>`:''; const averageTax=subtotalTotal?taxTotal/subtotalTotal*100:0; const opLines=gc?`<div class="summary-line" id="fila-overhead"><span>Overhead (10%)</span><strong id="val-overhead">${money.format(montoOverhead)} USD</strong></div><div class="summary-line" id="fila-profit"><span>Profit (10%)</span><strong id="val-profit">${money.format(montoProfit)} USD</strong></div>`:''; document.querySelector('#summary').innerHTML=lines.map(line=>`<div class="summary-line"><span>${line.title.replace(/^Área de /i,'').replace(/^Area of /i,'')}</span><strong>${money.format(line.subtotal)}</strong></div>`).join('')+`<div class="payment-tracking"><div class="field-row"><label for="paidAmount">Amount paid</label><input id="paidAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="${paymentState.paidAmount}"></div>${htmlBotonesDeposito()}</div><div class="summary-line"><span>Subtotal</span><strong id="val-subtotal-base">${money.format(subtotalTotal)} USD</strong></div>`+minimoLine+opLines+`<div class="summary-line"><span>Tax <small>(${averageTax.toFixed(2)}%)</small></span><strong>${money.format(taxTotal)} USD</strong></div><div class="summary-line grand"><span>Grand total</span><strong id="val-total-general">${money.format(grand)}<br>USD</strong></div><div class="summary-line"><span id="depositLabel">${translations[language].deposit}</span><strong>${money.format(paid)} USD</strong></div><div class="summary-line balance"><span id="finalPaymentLabel">${translations[language].finalPayment}</span><strong>${money.format(balance)} USD</strong></div>`; const paymentInput=document.querySelector('#paidAmount'); paymentInput.addEventListener('input',event=>{ paymentState.paidAmount=event.target.value; paymentState.status='open'; paymentState.paidDate=''; savePaymentState(); update(); }); document.querySelectorAll('[data-payment-action]').forEach(button=>button.addEventListener('click',()=>{ aplicarPagoRapido(button.dataset.paymentAction,grand); })); document.querySelector('#paidStamp').hidden=!isPaid||docMode!=='invoice'; document.querySelector('#paidDate').textContent=paymentState.paidDate?'Paid date: '+paymentState.paidDate:''; if(paymentWasFocused) paymentInput.focus(); }
     function configurarMotorPrecios(){ ['zip-code','toggleAutoPrecios','toggleMinimos'].forEach(id=>{ const element=document.querySelector('#'+id); if(element)element.addEventListener(element.type==='text'?'input':'change',()=>{ if(id==='zip-code'){ if(typeof consultarFactorZipNacional==='function')consultarFactorZipNacional(element.value); return; } ejecutarMotorPrecios(); }); }); document.addEventListener('change',event=>{ if(event.target.matches('#select-tipo-contratista')){ if(typeof update==='function')update(); } else if(event.target.matches('.select-rol,#select-rol'))ejecutarMotorPrecios(); }); document.addEventListener('input',event=>{ const row=event.target.closest('.fila-trabajo'); if(!row||row.dataset.traduciendo==='1')return; if(event.target.matches('.code,.item-desc,.description')){ if(event.target.matches('.item-desc,.description')&&row.dataset.updatingDesc!=='1'){ preservarContextoMaterialEnEdicion(row,event.target.value); } update(); } else if(event.target.matches('.input-cantidad,.quantity,.price,.input-precio,.tax')){ recalcularSubtotalFila(row); update(); } }); document.addEventListener('change',event=>{ const row=event.target.closest('.fila-trabajo'); if(!row)return; if(event.target.matches('.item-action')){ actualizarDescripcionPorAccion(row); return; } else if(event.target.matches('.select-alcance')){ actualizarDescripcionPorAccion(row); if(typeof recalcularPrecioPorAccion==='function')recalcularPrecioPorAccion(row); else { aplicarPrecioAutomaticoFila(row,false); update(); } } else if(event.target.matches('.code')){ if(typeof aplicarPrecioAutomaticoFila==='function')aplicarPrecioAutomaticoFila(row,false); update(); } else if(event.target.matches('.item-desc,.description')){ update(); } else if(event.target.matches('.select-unidad,.item-unit')){ row.dataset.unidadManual='1'; if(event.target.value==='LS')aplicarUnidadLS(row); if(!filaPrecioFijo(row))aplicarPrecioAutomaticoFila(row,false); update(); } }); }
     async function verificarActualizacionMensual(){ const fechaGuardada=localStorage.getItem('fecha_actualizacion_precios'); const cache=localStorage.getItem('catalogo_precios_cache'); const badge=document.querySelector('#badgeEstadoSync'); const hoy=new Date(); const dias=fechaGuardada?(hoy-new Date(fechaGuardada))/86400000:DIAS_EXPIRACION; if(dias<DIAS_EXPIRACION&&cache){ Object.assign(CATALOGO_REGIONAL,JSON.parse(cache)); if(badge)badge.textContent=`Current (expires in ${Math.ceil(DIAS_EXPIRACION-dias)}d)`; return; } if(!navigator.onLine)return; try{ const response=await fetch(URL_CATALOGO_NUBE); if(!response.ok)throw new Error('Catalog unavailable'); const remote=await response.json(); Object.keys(CATALOGO_REGIONAL).forEach(key=>{ if(remote[key])Object.assign(CATALOGO_REGIONAL[key],remote[key]); }); localStorage.setItem('catalogo_precios_cache',JSON.stringify(remote)); localStorage.setItem('fecha_actualizacion_precios',hoy.toISOString()); if(badge)badge.textContent='✔ Updated this month'; ejecutarMotorPrecios(); }catch(error){ if(badge)badge.textContent='Offline mode (local prices)'; } }
@@ -7835,8 +7933,8 @@
     ];
     function idiomaEstimadoActual(){
       const el=document.getElementById('selectIdiomaEstimado');
-      const val=(el&&el.value)||'es';
-      return IDIOMAS_ESTIMADO.some(i=>i.code===val)?val:'es';
+      const val=(el&&el.value)||'en';
+      return IDIOMAS_ESTIMADO.some(i=>i.code===val)?val:'en';
     }
     function sincronizarSelectIdiomaEstimado(origen){
       const a=document.getElementById('selectIdiomaEstimado');
@@ -8047,9 +8145,6 @@
       }
     };
     function idiomaAuth(){
-      const sel=document.getElementById('selectIdiomaEstimado');
-      if(sel&&sel.value==='es') return 'es';
-      if(sel&&sel.value==='en') return 'en';
       return 'en';
     }
     function aplicarTextosAuth(){
@@ -8200,7 +8295,7 @@
         auth_existe:t.alreadyPw,
         password:t.short,
         email:t.badEmail,
-        trial_expired:'Tu prueba gratuita de 14 días ha expirado. Por favor, añade un método de pago para continuar usando QuantixBuilds.',
+        trial_expired:'Your 14-day free trial has expired. Please add a payment method to keep using QuantixBuilds.',
         plan:'Choose a plan to start your trial.'
       };
       return mapa[code]||(json&&json.error)||fallback;
@@ -8242,7 +8337,7 @@
         card.setAttribute('aria-checked', on?'true':'false');
       });
       const cta=document.getElementById('continuarPagoBtn');
-      if(cta) cta.disabled=false;
+      if(cta){ cta.disabled=false; actualizarCtaOnboarding(clave); }
       resumenPlanPago(clave);
     }
     async function guardarPlanYContinuar(){
@@ -8250,7 +8345,7 @@
       const plan=planOnboardingElegido||planSeleccionadoDe();
       const cta=document.getElementById('continuarPagoBtn');
       if(!plan){
-        marcarEstadoAuth('planStatus', 'Elige un plan para continuar.', true);
+        marcarEstadoAuth('planStatus', 'Choose a plan to continue.', true);
         return;
       }
       if(!sesionActual){
@@ -8312,6 +8407,22 @@
     document.getElementById('paywallTarjetaForm')?.addEventListener('submit',enviarPaywallSimulado);
     engancharMascaraTarjeta('pago');
     engancharMascaraTarjeta('paywall');
+    function abrirSampleEstimate(){
+      const modal=document.getElementById('sampleEstimateModal');
+      if(modal) modal.hidden=false;
+    }
+    function cerrarSampleEstimate(){
+      const modal=document.getElementById('sampleEstimateModal');
+      if(modal) modal.hidden=true;
+    }
+    document.getElementById('viewSampleEstimateBtn')?.addEventListener('click',abrirSampleEstimate);
+    document.getElementById('closeSampleEstimateBtn')?.addEventListener('click',cerrarSampleEstimate);
+    document.getElementById('sampleEstimateModal')?.addEventListener('click',ev=>{
+      if(ev.target&&ev.target.id==='sampleEstimateModal') cerrarSampleEstimate();
+    });
+    document.addEventListener('keydown',ev=>{
+      if(ev.key==='Escape') cerrarSampleEstimate();
+    });
     document.getElementById('authCambiarCuenta')?.addEventListener('click',()=>{
       const registro=document.getElementById('registroContratistaForm');
       mostrarPanelAuth(registro&&!registro.hidden?'login':'registro');
@@ -8867,7 +8978,7 @@
   <div id="medidas-pdf-overlay" hidden role="alertdialog" aria-modal="true" aria-labelledby="medidas-pdf-msg">
     <div class="medidas-pdf-card">
       <div class="medidas-pdf-spinner" aria-hidden="true"></div>
-      <p id="medidas-pdf-msg">Analizando documento... Esto puede tardar un minuto o más.</p>
+      <p id="medidas-pdf-msg">Analyzing document... This may take a minute or more.</p>
     </div>
   </div>
 </body>
