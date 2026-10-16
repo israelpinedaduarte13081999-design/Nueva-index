@@ -1156,14 +1156,12 @@
           <div class="onboarding-step is-done"><span class="onboarding-step-index">✓</span><span>Account created</span></div>
           <div class="onboarding-step-line" aria-hidden="true"></div>
           <div class="onboarding-step is-current" aria-current="step"><span class="onboarding-step-index">2</span><span>Choose your plan</span></div>
-          <div class="onboarding-step-line" aria-hidden="true"></div>
-          <div class="onboarding-step"><span class="onboarding-step-index">3</span><span>Secure checkout</span></div>
         </nav>
         <header class="pricing-header">
           <p class="pricing-welcome" id="planesWelcome">Welcome to QuantixBuilds! Let's set up your workspace.</p>
-          <p class="pricing-kicker" id="planesKicker">Step 2 of 3</p>
+          <p class="pricing-kicker" id="planesKicker">Step 2 of 2</p>
           <h2 id="pricing-heading">Choose your company plan</h2>
-          <p id="planesLead">Start with a 14-day free trial. You'll add a card next — you won't be charged today, and you can cancel anytime.</p>
+          <p id="planesLead">Start with a 14-day free trial. No card required today. After 14 days we'll ask for a card if you want to keep using QuantixBuilds.</p>
         </header>
         <div class="pricing-grid" role="radiogroup" aria-label="Available plans">
           <article class="pricing-card" role="radio" tabindex="0" aria-checked="false" data-plan="basico">
@@ -6119,12 +6117,8 @@
       const info=PLANES_PAGO[planSeleccionadoDe(actual)];
       return info?info.nombre:'plan';
     }
-    function necesitaMetodoPago(sesion){
-      const actual=sesion||sesionActual;
-      if(!actual||!actual.id) return false;
-      if(esAdmin(actual)||necesitaPaywall(actual)) return false;
-      if(String(actual.pago_cliente_id||'').trim()) return false;
-      return ['basico','profesional','premium'].includes(planSeleccionadoDe(actual));
+    function necesitaMetodoPago(_sesion){
+      return false;
     }
     const PLANES_PAGO={
       basico:{nombre:'Basic Plan',precio:29},
@@ -6222,9 +6216,9 @@
         if(lead) lead.textContent='Switch plans anytime. Your documents stay on this account, and you will not be asked to log in again.';
       }else{
         if(welcome) welcome.textContent="Welcome to QuantixBuilds! Let's set up your workspace.";
-        if(kicker) kicker.textContent='Step 2 of 3';
+        if(kicker) kicker.textContent='Step 2 of 2';
         if(heading) heading.textContent='Choose your company plan';
-        if(lead) lead.textContent="Start with a 14-day free trial. You'll add a card next — you won't be charged today, and you can cancel anytime.";
+        if(lead) lead.textContent="Start with a 14-day free trial. No card required today. After 14 days we'll ask for a card if you want to keep using QuantixBuilds.";
       }
       actualizarCtaOnboarding(planOnboardingElegido||planSeleccionadoDe());
     }
@@ -6408,9 +6402,12 @@
         mostrarVistaPlanes();
         return;
       }
-      if(view==='pago'||(view!=='login'&&necesitaMetodoPago())){
-        mostrarVistaPago();
-        return;
+      if(view==='pago'||necesitaMetodoPago()){
+        if(necesitaPaywall()){
+          mostrarVistaPaywall();
+          return;
+        }
+        view='home';
       }
       document.body.classList.remove('auth-solo','eligiendo-plan','pagando','paywall','prueba-expirada');
       document.body.classList.add('con-sesion');
@@ -6504,11 +6501,16 @@
         mostrarVistaPlanes();
         return;
       }
-      if(necesitaMetodoPago()||path==='/pago/exito'){
-        mostrarVistaPago();
+      if(path==='/pago'||path==='/pago/exito'){
+        if(necesitaPaywall()){
+          mostrarVistaPaywall();
+          return;
+        }
+        try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
+        showAppView('home');
         return;
       }
-      if(rutaEsLogin(path)||path==='/pago'||path==='/suscripcion'||path==='/activar'){
+      if(rutaEsLogin(path)||path==='/suscripcion'||path==='/activar'){
         try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
         showAppView('home');
         return;
@@ -8773,11 +8775,7 @@
         }
         aplicarFeatureGating();
         resumenPlanPago(sesionActual&&sesionActual.plan_seleccionado||plan);
-        if(esAdmin()||String((sesionActual&&sesionActual.pago_cliente_id)||json.pago_cliente_id||'').trim()){
-          location.replace('/estimado');
-          return;
-        }
-        mostrarVistaPago();
+        location.replace('/estimado');
       }catch(err){
         marcarEstadoAuth('planStatus', err.message||t.planFail||'Could not save the plan.', true);
         if(cta) cta.disabled=false;

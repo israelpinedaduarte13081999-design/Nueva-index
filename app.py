@@ -225,8 +225,6 @@ def _redirigir_login_si_hay_sesion():
             return redirect("/suscripcion")
         if not _plan_valido(contratista.get("plan_seleccionado")):
             return redirect("/planes")
-        if _necesita_paso_pago(contratista):
-            return redirect("/pago")
         return redirect("/estimado")
     except Exception:
         return None
@@ -249,10 +247,8 @@ def _exigir_login_panel():
                 if path not in _RUTAS_PAYWALL:
                     return redirect("/suscripcion")
                 return None
-            if path in _RUTAS_PAYWALL:
+            if path in _RUTAS_PAYWALL or path in _RUTAS_PAGO:
                 return redirect("/estimado")
-            if path in _RUTAS_PANEL and _necesita_paso_pago(contratista):
-                return redirect("/pago")
     except Exception:
         pass
     return None
@@ -3210,14 +3206,8 @@ def _es_admin(email):
     return bool(correo) and correo in _CORREOS_ADMIN
 
 
-def _necesita_paso_pago(contratista):
-    if not contratista or _es_admin(contratista.get("email")):
-        return False
-    if _prueba_expirada(contratista):
-        return False
-    if str(contratista.get("pago_cliente_id") or "").strip():
-        return False
-    return bool(_plan_valido(contratista.get("plan_seleccionado")))
+def _necesita_paso_pago(_contratista):
+    return False
 
 
 def _prueba_expirada(contratista):
@@ -3567,11 +3557,7 @@ def guardar_plan_contratista(contratista, plan):
     email = str(contratista.get("email") or "").strip().lower()
     ahora = datetime.now(timezone.utc).isoformat()
     cambios = {"plan_seleccionado": plan, "updated_at": ahora}
-    plan_previo = _plan_valido(contratista.get("plan_seleccionado"))
-    if not str(contratista.get("pago_cliente_id") or "").strip() and (
-        contratista.get("requiere_pago") or not plan_previo
-    ):
-        cambios["requiere_pago"] = True
+    cambios["requiere_pago"] = False
     try:
         if uid:
             res = sb.table("perfiles").update(cambios).eq("id", uid).execute()
@@ -4538,14 +4524,8 @@ def api_guardar_plan_contratista():
     if sb is not None:
         contratista.update(_datos_prueba(sb, contratista))
     payload = _sesion_desde_fila(contratista)
-    if _es_admin(payload.get("email") or contratista.get("email")):
-        payload["requiere_pago"] = False
-        payload["siguiente"] = "estimado"
-    elif payload.get("pago_cliente_id"):
-        payload["siguiente"] = "estimado"
-    else:
-        payload["requiere_pago"] = True
-        payload["siguiente"] = "pago"
+    payload["requiere_pago"] = False
+    payload["siguiente"] = "estimado"
     resp = jsonify(payload)
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
 
