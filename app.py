@@ -209,6 +209,30 @@ _RUTAS_PANEL = {
 
 
 @app.before_request
+def _redirigir_login_si_hay_sesion():
+    if request.method not in ("GET", "HEAD"):
+        return None
+    path = request.path.rstrip("/") or "/"
+    if path not in {"/", "/login", "/iniciar-sesion"}:
+        return None
+    if not _token_contratista_solicitud():
+        return None
+    try:
+        contratista, error = _exigir_contratista()
+        if not contratista or error:
+            return None
+        if _prueba_expirada(contratista):
+            return redirect("/suscripcion")
+        if not _plan_valido(contratista.get("plan_seleccionado")):
+            return redirect("/planes")
+        if _necesita_paso_pago(contratista):
+            return redirect("/pago")
+        return redirect("/estimado")
+    except Exception:
+        return None
+
+
+@app.before_request
 def _exigir_login_panel():
     if request.method not in ("GET", "HEAD"):
         return None
@@ -256,8 +280,12 @@ def _bloquear_api_si_expirada():
 
 def _vista_inicial():
     path = request.path.rstrip("/") or "/"
-    if path in _RUTAS_LOGIN or not _token_contratista_solicitud():
-        return "login"
+    token = _token_contratista_solicitud()
+    if path == "/restablecer" or not token:
+        if path in _RUTAS_LOGIN or not token:
+            return "login"
+    if path in _RUTAS_LOGIN:
+        return "home"
     if path in _RUTAS_PAYWALL:
         return "paywall"
     if path in _RUTAS_PLANES:
@@ -3212,6 +3240,84 @@ def _respuesta_prueba_expirada():
 def _nombre_plan(plan):
     info = _PLANES_PRECIOS.get(_plan_valido(plan)) or {}
     return str(info.get("nombre") or "plan")
+
+
+_NIVEL_PLAN = {"basico": 1, "profesional": 2, "premium": 3}
+_API_CATALOGO = {
+    "/api/search-catalog",
+    "/api/buscar-catalogo",
+    "/api/precio-accion",
+    "/api/catalogo/guardar-ia",
+}
+_API_IA_PDF = (
+    "/api/sugerir-precios-ia",
+    "/api/sugerir_descripcion",
+    "/api/import-roof-report",
+    "/api/process-roof-report",
+    "/api/process-pdf",
+    "/api/import-line-items",
+    "/api/import-past-estimate",
+    "/api/import-planos",
+    "/api/process-architectural-plans",
+)
+
+
+def _nivel_plan(contratista):
+    if not contratista:
+        return 0
+    if _es_admin(contratista.get("email")):
+        return 99
+    return _NIVEL_PLAN.get(_plan_valido(contratista.get("plan_seleccionado")), 0)
+
+
+def _puede_feature(contratista, feature):
+    nivel = _nivel_plan(contratista)
+    if feature == "catalog":
+        return nivel >= 2
+    if feature == "ai_pdf":
+        return nivel >= 3
+    return nivel >= 1
+
+
+def _respuesta_upgrade():
+    return jsonify({
+        "error": "This feature requires an upgrade",
+        "code": "upgrade_required",
+        "siguiente": "planes",
+    }), 403
+
+
+def _feature_api(path):
+    ruta = str(path or "").split("?")[0]
+    if ruta.startswith("/api/get-zip-factor"):
+        return "catalog"
+    base = ruta.rstrip("/") or ruta
+    if base in _API_CATALOGO or ruta.startswith("/api/search-catalog") or ruta.startswith("/api/buscar-catalogo"):
+        return "catalog"
+    for pref in _API_IA_PDF:
+        if ruta == pref or ruta.startswith(pref + "/"):
+            return "ai_pdf"
+    return None
+
+
+@app.before_request
+def _bloquear_api_por_plan():
+    if request.method == "OPTIONS":
+        return None
+    path = request.path or ""
+    if not path.startswith("/api/"):
+        return None
+    feature = _feature_api(path)
+    if not feature:
+        return None
+    contratista, error = _exigir_contratista()
+    if error:
+        return error
+    if _prueba_expirada(contratista):
+        return _respuesta_prueba_expirada()
+    if not _puede_feature(contratista, feature):
+        return _respuesta_upgrade()
+    return None
 
 
 def _crear_usuario_auth(email, password, nombre, plan=""):
