@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  {% if vista in ('login', 'pago') %}
+  {% if vista in ('login', 'pago', 'paywall') %}
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   {% else %}
   <meta name="viewport" content="width=1200, user-scalable=yes, minimum-scale=0.25, maximum-scale=5">
@@ -40,11 +40,16 @@
     body.eligiendo-plan { background:radial-gradient(1200px 480px at 50% -80px,#ffffff 0%,#e8eef6 55%,#dfe7f1 100%); }
     body.eligiendo-plan .app-navbar { background:transparent; border-bottom:0; box-shadow:none; }
     body.eligiendo-plan .nav-btn[data-view] { display:none; }
-    body.pagando { background:radial-gradient(1200px 480px at 50% -80px,#ffffff 0%,#e8eef6 55%,#dfe7f1 100%); min-width:0; }
-    body.pagando .app-navbar { background:transparent; border-bottom:0; box-shadow:none; }
-    body.pagando .nav-btn[data-view] { display:none; }
-    #view-pago { max-width:640px; width:100%; margin:0 auto; padding:40px 24px 72px; }
-    #view-pago.active { display:block; }
+    body.pagando,
+    body.paywall { background:radial-gradient(1200px 480px at 50% -80px,#ffffff 0%,#e8eef6 55%,#dfe7f1 100%); min-width:0; }
+    body.pagando .app-navbar,
+    body.paywall .app-navbar { background:transparent; border-bottom:0; box-shadow:none; }
+    body.pagando .nav-btn[data-view],
+    body.paywall .nav-btn[data-view] { display:none; }
+    #view-pago,
+    #view-paywall { max-width:640px; width:100%; margin:0 auto; padding:40px 24px 72px; }
+    #view-pago.active,
+    #view-paywall.active { display:block; }
     .onboarding-stepper { display:flex; align-items:center; justify-content:center; gap:0; width:100%; max-width:720px; margin:0 auto 36px; padding:0 8px; }
     .onboarding-step { display:flex; align-items:center; gap:10px; color:#94a3b8; font-size:.82rem; font-weight:700; letter-spacing:.01em; white-space:nowrap; }
     .onboarding-step-index { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:999px; border:1.5px solid #cbd5e1; background:#fff; color:#64748b; font-size:.78rem; font-weight:800; }
@@ -60,6 +65,7 @@
     .pago-plan { margin:0 0 16px; color:#334155; font-size:1rem; }
     .pago-plan strong { color:#0f172a; }
     .pago-aviso { margin:0 0 20px; padding:14px 16px; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:12px; color:#065f46; font-size:.98rem; font-weight:700; line-height:1.45; }
+    .pago-aviso-alerta { background:#fff7ed; border-color:#fdba74; color:#9a3412; }
     .pago-form { display:flex; flex-direction:column; gap:14px; margin-top:4px; }
     .pago-form label { margin:0; color:#334155; font-size:.88rem; font-weight:700; }
     .pago-form input { width:100%; min-height:48px; padding:12px 14px; border:1px solid #cbd5e1; border-radius:12px; background:#fff; font-size:16px; letter-spacing:.04em; }
@@ -68,7 +74,8 @@
     .pago-submit { width:100%; min-height:52px; margin-top:6px; border:0; border-radius:12px; padding:14px 18px; background:#0f172a; color:#fff; font-size:16px; font-weight:800; }
     .pago-submit:hover { background:#1e293b; color:#fff; }
     .pago-submit:disabled { background:#94a3b8; color:#fff; cursor:wait; }
-    #view-pago .auth-status { text-align:center; margin:16px 0 0; }
+    #view-pago .auth-status,
+    #view-paywall .auth-status { text-align:center; margin:16px 0 0; }
     #view-login { max-width:none; margin:0; padding:0; width:100%; }
     #view-login.active { display:flex; flex-direction:column; min-height:100dvh; min-height:100vh; }
     .auth-hero { display:none; }
@@ -956,7 +963,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
-<body class="{{ 'auth-solo' if vista == 'login' else ('pagando' if vista == 'pago' else ('eligiendo-plan' if vista == 'planes' else 'con-sesion')) }}" data-nombre-empresa="{{ nombre_empresa }}">
+<body class="{{ 'auth-solo' if vista == 'login' else ('pagando' if vista == 'pago' else ('paywall' if vista == 'paywall' else ('eligiendo-plan' if vista == 'planes' else 'con-sesion'))) }}" data-nombre-empresa="{{ nombre_empresa }}">
   <nav class="app-navbar no-print" aria-label="Main navigation">
     <div class="brand-title" data-brand-name>{{ nombre_empresa_visible }}</div>
     <div class="nav-links">
@@ -1141,6 +1148,29 @@
         <button class="btn btn-primary pago-submit" type="submit" id="pagoSubmit">Iniciar prueba de 14 días</button>
       </form>
       <p class="auth-status" id="pagoStatus" hidden></p>
+    </div>
+  </section>
+  <section id="view-paywall" class="view-section{{ ' active' if vista == 'paywall' else '' }} no-print">
+    <div class="pago-card">
+      <p class="pago-kicker">Suscripción expirada</p>
+      <h2>Activar cuenta</h2>
+      <p class="pago-aviso pago-aviso-alerta" id="paywallMensaje">Tu prueba de 14 días ha terminado. Para seguir usando QuantixBuilds y no perder el acceso a tus cotizaciones, ingresa tu tarjeta para activar tu plan.</p>
+      <form class="pago-form" id="paywallTarjetaForm" autocomplete="off">
+        <label for="paywallNumero">Número de Tarjeta</label>
+        <input id="paywallNumero" name="numero" inputmode="numeric" autocomplete="cc-number" placeholder="ACCT-000015" required>
+        <div class="pago-form-row">
+          <div>
+            <label for="paywallVencimiento">Fecha (MM/AA)</label>
+            <input id="paywallVencimiento" name="vencimiento" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/AA" maxlength="5" required>
+          </div>
+          <div>
+            <label for="paywallCvc">CVC</label>
+            <input id="paywallCvc" name="cvc" inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="4" required>
+          </div>
+        </div>
+        <button class="btn btn-primary pago-submit" type="submit" id="paywallSubmit">Activar mi cuenta</button>
+      </form>
+      <p class="auth-status" id="paywallStatus" hidden></p>
     </div>
   </section>
   <section id="view-home" class="view-section{{ ' active' if vista == 'home' else '' }} no-print">
@@ -5616,7 +5646,7 @@
       const legacy=document.getElementById('authLegacy');
       if(legacy) legacy.hidden=modo!=='login';
       document.body.classList.add('auth-solo');
-      document.body.classList.remove('con-sesion','pagando','eligiendo-plan');
+      document.body.classList.remove('con-sesion','pagando','paywall','eligiendo-plan');
       aplicarViewportApp(true);
       document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active', section.id==='view-login'));
     }
@@ -5688,10 +5718,10 @@
       try{ history.replaceState({view:'login'},'', '/restablecer'); }catch(_){}
     }
     capturarRecuperacion();
-    aplicarViewportApp(document.body.classList.contains('auth-solo')||document.body.classList.contains('pagando'));
+    aplicarViewportApp(document.body.classList.contains('auth-solo')||document.body.classList.contains('pagando')||document.body.classList.contains('paywall'));
     function mostrarVistaLogin(){
       document.body.classList.add('auth-solo');
-      document.body.classList.remove('con-sesion','eligiendo-plan','pagando');
+      document.body.classList.remove('con-sesion','eligiendo-plan','pagando','paywall');
       aplicarViewportApp(true);
       const salir=document.getElementById('cerrarSesionNav');
       if(salir) salir.hidden=true;
@@ -5711,10 +5741,33 @@
       const email=String((sesion||sesionActual||{}).email||'').trim().toLowerCase();
       return !!CORREOS_ADMIN[email];
     }
+    function fechaFinPruebaDe(sesion){
+      const raw=String((sesion||{}).fecha_fin_prueba||'');
+      if(!raw) return null;
+      const fin=new Date(raw);
+      return isNaN(fin.getTime())?null:fin;
+    }
+    function pruebaExpirada(sesion){
+      const actual=sesion||sesionActual||{};
+      if(!actual||!actual.id) return false;
+      if(esAdmin(actual)) return false;
+      if(actual.trial_expirada===true) return true;
+      const fin=fechaFinPruebaDe(actual);
+      return !!(fin&&Date.now()>fin.getTime());
+    }
+    function necesitaPaywall(sesion){
+      return pruebaExpirada(sesion);
+    }
+    function nombrePlanDe(sesion){
+      const actual=sesion||sesionActual||{};
+      if(actual.nombre_plan) return String(actual.nombre_plan);
+      const info=PLANES_PAGO[planSeleccionadoDe(actual)];
+      return info?info.nombre:'tu plan';
+    }
     function necesitaMetodoPago(sesion){
       const actual=sesion||sesionActual;
       if(!actual||!actual.id) return false;
-      if(esAdmin(actual)) return false;
+      if(esAdmin(actual)||necesitaPaywall(actual)) return false;
       if(String(actual.pago_cliente_id||'').trim()) return false;
       return ['basico','profesional','premium'].includes(planSeleccionadoDe(actual));
     }
@@ -5731,8 +5784,9 @@
       el.innerHTML='Vas a empezar con <strong>'+info.nombre+'</strong> · $'+info.precio+'/mes después de la prueba.';
     }
     function mostrarVistaPago(){
+      if(necesitaPaywall()){ mostrarVistaPaywall(); return; }
       document.body.classList.add('pagando');
-      document.body.classList.remove('auth-solo','con-sesion','eligiendo-plan');
+      document.body.classList.remove('auth-solo','con-sesion','eligiendo-plan','paywall');
       aplicarViewportApp(true);
       const salir=document.getElementById('cerrarSesionNav');
       if(salir) salir.hidden=false;
@@ -5775,9 +5829,11 @@
         if(!res.ok) throw new Error(json.error||t.planFail||'No se pudo guardar el método de pago.');
         if(sesionActual){
           sesionActual.requiere_pago=false;
+          sesionActual.trial_expirada=false;
           sesionActual.pago_cliente_id=json.pago_cliente_id||sesionActual.pago_cliente_id||'simulado';
           if(json.fecha_fin_prueba) sesionActual.fecha_fin_prueba=json.fecha_fin_prueba;
           if(json.plan_seleccionado) sesionActual.plan_seleccionado=json.plan_seleccionado;
+          if(json.nombre_plan) sesionActual.nombre_plan=json.nombre_plan;
         }
         try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
         showAppView('home');
@@ -5787,8 +5843,9 @@
       }
     }
     function mostrarVistaPlanes(){
+      if(necesitaPaywall()){ mostrarVistaPaywall(); return; }
       document.body.classList.add('eligiendo-plan');
-      document.body.classList.remove('auth-solo','con-sesion','pagando');
+      document.body.classList.remove('auth-solo','con-sesion','pagando','paywall');
       aplicarViewportApp(false);
       const salir=document.getElementById('cerrarSesionNav');
       if(salir) salir.hidden=false;
@@ -5798,32 +5855,89 @@
       const pendiente=planOnboardingElegido||planSeleccionadoDe();
       if(pendiente) marcarPlanOnboarding(pendiente);
     }
-    function fechaFinPruebaDe(sesion){
-      const raw=String((sesion||{}).fecha_fin_prueba||'');
-      if(!raw) return null;
-      const fin=new Date(raw);
-      return isNaN(fin.getTime())?null:fin;
+    function mensajePaywall(sesion){
+      return 'Tu prueba de 14 días ha terminado. Para seguir usando QuantixBuilds y no perder el acceso a tus cotizaciones, ingresa tu tarjeta para activar tu plan '+nombrePlanDe(sesion)+'.';
     }
-    function pruebaExpirada(sesion){
-      const actual=sesion||sesionActual||{};
-      if(actual.trial_expirada===true) return true;
-      const fin=fechaFinPruebaDe(actual);
-      return !!(fin&&Date.now()>fin.getTime());
+    function mostrarVistaPaywall(){
+      document.body.classList.add('paywall');
+      document.body.classList.remove('auth-solo','con-sesion','eligiendo-plan','pagando','prueba-expirada');
+      aplicarViewportApp(true);
+      const salir=document.getElementById('cerrarSesionNav');
+      if(salir) salir.hidden=false;
+      document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active',section.id==='view-paywall'));
+      document.querySelectorAll('.nav-btn[data-view]').forEach(btn=>btn.classList.remove('active'));
+      const msg=document.getElementById('paywallMensaje');
+      if(msg) msg.textContent=mensajePaywall();
+      const path=(location.pathname||'').replace(/\/+$/,'')||'/';
+      if(path!=='/suscripcion'&&path!=='/activar'){
+        try{ history.replaceState({view:'paywall'},'', '/suscripcion'); }catch(_){}
+      }
+      const submit=document.getElementById('paywallSubmit');
+      if(submit){ submit.disabled=false; submit.textContent='Activar mi cuenta'; }
+    }
+    async function enviarPaywallSimulado(ev){
+      if(ev) ev.preventDefault();
+      const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+      const numero=String(document.getElementById('paywallNumero')?.value||'').replace(/\D/g,'');
+      const vencimiento=String(document.getElementById('paywallVencimiento')?.value||'').replace(/\D/g,'');
+      const cvc=String(document.getElementById('paywallCvc')?.value||'').replace(/\D/g,'');
+      const submit=document.getElementById('paywallSubmit');
+      if(!numero||!vencimiento||!cvc){
+        marcarEstadoAuth('paywallStatus', 'Completa el número de tarjeta, la fecha y el CVC.', true);
+        return;
+      }
+      if(!sesionActual){
+        mostrarVistaLogin();
+        return;
+      }
+      try{
+        if(submit){ submit.disabled=true; submit.textContent='Cargando...'; }
+        marcarEstadoAuth('paywallStatus', 'Procesando tu método de pago…', false);
+        await new Promise(ok=>setTimeout(ok,1000));
+        const res=await fetch('/api/pagos/simular',{
+          method:'POST',
+          credentials:'same-origin',
+          headers:headersContratista({'Content-Type':'application/json'}),
+          body:JSON.stringify({numero,vencimiento,cvc,activar:true})
+        });
+        const json=await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(json.error||t.planFail||'No se pudo activar la cuenta.');
+        if(sesionActual){
+          sesionActual.requiere_pago=false;
+          sesionActual.trial_expirada=false;
+          sesionActual.pago_cliente_id=json.pago_cliente_id||sesionActual.pago_cliente_id||'simulado';
+          if(json.fecha_fin_prueba) sesionActual.fecha_fin_prueba=json.fecha_fin_prueba;
+          if(json.plan_seleccionado) sesionActual.plan_seleccionado=json.plan_seleccionado;
+          if(json.nombre_plan) sesionActual.nombre_plan=json.nombre_plan;
+        }
+        try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
+        showAppView('home');
+      }catch(err){
+        marcarEstadoAuth('paywallStatus', err.message||'No se pudo activar la cuenta.', true);
+        if(submit){ submit.disabled=false; submit.textContent='Activar mi cuenta'; }
+      }
     }
     function aplicarBloqueoPrueba(){
-      const expirada=pruebaExpirada(sesionActual);
-      document.body.classList.toggle('prueba-expirada', expirada);
+      if(necesitaPaywall()){
+        mostrarVistaPaywall();
+        return true;
+      }
+      document.body.classList.remove('prueba-expirada');
       const panel=document.getElementById('trialExpiredPanel');
-      if(panel) panel.hidden=!expirada;
+      if(panel) panel.hidden=true;
       const quoteBtn=document.querySelector('.nav-btn[data-view="quote"]');
-      if(quoteBtn) quoteBtn.hidden=expirada;
+      if(quoteBtn) quoteBtn.hidden=false;
       const newBtn=document.getElementById('historyNewButton');
-      if(newBtn) newBtn.hidden=expirada;
-      return expirada;
+      if(newBtn) newBtn.hidden=false;
+      return false;
     }
     function showAppView(view, options={}){
-      if(view==='login'||((view==='home'||view==='quote'||view==='history'||view==='planes'||view==='pago')&&!sesionActual)){
+      if(view==='login'||((view==='home'||view==='quote'||view==='history'||view==='planes'||view==='pago'||view==='paywall')&&!sesionActual)){
         mostrarVistaLogin();
+        return;
+      }
+      if(view==='paywall'||(view!=='login'&&necesitaPaywall())){
+        mostrarVistaPaywall();
         return;
       }
       if(view==='planes'||(view!=='login'&&view!=='pago'&&necesitaElegirPlan())){
@@ -5834,12 +5948,7 @@
         mostrarVistaPago();
         return;
       }
-      if(view==='quote'&&aplicarBloqueoPrueba()){
-        view='home';
-        options={};
-        try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
-      }
-      document.body.classList.remove('auth-solo','eligiendo-plan','pagando');
+      document.body.classList.remove('auth-solo','eligiendo-plan','pagando','paywall','prueba-expirada');
       document.body.classList.add('con-sesion');
       aplicarViewportApp(false);
       const salir=document.getElementById('cerrarSesionNav');
@@ -5861,9 +5970,9 @@
     }
     function crearDocumento(tipo){
       if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
+      if(necesitaPaywall()){ mostrarVistaPaywall(); return; }
       if(necesitaElegirPlan()){ mostrarVistaPlanes(); return; }
       if(necesitaMetodoPago()){ mostrarVistaPago(); return; }
-      if(aplicarBloqueoPrueba()){ showAppView('home'); return; }
       const t=String(tipo||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
       const modo={estimado:'estimate',estimate:'estimate',contrato:'contract',contract:'contract',factura:'invoice',invoice:'invoice'}[t]||'estimate';
       documentoHistorialId=null;
@@ -5874,6 +5983,7 @@
     function cambiarVista(vista){
       const view={inicio:'home',home:'home',cotizador:'quote',quote:'quote',historial:'history',history:'history'}[String(vista||'').toLowerCase()]||'home';
       if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
+      if(necesitaPaywall()){ mostrarVistaPaywall(); return; }
       if(necesitaElegirPlan()){ mostrarVistaPlanes(); return; }
       if(necesitaMetodoPago()){ mostrarVistaPago(); return; }
       showAppView(view);
@@ -5917,6 +6027,12 @@
         }
         return;
       }
+      if(necesitaPaywall()||path==='/suscripcion'||path==='/activar'){
+        if(necesitaPaywall()){
+          mostrarVistaPaywall();
+          return;
+        }
+      }
       if(necesitaElegirPlan()){
         mostrarVistaPlanes();
         return;
@@ -5925,13 +6041,7 @@
         mostrarVistaPago();
         return;
       }
-      if(rutaEsLogin(path)||path==='/planes'||path==='/pago'){
-        try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
-        showAppView('home');
-        aplicarBloqueoPrueba();
-        return;
-      }
-      if(aplicarBloqueoPrueba()&&(nuevo||docId||modos[clave]||clave==='/cotizador'||clave==='/quote'||clave==='cotizador'||clave==='quote')){
+      if(rutaEsLogin(path)||path==='/planes'||path==='/pago'||path==='/suscripcion'||path==='/activar'){
         try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
         showAppView('home');
         return;
@@ -7824,6 +7934,7 @@
     document.querySelectorAll('.nav-btn').forEach(el=>el.addEventListener('click',()=>{
       if(!el.dataset.view) return;
       if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
+      if(necesitaPaywall()){ mostrarVistaPaywall(); return; }
       if(necesitaElegirPlan()){ mostrarVistaPlanes(); return; }
       if(necesitaMetodoPago()){ mostrarVistaPago(); return; }
       const view=el.dataset.view;
@@ -8184,18 +8295,23 @@
       });
     });
     document.getElementById('continuarPagoBtn')?.addEventListener('click',guardarPlanYContinuar);
+    function engancharMascaraTarjeta(prefijo){
+      document.getElementById(prefijo+'Vencimiento')?.addEventListener('input',ev=>{
+        const solo=String(ev.target.value||'').replace(/\D/g,'').slice(0,4);
+        ev.target.value=solo.length>2?solo.slice(0,2)+'/'+solo.slice(2):solo;
+      });
+      document.getElementById(prefijo+'Numero')?.addEventListener('input',ev=>{
+        const solo=String(ev.target.value||'').replace(/\D/g,'').slice(0,19);
+        ev.target.value=solo.replace(/(\d{4})(?=\d)/g,'$1 ').trim();
+      });
+      document.getElementById(prefijo+'Cvc')?.addEventListener('input',ev=>{
+        ev.target.value=String(ev.target.value||'').replace(/\D/g,'').slice(0,4);
+      });
+    }
     document.getElementById('pagoTarjetaForm')?.addEventListener('submit',enviarPagoSimulado);
-    document.getElementById('pagoVencimiento')?.addEventListener('input',ev=>{
-      const solo=String(ev.target.value||'').replace(/\D/g,'').slice(0,4);
-      ev.target.value=solo.length>2?solo.slice(0,2)+'/'+solo.slice(2):solo;
-    });
-    document.getElementById('pagoNumero')?.addEventListener('input',ev=>{
-      const solo=String(ev.target.value||'').replace(/\D/g,'').slice(0,19);
-      ev.target.value=solo.replace(/(\d{4})(?=\d)/g,'$1 ').trim();
-    });
-    document.getElementById('pagoCvc')?.addEventListener('input',ev=>{
-      ev.target.value=String(ev.target.value||'').replace(/\D/g,'').slice(0,4);
-    });
+    document.getElementById('paywallTarjetaForm')?.addEventListener('submit',enviarPaywallSimulado);
+    engancharMascaraTarjeta('pago');
+    engancharMascaraTarjeta('paywall');
     document.getElementById('authCambiarCuenta')?.addEventListener('click',()=>{
       const registro=document.getElementById('registroContratistaForm');
       mostrarPanelAuth(registro&&!registro.hidden?'login':'registro');

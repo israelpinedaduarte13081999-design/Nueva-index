@@ -200,6 +200,7 @@ def _motor_uszipcode():
 _RUTAS_LOGIN = {"/", "/login", "/iniciar-sesion", "/restablecer"}
 _RUTAS_PLANES = {"/planes"}
 _RUTAS_PAGO = {"/pago", "/pago/exito"}
+_RUTAS_PAYWALL = {"/suscripcion", "/activar"}
 _RUTAS_PANEL = {
     "/estimado", "/estimate", "/contrato", "/contract",
     "/factura", "/invoice", "/cotizador", "/quote",
@@ -212,18 +213,42 @@ def _exigir_login_panel():
     if request.method not in ("GET", "HEAD"):
         return None
     path = request.path.rstrip("/") or "/"
-    if path in _RUTAS_PLANES or path in _RUTAS_PAGO:
-        if _token_contratista_solicitud():
-            return None
-        return redirect("/login")
-    if path not in _RUTAS_PANEL:
+    protegidas = _RUTAS_PLANES | _RUTAS_PAGO | _RUTAS_PAYWALL | _RUTAS_PANEL
+    if path not in protegidas:
         return None
     if not _token_contratista_solicitud():
         return redirect("/login")
     try:
         contratista, error = _exigir_contratista()
-        if contratista and not error and _necesita_paso_pago(contratista):
-            return redirect("/pago")
+        if contratista and not error:
+            if _prueba_expirada(contratista):
+                if path not in _RUTAS_PAYWALL:
+                    return redirect("/suscripcion")
+                return None
+            if path in _RUTAS_PAYWALL:
+                return redirect("/estimado")
+            if path in _RUTAS_PANEL and _necesita_paso_pago(contratista):
+                return redirect("/pago")
+    except Exception:
+        pass
+    return None
+
+
+@app.before_request
+def _bloquear_api_si_expirada():
+    if request.method == "OPTIONS":
+        return None
+    path = request.path or ""
+    if not path.startswith("/api/"):
+        return None
+    if path.startswith("/api/contratistas") or path.startswith("/api/pagos"):
+        return None
+    if not _token_contratista_solicitud():
+        return None
+    try:
+        contratista, error = _exigir_contratista()
+        if contratista and not error and _prueba_expirada(contratista):
+            return _respuesta_prueba_expirada()
     except Exception:
         pass
     return None
@@ -233,6 +258,8 @@ def _vista_inicial():
     path = request.path.rstrip("/") or "/"
     if path in _RUTAS_LOGIN or not _token_contratista_solicitud():
         return "login"
+    if path in _RUTAS_PAYWALL:
+        return "paywall"
     if path in _RUTAS_PLANES:
         return "planes"
     if path in _RUTAS_PAGO:
@@ -259,6 +286,8 @@ def privacidad():
 @app.route("/planes")
 @app.route("/pago")
 @app.route("/pago/exito")
+@app.route("/suscripcion")
+@app.route("/activar")
 @app.route("/estimado")
 @app.route("/estimate")
 @app.route("/contrato")
@@ -3156,9 +3185,33 @@ def _es_admin(email):
 def _necesita_paso_pago(contratista):
     if not contratista or _es_admin(contratista.get("email")):
         return False
+    if _prueba_expirada(contratista):
+        return False
     if str(contratista.get("pago_cliente_id") or "").strip():
         return False
     return bool(_plan_valido(contratista.get("plan_seleccionado")))
+
+
+def _prueba_expirada(contratista):
+    if not contratista or _es_admin(contratista.get("email")):
+        return False
+    if contratista.get("trial_expirada") is True:
+        return True
+    fin = _parse_ts(contratista.get("fecha_fin_prueba"))
+    return bool(fin and datetime.now(timezone.utc) > fin)
+
+
+def _respuesta_prueba_expirada():
+    return jsonify({
+        "error": "Tu prueba de 14 días ha terminado. Activa tu cuenta para seguir usando QuantixBuilds.",
+        "code": "trial_expired",
+        "siguiente": "suscripcion",
+    }), 402
+
+
+def _nombre_plan(plan):
+    info = _PLANES_PRECIOS.get(_plan_valido(plan)) or {}
+    return str(info.get("nombre") or "tu plan")
 
 
 def _crear_usuario_auth(email, password, nombre, plan=""):
@@ -3211,11 +3264,12 @@ def _sesion_desde_fila(row):
         "nombre_empresa": row.get("nombre_empresa") or "",
         "token": row.get("token"),
         "user_id": row.get("user_id") or "",
-        "fecha_fin_prueba": prueba.get("fecha_fin_prueba") or "",
-        "trial_expirada": bool(prueba.get("trial_expirada")),
+        "fecha_fin_prueba": "" if _es_admin(row.get("email")) else (prueba.get("fecha_fin_prueba") or ""),
+        "trial_expirada": False if _es_admin(row.get("email")) else bool(prueba.get("trial_expirada")),
         "plan_seleccionado": prueba.get("plan_seleccionado") or "",
         "pago_cliente_id": prueba.get("pago_cliente_id") or "",
         "requiere_pago": False if _es_admin(row.get("email")) else bool(prueba.get("requiere_pago")),
+        "nombre_plan": _nombre_plan(prueba.get("plan_seleccionado")),
     }
 
 
@@ -3316,6 +3370,10 @@ def _datos_prueba(sb, contratista):
         return datos
     datos["fecha_fin_prueba"] = fin.isoformat()
     datos["trial_expirada"] = datetime.now(timezone.utc) > fin
+    if _es_admin(email):
+        datos["fecha_fin_prueba"] = ""
+        datos["trial_expirada"] = False
+        datos["requiere_pago"] = False
     return datos
 
 
@@ -3462,14 +3520,14 @@ def _url_publica_app():
         return "https://" + DOMINIO_APP
 
 
-def _guardar_pago_cliente(sb, uid, email, customer_id, plan=""):
+def _guardar_pago_cliente(sb, uid, email, customer_id, plan="", activar=False):
     uid = str(uid or "").strip()
     customer_id = str(customer_id or "").strip()
     if not sb or not uid or not customer_id:
         return False
     ahora_dt = datetime.now(timezone.utc)
     ahora = ahora_dt.isoformat()
-    fecha_fin = _fecha_fin_prueba_desde(ahora_dt).isoformat()
+    fecha_fin = (ahora_dt + timedelta(days=3650)).isoformat() if activar else _fecha_fin_prueba_desde(ahora_dt).isoformat()
     plan_guardar = _plan_valido(plan)
     try:
         existente = sb.table("perfiles").select(
@@ -3477,10 +3535,11 @@ def _guardar_pago_cliente(sb, uid, email, customer_id, plan=""):
         ).eq("id", uid).limit(1).execute()
         filas = list(existente.data or [])
         if filas:
-            if filas[0].get("fecha_fin_prueba"):
-                fecha_fin = filas[0]["fecha_fin_prueba"]
-            elif filas[0].get("trial_inicio"):
-                fecha_fin = _fecha_fin_prueba_desde(filas[0]["trial_inicio"]).isoformat()
+            if not activar:
+                if filas[0].get("fecha_fin_prueba"):
+                    fecha_fin = filas[0]["fecha_fin_prueba"]
+                elif filas[0].get("trial_inicio"):
+                    fecha_fin = _fecha_fin_prueba_desde(filas[0]["trial_inicio"]).isoformat()
             if not plan_guardar:
                 plan_guardar = _plan_valido(filas[0].get("plan_seleccionado"))
     except Exception:
@@ -4402,6 +4461,7 @@ def api_pagos_simular():
     cvc = re.sub(r"\D", "", str(body.get("cvc") or ""))
     if not numero or not vencimiento or not cvc:
         return jsonify({"error": "Completa el número de tarjeta, la fecha y el CVC.", "code": "tarjeta"}), 400
+    activar = bool(body.get("activar") or body.get("paywall") or _prueba_expirada(contratista))
     uid = str(contratista.get("user_id") or "").strip()
     email = str(contratista.get("email") or "").strip().lower()
     plan = _plan_valido(contratista.get("plan_seleccionado"))
@@ -4410,16 +4470,22 @@ def api_pagos_simular():
     if not uid:
         return jsonify({"error": "No se pudo identificar tu cuenta.", "code": "sin_cuenta"}), 404
     customer_id = "sim_" + uid.replace("-", "")[:12] + "_" + (numero[-4:] if len(numero) >= 4 else numero)
-    if not _guardar_pago_cliente(_supabase_client(), uid, email, customer_id, plan):
+    if not _guardar_pago_cliente(_supabase_client(), uid, email, customer_id, plan, activar=activar):
         print("--> pago simulado: no se pudo persistir en perfiles")
     sb = _supabase_client()
     if sb is not None:
         contratista.update(_datos_prueba(sb, contratista))
     contratista["pago_cliente_id"] = customer_id
     contratista["requiere_pago"] = False
+    if activar:
+        contratista["trial_expirada"] = False
+        if not contratista.get("fecha_fin_prueba"):
+            contratista["fecha_fin_prueba"] = (datetime.now(timezone.utc) + timedelta(days=3650)).isoformat()
     payload = _sesion_desde_fila(contratista)
     payload["pago_cliente_id"] = customer_id
     payload["requiere_pago"] = False
+    payload["trial_expirada"] = False if activar else bool(payload.get("trial_expirada"))
+    payload["nombre_plan"] = _nombre_plan(plan)
     payload["siguiente"] = "estimado"
     resp = jsonify(payload)
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
@@ -5052,11 +5118,12 @@ def api_contratista_actual():
         "email": contratista.get("email"),
         "nombre_empresa": contratista.get("nombre_empresa"),
         "user_id": contratista.get("user_id") or "",
-        "fecha_fin_prueba": contratista.get("fecha_fin_prueba") or "",
-        "trial_expirada": bool(contratista.get("trial_expirada")),
+        "fecha_fin_prueba": "" if _es_admin(contratista.get("email")) else (contratista.get("fecha_fin_prueba") or ""),
+        "trial_expirada": False if _es_admin(contratista.get("email")) else bool(contratista.get("trial_expirada")),
         "plan_seleccionado": contratista.get("plan_seleccionado") or "",
         "pago_cliente_id": contratista.get("pago_cliente_id") or "",
         "requiere_pago": False if _es_admin(contratista.get("email")) else bool(contratista.get("requiere_pago")),
+        "nombre_plan": _nombre_plan(contratista.get("plan_seleccionado")),
     })
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
 
