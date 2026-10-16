@@ -74,6 +74,7 @@
     .pago-plan { margin:0 0 16px; color:#334155; font-size:1rem; }
     .pago-plan strong { color:#0f172a; }
     .pago-aviso { margin:0 0 20px; padding:14px 16px; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:12px; color:#065f46; font-size:.98rem; font-weight:700; line-height:1.45; }
+    .pago-hint { margin:-8px 0 18px; color:#475569; font-size:.88rem; line-height:1.45; }
     .pago-aviso-alerta { background:#fff7ed; border-color:#fdba74; color:#9a3412; }
     .pago-form { display:flex; flex-direction:column; gap:14px; margin-top:4px; }
     .pago-form label { margin:0; color:#334155; font-size:.88rem; font-weight:700; }
@@ -1221,17 +1222,18 @@
       <h2>Add your card</h2>
       <p class="pago-plan" id="pagoPlanResumen">Choose a plan to continue.</p>
       <p class="pago-aviso">Your first 14 days are free. You will not be charged today. Cancel anytime.</p>
+      <p class="pago-hint">This is a simulated card check. Use <strong>4242 4242 4242 4242</strong>, any future date, and any 3-digit CVC.</p>
       <form class="pago-form" id="pagoTarjetaForm" autocomplete="off">
         <label for="pagoNumero">Card number</label>
-        <input id="pagoNumero" name="numero" inputmode="numeric" autocomplete="cc-number" placeholder="ACCT-000015" required>
+        <input id="pagoNumero" name="numero" inputmode="numeric" autocomplete="off" placeholder="4242 4242 4242 4242" required>
         <div class="pago-form-row">
           <div>
             <label for="pagoVencimiento">Expiration (MM/YY)</label>
-            <input id="pagoVencimiento" name="vencimiento" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" maxlength="5" required>
+            <input id="pagoVencimiento" name="vencimiento" inputmode="numeric" autocomplete="off" placeholder="12/28" maxlength="5" required>
           </div>
           <div>
             <label for="pagoCvc">CVC</label>
-            <input id="pagoCvc" name="cvc" inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="4" required>
+            <input id="pagoCvc" name="cvc" inputmode="numeric" autocomplete="off" placeholder="123" maxlength="4" required>
           </div>
         </div>
         <button class="btn btn-primary pago-submit" type="submit" id="pagoSubmit">Start 14-Day Free Trial</button>
@@ -1244,17 +1246,18 @@
       <p class="pago-kicker">Subscription expired</p>
       <h2>Activate your account</h2>
       <p class="pago-aviso pago-aviso-alerta" id="paywallMensaje">Your 14-day trial has ended. To keep using QuantixBuilds and retain access to your estimates, enter your card to activate your plan.</p>
+      <p class="pago-hint">This is a simulated card check. Use <strong>4242 4242 4242 4242</strong>, any future date, and any 3-digit CVC.</p>
       <form class="pago-form" id="paywallTarjetaForm" autocomplete="off">
         <label for="paywallNumero">Card number</label>
-        <input id="paywallNumero" name="numero" inputmode="numeric" autocomplete="cc-number" placeholder="ACCT-000015" required>
+        <input id="paywallNumero" name="numero" inputmode="numeric" autocomplete="off" placeholder="4242 4242 4242 4242" required>
         <div class="pago-form-row">
           <div>
             <label for="paywallVencimiento">Expiration (MM/YY)</label>
-            <input id="paywallVencimiento" name="vencimiento" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" maxlength="5" required>
+            <input id="paywallVencimiento" name="vencimiento" inputmode="numeric" autocomplete="off" placeholder="12/28" maxlength="5" required>
           </div>
           <div>
             <label for="paywallCvc">CVC</label>
-            <input id="paywallCvc" name="cvc" inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="4" required>
+            <input id="paywallCvc" name="cvc" inputmode="numeric" autocomplete="off" placeholder="123" maxlength="4" required>
           </div>
         </div>
         <button class="btn btn-primary pago-submit" type="submit" id="paywallSubmit">Activate my account</button>
