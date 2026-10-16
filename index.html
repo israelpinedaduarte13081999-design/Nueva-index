@@ -43,8 +43,17 @@
     body.pagando { background:radial-gradient(1200px 480px at 50% -80px,#ffffff 0%,#e8eef6 55%,#dfe7f1 100%); min-width:0; }
     body.pagando .app-navbar { background:transparent; border-bottom:0; box-shadow:none; }
     body.pagando .nav-btn[data-view] { display:none; }
-    #view-pago { max-width:560px; width:100%; margin:0 auto; padding:32px 16px 64px; }
+    #view-pago { max-width:640px; width:100%; margin:0 auto; padding:40px 24px 72px; }
     #view-pago.active { display:block; }
+    .onboarding-stepper { display:flex; align-items:center; justify-content:center; gap:0; width:100%; max-width:720px; margin:0 auto 36px; padding:0 8px; }
+    .onboarding-step { display:flex; align-items:center; gap:10px; color:#94a3b8; font-size:.82rem; font-weight:700; letter-spacing:.01em; white-space:nowrap; }
+    .onboarding-step-index { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:999px; border:1.5px solid #cbd5e1; background:#fff; color:#64748b; font-size:.78rem; font-weight:800; }
+    .onboarding-step.is-done { color:#0f172a; }
+    .onboarding-step.is-done .onboarding-step-index { background:#0f172a; border-color:#0f172a; color:#fff; }
+    .onboarding-step.is-current { color:#0369a1; }
+    .onboarding-step.is-current .onboarding-step-index { background:#0284c7; border-color:#0284c7; color:#fff; }
+    .onboarding-step-line { flex:1; height:1.5px; margin:0 12px; max-width:72px; background:#dbe3ea; }
+    .onboarding-step.is-done + .onboarding-step-line { background:#0f172a; }
     .pago-card { background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:28px 22px 22px; box-shadow:0 8px 24px rgba(15,23,42,.06); }
     .pago-kicker { margin:0 0 8px; color:#1d4ed8; font-size:11px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
     .pago-card h2 { margin:0 0 8px; color:#0f172a; font-size:1.5rem; letter-spacing:-.03em; }
@@ -149,29 +158,39 @@
     .home-pdf-drop strong { display:block; color:#0f172a; font-size:.92rem; }
     .home-pdf-drop small { display:block; color:#64748b; font-size:.8rem; margin-top:2px; }
     body.con-sesion .action-cards-grid { grid-template-columns:minmax(0,1.45fr) minmax(260px,1fr); }
-    #view-planes.active { display:flex; flex-direction:column; justify-content:flex-start; gap:24px; max-width:1100px; margin:0 auto; padding:32px 16px 64px; min-height:calc(100vh - 64px); }
+    #view-planes.active { display:flex; flex-direction:column; justify-content:flex-start; gap:8px; max-width:1120px; margin:0 auto; padding:48px 28px 80px; min-height:calc(100vh - 64px); }
     .pricing-section { width:100%; }
-    .pricing-header { text-align:center; margin:0 auto 28px; max-width:640px; }
+    .pricing-welcome { margin:0 0 10px; color:#0284c7; font-size:.95rem; font-weight:700; }
+    .pricing-header { text-align:center; margin:0 auto 40px; max-width:680px; }
     .pricing-kicker { margin:0 0 8px; color:#1d4ed8; font-size:11px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
-    .pricing-header h2 { margin:0 0 8px; color:#0f172a; font-size:1.7rem; letter-spacing:-.03em; }
-    .pricing-header p { margin:0; color:#64748b; font-size:.95rem; line-height:1.5; }
-    .pricing-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; align-items:stretch; }
-    .pricing-card { display:flex; flex-direction:column; background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:26px 22px 22px; box-shadow:0 4px 12px rgba(0,0,0,.03); min-width:0; }
-    .pricing-card h3 { margin:0 0 6px; color:#0f172a; font-size:1.15rem; }
-    .pricing-price { margin:0 0 6px; color:#0f172a; font-size:2rem; font-weight:800; letter-spacing:-.03em; line-height:1.1; }
+    .pricing-header h2 { margin:0 0 10px; color:#0f172a; font-size:1.85rem; letter-spacing:-.03em; }
+    .pricing-header p { margin:0; color:#64748b; font-size:1rem; line-height:1.55; }
+    .pricing-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:22px; align-items:stretch; }
+    .pricing-card { position:relative; display:flex; flex-direction:column; background:#fff; border:1.5px solid #e2e8f0; border-radius:18px; padding:28px 24px 26px; box-shadow:0 4px 12px rgba(0,0,0,.03); min-width:0; cursor:pointer; text-align:left; transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease,background .18s ease; }
+    .pricing-card:hover { border-color:#7dd3fc; box-shadow:0 10px 24px rgba(2,132,199,.1); transform:translateY(-3px); }
+    .pricing-card:focus { outline:none; }
+    .pricing-card:focus-visible { box-shadow:0 0 0 3px #bae6fd,0 10px 24px rgba(2,132,199,.1); }
+    .pricing-card h3 { margin:0 0 6px; color:#0f172a; font-size:1.15rem; padding-right:32px; }
+    .pricing-price { margin:0 0 8px; color:#0f172a; font-size:2rem; font-weight:800; letter-spacing:-.03em; line-height:1.1; }
     .pricing-price span { color:#64748b; font-size:.95rem; font-weight:600; }
     .pricing-lead { margin:0 0 18px; color:#64748b; font-size:.88rem; line-height:1.45; min-height:2.6em; }
-    .pricing-features { list-style:none; margin:0 0 22px; padding:0; display:flex; flex-direction:column; gap:10px; flex:1; }
+    .pricing-features { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; flex:1; }
     .pricing-features li { position:relative; padding-left:22px; color:#334155; font-size:.9rem; line-height:1.4; }
     .pricing-features li:before { content:"✓"; position:absolute; left:0; top:0; color:#15803d; font-size:.85rem; font-weight:800; }
-    .pricing-card .pricing-cta { width:100%; margin-top:auto; border-radius:10px; padding:12px 14px; }
-    .pricing-card.is-featured { border-color:#0284c7; background:linear-gradient(#fff,#f0f9ff); box-shadow:0 14px 32px rgba(2,132,199,.16); transform:translateY(-6px); }
-    .pricing-card.is-featured .pricing-cta { background:#0284c7; border-color:#0284c7; color:#fff; }
-    .pricing-card.is-featured .pricing-cta:hover { background:#0369a1; border-color:#0369a1; color:#fff; }
+    .plan-check { position:absolute; top:16px; right:16px; width:24px; height:24px; border-radius:999px; border:1.5px solid #dbe3ea; background:#fff; }
+    .plan-check:after { content:"✓"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:12px; font-weight:800; opacity:0; }
+    .pricing-card.is-featured { background:linear-gradient(#fff,#f8fbff); }
+    .pricing-card.is-selected { border-width:2.5px; border-color:#0284c7; background:linear-gradient(#fff,#f0f9ff); box-shadow:0 16px 36px rgba(2,132,199,.18); transform:translateY(-4px); }
+    .pricing-card.is-selected .plan-check { background:#0284c7; border-color:#0284c7; }
+    .pricing-card.is-selected .plan-check:after { opacity:1; }
     .pricing-badge { display:inline-block; margin-bottom:12px; background:#e0f2fe; color:#0369a1; font-size:.72rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:4px 10px; border-radius:999px; }
     .pricing-card:not(.is-featured) .pricing-badge { visibility:hidden; }
+    .pricing-cta-wrap { display:flex; flex-direction:column; align-items:center; gap:12px; margin:36px auto 0; max-width:420px; }
+    .pricing-continue { width:100%; min-height:54px; border:0; border-radius:12px; padding:16px 22px; background:#0f172a; color:#fff; font-size:16px; font-weight:800; }
+    .pricing-continue:hover { background:#1e293b; color:#fff; }
+    .pricing-continue:disabled { background:#cbd5e1; color:#64748b; cursor:not-allowed; box-shadow:none; }
     body.eligiendo-plan .pricing-grid { grid-template-columns:repeat(3,minmax(0,1fr)); max-width:none; }
-    #view-planes .auth-status { text-align:center; margin:18px 0 0; font-weight:700; color:#0f172a; }
+    #view-planes .auth-status { text-align:center; margin:4px 0 0; font-weight:700; color:#0f172a; }
     #view-planes .auth-status.is-error { color:#b91c1c; }
     .history-container { background:#ffffff; padding:28px; border-radius:12px; border:1px solid #e2e8f0; }
     .history-header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
@@ -1029,13 +1048,22 @@
   </section>
   <section id="view-planes" class="view-section{{ ' active' if vista == 'planes' else '' }} no-print">
       <section class="pricing-section" id="pricing-section" aria-labelledby="pricing-heading">
+        <nav class="onboarding-stepper" aria-label="Progreso del alta">
+          <div class="onboarding-step is-done"><span class="onboarding-step-index">✓</span><span>Cuenta creada</span></div>
+          <div class="onboarding-step-line" aria-hidden="true"></div>
+          <div class="onboarding-step is-current" aria-current="step"><span class="onboarding-step-index">2</span><span>Elige tu plan</span></div>
+          <div class="onboarding-step-line" aria-hidden="true"></div>
+          <div class="onboarding-step"><span class="onboarding-step-index">3</span><span>Pago seguro</span></div>
+        </nav>
         <header class="pricing-header">
-          <p class="pricing-kicker">Planes</p>
+          <p class="pricing-welcome">¡Bienvenido a QuantixBuilds! Vamos a configurar tu espacio de trabajo.</p>
+          <p class="pricing-kicker">Paso 2 de 3</p>
           <h2 id="pricing-heading">Elige el plan de tu empresa</h2>
           <p>Empieza con 14 días de prueba gratis. Después agregas tu tarjeta; no se te cobra hoy y puedes cancelar cuando quieras.</p>
         </header>
-        <div class="pricing-grid">
-          <article class="pricing-card">
+        <div class="pricing-grid" role="radiogroup" aria-label="Planes disponibles">
+          <article class="pricing-card" role="radio" tabindex="0" aria-checked="false" data-plan="basico">
+            <span class="plan-check" aria-hidden="true"></span>
             <span class="pricing-badge">Recomendado</span>
             <h3>Plan Básico</h3>
             <p class="pricing-price">$29<span>/mes</span></p>
@@ -1045,9 +1073,9 @@
               <li>Facturas y contratos</li>
               <li>Panel de clientes</li>
             </ul>
-            <button class="btn pricing-cta" type="button" data-start-trial="basico">Continuar con tarjeta</button>
           </article>
-          <article class="pricing-card is-featured">
+          <article class="pricing-card is-featured" role="radio" tabindex="0" aria-checked="false" data-plan="profesional">
+            <span class="plan-check" aria-hidden="true"></span>
             <span class="pricing-badge">Recomendado</span>
             <h3>Plan Profesional</h3>
             <p class="pricing-price">$49<span>/mes</span></p>
@@ -1057,9 +1085,9 @@
               <li>Acceso a la base de datos completa</li>
               <li>Lógica matemática automática</li>
             </ul>
-            <button class="btn btn-primary pricing-cta" type="button" data-start-trial="profesional">Continuar con tarjeta</button>
           </article>
-          <article class="pricing-card">
+          <article class="pricing-card" role="radio" tabindex="0" aria-checked="false" data-plan="premium">
+            <span class="plan-check" aria-hidden="true"></span>
             <span class="pricing-badge">Recomendado</span>
             <h3>Plan Premium</h3>
             <p class="pricing-price">$99<span>/mes</span></p>
@@ -1069,13 +1097,22 @@
               <li>Importación de planos PDF</li>
               <li>Lectura de alcances con Inteligencia Artificial</li>
             </ul>
-            <button class="btn pricing-cta" type="button" data-start-trial="premium">Continuar con tarjeta</button>
           </article>
         </div>
-        <p class="auth-status" id="planStatus" hidden></p>
+        <div class="pricing-cta-wrap">
+          <button class="btn btn-primary pricing-continue" type="button" id="continuarPagoBtn" disabled>Continuar al pago seguro</button>
+          <p class="auth-status" id="planStatus" hidden></p>
+        </div>
       </section>
   </section>
   <section id="view-pago" class="view-section{{ ' active' if vista == 'pago' else '' }} no-print">
+    <nav class="onboarding-stepper" aria-label="Progreso del alta">
+      <div class="onboarding-step is-done"><span class="onboarding-step-index">✓</span><span>Cuenta creada</span></div>
+      <div class="onboarding-step-line" aria-hidden="true"></div>
+      <div class="onboarding-step is-done"><span class="onboarding-step-index">✓</span><span>Elige tu plan</span></div>
+      <div class="onboarding-step-line" aria-hidden="true"></div>
+      <div class="onboarding-step is-current" aria-current="step"><span class="onboarding-step-index">3</span><span>Pago seguro</span></div>
+    </nav>
     <div class="pago-card">
       <p class="pago-kicker">Método de pago</p>
       <h2>Agrega tu tarjeta</h2>
@@ -5526,6 +5563,7 @@
     }
     renderHistorial._seq=0;
     let sesionActual=null;
+    let planOnboardingElegido='';
     let sesionLista=false;
     function rutaEsLogin(path){
       return path==='/'||path==='/login'||path==='/iniciar-sesion'||path==='/restablecer';
@@ -5775,6 +5813,8 @@
       document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active',section.id==='view-planes'));
       document.querySelectorAll('.nav-btn[data-view]').forEach(btn=>btn.classList.remove('active'));
       try{ history.replaceState({view:'planes'},'', '/planes'); }catch(_){}
+      const pendiente=planOnboardingElegido||planSeleccionadoDe();
+      if(pendiente) marcarPlanOnboarding(pendiente);
     }
     function fechaFinPruebaDe(sesion){
       const raw=String((sesion||{}).fecha_fin_prueba||'');
@@ -8098,42 +8138,70 @@
     aplicarTextosAuth();
     document.getElementById('authTabLogin')?.addEventListener('click',()=>mostrarPanelAuth('login'));
     document.getElementById('authTabRegistro')?.addEventListener('click',()=>mostrarPanelAuth('registro'));
-    document.querySelectorAll('[data-start-trial]').forEach(btn=>{
-      btn.addEventListener('click',async ()=>{
-        const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
-        const plan=String(btn.getAttribute('data-start-trial')||'').trim();
-        if(!sesionActual){
-          if(typeof mostrarPanelAuth==='function')mostrarPanelAuth('registro');
+    function marcarPlanOnboarding(plan){
+      const clave=String(plan||'').trim().toLowerCase();
+      if(!['basico','profesional','premium'].includes(clave)) return;
+      planOnboardingElegido=clave;
+      if(sesionActual) sesionActual.plan_pendiente=clave;
+      document.querySelectorAll('.pricing-card[data-plan]').forEach(card=>{
+        const on=card.getAttribute('data-plan')===clave;
+        card.classList.toggle('is-selected', on);
+        card.setAttribute('aria-checked', on?'true':'false');
+      });
+      const cta=document.getElementById('continuarPagoBtn');
+      if(cta) cta.disabled=false;
+      resumenPlanPago(clave);
+    }
+    async function guardarPlanYContinuar(){
+      const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+      const plan=planOnboardingElegido||planSeleccionadoDe();
+      const cta=document.getElementById('continuarPagoBtn');
+      if(!plan){
+        marcarEstadoAuth('planStatus', 'Elige un plan para continuar.', true);
+        return;
+      }
+      if(!sesionActual){
+        if(typeof mostrarPanelAuth==='function')mostrarPanelAuth('registro');
+        return;
+      }
+      try{
+        if(cta) cta.disabled=true;
+        marcarEstadoAuth('planStatus', t.savingPlan||'Saving your plan…', false);
+        const res=await fetch('/api/contratistas/plan',{
+          method:'POST',
+          credentials:'same-origin',
+          headers:headersContratista({'Content-Type':'application/json'}),
+          body:JSON.stringify({plan_seleccionado:plan})
+        });
+        const json=await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(mensajeErrorAuth(json, t.planFail||'Could not save the plan.'));
+        if(sesionActual){
+          sesionActual.plan_seleccionado=json.plan_seleccionado||plan;
+          sesionActual.plan_pendiente=sesionActual.plan_seleccionado;
+          if(typeof json.requiere_pago==='boolean') sesionActual.requiere_pago=json.requiere_pago;
+          if(json.pago_cliente_id) sesionActual.pago_cliente_id=json.pago_cliente_id;
+        }
+        resumenPlanPago(sesionActual&&sesionActual.plan_seleccionado||plan);
+        if(json.siguiente==='pago'||necesitaMetodoPago()){
+          mostrarVistaPago();
           return;
         }
-        try{
-          btn.disabled=true;
-          marcarEstadoAuth('planStatus', t.savingPlan||'Saving your plan…', false);
-          const res=await fetch('/api/contratistas/plan',{
-            method:'POST',
-            credentials:'same-origin',
-            headers:headersContratista({'Content-Type':'application/json'}),
-            body:JSON.stringify({plan_seleccionado:plan})
-          });
-          const json=await res.json().catch(()=>({}));
-          if(!res.ok) throw new Error(mensajeErrorAuth(json, t.planFail||'Could not save the plan.'));
-          if(sesionActual){
-            sesionActual.plan_seleccionado=json.plan_seleccionado||plan;
-            if(typeof json.requiere_pago==='boolean') sesionActual.requiere_pago=json.requiere_pago;
-            if(json.pago_cliente_id) sesionActual.pago_cliente_id=json.pago_cliente_id;
-          }
-          if(json.siguiente==='pago'||necesitaMetodoPago()){
-            mostrarVistaPago();
-            return;
-          }
-          location.replace('/estimado');
-        }catch(err){
-          marcarEstadoAuth('planStatus', err.message||t.planFail||'Could not save the plan.', true);
-        }finally{
-          btn.disabled=false;
+        location.replace('/estimado');
+      }catch(err){
+        marcarEstadoAuth('planStatus', err.message||t.planFail||'Could not save the plan.', true);
+        if(cta) cta.disabled=false;
+      }
+    }
+    document.querySelectorAll('.pricing-card[data-plan]').forEach(card=>{
+      card.addEventListener('click',()=>marcarPlanOnboarding(card.getAttribute('data-plan')));
+      card.addEventListener('keydown',ev=>{
+        if(ev.key==='Enter'||ev.key===' '){
+          ev.preventDefault();
+          marcarPlanOnboarding(card.getAttribute('data-plan'));
         }
       });
     });
+    document.getElementById('continuarPagoBtn')?.addEventListener('click',guardarPlanYContinuar);
     document.getElementById('authCambiarCuenta')?.addEventListener('click',()=>{
       const registro=document.getElementById('registroContratistaForm');
       mostrarPanelAuth(registro&&!registro.hidden?'login':'registro');
