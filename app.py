@@ -218,9 +218,15 @@ def _exigir_login_panel():
         return redirect("/login")
     if path not in _RUTAS_PANEL:
         return None
-    if _token_contratista_solicitud():
-        return None
-    return redirect("/login")
+    if not _token_contratista_solicitud():
+        return redirect("/login")
+    try:
+        contratista, error = _exigir_contratista()
+        if contratista and not error and _necesita_paso_pago(contratista):
+            return redirect("/pago")
+    except Exception:
+        pass
+    return None
 
 
 def _vista_inicial():
@@ -3133,6 +3139,28 @@ def _plan_valido(plan):
     return clave if clave in _PLANES_VALIDOS else ""
 
 
+_CORREOS_ADMIN = {
+    "israelpinedaurte13081999@gmail.com",
+    "israelpinedaduarte13081999@gmail.com",
+}
+
+
+def _es_admin(email):
+    correo = str(email or "").strip().lower()
+    extra = str(os.getenv("ADMIN_EMAIL") or "").strip().lower()
+    if extra:
+        _CORREOS_ADMIN.add(extra)
+    return bool(correo) and correo in _CORREOS_ADMIN
+
+
+def _necesita_paso_pago(contratista):
+    if not contratista or _es_admin(contratista.get("email")):
+        return False
+    if str(contratista.get("pago_cliente_id") or "").strip():
+        return False
+    return bool(_plan_valido(contratista.get("plan_seleccionado")))
+
+
 def _crear_usuario_auth(email, password, nombre, plan=""):
     status, data = _auth_http("POST", "/auth/v1/admin/users", {
         "email": email,
@@ -3187,7 +3215,7 @@ def _sesion_desde_fila(row):
         "trial_expirada": bool(prueba.get("trial_expirada")),
         "plan_seleccionado": prueba.get("plan_seleccionado") or "",
         "pago_cliente_id": prueba.get("pago_cliente_id") or "",
-        "requiere_pago": bool(prueba.get("requiere_pago")),
+        "requiere_pago": False if _es_admin(row.get("email")) else bool(prueba.get("requiere_pago")),
     }
 
 
@@ -4345,7 +4373,54 @@ def api_guardar_plan_contratista():
     if sb is not None:
         contratista.update(_datos_prueba(sb, contratista))
     payload = _sesion_desde_fila(contratista)
-    payload["siguiente"] = "pago" if payload.get("requiere_pago") else "estimado"
+    if _es_admin(payload.get("email") or contratista.get("email")):
+        payload["requiere_pago"] = False
+        payload["siguiente"] = "estimado"
+    elif payload.get("pago_cliente_id"):
+        payload["siguiente"] = "estimado"
+    else:
+        payload["requiere_pago"] = True
+        payload["siguiente"] = "pago"
+    resp = jsonify(payload)
+    return _adjuntar_sesion_contratista(resp, contratista.get("token"))
+
+
+@app.route("/api/pagos/simular", methods=["POST"])
+def api_pagos_simular():
+    contratista, error = _exigir_contratista()
+    if error:
+        return error
+    if _es_admin(contratista.get("email")):
+        payload = _sesion_desde_fila(contratista)
+        payload["requiere_pago"] = False
+        payload["siguiente"] = "estimado"
+        resp = jsonify(payload)
+        return _adjuntar_sesion_contratista(resp, contratista.get("token"))
+    body = request.get_json(silent=True) or {}
+    numero = re.sub(r"\D", "", str(body.get("numero") or body.get("card") or ""))
+    vencimiento = re.sub(r"\D", "", str(body.get("vencimiento") or body.get("fecha") or ""))
+    cvc = re.sub(r"\D", "", str(body.get("cvc") or ""))
+    if not numero or not vencimiento or not cvc:
+        return jsonify({"error": "Completa el número de tarjeta, la fecha y el CVC.", "code": "tarjeta"}), 400
+    uid = str(contratista.get("user_id") or "").strip()
+    email = str(contratista.get("email") or "").strip().lower()
+    plan = _plan_valido(contratista.get("plan_seleccionado"))
+    if not plan:
+        return jsonify({"error": "Elige un plan antes de agregar tu tarjeta.", "code": "plan"}), 400
+    if not uid:
+        return jsonify({"error": "No se pudo identificar tu cuenta.", "code": "sin_cuenta"}), 404
+    customer_id = "sim_" + uid.replace("-", "")[:12] + "_" + (numero[-4:] if len(numero) >= 4 else numero)
+    if not _guardar_pago_cliente(_supabase_client(), uid, email, customer_id, plan):
+        print("--> pago simulado: no se pudo persistir en perfiles")
+    sb = _supabase_client()
+    if sb is not None:
+        contratista.update(_datos_prueba(sb, contratista))
+    contratista["pago_cliente_id"] = customer_id
+    contratista["requiere_pago"] = False
+    payload = _sesion_desde_fila(contratista)
+    payload["pago_cliente_id"] = customer_id
+    payload["requiere_pago"] = False
+    payload["siguiente"] = "estimado"
     resp = jsonify(payload)
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
 
@@ -4981,7 +5056,7 @@ def api_contratista_actual():
         "trial_expirada": bool(contratista.get("trial_expirada")),
         "plan_seleccionado": contratista.get("plan_seleccionado") or "",
         "pago_cliente_id": contratista.get("pago_cliente_id") or "",
-        "requiere_pago": bool(contratista.get("requiere_pago")),
+        "requiere_pago": False if _es_admin(contratista.get("email")) else bool(contratista.get("requiere_pago")),
     })
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
 

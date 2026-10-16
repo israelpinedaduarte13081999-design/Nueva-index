@@ -60,7 +60,14 @@
     .pago-plan { margin:0 0 16px; color:#334155; font-size:1rem; }
     .pago-plan strong { color:#0f172a; }
     .pago-aviso { margin:0 0 20px; padding:14px 16px; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:12px; color:#065f46; font-size:.98rem; font-weight:700; line-height:1.45; }
-    #stripe-checkout { min-height:120px; }
+    .pago-form { display:flex; flex-direction:column; gap:14px; margin-top:4px; }
+    .pago-form label { margin:0; color:#334155; font-size:.88rem; font-weight:700; }
+    .pago-form input { width:100%; min-height:48px; padding:12px 14px; border:1px solid #cbd5e1; border-radius:12px; background:#fff; font-size:16px; letter-spacing:.04em; }
+    .pago-form input:focus { outline:2px solid #bfdbfe; border-color:#2563eb; }
+    .pago-form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .pago-submit { width:100%; min-height:52px; margin-top:6px; border:0; border-radius:12px; padding:14px 18px; background:#0f172a; color:#fff; font-size:16px; font-weight:800; }
+    .pago-submit:hover { background:#1e293b; color:#fff; }
+    .pago-submit:disabled { background:#94a3b8; color:#fff; cursor:wait; }
     #view-pago .auth-status { text-align:center; margin:16px 0 0; }
     #view-login { max-width:none; margin:0; padding:0; width:100%; }
     #view-login.active { display:flex; flex-direction:column; min-height:100dvh; min-height:100vh; }
@@ -1118,7 +1125,21 @@
       <h2>Agrega tu tarjeta</h2>
       <p class="pago-plan" id="pagoPlanResumen">Elige tu plan para continuar.</p>
       <p class="pago-aviso">Tus primeros 14 días son gratis. No se te hará ningún cargo hoy. Puedes cancelar en cualquier momento.</p>
-      <div id="stripe-checkout"></div>
+      <form class="pago-form" id="pagoTarjetaForm" autocomplete="off">
+        <label for="pagoNumero">Número de Tarjeta</label>
+        <input id="pagoNumero" name="numero" inputmode="numeric" autocomplete="cc-number" placeholder="ACCT-000015" required>
+        <div class="pago-form-row">
+          <div>
+            <label for="pagoVencimiento">Fecha (MM/AA)</label>
+            <input id="pagoVencimiento" name="vencimiento" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/AA" maxlength="5" required>
+          </div>
+          <div>
+            <label for="pagoCvc">CVC</label>
+            <input id="pagoCvc" name="cvc" inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="4" required>
+          </div>
+        </div>
+        <button class="btn btn-primary pago-submit" type="submit" id="pagoSubmit">Iniciar prueba de 14 días</button>
+      </form>
       <p class="auth-status" id="pagoStatus" hidden></p>
     </div>
   </section>
@@ -5685,11 +5706,17 @@
       if(!actual||!actual.id) return false;
       return !['basico','profesional','premium'].includes(planSeleccionadoDe(actual));
     }
+    const CORREOS_ADMIN={'israelpinedaurte13081999@gmail.com':'1','israelpinedaduarte13081999@gmail.com':'1'};
+    function esAdmin(sesion){
+      const email=String((sesion||sesionActual||{}).email||'').trim().toLowerCase();
+      return !!CORREOS_ADMIN[email];
+    }
     function necesitaMetodoPago(sesion){
       const actual=sesion||sesionActual;
       if(!actual||!actual.id) return false;
+      if(esAdmin(actual)) return false;
       if(String(actual.pago_cliente_id||'').trim()) return false;
-      return actual.requiere_pago===true;
+      return ['basico','profesional','premium'].includes(planSeleccionadoDe(actual));
     }
     const PLANES_PAGO={
       basico:{nombre:'Plan Básico',precio:29},
@@ -5702,90 +5729,6 @@
       if(!el) return;
       if(!info){ el.textContent='Elige tu plan para continuar.'; return; }
       el.innerHTML='Vas a empezar con <strong>'+info.nombre+'</strong> · $'+info.precio+'/mes después de la prueba.';
-    }
-    let stripeCheckoutActivo=null;
-    function cargarStripeJs(){
-      if(window.Stripe) return Promise.resolve(window.Stripe);
-      return new Promise((resolve,reject)=>{
-        const existente=document.querySelector('script[data-stripe-js]');
-        if(existente){
-          existente.addEventListener('load',()=>resolve(window.Stripe));
-          existente.addEventListener('error',()=>reject(new Error('No se pudo cargar Stripe.')));
-          return;
-        }
-        const s=document.createElement('script');
-        s.src='https://js.stripe.com/v3/';
-        s.async=true;
-        s.dataset.stripeJs='1';
-        s.onload=()=>resolve(window.Stripe);
-        s.onerror=()=>reject(new Error('No se pudo cargar Stripe.'));
-        document.head.appendChild(s);
-      });
-    }
-    async function montarCheckoutPago(){
-      const mount=document.getElementById('stripe-checkout');
-      if(!mount) return;
-      if(stripeCheckoutActivo&&typeof stripeCheckoutActivo.destroy==='function'){
-        try{ stripeCheckoutActivo.destroy(); }catch(_){}
-        stripeCheckoutActivo=null;
-      }
-      mount.innerHTML='';
-      marcarEstadoAuth('pagoStatus', 'Preparando el formulario de tarjeta…', false);
-      const res=await fetch('/api/pagos/checkout',{
-        method:'POST',
-        credentials:'same-origin',
-        headers:headersContratista({'Content-Type':'application/json'})
-      });
-      const json=await res.json().catch(()=>({}));
-      if(!res.ok){
-        marcarEstadoAuth('pagoStatus', json.error||'No se pudo abrir el pago.', true);
-        return;
-      }
-      if(json.nombre_plan){
-        const el=document.getElementById('pagoPlanResumen');
-        if(el) el.innerHTML='Vas a empezar con <strong>'+json.nombre_plan+'</strong> · $'+(json.precio||'')+'/mes después de la prueba.';
-      }
-      if(json.url){
-        marcarEstadoAuth('pagoStatus', 'Te llevamos a Stripe para guardar tu tarjeta. No se te cobra hoy.', false);
-        location.href=json.url;
-        return;
-      }
-      if(!json.clientSecret||!json.publishableKey){
-        marcarEstadoAuth('pagoStatus', 'Falta la clave pública de Stripe (STRIPE_PUBLISHABLE_KEY).', true);
-        return;
-      }
-      await cargarStripeJs();
-      const stripe=window.Stripe(json.publishableKey);
-      stripeCheckoutActivo=await stripe.initEmbeddedCheckout({clientSecret:json.clientSecret});
-      const status=document.getElementById('pagoStatus');
-      if(status) status.hidden=true;
-      stripeCheckoutActivo.mount('#stripe-checkout');
-    }
-    async function confirmarPagoSiPendiente(){
-      const params=new URLSearchParams(location.search||'');
-      const sessionId=params.get('session_id')||'';
-      if(!sessionId) return false;
-      marcarEstadoAuth('pagoStatus', 'Confirmando tu tarjeta…', false);
-      const res=await fetch('/api/pagos/confirmar',{
-        method:'POST',
-        credentials:'same-origin',
-        headers:headersContratista({'Content-Type':'application/json'}),
-        body:JSON.stringify({session_id:sessionId})
-      });
-      const json=await res.json().catch(()=>({}));
-      if(!res.ok){
-        marcarEstadoAuth('pagoStatus', json.error||'No se pudo confirmar la tarjeta.', true);
-        return false;
-      }
-      if(sesionActual){
-        sesionActual.requiere_pago=false;
-        sesionActual.pago_cliente_id=json.pago_cliente_id||sesionActual.pago_cliente_id;
-        if(json.fecha_fin_prueba) sesionActual.fecha_fin_prueba=json.fecha_fin_prueba;
-        if(json.plan_seleccionado) sesionActual.plan_seleccionado=json.plan_seleccionado;
-      }
-      try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
-      showAppView('home');
-      return true;
     }
     function mostrarVistaPago(){
       document.body.classList.add('pagando');
@@ -5800,9 +5743,48 @@
       if(path!=='/pago'&&path!=='/pago/exito'){
         try{ history.replaceState({view:'pago'},'', '/pago'); }catch(_){}
       }
-      confirmarPagoSiPendiente().then(ok=>{ if(!ok) return montarCheckoutPago(); }).catch(err=>{
-        marcarEstadoAuth('pagoStatus', err.message||'No se pudo abrir el pago.', true);
-      });
+      const submit=document.getElementById('pagoSubmit');
+      if(submit){ submit.disabled=false; submit.textContent='Iniciar prueba de 14 días'; }
+    }
+    async function enviarPagoSimulado(ev){
+      if(ev) ev.preventDefault();
+      const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+      const numero=String(document.getElementById('pagoNumero')?.value||'').replace(/\D/g,'');
+      const vencimiento=String(document.getElementById('pagoVencimiento')?.value||'').replace(/\D/g,'');
+      const cvc=String(document.getElementById('pagoCvc')?.value||'').replace(/\D/g,'');
+      const submit=document.getElementById('pagoSubmit');
+      if(!numero||!vencimiento||!cvc){
+        marcarEstadoAuth('pagoStatus', 'Completa el número de tarjeta, la fecha y el CVC.', true);
+        return;
+      }
+      if(!sesionActual){
+        mostrarVistaLogin();
+        return;
+      }
+      try{
+        if(submit){ submit.disabled=true; submit.textContent='Cargando...'; }
+        marcarEstadoAuth('pagoStatus', 'Procesando tu método de pago…', false);
+        await new Promise(ok=>setTimeout(ok,1000));
+        const res=await fetch('/api/pagos/simular',{
+          method:'POST',
+          credentials:'same-origin',
+          headers:headersContratista({'Content-Type':'application/json'}),
+          body:JSON.stringify({numero,vencimiento,cvc})
+        });
+        const json=await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(json.error||t.planFail||'No se pudo guardar el método de pago.');
+        if(sesionActual){
+          sesionActual.requiere_pago=false;
+          sesionActual.pago_cliente_id=json.pago_cliente_id||sesionActual.pago_cliente_id||'simulado';
+          if(json.fecha_fin_prueba) sesionActual.fecha_fin_prueba=json.fecha_fin_prueba;
+          if(json.plan_seleccionado) sesionActual.plan_seleccionado=json.plan_seleccionado;
+        }
+        try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
+        showAppView('home');
+      }catch(err){
+        marcarEstadoAuth('pagoStatus', err.message||'No se pudo guardar el método de pago.', true);
+        if(submit){ submit.disabled=false; submit.textContent='Iniciar prueba de 14 días'; }
+      }
     }
     function mostrarVistaPlanes(){
       document.body.classList.add('eligiendo-plan');
@@ -8182,11 +8164,11 @@
           if(json.pago_cliente_id) sesionActual.pago_cliente_id=json.pago_cliente_id;
         }
         resumenPlanPago(sesionActual&&sesionActual.plan_seleccionado||plan);
-        if(json.siguiente==='pago'||necesitaMetodoPago()){
-          mostrarVistaPago();
+        if(esAdmin()||String((sesionActual&&sesionActual.pago_cliente_id)||json.pago_cliente_id||'').trim()){
+          location.replace('/estimado');
           return;
         }
-        location.replace('/estimado');
+        mostrarVistaPago();
       }catch(err){
         marcarEstadoAuth('planStatus', err.message||t.planFail||'Could not save the plan.', true);
         if(cta) cta.disabled=false;
@@ -8202,6 +8184,18 @@
       });
     });
     document.getElementById('continuarPagoBtn')?.addEventListener('click',guardarPlanYContinuar);
+    document.getElementById('pagoTarjetaForm')?.addEventListener('submit',enviarPagoSimulado);
+    document.getElementById('pagoVencimiento')?.addEventListener('input',ev=>{
+      const solo=String(ev.target.value||'').replace(/\D/g,'').slice(0,4);
+      ev.target.value=solo.length>2?solo.slice(0,2)+'/'+solo.slice(2):solo;
+    });
+    document.getElementById('pagoNumero')?.addEventListener('input',ev=>{
+      const solo=String(ev.target.value||'').replace(/\D/g,'').slice(0,19);
+      ev.target.value=solo.replace(/(\d{4})(?=\d)/g,'$1 ').trim();
+    });
+    document.getElementById('pagoCvc')?.addEventListener('input',ev=>{
+      ev.target.value=String(ev.target.value||'').replace(/\D/g,'').slice(0,4);
+    });
     document.getElementById('authCambiarCuenta')?.addEventListener('click',()=>{
       const registro=document.getElementById('registroContratistaForm');
       mostrarPanelAuth(registro&&!registro.hidden?'login':'registro');
