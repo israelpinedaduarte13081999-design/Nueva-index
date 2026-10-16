@@ -146,35 +146,69 @@
     body.prueba-expirada #historyNewButton { display:none !important; }
     body.prueba-expirada .action-cards-grid { grid-template-columns:1fr; }
     .action-cards-grid { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(260px,1fr); gap:20px; align-items:stretch; }
-    .sample-estimate-banner { display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap; margin:0 0 24px; padding:20px 22px; border:1px solid #bfdbfe; border-radius:12px; background:linear-gradient(135deg,#eff6ff 0%,#f8fafc 72%); }
     .sample-kicker { margin:0 0 6px; color:#1d4ed8; font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
-    .sample-estimate-banner h3 { margin:0 0 4px; color:#0f172a; font-size:1.15rem; }
-    .sample-estimate-banner p { margin:0; color:#475569; font-size:.92rem; line-height:1.45; }
-    .sample-estimate-banner .btn { flex:0 0 auto; white-space:nowrap; min-height:44px; }
+    .sample-gallery { margin:36px 0 0; padding:28px 0 4px; border-top:1px solid #e2e8f0; }
+    .sample-gallery-head { margin:0 0 18px; }
+    .sample-gallery-head h3 { margin:0 0 6px; color:#0f172a; font-size:1.25rem; letter-spacing:-.02em; }
+    .sample-gallery-head p { margin:0; color:#64748b; font-size:.95rem; line-height:1.5; }
+    .sample-thumbs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; }
+    .sample-thumb { display:flex; flex-direction:column; width:100%; margin:0; padding:0; border:1px solid #e2e8f0; border-radius:14px; background:#fff; overflow:hidden; cursor:pointer; text-align:left; color:inherit; box-shadow:0 4px 12px rgba(15,23,42,.04); transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease; }
+    .sample-thumb:hover { transform:translateY(-3px); border-color:#93c5fd; box-shadow:0 14px 28px rgba(15,23,42,.1); }
+    .sample-thumb:focus-visible { outline:2px solid #2563eb; outline-offset:2px; }
+    .sample-thumb-paper { height:168px; padding:16px 18px; background:linear-gradient(180deg,#f8fafc 0%,#eef2f7 100%); border-bottom:1px solid #e2e8f0; }
+    .sample-mini { height:100%; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; box-shadow:0 6px 14px rgba(15,23,42,.05); }
+    .sample-mini-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+    .sample-mini-mark { width:22px; height:22px; border-radius:6px; background:linear-gradient(165deg,#19385f,#2d70ad); }
+    .sample-mini-label { font-size:9px; font-weight:800; letter-spacing:.12em; color:#19385f; }
+    .sample-mini-line { display:block; height:5px; background:#e2e8f0; border-radius:99px; margin:6px 0; }
+    .sample-mini-line.short { width:46%; }
+    .sample-mini-line.mid { width:72%; }
+    .sample-mini-row { display:flex; justify-content:space-between; gap:8px; margin-top:8px; }
+    .sample-mini-row span { height:6px; background:#dbe3ea; border-radius:99px; flex:1; }
+    .sample-thumb-copy { padding:16px 16px 18px; }
+    .sample-thumb-copy h3 { margin:0 0 6px; font-size:1.02rem; color:#0f172a; }
+    .sample-thumb-copy p { margin:0; color:#64748b; font-size:.86rem; line-height:1.45; }
+    .sample-thumb-copy .sample-kicker { color:#1d4ed8; font-size:11px; }
     .sample-modal { position:fixed; inset:0; z-index:90; display:flex; align-items:flex-start; justify-content:center; padding:28px 16px; overflow:auto; background:rgba(15,23,42,.55); }
     .sample-modal[hidden] { display:none !important; }
-    .sample-modal-panel { width:min(840px,100%); margin:auto; background:#e8eef4; border-radius:16px; box-shadow:0 24px 64px rgba(15,23,42,.28); }
-    .sample-modal-bar { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 16px; background:#fff; border-bottom:1px solid #e2e8f0; border-radius:16px 16px 0 0; position:sticky; top:0; z-index:1; }
+    .sample-modal-panel { width:min(960px,100%); margin:auto; background:#dce4ee; border-radius:16px; box-shadow:0 24px 64px rgba(15,23,42,.28); }
+    .sample-modal-bar { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 18px; background:#fff; border-bottom:1px solid #e2e8f0; border-radius:16px 16px 0 0; position:sticky; top:0; z-index:1; }
     .sample-modal-bar strong { color:#0f172a; }
-    .sample-doc { margin:20px auto 24px; width:min(740px,calc(100% - 32px)); background:#fff; padding:36px 40px 28px; color:#1e293b; box-shadow:0 8px 24px rgba(15,23,42,.08); }
+    .sample-doc { position:relative; margin:20px auto 24px; width:min(860px,calc(100% - 32px)); background:#fff; padding:40px 44px 32px; color:#1e293b; box-shadow:0 12px 32px rgba(15,23,42,.1); }
     .sample-doc-top { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; border-bottom:2px solid #19385f; padding-bottom:16px; margin-bottom:18px; }
-    .sample-logo { display:flex; align-items:center; gap:10px; }
-    .sample-logo-mark { width:42px; height:42px; border-radius:10px; background:linear-gradient(165deg,#19385f,#2d70ad); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; letter-spacing:-.04em; }
-    .sample-logo h4 { margin:0; font-size:1.05rem; color:#0f172a; }
+    .sample-logo { display:flex; align-items:center; gap:12px; }
+    .sample-logo-mark { width:48px; height:48px; border-radius:12px; background:linear-gradient(165deg,#19385f,#2d70ad); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; letter-spacing:-.04em; font-size:1.05rem; }
+    .sample-logo-slot { width:48px; height:48px; border:1.5px dashed #cbd5e1; border-radius:12px; background:#f8fafc; color:#94a3b8; font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; display:flex; align-items:center; justify-content:center; text-align:center; line-height:1.15; padding:4px; }
+    .sample-logo h4 { margin:0; font-size:1.12rem; color:#0f172a; }
     .sample-logo small { color:#64748b; }
     .sample-doc-title { text-align:right; }
-    .sample-doc-title p { margin:0; font-size:1.45rem; font-weight:800; letter-spacing:.08em; color:#19385f; }
-    .sample-doc-title span { color:#64748b; font-size:.82rem; }
-    .sample-doc-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px; font-size:.88rem; }
-    .sample-doc-grid h5 { margin:0 0 6px; font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:#64748b; }
+    .sample-doc-title p { margin:0; font-size:1.55rem; font-weight:800; letter-spacing:.1em; color:#19385f; }
+    .sample-doc-title span { display:block; color:#64748b; font-size:.82rem; margin-top:4px; }
+    .sample-doc-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:20px; font-size:.9rem; line-height:1.45; }
+    .sample-doc-grid h5 { margin:0 0 6px; font-size:.7rem; letter-spacing:.1em; text-transform:uppercase; color:#64748b; }
+    .sample-doc h6 { margin:0 0 10px; font-size:.78rem; letter-spacing:.1em; text-transform:uppercase; color:#19385f; }
     .sample-doc table { width:100%; border-collapse:collapse; font-size:.86rem; }
-    .sample-doc th { text-align:left; background:#f1f5f9; color:#334155; font-size:.72rem; letter-spacing:.04em; text-transform:uppercase; padding:8px 10px; }
+    .sample-doc th { text-align:left; background:#f1f5f9; color:#334155; font-size:.7rem; letter-spacing:.06em; text-transform:uppercase; padding:9px 10px; }
     .sample-doc td { padding:10px; border-bottom:1px solid #e2e8f0; vertical-align:top; }
-    .sample-doc td.num { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
-    .sample-doc-totals { margin-top:12px; margin-left:auto; width:min(280px,100%); }
+    .sample-doc th.num, .sample-doc td.num { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+    .sample-doc-totals { margin-top:14px; margin-left:auto; width:min(300px,100%); }
     .sample-doc-totals div { display:flex; justify-content:space-between; gap:16px; padding:6px 0; font-size:.9rem; }
-    .sample-doc-totals .grand { border-top:2px solid #19385f; margin-top:6px; padding-top:10px; font-weight:800; color:#0f172a; }
+    .sample-doc-totals .grand { border-top:2px solid #19385f; margin-top:6px; padding-top:10px; font-weight:800; color:#0f172a; font-size:1.02rem; }
+    .sample-doc-totals .due { color:#9a3412; font-weight:800; }
     .sample-doc-note { margin:18px 0 0; padding:12px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; color:#475569; font-size:.82rem; line-height:1.45; }
+    .sample-clause { margin:0 0 12px; font-size:.88rem; line-height:1.55; color:#334155; }
+    .sample-clause strong { color:#0f172a; }
+    .sample-signs { display:grid; grid-template-columns:1fr 1fr; gap:28px; margin-top:28px; }
+    .sample-sign { border-top:1px solid #cbd5e1; padding-top:10px; min-height:88px; }
+    .sample-sign .script { font-family:"Segoe Script","Lucida Handwriting","Apple Chancery",cursive; font-size:1.55rem; color:#1e3a5f; margin:8px 0 4px; }
+    .sample-sign small { display:block; color:#64748b; font-size:.78rem; }
+    .sample-pay-row { display:flex; justify-content:flex-end; margin-top:18px; }
+    .sample-pay-now { min-height:46px; min-width:160px; border:0; border-radius:10px; background:#0f172a; color:#fff; font-weight:800; font-size:.95rem; cursor:pointer; }
+    .sample-pay-now:hover { background:#1e293b; }
+    .sample-pay-now:disabled { background:#27834e; cursor:default; }
+    .sample-paid-stamp { position:absolute; top:88px; right:48px; transform:rotate(-12deg); border:3px solid #27834e; color:#27834e; font-weight:800; letter-spacing:.14em; padding:8px 14px; border-radius:8px; font-size:1.1rem; background:rgba(255,255,255,.86); }
+    .sample-doc.is-paid .sample-paid-stamp { display:inline-block; }
+    .sample-paid-stamp[hidden] { display:none !important; }
     .action-card { background:#f8fafc; border:1px solid #e2e8f0; padding:24px; border-radius:10px; text-align:left; transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease; }
     .action-card.history-card { cursor:pointer; color:inherit; text-decoration:none; display:block; }
     .action-card.history-card:hover, .action-carsd.main-doc-card:hover { transform:translateY(-2px); border-color:#0284c7; background:#ffffff; box-shadow:0 8px 16px rgba(2,132,199,.08); }
@@ -1209,68 +1243,6 @@
       <div class="trial-expired-panel" id="trialExpiredPanel" hidden>
         <p id="trialExpiredMessage">Your 14-day free trial has expired. Please add a payment method to keep using QuantixBuilds.</p>
       </div>
-      <div class="sample-estimate-banner" id="sampleEstimateBanner">
-        <div>
-          <p class="sample-kicker">Demo project</p>
-          <h3>View Sample Estimate</h3>
-          <p>See a finished QuantixBuilds document with a generic logo, sample line items, and totals.</p>
-        </div>
-        <button class="btn btn-primary" type="button" id="viewSampleEstimateBtn">View Sample Estimate</button>
-      </div>
-      <div class="sample-modal" id="sampleEstimateModal" hidden>
-        <div class="sample-modal-panel" role="dialog" aria-modal="true" aria-labelledby="sampleEstimateTitle">
-          <div class="sample-modal-bar">
-            <strong id="sampleEstimateTitle">Sample estimate preview</strong>
-            <button class="btn" type="button" id="closeSampleEstimateBtn">Close</button>
-          </div>
-          <article class="sample-doc">
-            <div class="sample-doc-top">
-              <div class="sample-logo">
-                <span class="sample-logo-mark">QB</span>
-                <div>
-                  <h4>Northline Builders</h4>
-                  <small>Marietta, GA · (770) 555-0142</small>
-                </div>
-              </div>
-              <div class="sample-doc-title">
-                <p>ESTIMATE</p>
-                <span>EST-1042 · Oct 15, 2026</span>
-              </div>
-            </div>
-            <div class="sample-doc-grid">
-              <div>
-                <h5>Contractor</h5>
-                <div>Northline Builders</div>
-                <div>Alex Rivera, Project Manager</div>
-                <div>hello@northlinebuilders.example</div>
-              </div>
-              <div>
-                <h5>Client</h5>
-                <div>Jordan Hale</div>
-                <div>1842 Oakridge Lane, Atlanta, GA 30318</div>
-                <div>(404) 555-0198</div>
-              </div>
-            </div>
-            <table>
-              <thead>
-                <tr><th>Area / item</th><th>Qty</th><th>Unit</th><th class="num">Price</th><th class="num">Total</th></tr>
-              </thead>
-              <tbody>
-                <tr><td><strong>Kitchen</strong><br>Hang, tape, and finish 1/2" drywall</td><td>420</td><td>SF</td><td class="num">$4.75</td><td class="num">$1,995.00</td></tr>
-                <tr><td>Interior paint, two coats (walls)</td><td>680</td><td>SF</td><td class="num">$2.85</td><td class="num">$1,938.00</td></tr>
-                <tr><td>LVP flooring install over ready subfloor</td><td>310</td><td>SF</td><td class="num">$5.40</td><td class="num">$1,674.00</td></tr>
-                <tr><td><strong>Living room</strong><br>Baseboard and trim, paint-grade</td><td>86</td><td>LF</td><td class="num">$6.25</td><td class="num">$537.50</td></tr>
-              </tbody>
-            </table>
-            <div class="sample-doc-totals">
-              <div><span>Subtotal</span><span>$6,144.50</span></div>
-              <div><span>Overhead &amp; profit</span><span>$1,228.90</span></div>
-              <div class="grand"><span>Total</span><span>$7,373.40</span></div>
-            </div>
-            <p class="sample-doc-note">Sample document generated by QuantixBuilds. Line items, ZIP pricing, and totals are examples so new users can see a finished estimate before creating their own.</p>
-          </article>
-        </div>
-      </div>
       <div class="action-cards-grid">
         <div class="action-card main-doc-card">
           <div class="card-top">
@@ -1317,6 +1289,252 @@
           <p data-i18n="home.historyLead">Review past projects, saved clients, and payment status.</p>
           <span class="card-action-link" data-i18n="home.openHistory">Open history &rarr;</span>
         </a>
+      </div>
+      <section class="sample-gallery" id="sampleGallery" aria-labelledby="sampleGalleryTitle">
+        <div class="sample-gallery-head">
+          <p class="sample-kicker">Proof of value</p>
+          <h3 id="sampleGalleryTitle">Explore Sample Documents</h3>
+          <p>See the finished estimate, contract, and invoice your clients will receive — professional documents generated in minutes.</p>
+        </div>
+        <div class="sample-thumbs">
+          <button class="sample-thumb" type="button" data-sample="estimate">
+            <div class="sample-thumb-paper" aria-hidden="true">
+              <div class="sample-mini">
+                <div class="sample-mini-top"><span class="sample-mini-mark"></span><span class="sample-mini-label">ESTIMATE</span></div>
+                <span class="sample-mini-line mid"></span>
+                <span class="sample-mini-line short"></span>
+                <div class="sample-mini-row"><span></span><span></span><span></span></div>
+                <div class="sample-mini-row"><span></span><span></span><span></span></div>
+                <span class="sample-mini-line short"></span>
+              </div>
+            </div>
+            <div class="sample-thumb-copy">
+              <p class="sample-kicker">Estimate</p>
+              <h3>Sample Estimate</h3>
+              <p>Kitchen remodel with a priced Scope of Work, tax, and grand total.</p>
+            </div>
+          </button>
+          <button class="sample-thumb" type="button" data-sample="contract">
+            <div class="sample-thumb-paper" aria-hidden="true">
+              <div class="sample-mini">
+                <div class="sample-mini-top"><span class="sample-mini-mark"></span><span class="sample-mini-label">CONTRACT</span></div>
+                <span class="sample-mini-line mid"></span>
+                <span class="sample-mini-line"></span>
+                <span class="sample-mini-line mid"></span>
+                <span class="sample-mini-line short"></span>
+                <div class="sample-mini-row"><span></span><span></span></div>
+              </div>
+            </div>
+            <div class="sample-thumb-copy">
+              <p class="sample-kicker">Contract</p>
+              <h3>Sample Contract</h3>
+              <p>Construction agreement with terms, payment schedule, and e-signatures.</p>
+            </div>
+          </button>
+          <button class="sample-thumb" type="button" data-sample="invoice">
+            <div class="sample-thumb-paper" aria-hidden="true">
+              <div class="sample-mini">
+                <div class="sample-mini-top"><span class="sample-mini-mark"></span><span class="sample-mini-label">INVOICE</span></div>
+                <span class="sample-mini-line mid"></span>
+                <span class="sample-mini-line short"></span>
+                <div class="sample-mini-row"><span></span><span></span></div>
+                <span class="sample-mini-line short"></span>
+              </div>
+            </div>
+            <div class="sample-thumb-copy">
+              <p class="sample-kicker">Invoice</p>
+              <h3>Sample Invoice</h3>
+              <p>Roof replacement billing with payments received, balance, and Pay Now.</p>
+            </div>
+          </button>
+        </div>
+      </section>
+    </div>
+    <div class="sample-modal" id="sampleEstimateModal" hidden>
+      <div class="sample-modal-panel" role="dialog" aria-modal="true" aria-labelledby="sampleEstimateTitle">
+        <div class="sample-modal-bar">
+          <strong id="sampleEstimateTitle">Sample Estimate</strong>
+          <button class="btn" type="button" data-sample-close="estimate">Close</button>
+        </div>
+        <article class="sample-doc">
+          <div class="sample-doc-top">
+            <div class="sample-logo">
+              <span class="sample-logo-slot">Your logo</span>
+              <div>
+                <h4>Northline Builders, LLC</h4>
+                <small>4120 Barrett Parkway, Suite 200 · Marietta, GA 30066<br>(770) 555-0142 · hello@northlinebuilders.example</small>
+              </div>
+            </div>
+            <div class="sample-doc-title">
+              <p>ESTIMATE</p>
+              <span>EST-4418 · October 15, 2026</span>
+            </div>
+          </div>
+          <div class="sample-doc-grid">
+            <div>
+              <h5>Prepared for</h5>
+              <div><strong>Jordan Hale</strong></div>
+              <div>1842 Oakridge Lane</div>
+              <div>Atlanta, GA 30318</div>
+              <div>(404) 555-0198</div>
+            </div>
+            <div>
+              <h5>Project</h5>
+              <div><strong>Kitchen Remodel</strong></div>
+              <div>Job site: 1842 Oakridge Lane</div>
+              <div>Prepared by: Alex Rivera, Project Manager</div>
+              <div>Valid for 30 days from issue date</div>
+            </div>
+          </div>
+          <h6>Scope of Work</h6>
+          <table>
+            <thead>
+              <tr><th>Description</th><th>Qty</th><th>Unit</th><th class="num">Unit price</th><th class="num">Amount</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Selective demolition of existing kitchen cabinets, countertops, and finish flooring; haul-off and disposal</td><td>1</td><td>LS</td><td class="num">$3,850.00</td><td class="num">$3,850.00</td></tr>
+              <tr><td>Electrical: new appliance circuits, under-cabinet LED lighting, and GFCI protection at wet locations</td><td>1</td><td>LS</td><td class="num">$4,200.00</td><td class="num">$4,200.00</td></tr>
+              <tr><td>Plumbing: relocate sink supply/waste, dishwasher, and refrigerator water line; pressure test</td><td>1</td><td>LS</td><td class="num">$2,650.00</td><td class="num">$2,650.00</td></tr>
+              <tr><td>Custom paint-grade shaker cabinetry, including hardware and installation</td><td>22</td><td>LF</td><td class="num">$385.00</td><td class="num">$8,470.00</td></tr>
+              <tr><td>Quartz countertops, 3 cm, including template, fabrication, and install</td><td>48</td><td>SF</td><td class="num">$92.00</td><td class="num">$4,416.00</td></tr>
+              <tr><td>Ceramic tile backsplash, including substrate prep and grout</td><td>42</td><td>SF</td><td class="num">$28.00</td><td class="num">$1,176.00</td></tr>
+              <tr><td>Owner-supplied appliance package: uncrate, set, and connect (range, dishwasher, microwave, refrigerator)</td><td>1</td><td>LS</td><td class="num">$850.00</td><td class="num">$850.00</td></tr>
+              <tr><td>Interior paint, two coats, and paint-grade baseboard/trim at kitchen perimeter</td><td>1</td><td>LS</td><td class="num">$1,480.00</td><td class="num">$1,480.00</td></tr>
+            </tbody>
+          </table>
+          <div class="sample-doc-totals">
+            <div><span>Subtotal</span><span>$27,092.00</span></div>
+            <div><span>Sales tax (8.9%)</span><span>$2,411.19</span></div>
+            <div><span>Overhead &amp; profit (15%)</span><span>$4,063.80</span></div>
+            <div class="grand"><span>Grand total</span><span>$33,566.99</span></div>
+          </div>
+          <p class="sample-doc-note">This sample estimate is provided by QuantixBuilds for demonstration. Pricing, allowances, and schedule are illustrative and do not constitute a bid. Work not listed is excluded. Change orders will be priced in writing before additional work proceeds.</p>
+        </article>
+      </div>
+    </div>
+    <div class="sample-modal" id="sampleContractModal" hidden>
+      <div class="sample-modal-panel" role="dialog" aria-modal="true" aria-labelledby="sampleContractTitle">
+        <div class="sample-modal-bar">
+          <strong id="sampleContractTitle">Sample Contract</strong>
+          <button class="btn" type="button" data-sample-close="contract">Close</button>
+        </div>
+        <article class="sample-doc">
+          <div class="sample-doc-top">
+            <div class="sample-logo">
+              <span class="sample-logo-slot">Your logo</span>
+              <div>
+                <h4>Northline Builders, LLC</h4>
+                <small>Georgia Residential Contractor License #RB-44821</small>
+              </div>
+            </div>
+            <div class="sample-doc-title">
+              <p>AGREEMENT</p>
+              <span>CTR-4418 · October 15, 2026</span>
+            </div>
+          </div>
+          <h6>Construction Agreement — Kitchen Remodel</h6>
+          <p class="sample-clause">This Construction Agreement (the “Agreement”) is entered into as of October 15, 2026, by and between <strong>Northline Builders, LLC</strong> (“Contractor”), with a principal place of business at 4120 Barrett Parkway, Suite 200, Marietta, GA 30066, and <strong>Jordan Hale</strong> (“Owner”), residing at 1842 Oakridge Lane, Atlanta, GA 30318.</p>
+          <p class="sample-clause"><strong>1. Project and Scope.</strong> Contractor shall furnish labor, materials, equipment, and supervision required to complete the Kitchen Remodel at 1842 Oakridge Lane, Atlanta, GA 30318, in accordance with Estimate EST-4418 attached hereto and incorporated by reference. Work includes demolition, electrical and plumbing upgrades, cabinetry, quartz countertops, tile backsplash, appliance setting, paint, and trim as specified.</p>
+          <p class="sample-clause"><strong>2. Contract Sum.</strong> Owner agrees to pay Contractor the lump-sum amount of <strong>Thirty-Three Thousand Five Hundred Sixty-Six and 99/100 Dollars ($33,566.99)</strong>, inclusive of applicable sales tax, subject to written change orders.</p>
+          <p class="sample-clause"><strong>3. Payment Schedule.</strong> Forty percent (40%) deposit due upon execution; forty percent (40%) upon cabinet delivery and countertop template; twenty percent (20%) upon substantial completion and walkthrough. Invoices are due upon receipt. Past-due balances may accrue interest at 1.5% per month.</p>
+          <p class="sample-clause"><strong>4. Schedule.</strong> Work shall commence on or about November 3, 2026, and reach substantial completion in approximately four (4) weeks, excluding delays caused by Owner selections, concealed conditions, force majeure, or permitting.</p>
+          <p class="sample-clause"><strong>5. Change Orders.</strong> Any alteration to the Scope of Work, materials, or schedule shall be documented in a written change order signed by both parties before the additional work proceeds. Verbal instructions do not modify this Agreement.</p>
+          <p class="sample-clause"><strong>6. Allowances and Exclusions.</strong> Owner-supplied appliances are excluded from the Contract Sum except for setting and connection. Hazardous-material abatement, structural repairs discovered after demolition, and upgrades required by the authority having jurisdiction are excluded unless added by change order.</p>
+          <p class="sample-clause"><strong>7. Warranty.</strong> Contractor warrants workmanship for one (1) year from substantial completion. Manufacturer warranties on cabinets, stone, tile, and fixtures are assigned to Owner. Warranty excludes damage from misuse, lack of maintenance, or work performed by others.</p>
+          <p class="sample-clause"><strong>8. Insurance and Licenses.</strong> Contractor shall maintain general liability and workers’ compensation insurance customary for residential remodeling in Georgia and shall keep all required licenses in force for the duration of the Project.</p>
+          <p class="sample-clause"><strong>9. Access and Site Conditions.</strong> Owner shall provide reasonable access to the dwelling, utilities, and parking. Owner shall remove personal property from the work area prior to commencement. Contractor shall maintain a reasonably clean site and remove construction debris at completion.</p>
+          <p class="sample-clause"><strong>10. Termination and Dispute Resolution.</strong> Either party may terminate for material breach that remains uncured for ten (10) days after written notice. This Agreement is governed by the laws of the State of Georgia. The parties shall first attempt good-faith mediation in Cobb County before commencing litigation.</p>
+          <p class="sample-clause">IN WITNESS WHEREOF, the parties have executed this Agreement electronically as of the date first written above.</p>
+          <div class="sample-signs">
+            <div class="sample-sign">
+              <div class="script">Alex Rivera</div>
+              <strong>Contractor</strong>
+              <small>Alex Rivera, Authorized Agent<br>Northline Builders, LLC<br>Signed electronically · Oct 15, 2026 · 9:14 AM ET</small>
+            </div>
+            <div class="sample-sign">
+              <div class="script">Jordan Hale</div>
+              <strong>Owner / Client</strong>
+              <small>Jordan Hale<br>1842 Oakridge Lane, Atlanta, GA<br>Signed electronically · Oct 15, 2026 · 9:22 AM ET</small>
+            </div>
+          </div>
+          <p class="sample-doc-note">Sample contract generated by QuantixBuilds. This document is for demonstration only and is not legal advice. Licensed contractors should have agreements reviewed by their counsel.</p>
+        </article>
+      </div>
+    </div>
+    <div class="sample-modal" id="sampleInvoiceModal" hidden>
+      <div class="sample-modal-panel" role="dialog" aria-modal="true" aria-labelledby="sampleInvoiceTitle">
+        <div class="sample-modal-bar">
+          <strong id="sampleInvoiceTitle">Sample Invoice</strong>
+          <button class="btn" type="button" data-sample-close="invoice">Close</button>
+        </div>
+        <article class="sample-doc" id="sampleInvoiceDoc">
+          <span class="sample-paid-stamp" id="samplePaidStamp" hidden>PAID</span>
+          <div class="sample-doc-top">
+            <div class="sample-logo">
+              <span class="sample-logo-slot">Your logo</span>
+              <div>
+                <h4>Northline Builders, LLC</h4>
+                <small>4120 Barrett Parkway, Suite 200 · Marietta, GA 30066<br>(770) 555-0142 · billing@northlinebuilders.example</small>
+              </div>
+            </div>
+            <div class="sample-doc-title">
+              <p>INVOICE</p>
+              <span>INV-2088 · Due October 29, 2026</span>
+            </div>
+          </div>
+          <div class="sample-doc-grid">
+            <div>
+              <h5>Bill to</h5>
+              <div><strong>Morgan Ellis</strong></div>
+              <div>926 West Paces Ferry Rd</div>
+              <div>Atlanta, GA 30327</div>
+              <div>(404) 555-0174</div>
+            </div>
+            <div>
+              <h5>Project</h5>
+              <div><strong>Roof Replacement</strong></div>
+              <div>Job site: 926 West Paces Ferry Rd</div>
+              <div>Invoice date: October 15, 2026</div>
+              <div>Terms: Due upon receipt</div>
+            </div>
+          </div>
+          <h6>Work billed</h6>
+          <table>
+            <thead>
+              <tr><th>Description</th><th>Qty</th><th>Unit</th><th class="num">Unit price</th><th class="num">Amount</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Tear-off of existing 3-tab shingles; haul-off and dumpster</td><td>28</td><td>SQ</td><td class="num">$85.00</td><td class="num">$2,380.00</td></tr>
+              <tr><td>Ice &amp; water shield at eaves, valleys, and penetrations; synthetic underlayment</td><td>28</td><td>SQ</td><td class="num">$42.00</td><td class="num">$1,176.00</td></tr>
+              <tr><td>Architectural shingles, ridge vent, and matching accessories — GAF Timberline HDZ</td><td>28</td><td>SQ</td><td class="num">$385.00</td><td class="num">$10,780.00</td></tr>
+              <tr><td>Replace 6 in. aluminum gutters and downspouts at front elevation</td><td>86</td><td>LF</td><td class="num">$18.50</td><td class="num">$1,591.00</td></tr>
+              <tr><td>Permit, dump fees, and site protection</td><td>1</td><td>LS</td><td class="num">$425.00</td><td class="num">$425.00</td></tr>
+            </tbody>
+          </table>
+          <div class="sample-doc-totals">
+            <div><span>Subtotal</span><span>$16,352.00</span></div>
+            <div><span>Sales tax (8.9%)</span><span>$1,455.33</span></div>
+            <div class="grand"><span>Invoice total</span><span>$17,807.33</span></div>
+          </div>
+          <h6 style="margin-top:22px">Payments received</h6>
+          <table>
+            <thead>
+              <tr><th>Date</th><th>Method</th><th>Reference</th><th class="num">Amount</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Sep 22, 2026</td><td>ACH deposit</td><td>DEP-4410</td><td class="num">$7,122.93</td></tr>
+              <tr><td>Oct 6, 2026</td><td>Card ending 4242</td><td>PMT-4481</td><td class="num">$5,342.20</td></tr>
+            </tbody>
+          </table>
+          <div class="sample-doc-totals">
+            <div><span>Payments received</span><span>$12,465.13</span></div>
+            <div class="grand due" id="sampleInvoiceBalanceRow"><span>Balance due</span><span id="sampleInvoiceBalance">$5,342.20</span></div>
+          </div>
+          <div class="sample-pay-row">
+            <button class="sample-pay-now" type="button" id="samplePayNowBtn">Pay Now</button>
+          </div>
+          <p class="sample-doc-note">Sample invoice generated by QuantixBuilds. Pay Now is a demonstration of the client payment experience and does not process a real charge.</p>
+        </article>
       </div>
     </div>
   </section>
@@ -8407,21 +8625,76 @@
     document.getElementById('paywallTarjetaForm')?.addEventListener('submit',enviarPaywallSimulado);
     engancharMascaraTarjeta('pago');
     engancharMascaraTarjeta('paywall');
-    function abrirSampleEstimate(){
-      const modal=document.getElementById('sampleEstimateModal');
+    const sampleModals={
+      estimate:'sampleEstimateModal',
+      contract:'sampleContractModal',
+      invoice:'sampleInvoiceModal'
+    };
+    function resetSampleInvoice(){
+      const doc=document.getElementById('sampleInvoiceDoc');
+      const stamp=document.getElementById('samplePaidStamp');
+      const btn=document.getElementById('samplePayNowBtn');
+      const balance=document.getElementById('sampleInvoiceBalance');
+      const row=document.getElementById('sampleInvoiceBalanceRow');
+      if(doc) doc.classList.remove('is-paid');
+      if(stamp) stamp.hidden=true;
+      if(btn){ btn.disabled=false; btn.textContent='Pay Now'; }
+      if(balance) balance.textContent='$5,342.20';
+      if(row){
+        row.classList.add('due');
+        const label=row.querySelector('span:first-child');
+        if(label) label.textContent='Balance due';
+      }
+    }
+    function abrirSampleDoc(tipo){
+      Object.values(sampleModals).forEach(id=>{
+        const el=document.getElementById(id);
+        if(el) el.hidden=true;
+      });
+      if(tipo==='invoice') resetSampleInvoice();
+      const modal=document.getElementById(sampleModals[tipo]);
       if(modal) modal.hidden=false;
     }
-    function cerrarSampleEstimate(){
-      const modal=document.getElementById('sampleEstimateModal');
-      if(modal) modal.hidden=true;
+    function cerrarSampleDocs(){
+      Object.values(sampleModals).forEach(id=>{
+        const el=document.getElementById(id);
+        if(el) el.hidden=true;
+      });
     }
-    document.getElementById('viewSampleEstimateBtn')?.addEventListener('click',abrirSampleEstimate);
-    document.getElementById('closeSampleEstimateBtn')?.addEventListener('click',cerrarSampleEstimate);
-    document.getElementById('sampleEstimateModal')?.addEventListener('click',ev=>{
-      if(ev.target&&ev.target.id==='sampleEstimateModal') cerrarSampleEstimate();
+    document.querySelectorAll('[data-sample]').forEach(btn=>{
+      btn.addEventListener('click',()=>abrirSampleDoc(btn.getAttribute('data-sample')));
+    });
+    document.querySelectorAll('[data-sample-close]').forEach(btn=>{
+      btn.addEventListener('click',cerrarSampleDocs);
+    });
+    Object.values(sampleModals).forEach(id=>{
+      document.getElementById(id)?.addEventListener('click',ev=>{
+        if(ev.target&&ev.target.id===id) cerrarSampleDocs();
+      });
     });
     document.addEventListener('keydown',ev=>{
-      if(ev.key==='Escape') cerrarSampleEstimate();
+      if(ev.key==='Escape') cerrarSampleDocs();
+    });
+    document.getElementById('samplePayNowBtn')?.addEventListener('click',()=>{
+      const btn=document.getElementById('samplePayNowBtn');
+      if(!btn||btn.disabled) return;
+      btn.disabled=true;
+      btn.textContent='Processing…';
+      setTimeout(()=>{
+        btn.textContent='Paid';
+        const stamp=document.getElementById('samplePaidStamp');
+        const doc=document.getElementById('sampleInvoiceDoc');
+        const balance=document.getElementById('sampleInvoiceBalance');
+        const row=document.getElementById('sampleInvoiceBalanceRow');
+        if(stamp) stamp.hidden=false;
+        if(doc) doc.classList.add('is-paid');
+        if(balance) balance.textContent='$0.00';
+        if(row){
+          row.classList.remove('due');
+          const label=row.querySelector('span:first-child');
+          if(label) label.textContent='Paid in full';
+        }
+      },1000);
     });
     document.getElementById('authCambiarCuenta')?.addEventListener('click',()=>{
       const registro=document.getElementById('registroContratistaForm');
