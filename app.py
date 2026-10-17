@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 ssl._create_default_https_context = ssl._create_unverified_context
 from flask import Flask, Response, redirect, request, jsonify, send_file, render_template
+from xml.sax.saxutils import escape as xml_escape
 from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
@@ -301,6 +302,109 @@ def _vista_inicial():
 @app.route("/privacidad")
 def privacidad():
     return render_template("privacidad.html")
+
+
+def _industrias_seo():
+    from seo_industrias import listar_industrias
+    return listar_industrias(_supabase_client())
+
+
+def _origin_seo():
+    return "https://" + DOMINIO_APP
+
+
+@app.route("/robots.txt")
+def robots_txt():
+    origin = _origin_seo()
+    cuerpo = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Allow: /*-software\n"
+        "Disallow: /api/\n"
+        "Disallow: /auth/\n"
+        f"Sitemap: {origin}/sitemap.xml\n"
+    )
+    return Response(cuerpo, mimetype="text/plain; charset=utf-8")
+
+
+@app.route("/sitemap.xml")
+def sitemap_xml():
+    from seo_industrias import fecha_lastmod
+    origin = _origin_seo()
+    lastmod = fecha_lastmod()
+    urls = [
+        ("/", "weekly", "1.0"),
+        ("/privacidad", "yearly", "0.3"),
+        ("/login", "weekly", "0.6"),
+    ]
+    for fila in _industrias_seo():
+        urls.append((fila["path"], "weekly", "0.8"))
+    partes = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ]
+    for path, changefreq, priority in urls:
+        loc = xml_escape(origin + path)
+        partes.extend([
+            "  <url>",
+            f"    <loc>{loc}</loc>",
+            f"    <lastmod>{lastmod}</lastmod>",
+            f"    <changefreq>{changefreq}</changefreq>",
+            f"    <priority>{priority}</priority>",
+            "  </url>",
+        ])
+    partes.append("</urlset>")
+    xml = "\n".join(partes) + "\n"
+    return Response(xml, mimetype="application/xml; charset=utf-8")
+
+
+@app.route("/<industry>-software")
+def landing_industria(industry):
+    from seo_industrias import industria_por_slug, relacionadas
+    sb = _supabase_client()
+    fila = industria_por_slug(industry, sb)
+    if not fila:
+        return Response("Page not found", status=404, mimetype="text/plain; charset=utf-8")
+    canonical = _origin_seo() + fila["path"]
+    json_ld = json.dumps({
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "SoftwareApplication",
+                "name": f"QuantixBuilds {fila['name']} Software",
+                "applicationCategory": "BusinessApplication",
+                "operatingSystem": "Web",
+                "url": canonical,
+                "description": fila["meta"],
+                "featureList": fila["keywords"],
+                "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "USD",
+                    "description": "14-day free trial, no card required",
+                },
+                "provider": {
+                    "@type": "Organization",
+                    "name": "QuantixBuilds",
+                    "url": _origin_seo(),
+                },
+            },
+            {
+                "@type": "WebPage",
+                "url": canonical,
+                "name": fila["title"],
+                "description": fila["meta"],
+                "inLanguage": "en-US",
+            },
+        ],
+    }, ensure_ascii=False)
+    return render_template(
+        "industria.html",
+        industria=fila,
+        canonical=canonical,
+        relacionadas=relacionadas(fila["slug"], 12, sb),
+        json_ld=json_ld,
+    )
 
 
 @app.route("/")

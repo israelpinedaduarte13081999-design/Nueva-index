@@ -1,0 +1,224 @@
+{
+  "industrias": [
+    {
+      "slug": "roofing",
+      "name": "Roofing",
+      "contractor": "roofing contractors",
+      "job": "roof replacement, tear-off, and repair",
+      "title": "Roofing Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Roofing estimating software for U.S. contractors",
+      "meta": "Create professional roofing estimates, invoices, and contracts with ZIP pricing and PDF takeoff. Built for shingle, TPO, and commercial roofing crews.",
+      "lead": "QuantixBuilds helps roofing companies quote squares, tear-off, ice & water shield, and accessories in minutes—then convert the same job into a contract and invoice.",
+      "keywords": ["roofing estimating software", "roofing invoice software", "roofing contract template", "roof replacement estimate", "shingle quote software", "roofing bid software"]
+    },
+    {
+      "slug": "drywall",
+      "name": "Drywall",
+      "contractor": "drywall contractors",
+      "job": "hang, tape, finish, and patch work",
+      "title": "Drywall Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Drywall estimating software for U.S. contractors",
+      "meta": "Price drywall hanging, taping, and Level 5 finish with professional estimates, invoices, and contracts. ZIP-based pricing for residential and commercial crews.",
+      "lead": "Build drywall scopes by square foot, include taping levels and patch work, then send a clean estimate, signed contract, and invoice from one dashboard.",
+      "keywords": ["drywall estimating software", "drywall invoice software", "drywall contract", "tape and finish estimate", "sheetrock quoting software"]
+    },
+    {
+      "slug": "plumbing",
+      "name": "Plumbing",
+      "contractor": "plumbing contractors",
+      "job": "rough-in, fixtures, repipe, and service work",
+      "title": "Plumbing Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Plumbing estimating software for U.S. contractors",
+      "meta": "Create plumbing estimates, invoices, and contracts for rough-in, fixtures, water heaters, and service calls. Professional documents for licensed plumbers.",
+      "lead": "Quote plumbing labor and materials line by line, attach terms in a contract, and bill progress payments without leaving QuantixBuilds.",
+      "keywords": ["plumbing estimating software", "plumber invoice software", "plumbing contract", "fixture install estimate", "repipe quote software"]
+    },
+    {
+      "slug": "electrical",
+      "name": "Electrical",
+      "contractor": "electrical contractors",
+      "job": "panels, circuits, lighting, and service upgrades",
+      "title": "Electrical Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Electrical estimating software for U.S. contractors",
+      "meta": "Produce electrical estimates, invoices, and contracts for residential and commercial work. Price circuits, panels, lighting, and change orders in one tool.",
+      "lead": "Electrical contractors use QuantixBuilds to turn a walkthrough into a priced estimate, a signed agreement, and a job invoice with payments tracked.",
+      "keywords": ["electrical estimating software", "electrician invoice software", "electrical contract", "panel upgrade estimate", "lighting quote software"]
+    },
+    {
+      "slug": "hvac",
+      "name": "HVAC",
+      "contractor": "HVAC contractors",
+      "job": "installs, change-outs, ductwork, and service",
+      "title": "HVAC Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "HVAC estimating software for U.S. contractors",
+      "meta": "HVAC estimate, invoice, and contract software for installs, change-outs, and ductwork. Localized pricing and professional client documents.",
+      "lead": "Price equipment, labor, and duct runs, then issue a contract and invoice that match the same HVAC scope your client already approved.",
+      "keywords": ["HVAC estimating software", "HVAC invoice software", "HVAC contract", "AC install estimate", "furnace replacement quote"]
+    },
+    {
+      "slug": "painting",
+      "name": "Painting",
+      "contractor": "painting contractors",
+      "job": "interior and exterior painting",
+      "title": "Painting Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Painting estimating software for U.S. contractors",
+      "meta": "Create painting estimates, invoices, and contracts by square foot, including prep, primer, and coats. Built for residential and commercial painters.",
+      "lead": "QuantixBuilds turns wall and trim takeoffs into painting estimates, then keeps the same line items on the contract and the invoice.",
+      "keywords": ["painting estimating software", "painter invoice software", "painting contract", "interior paint estimate", "exterior painting quote"]
+    },
+    {
+      "slug": "flooring",
+      "name": "Flooring",
+      "contractor": "flooring contractors",
+      "job": "LVP, tile, hardwood, and carpet installs",
+      "title": "Flooring Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Flooring estimating software for U.S. contractors",
+      "meta": "Flooring estimate, invoice, and contract software for LVP, hardwood, tile, and carpet. Professional quotes with quantity, unit price, and tax.",
+      "lead": "Measure rooms, price material and labor, and send a flooring estimate that converts into a signed contract and a progress invoice.",
+      "keywords": ["flooring estimating software", "flooring invoice software", "flooring contract", "LVP install estimate", "hardwood quote software"]
+    },
+    {
+      "slug": "siding",
+      "name": "Siding",
+      "contractor": "siding contractors",
+      "job": "fiber-cement, vinyl, soffit, and fascia",
+      "title": "Siding Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Siding estimating software for U.S. contractors",
+      "meta": "Estimate siding, soffit, and fascia with invoices and contracts that look job-ready. ZIP pricing for vinyl and fiber-cement crews nationwide.",
+      "lead": "Build siding scopes by square and linear foot, then hand the homeowner a professional estimate, contract, and invoice from one platform.",
+      "keywords": ["siding estimating software", "siding invoice software", "siding contract", "Hardie siding estimate", "vinyl siding quote"]
+    },
+    {
+      "slug": "kitchen-remodel",
+      "name": "Kitchen Remodel",
+      "contractor": "kitchen remodelers",
+      "job": "cabinets, counters, plumbing, and finish work",
+      "title": "Kitchen Remodel Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Kitchen remodel estimating software for U.S. contractors",
+      "meta": "Create kitchen remodel estimates, invoices, and contracts covering cabinets, counters, electrical, and plumbing. One document workflow from bid to payment.",
+      "lead": "Kitchen remodelers use QuantixBuilds to itemize demo, cabinetry, counters, and trim, then lock the job with a contract and bill by milestone.",
+      "keywords": ["kitchen remodel estimating software", "kitchen invoice software", "kitchen remodel contract", "cabinet install estimate", "kitchen bid software"]
+    },
+    {
+      "slug": "bathroom-remodel",
+      "name": "Bathroom Remodel",
+      "contractor": "bathroom remodelers",
+      "job": "tile, showers, vanities, and plumbing",
+      "title": "Bathroom Remodel Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Bathroom remodel estimating software for U.S. contractors",
+      "meta": "Bathroom remodel estimates, invoices, and contracts for tile, showers, vanities, and plumbing. Professional documents for remodeling contractors.",
+      "lead": "Scope a bathroom from demo to tile, attach allowances in the estimate, and reuse the same items on the contract and invoice.",
+      "keywords": ["bathroom remodel estimating software", "bathroom invoice software", "bathroom remodel contract", "shower install estimate", "tile remodel quote"]
+    },
+    {
+      "slug": "tile",
+      "name": "Tile",
+      "contractor": "tile contractors",
+      "job": "floors, showers, backsplash, and grout",
+      "title": "Tile Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Tile estimating software for U.S. contractors",
+      "meta": "Price tile floors, showers, and backsplashes with estimates, invoices, and contracts. Unit pricing by square foot plus prep and grout.",
+      "lead": "QuantixBuilds gives tile crews a clean way to quote substrate, tile, and trim, then invoice the approved scope without rebuilding the document.",
+      "keywords": ["tile estimating software", "tile invoice software", "tile contract", "shower tile estimate", "backsplash quote software"]
+    },
+    {
+      "slug": "carpentry",
+      "name": "Carpentry",
+      "contractor": "carpenters and trim crews",
+      "job": "framing, trim, doors, and millwork",
+      "title": "Carpentry Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Carpentry estimating software for U.S. contractors",
+      "meta": "Carpentry estimates, invoices, and contracts for framing, doors, trim, and millwork. Professional quotes for finish and rough carpenters.",
+      "lead": "Itemize labor and material for carpentry packages, send a contract the homeowner can sign, and invoice as rooms are completed.",
+      "keywords": ["carpentry estimating software", "carpenter invoice software", "carpentry contract", "trim estimate software", "framing quote software"]
+    },
+    {
+      "slug": "framing",
+      "name": "Framing",
+      "contractor": "framing contractors",
+      "job": "walls, floors, roofs, and structural packages",
+      "title": "Framing Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Framing estimating software for U.S. contractors",
+      "meta": "Framing estimate, invoice, and contract software for wall, floor, and roof packages. Built for residential framing crews and GCs.",
+      "lead": "Quote lumber, labor, and hardware as a framing package, then convert the bid into a contract and draw invoices.",
+      "keywords": ["framing estimating software", "framing invoice software", "framing contract", "wall framing estimate", "rough carpentry quote"]
+    },
+    {
+      "slug": "windows",
+      "name": "Windows",
+      "contractor": "window replacement companies",
+      "job": "window and door replacement",
+      "title": "Window Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Window estimating software for U.S. contractors",
+      "meta": "Create window replacement estimates, invoices, and contracts with unit counts, labor, and tax. Professional documents for replacement companies.",
+      "lead": "Count openings, price install labor, and send a window replacement estimate that becomes the signed contract and the final invoice.",
+      "keywords": ["window estimating software", "window invoice software", "window replacement contract", "window install estimate", "door and window quote"]
+    },
+    {
+      "slug": "gutters",
+      "name": "Gutters",
+      "contractor": "gutter companies",
+      "job": "seamless gutters, downspouts, and guards",
+      "title": "Gutter Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Gutter estimating software for U.S. contractors",
+      "meta": "Gutter estimate, invoice, and contract software for linear-foot installs, downspouts, and guards. Fast quotes for exterior crews.",
+      "lead": "Price gutters by linear foot, add downspouts and hangers, and issue a contract and invoice without rebuilding the job.",
+      "keywords": ["gutter estimating software", "gutter invoice software", "gutter contract", "seamless gutter estimate", "downspout quote software"]
+    },
+    {
+      "slug": "concrete",
+      "name": "Concrete",
+      "contractor": "concrete contractors",
+      "job": "slabs, driveways, sidewalks, and foundations",
+      "title": "Concrete Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Concrete estimating software for U.S. contractors",
+      "meta": "Concrete estimates, invoices, and contracts for slabs, driveways, and foundations. Professional quotes with cubic yards, SF, and labor.",
+      "lead": "QuantixBuilds lets concrete crews price pours, forming, and finish, then collect a signature and invoice the same scope.",
+      "keywords": ["concrete estimating software", "concrete invoice software", "concrete contract", "driveway estimate", "slab quote software"]
+    },
+    {
+      "slug": "landscaping",
+      "name": "Landscaping",
+      "contractor": "landscaping contractors",
+      "job": "hardscape, sod, drainage, and outdoor living",
+      "title": "Landscaping Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Landscaping estimating software for U.S. contractors",
+      "meta": "Create landscaping estimates, invoices, and contracts for hardscape, sod, and drainage. Professional documents for outdoor living crews.",
+      "lead": "Break a yard into plantings, hardscape, and labor, send a landscaping estimate, and bill deposits from the same job file.",
+      "keywords": ["landscaping estimating software", "landscaping invoice software", "landscaping contract", "hardscape estimate", "sod install quote"]
+    },
+    {
+      "slug": "demolition",
+      "name": "Demolition",
+      "contractor": "demolition contractors",
+      "job": "interior demo, haul-off, and selective tear-out",
+      "title": "Demolition Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Demolition estimating software for U.S. contractors",
+      "meta": "Demolition estimates, invoices, and contracts for selective tear-out, dumpsters, and haul-off. Built for remodel and restoration crews.",
+      "lead": "Price demo labor, dumpsters, and protection, then turn the estimate into a contract and invoice before the next trade arrives.",
+      "keywords": ["demolition estimating software", "demo invoice software", "demolition contract", "interior demo estimate", "haul-off quote"]
+    },
+    {
+      "slug": "remodeling",
+      "name": "Remodeling",
+      "contractor": "general remodeling contractors",
+      "job": "multi-trade residential remodeling",
+      "title": "Remodeling Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Remodeling estimating software for U.S. contractors",
+      "meta": "Remodeling estimates, invoices, and contracts for multi-trade residential jobs. One platform for GCs who bid kitchens, baths, and additions.",
+      "lead": "Organize every trade on one remodeling estimate, lock the job with a contract, and invoice draws as work progresses.",
+      "keywords": ["remodeling estimating software", "remodeling invoice software", "remodeling contract", "home remodel estimate", "GC quoting software"]
+    },
+    {
+      "slug": "general-contractor",
+      "name": "General Contractor",
+      "contractor": "general contractors",
+      "job": "multi-trade construction and remodeling",
+      "title": "General Contractor Estimating Software | Estimates, Invoices & Contracts",
+      "h1": "Estimating software for U.S. general contractors",
+      "meta": "GC software for estimates, invoices, and contracts across trades. ZIP pricing, document history, and client-ready PDFs for residential builders.",
+      "lead": "General contractors use QuantixBuilds to bid mixed-trade jobs, issue one contract, and invoice the owner without juggling spreadsheets.",
+      "keywords": ["general contractor estimating software", "GC invoice software", "construction contract software", "builder estimate software", "contractor quoting software"]
+    }
+  ]
+}

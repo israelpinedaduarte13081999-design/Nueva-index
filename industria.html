@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ industria.title }}</title>
+  <meta name="description" content="{{ industria.meta }}">
+  <meta name="keywords" content="{{ industria.keywords|join(', ') }}">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="{{ canonical }}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ industria.title }}">
+  <meta property="og:description" content="{{ industria.meta }}">
+  <meta property="og:url" content="{{ canonical }}">
+  <meta property="og:site_name" content="QuantixBuilds">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="{{ industria.title }}">
+  <meta name="twitter:description" content="{{ industria.meta }}">
+  <script type="application/ld+json">{{ json_ld|safe }}</script>
+  <style>
+    :root { --navy:#19385f; --blue:#2d70ad; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:#f1f5f9; color:#1e293b; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+    a { color:#1d4ed8; }
+    header { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:16px 28px; background:#fff; border-bottom:1px solid var(--line); }
+    .brand { color:var(--ink); font-weight:800; text-decoration:none; font-size:1.05rem; }
+    .header-actions { display:flex; gap:10px; }
+    .btn { display:inline-flex; align-items:center; justify-content:center; min-height:42px; padding:8px 16px; border-radius:10px; text-decoration:none; font-weight:700; font-size:.92rem; }
+    .btn-ghost { color:var(--ink); border:1px solid var(--line); background:#fff; }
+    .btn-primary { background:var(--ink); color:#fff; border:1px solid var(--ink); }
+    .btn-primary:hover { background:#1e293b; }
+    .hero { max-width:920px; margin:0 auto; padding:56px 20px 28px; }
+    .kicker { margin:0 0 10px; color:#1d4ed8; font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+    h1 { margin:0 0 14px; color:var(--ink); font-size:clamp(1.7rem,4vw,2.35rem); letter-spacing:-.03em; line-height:1.15; }
+    .lead { margin:0 0 24px; color:#334155; font-size:1.08rem; line-height:1.6; max-width:720px; }
+    .hero-cta { display:flex; gap:10px; flex-wrap:wrap; }
+    .grid { max-width:920px; margin:0 auto; padding:8px 20px 40px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+    article { background:#fff; border:1px solid var(--line); border-radius:14px; padding:20px 18px; }
+    article h2 { margin:0 0 8px; font-size:1.02rem; color:var(--ink); }
+    article p { margin:0; color:#475569; line-height:1.55; font-size:.95rem; }
+    .keywords { max-width:920px; margin:0 auto; padding:0 20px 48px; }
+    .keywords h2 { margin:0 0 10px; color:var(--ink); font-size:1.15rem; }
+    .keywords p { margin:0 0 12px; color:#334155; line-height:1.6; }
+    .chip-row { display:flex; flex-wrap:wrap; gap:8px; }
+    .chip { background:#fff; border:1px solid var(--line); border-radius:999px; padding:6px 12px; font-size:.82rem; color:#334155; }
+    .related { max-width:920px; margin:0 auto; padding:0 20px 56px; }
+    .related h2 { margin:0 0 12px; font-size:1.15rem; color:var(--ink); }
+    .related ul { margin:0; padding:0; list-style:none; display:flex; flex-wrap:wrap; gap:10px 18px; }
+    .related a { color:#1d4ed8; font-weight:600; text-decoration:none; }
+    .related a:hover { text-decoration:underline; }
+    footer { border-top:1px solid var(--line); background:#fff; padding:18px 28px 28px; color:var(--muted); font-size:.85rem; }
+    footer nav { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:8px; }
+    footer a { color:#334155; text-decoration:none; }
+    @media (max-width:800px) {
+      .grid { grid-template-columns:1fr; }
+      header { padding:14px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="brand" href="/">QuantixBuilds</a>
+    <div class="header-actions">
+      <a class="btn btn-ghost" href="/login">Log in</a>
+      <a class="btn btn-primary" href="/login">Start 14-day free trial</a>
+    </div>
+  </header>
+  <section class="hero">
+    <p class="kicker">{{ industria.name }} software · United States</p>
+    <h1>{{ industria.h1 }}</h1>
+    <p class="lead">{{ industria.lead }}</p>
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="/login">Create {{ industria.name|lower }} estimates</a>
+      <a class="btn btn-ghost" href="/login">See invoices and contracts</a>
+    </div>
+  </section>
+  <section class="grid">
+    <article>
+      <h2>{{ industria.name }} estimates</h2>
+      <p>Price {{ industria.job }} with a clear Scope of Work, quantities, unit prices, tax, and a grand total your client can approve.</p>
+    </article>
+    <article>
+      <h2>{{ industria.name }} invoices</h2>
+      <p>Turn the approved estimate into an invoice that tracks deposits, progress payments, and the remaining balance for {{ industria.contractor }}.</p>
+    </article>
+    <article>
+      <h2>{{ industria.name }} contracts</h2>
+      <p>Issue a remodeling or construction agreement with terms, payment schedule, and e-signature spaces that match the {{ industria.name|lower }} scope.</p>
+    </article>
+  </section>
+  <section class="keywords">
+    <h2>Built for {{ industria.contractor }} nationwide</h2>
+    <p>QuantixBuilds is estimating, invoicing, and contract software for {{ industria.contractor }} across the United States. Search for {{ industria.keywords[0] if industria.keywords else industria.name|lower + " estimating software" }} and you get documents your clients can trust—not a generic spreadsheet.</p>
+    <p>ZIP-based pricing, document history, and a 14-day free trial. No card required to start.</p>
+    <div class="chip-row">
+      {% for kw in industria.keywords %}
+      <span class="chip">{{ kw }}</span>
+      {% endfor %}
+    </div>
+  </section>
+  <section class="related">
+    <h2>More contractor software</h2>
+    <ul>
+      {% for otra in relacionadas %}
+      <li><a href="{{ otra.path }}">{{ otra.name }} software</a></li>
+      {% endfor %}
+    </ul>
+  </section>
+  <footer>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/login">Log in</a>
+      <a href="/privacidad">Privacy Policy</a>
+      <a href="/sitemap.xml">Sitemap</a>
+    </nav>
+    <div>QuantixBuilds · {{ industria.name }} estimating, invoices, and contracts · quantixbuilds.com</div>
+  </footer>
+</body>
+</html>
