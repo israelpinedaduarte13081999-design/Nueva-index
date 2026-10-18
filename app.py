@@ -3346,6 +3346,8 @@ _API_CATALOGO = {
 _API_IA_PDF = (
     "/api/sugerir-precios-ia",
     "/api/sugerir_descripcion",
+)
+_API_IA_PDF_CUOTA = (
     "/api/import-roof-report",
     "/api/process-roof-report",
     "/api/process-pdf",
@@ -3354,6 +3356,13 @@ _API_IA_PDF = (
     "/api/import-planos",
     "/api/process-architectural-plans",
 )
+_LIMITE_IA_PDF_GRATIS = 5
+_MSG_CUOTA_IA_PDF = (
+    "Has utilizado tus 5 extracciones gratuitas con IA. "
+    "Por favor, actualiza tu plan a Premium para uso ilimitado"
+)
+_SQL_IA_PDF = "Ejecuta ai_pdf_extractions.sql en el editor SQL de Supabase."
+_sin_columna_ai_pdf = False
 
 
 def _nivel_plan(contratista):
@@ -3370,7 +3379,30 @@ def _puede_feature(contratista, feature):
         return nivel >= 2
     if feature == "ai_pdf":
         return nivel >= 3
+    if feature == "ai_pdf_quota":
+        return True
     return nivel >= 1
+
+
+def _es_premium_ia(contratista):
+    if not contratista:
+        return False
+    if _es_admin(contratista.get("email")):
+        return True
+    return _plan_valido(contratista.get("plan_seleccionado")) == "premium"
+
+
+def _es_error_columna_ai_pdf(err):
+    return bool(re.search(r"ai_pdf_extractions_count", str(err or ""), re.I))
+
+
+def _marcar_sin_columna_ai_pdf(err):
+    global _sin_columna_ai_pdf
+    if _es_error_columna_ai_pdf(err):
+        _sin_columna_ai_pdf = True
+        print("-->", _SQL_IA_PDF)
+        return True
+    return False
 
 
 def _respuesta_upgrade():
@@ -3381,13 +3413,158 @@ def _respuesta_upgrade():
     }), 403
 
 
+def _respuesta_cuota_ia_pdf(count=None):
+    usado = _LIMITE_IA_PDF_GRATIS if count is None else max(int(count or 0), _LIMITE_IA_PDF_GRATIS)
+    return jsonify({
+        "success": False,
+        "error": _MSG_CUOTA_IA_PDF,
+        "code": "ai_quota",
+        "siguiente": "planes",
+        "ai_pdf_extractions_count": usado,
+        "limite": _LIMITE_IA_PDF_GRATIS,
+    }), 403
+
+
+def _parse_rpc_cuota_ia(data):
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except Exception:
+            data = None
+    if not isinstance(data, dict):
+        return None
+    if "ok" not in data:
+        return None
+    try:
+        count = int(data.get("count") or 0)
+    except Exception:
+        count = 0
+    return bool(data.get("ok")), count
+
+
+def _leer_contador_ia_pdf(sb, contratista):
+    if not sb or _sin_columna_ai_pdf or not contratista:
+        return 0
+    uid = str(contratista.get("user_id") or "").strip()
+    email = str(contratista.get("email") or "").strip().lower()
+    cid = str(contratista.get("id") or "").strip()
+    try:
+        fila = None
+        if uid:
+            res = sb.table("perfiles").select("ai_pdf_extractions_count").eq("id", uid).limit(1).execute()
+            rows = list(res.data or [])
+            fila = rows[0] if rows else None
+        if not fila and email:
+            res = sb.table("perfiles").select("ai_pdf_extractions_count").eq("email", email).limit(1).execute()
+            rows = list(res.data or [])
+            fila = rows[0] if rows else None
+        if not fila and cid:
+            res = sb.table(TABLA_CONTRATISTAS).select("ai_pdf_extractions_count").eq("id", cid).limit(1).execute()
+            rows = list(res.data or [])
+            fila = rows[0] if rows else None
+        if not fila and email:
+            res = sb.table(TABLA_CONTRATISTAS).select("ai_pdf_extractions_count").eq("email", email).limit(1).execute()
+            rows = list(res.data or [])
+            fila = rows[0] if rows else None
+        return max(0, int((fila or {}).get("ai_pdf_extractions_count") or 0))
+    except Exception as err:
+        if _marcar_sin_columna_ai_pdf(err):
+            return 0
+        print(f"--> leer cuota IA PDF: {err}")
+        return 0
+
+
+def _incrementar_contador_tabla(sb, tabla, filtros, actual):
+    query = sb.table(tabla).update({
+        "ai_pdf_extractions_count": int(actual) + 1,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    })
+    for clave, valor in filtros.items():
+        query = query.eq(clave, valor)
+    query = query.eq("ai_pdf_extractions_count", int(actual))
+    res = query.execute()
+    return list(res.data or [])
+
+
+def _intentar_consumir_ia_pdf(contratista):
+    sb = _supabase_client()
+    if sb is None:
+        return True, 0
+    if _sin_columna_ai_pdf:
+        return True, _leer_contador_ia_pdf(sb, contratista)
+    uid = str((contratista or {}).get("user_id") or "").strip()
+    email = str((contratista or {}).get("email") or "").strip().lower()
+    cid = str((contratista or {}).get("id") or "").strip()
+    try:
+        data = _rpc_tenant(sb, "consumir_ai_pdf_extraction", {
+            "p_user_id": uid if _es_uuid(uid) else None,
+            "p_email": email,
+        })
+        parsed = _parse_rpc_cuota_ia(data)
+        if parsed is not None:
+            return parsed
+    except Exception as err:
+        if _marcar_sin_columna_ai_pdf(err):
+            return True, 0
+        if not _error_sin_funcion_tenant(err):
+            print(f"--> RPC cuota IA PDF: {err}")
+    actual = _leer_contador_ia_pdf(sb, contratista)
+    if actual >= _LIMITE_IA_PDF_GRATIS:
+        return False, actual
+    try:
+        filas = []
+        if uid:
+            filas = _incrementar_contador_tabla(sb, "perfiles", {"id": uid}, actual)
+        if not filas and email:
+            filas = _incrementar_contador_tabla(sb, "perfiles", {"email": email}, actual)
+        if not filas and cid:
+            filas = _incrementar_contador_tabla(sb, TABLA_CONTRATISTAS, {"id": cid}, actual)
+        if not filas and email:
+            filas = _incrementar_contador_tabla(sb, TABLA_CONTRATISTAS, {"email": email}, actual)
+        if filas:
+            try:
+                return True, int((filas[0] or {}).get("ai_pdf_extractions_count") or actual + 1)
+            except Exception:
+                return True, actual + 1
+        nuevo = _leer_contador_ia_pdf(sb, contratista)
+        if nuevo > actual:
+            return True, nuevo
+        if nuevo >= _LIMITE_IA_PDF_GRATIS:
+            return False, nuevo
+        return True, actual
+    except Exception as err:
+        if _marcar_sin_columna_ai_pdf(err):
+            return True, actual
+        print(f"--> incrementar cuota IA PDF: {err}")
+        return True, actual
+
+
+def _consumir_extraccion_ia_pdf():
+    contratista, error = _exigir_contratista()
+    if error:
+        return error
+    if _prueba_expirada(contratista):
+        return _respuesta_prueba_expirada()
+    if _es_premium_ia(contratista):
+        return None
+    ok, count = _intentar_consumir_ia_pdf(contratista)
+    if not ok:
+        return _respuesta_cuota_ia_pdf(count)
+    return None
+
+
 def _feature_api(path):
     ruta = str(path or "").split("?")[0]
     if ruta.startswith("/api/get-zip-factor"):
         return "catalog"
+    if ruta.startswith("/api/import-planos/status") or ruta.startswith("/api/process-architectural-plans/status"):
+        return "ai_pdf_quota"
     base = ruta.rstrip("/") or ruta
     if base in _API_CATALOGO or ruta.startswith("/api/search-catalog") or ruta.startswith("/api/buscar-catalogo"):
         return "catalog"
+    for pref in _API_IA_PDF_CUOTA:
+        if ruta == pref or ruta.startswith(pref + "/"):
+            return "ai_pdf_quota"
     for pref in _API_IA_PDF:
         if ruta == pref or ruta.startswith(pref + "/"):
             return "ai_pdf"
@@ -3409,6 +3586,8 @@ def _bloquear_api_por_plan():
         return error
     if _prueba_expirada(contratista):
         return _respuesta_prueba_expirada()
+    if feature == "ai_pdf_quota":
+        return None
     if not _puede_feature(contratista, feature):
         return _respuesta_upgrade()
     return None
@@ -3470,6 +3649,7 @@ def _sesion_desde_fila(row):
         "pago_cliente_id": prueba.get("pago_cliente_id") or "",
         "requiere_pago": False if _es_admin(row.get("email")) else bool(prueba.get("requiere_pago")),
         "nombre_plan": _nombre_plan(prueba.get("plan_seleccionado")),
+        "ai_pdf_extractions_count": 0 if _es_admin(row.get("email")) else int(prueba.get("ai_pdf_extractions_count") or 0),
     }
 
 
@@ -3529,6 +3709,7 @@ def _datos_prueba(sb, contratista):
         "plan_seleccionado": "",
         "pago_cliente_id": "",
         "requiere_pago": False,
+        "ai_pdf_extractions_count": 0,
     }
     if not sb or not contratista:
         return datos
@@ -3561,6 +3742,10 @@ def _datos_prueba(sb, contratista):
     datos["plan_seleccionado"] = _plan_valido((fila or {}).get("plan_seleccionado"))
     datos["pago_cliente_id"] = str((fila or {}).get("pago_cliente_id") or "").strip()
     datos["requiere_pago"] = bool((fila or {}).get("requiere_pago"))
+    if _es_admin(email):
+        datos["ai_pdf_extractions_count"] = 0
+    else:
+        datos["ai_pdf_extractions_count"] = _leer_contador_ia_pdf(sb, contratista)
     fin = _parse_ts((fila or {}).get("fecha_fin_prueba"))
     if not fin:
         inicio = _parse_ts((fila or {}).get("trial_inicio"))
@@ -3574,6 +3759,7 @@ def _datos_prueba(sb, contratista):
         datos["fecha_fin_prueba"] = ""
         datos["trial_expirada"] = False
         datos["requiere_pago"] = False
+        datos["ai_pdf_extractions_count"] = 0
     return datos
 
 
@@ -5314,6 +5500,7 @@ def api_contratista_actual():
         "pago_cliente_id": contratista.get("pago_cliente_id") or "",
         "requiere_pago": False if _es_admin(contratista.get("email")) else bool(contratista.get("requiere_pago")),
         "nombre_plan": _nombre_plan(contratista.get("plan_seleccionado")),
+        "ai_pdf_extractions_count": 0 if _es_admin(contratista.get("email")) else int(contratista.get("ai_pdf_extractions_count") or 0),
     })
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
 
@@ -8207,6 +8394,9 @@ def import_roof_report():
         pdf_bytes = file.read()
         if not pdf_bytes:
             return jsonify({"success": False, "error": "Archivo no seleccionado"}), 400
+        bloqueo = _consumir_extraccion_ia_pdf()
+        if bloqueo:
+            return bloqueo
 
         zip_form = re.sub(r"\D", "", str(request.form.get("zip_code") or request.args.get("zip_code") or ""))[:5]
         import asyncio
@@ -8327,6 +8517,11 @@ def process_pdf():
 
     file = request.files["file"]
     pdf_bytes = file.read()
+    if not pdf_bytes:
+        return jsonify({"error": "El PDF está vacío"}), 400
+    bloqueo = _consumir_extraccion_ia_pdf()
+    if bloqueo:
+        return bloqueo
 
     try:
         from roof_parser import es_reporte_roofr, payload_http_cotizador, procesar_reporte_roofr
@@ -8424,6 +8619,9 @@ def import_line_items_ia():
     pdf_bytes = archivo.read()
     if not pdf_bytes:
         return jsonify({"success": False, "error": "The PDF is empty"}), 400
+    bloqueo = _consumir_extraccion_ia_pdf()
+    if bloqueo:
+        return bloqueo
     try:
         from estimate_pdf_parser import extraer_texto_pdf
 
@@ -9137,6 +9335,9 @@ def import_planos_vision():
     pdf_bytes = archivo.read()
     if not pdf_bytes:
         return _respuesta_json({"success": False, "error": "El PDF está vacío"}, 400)
+    bloqueo = _consumir_extraccion_ia_pdf()
+    if bloqueo:
+        return bloqueo
     _planos_limpiar_jobs()
     job_id = uuid.uuid4().hex
     _planos_escribir(job_id, {
