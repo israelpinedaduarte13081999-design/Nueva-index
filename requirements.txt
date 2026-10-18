@@ -19,4 +19,5 @@ PyMuPDF
 pdfminer.six
 gunicorn
 stripe
+squareup
 

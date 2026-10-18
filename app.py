@@ -1,6 +1,7 @@
 import atexit
 import base64
 import hashlib
+import hmac
 import json
 import math
 import os
@@ -4972,6 +4973,388 @@ def api_pagos_confirmar():
         contratista.update(_datos_prueba(sb, contratista))
     resp = jsonify(_sesion_desde_fila(contratista))
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
+
+
+_SQUARE_VERSION = "2025-01-23"
+_SQUARE_PLAN_VARIATION_ID = ""
+_SQUARE_LOCATION_ID = ""
+
+
+def _square_token():
+    return (os.getenv("SQUARE_ACCESS_TOKEN") or os.getenv("SQUARE_TOKEN") or "").strip()
+
+
+def _square_sandbox():
+    env = (os.getenv("SQUARE_ENVIRONMENT") or os.getenv("SQUARE_ENV") or "").strip().lower()
+    if env in ("sandbox", "test"):
+        return True
+    if env in ("production", "prod", "live"):
+        return False
+    return False
+
+
+def _square_host():
+    return "https://connect.squareupsandbox.com" if _square_sandbox() else "https://connect.squareup.com"
+
+
+def _square_headers():
+    token = _square_token()
+    if not token:
+        return None
+    return {
+        "Authorization": "Bearer " + token,
+        "Content-Type": "application/json",
+        "Square-Version": _SQUARE_VERSION,
+        "Accept": "application/json",
+    }
+
+
+def _square_http(method, path, body=None):
+    headers = _square_headers()
+    if not headers:
+        raise RuntimeError("Falta SQUARE_ACCESS_TOKEN en .env")
+    url = _square_host() + path
+    resp = None
+    try:
+        import requests as req
+        resp = req.request(method, url, headers=headers, json=body, timeout=30)
+        data = resp.json() if resp.content else {}
+    except Exception as err:
+        raise RuntimeError("Square no respondió") from err
+    if resp.status_code >= 400:
+        errores = data.get("errors") if isinstance(data, dict) else None
+        detalle = ""
+        if isinstance(errores, list) and errores:
+            detalle = str((errores[0] or {}).get("detail") or (errores[0] or {}).get("code") or "")
+        raise RuntimeError(detalle or ("Square HTTP " + str(resp.status_code)))
+    return data if isinstance(data, dict) else {}
+
+
+def _square_location_id():
+    global _SQUARE_LOCATION_ID
+    env = (os.getenv("SQUARE_LOCATION_ID") or "").strip()
+    if env:
+        return env
+    if _SQUARE_LOCATION_ID:
+        return _SQUARE_LOCATION_ID
+    data = _square_http("GET", "/v2/locations")
+    for loc in data.get("locations") or []:
+        if str((loc or {}).get("status") or "").upper() == "ACTIVE":
+            _SQUARE_LOCATION_ID = str(loc.get("id") or "")
+            if _SQUARE_LOCATION_ID:
+                return _SQUARE_LOCATION_ID
+    locs = data.get("locations") or []
+    if locs:
+        _SQUARE_LOCATION_ID = str((locs[0] or {}).get("id") or "")
+    return _SQUARE_LOCATION_ID
+
+
+def _square_nota_pago(plan, email, user_id):
+    return "qb|" + str(plan or "premium") + "|" + str(email or "") + "|" + str(user_id or "")
+
+
+def _square_parse_nota(nota):
+    texto = str(nota or "")
+    partes = texto.split("|")
+    if len(partes) >= 3 and partes[0] == "qb":
+        plan = _plan_valido(partes[1]) or "premium"
+        email = str(partes[2] or "").strip().lower()
+        uid = str(partes[3] if len(partes) > 3 else "").strip()
+        return plan, email, uid
+    return "premium", "", ""
+
+
+def _square_buscar_email(obj):
+    if not isinstance(obj, dict):
+        return ""
+    for clave in ("buyer_email_address", "buyer_email", "email_address", "email"):
+        valor = str(obj.get(clave) or "").strip().lower()
+        if valor and _correo_valido(valor):
+            return valor
+    rec = obj.get("primary_recipient") if isinstance(obj.get("primary_recipient"), dict) else {}
+    valor = str(rec.get("email_address") or rec.get("email") or "").strip().lower()
+    if valor and _correo_valido(valor):
+        return valor
+    _, email, _ = _square_parse_nota(obj.get("note") or obj.get("payment_note") or "")
+    return email
+
+
+def _square_plan_variation_id(plan, centavos):
+    global _SQUARE_PLAN_VARIATION_ID
+    env = (os.getenv("SQUARE_SUBSCRIPTION_PLAN_ID") or os.getenv("SQUARE_PLAN_VARIATION_ID") or "").strip()
+    if env:
+        return env
+    if _SQUARE_PLAN_VARIATION_ID:
+        return _SQUARE_PLAN_VARIATION_ID
+    nombre = "QuantixBuilds Premium Monthly"
+    try:
+        data = _square_http("POST", "/v2/catalog/search", {
+            "object_types": ["SUBSCRIPTION_PLAN_VARIATION"],
+            "query": {"exact_query": {"attribute_name": "name", "attribute_value": nombre}},
+            "limit": 5,
+        })
+        for obj in data.get("objects") or []:
+            ident = str((obj or {}).get("id") or "")
+            if ident and not ident.startswith("#"):
+                _SQUARE_PLAN_VARIATION_ID = ident
+                return ident
+    except Exception as err:
+        print(f"--> Square catalog search: {err}")
+    try:
+        data = _square_http("POST", "/v2/catalog/object", {
+            "idempotency_key": uuid.uuid4().hex,
+            "object": {
+                "type": "SUBSCRIPTION_PLAN",
+                "id": "#qb-premium-plan",
+                "subscription_plan_data": {
+                    "name": "QuantixBuilds Premium",
+                    "subscription_plan_variations": [{
+                        "type": "SUBSCRIPTION_PLAN_VARIATION",
+                        "id": "#qb-premium-monthly",
+                        "subscription_plan_variation_data": {
+                            "name": nombre,
+                            "phases": [{
+                                "cadence": "MONTHLY",
+                                "ordinal": 0,
+                                "pricing": {
+                                    "type": "STATIC",
+                                    "price_money": {"amount": int(centavos), "currency": "USD"},
+                                },
+                            }],
+                        },
+                    }],
+                },
+            },
+        })
+        for obj in data.get("id_mappings") or []:
+            if str((obj or {}).get("client_object_id") or "") == "#qb-premium-monthly":
+                ident = str(obj.get("object_id") or "")
+                if ident:
+                    _SQUARE_PLAN_VARIATION_ID = ident
+                    return ident
+        creado = data.get("catalog_object") or {}
+        variaciones = ((creado.get("subscription_plan_data") or {}).get("subscription_plan_variations")) or []
+        if variaciones:
+            ident = str((variaciones[0] or {}).get("id") or "")
+            if ident:
+                _SQUARE_PLAN_VARIATION_ID = ident
+                return ident
+    except Exception as err:
+        print(f"--> Square subscription plan: {err}")
+    return ""
+
+
+def _crear_enlace_pago_square(contratista, plan="premium"):
+    plan = _plan_valido(plan) or "premium"
+    info = _PLANES_PRECIOS.get(plan) or _PLANES_PRECIOS["premium"]
+    email = str((contratista or {}).get("email") or "").strip().lower()
+    uid = str((contratista or {}).get("user_id") or "").strip()
+    if not email or not _correo_valido(email):
+        raise RuntimeError("Your account has no valid email for Square checkout.")
+    location_id = _square_location_id()
+    if not location_id:
+        raise RuntimeError("Falta SQUARE_LOCATION_ID. Agrégalo al .env o activa una Location en Square.")
+    body = {
+        "idempotency_key": uuid.uuid4().hex,
+        "description": "QuantixBuilds " + info["nombre"] + " for " + email,
+        "quick_pay": {
+            "name": "QuantixBuilds · " + info["nombre"],
+            "price_money": {"amount": int(info["centavos"]), "currency": "USD"},
+            "location_id": location_id,
+        },
+        "checkout_options": {
+            "redirect_url": _url_publica_app() + "/estimado",
+            "ask_for_shipping_address": False,
+        },
+        "pre_populated_data": {"buyer_email": email},
+        "payment_note": _square_nota_pago(plan, email, uid),
+    }
+    variation = _square_plan_variation_id(plan, info["centavos"])
+    if variation:
+        body["checkout_options"]["subscription_plan_id"] = variation
+    data = _square_http("POST", "/v2/online-checkout/payment-links", body)
+    enlace = (data.get("payment_link") or {}).get("url") or data.get("url") or ""
+    if not enlace:
+        raise RuntimeError("Square no devolvió un enlace de pago.")
+    return enlace
+
+
+def _square_firma_valida(cuerpo):
+    clave = (os.getenv("SQUARE_WEBHOOK_SIGNATURE_KEY") or os.getenv("SQUARE_WEBHOOK_SIGNATURE") or "").strip()
+    firma = (
+        request.headers.get("x-square-hmacsha256-signature")
+        or request.headers.get("X-Square-HmacSha256-Signature")
+        or request.headers.get("Square-Signature")
+        or ""
+    ).strip()
+    if not clave:
+        print("--> Square webhook: falta SQUARE_WEBHOOK_SIGNATURE_KEY")
+        return True
+    if not firma:
+        return False
+    url = (os.getenv("SQUARE_WEBHOOK_URL") or "").strip() or (_url_publica_app() + "/square-webhook")
+    if isinstance(cuerpo, bytes):
+        texto = cuerpo.decode("utf-8")
+    else:
+        texto = str(cuerpo or "")
+    digest = hmac.new(clave.encode("utf-8"), (url + texto).encode("utf-8"), hashlib.sha256).digest()
+    esperada = base64.b64encode(digest).decode("ascii")
+    return hmac.compare_digest(esperada, firma)
+
+
+def _activar_premium_por_square(email, customer_id="", plan="premium", user_id=""):
+    email = str(email or "").strip().lower()
+    plan = _plan_valido(plan) or "premium"
+    if not email or not _correo_valido(email):
+        print("--> Square webhook: pago sin email de cliente")
+        return False
+    sb = _supabase_client()
+    if sb is None:
+        return False
+    ahora = datetime.now(timezone.utc)
+    cambios = {
+        "plan_seleccionado": plan,
+        "requiere_pago": False,
+        "ai_pdf_extractions_count": 0,
+        "fecha_fin_prueba": (ahora + timedelta(days=3650)).isoformat(),
+        "updated_at": ahora.isoformat(),
+    }
+    if customer_id:
+        cambios["pago_cliente_id"] = str(customer_id)
+    uid = str(user_id or "").strip()
+    if not uid:
+        try:
+            res = sb.table("perfiles").select("id").eq("email", email).limit(1).execute()
+            filas = list(res.data or [])
+            if filas:
+                uid = str(filas[0].get("id") or "")
+        except Exception as err:
+            print(f"--> Square perfil email: {err}")
+    ok = False
+    try:
+        query = sb.table("perfiles").update(cambios)
+        if uid:
+            query = query.eq("id", uid)
+        else:
+            query = query.eq("email", email)
+        res = query.execute()
+        ok = bool(list(res.data or []))
+    except Exception as err:
+        if "ai_pdf_extractions_count" in str(err or ""):
+            cambios.pop("ai_pdf_extractions_count", None)
+            try:
+                query = sb.table("perfiles").update(cambios)
+                query = query.eq("id", uid) if uid else query.eq("email", email)
+                res = query.execute()
+                ok = bool(list(res.data or []))
+            except Exception as err2:
+                print(f"--> Square activar perfil: {err2}")
+        else:
+            print(f"--> Square activar perfil: {err}")
+    try:
+        sb.table(TABLA_CONTRATISTAS).update({
+            "ai_pdf_extractions_count": 0,
+            "updated_at": ahora.isoformat(),
+        }).eq("email", email).execute()
+    except Exception:
+        pass
+    if ok:
+        print(f"--> Square pago OK plan={plan} email={email}")
+    else:
+        print(f"--> Square pago sin fila de perfil email={email}")
+    return ok
+
+
+def _procesar_evento_square(event):
+    if not isinstance(event, dict):
+        return
+    tipo = str(event.get("type") or event.get("event_type") or "").lower()
+    data = event.get("data") if isinstance(event.get("data"), dict) else {}
+    obj = data.get("object") if isinstance(data.get("object"), dict) else data
+    if "payment" in obj and isinstance(obj.get("payment"), dict):
+        obj = obj.get("payment")
+    if "invoice" in obj and isinstance(obj.get("invoice"), dict) and "payment" not in tipo:
+        obj = obj.get("invoice")
+    if "subscription" in obj and isinstance(obj.get("subscription"), dict) and "subscription" in tipo:
+        obj = obj.get("subscription")
+    if tipo.startswith("payment."):
+        estado = str(obj.get("status") or "").upper()
+        if tipo == "payment.created" and estado not in ("COMPLETED", "APPROVED"):
+            return
+        if tipo == "payment.updated" and estado not in ("COMPLETED", "APPROVED"):
+            return
+    elif tipo not in (
+        "invoice.payment_made",
+        "invoice.scheduled_charge_collected",
+        "subscription.created",
+        "subscription.updated",
+    ):
+        return
+    email = _square_buscar_email(obj)
+    plan, email_nota, uid = _square_parse_nota(obj.get("note") or obj.get("payment_note") or "")
+    email = email or email_nota
+    customer_id = str(obj.get("customer_id") or obj.get("customer_id") or "").strip()
+    if not email:
+        cid = customer_id
+        if cid:
+            try:
+                cust = _square_http("GET", "/v2/customers/" + cid)
+                persona = cust.get("customer") or {}
+                email = str(persona.get("email_address") or "").strip().lower()
+            except Exception as err:
+                print(f"--> Square customer: {err}")
+        order_id = str(obj.get("order_id") or "").strip()
+        if not email and order_id:
+            try:
+                pedido = _square_http("GET", "/v2/orders/" + order_id)
+                orden = (pedido.get("order") or {})
+                _, email, uid = _square_parse_nota(orden.get("reference_id") or orden.get("ticket_name") or "")
+                if not email:
+                    email = _square_buscar_email(orden)
+                plan = plan or "premium"
+            except Exception as err:
+                print(f"--> Square order: {err}")
+    if not email:
+        print("--> Square webhook: no se pudo resolver el email del pagador")
+        return
+    _activar_premium_por_square(email, customer_id=customer_id, plan=plan or "premium", user_id=uid)
+
+
+@app.route("/checkout")
+def checkout_square():
+    if not _token_contratista_solicitud():
+        return redirect("/login")
+    contratista, error = _exigir_contratista()
+    if error or not contratista:
+        return redirect("/login")
+    if _es_admin(contratista.get("email")):
+        return redirect("/estimado")
+    plan = _plan_valido(request.args.get("plan") or contratista.get("plan_seleccionado")) or "premium"
+    try:
+        url = _crear_enlace_pago_square(contratista, plan)
+    except Exception as err:
+        print(f"--> Square checkout: {err}")
+        return Response(
+            "Could not open Square checkout. Check SQUARE_ACCESS_TOKEN and SQUARE_LOCATION_ID.",
+            status=502,
+            mimetype="text/plain; charset=utf-8",
+        )
+    return redirect(url, code=303)
+
+
+@app.route("/square-webhook", methods=["GET", "POST"])
+def square_webhook():
+    if request.method == "GET":
+        return jsonify({"ok": True, "service": "square-webhook"}), 200
+    raw = request.get_data() or b""
+    if not _square_firma_valida(raw):
+        return jsonify({"error": "invalid signature"}), 403
+    try:
+        event = json.loads(raw.decode("utf-8") or "{}")
+    except Exception:
+        return jsonify({"error": "json"}), 400
+    threading.Thread(target=_procesar_evento_square, args=(event,), daemon=True, name="square-webhook").start()
+    return jsonify({"ok": True}), 200
 
 
 @app.route("/api/pagos/webhook", methods=["POST"])

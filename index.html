@@ -1243,22 +1243,10 @@
     <div class="pago-card">
       <p class="pago-kicker">Subscription expired</p>
       <h2>Activate your account</h2>
-      <p class="pago-aviso pago-aviso-alerta" id="paywallMensaje">Your 14-day trial has ended. To keep using QuantixBuilds and retain access to your estimates, enter your card to activate your plan.</p>
-      <p class="pago-hint">This is a simulated card check. Use <strong>4242 4242 4242 4242</strong>, any future date, and any 3-digit CVC.</p>
+      <p class="pago-aviso pago-aviso-alerta" id="paywallMensaje">Your 14-day trial has ended. To keep using QuantixBuilds and retain access to your estimates, pay your monthly subscription securely with Square.</p>
+      <p class="pago-hint">Square opens a hosted checkout page. Your email is sent as the payment reference so we can activate Premium automatically.</p>
       <form class="pago-form" id="paywallTarjetaForm" autocomplete="off">
-        <label for="paywallNumero">Card number</label>
-        <input id="paywallNumero" name="numero" inputmode="numeric" autocomplete="off" placeholder="4242 4242 4242 4242" required>
-        <div class="pago-form-row">
-          <div>
-            <label for="paywallVencimiento">Expiration (MM/YY)</label>
-            <input id="paywallVencimiento" name="vencimiento" inputmode="numeric" autocomplete="off" placeholder="12/28" maxlength="5" required>
-          </div>
-          <div>
-            <label for="paywallCvc">CVC</label>
-            <input id="paywallCvc" name="cvc" inputmode="numeric" autocomplete="off" placeholder="123" maxlength="4" required>
-          </div>
-        </div>
-        <button class="btn btn-primary pago-submit" type="submit" id="paywallSubmit">Activate my account</button>
+        <button class="btn btn-primary pago-submit" type="submit" id="paywallSubmit">Pay with Square</button>
       </form>
       <p class="auth-status" id="paywallStatus" hidden></p>
     </div>
@@ -6369,45 +6357,11 @@
     }
     async function enviarPaywallSimulado(ev){
       if(ev) ev.preventDefault();
-      const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
-      const numero=String(document.getElementById('paywallNumero')?.value||'').replace(/\D/g,'');
-      const vencimiento=String(document.getElementById('paywallVencimiento')?.value||'').replace(/\D/g,'');
-      const cvc=String(document.getElementById('paywallCvc')?.value||'').replace(/\D/g,'');
-      const submit=document.getElementById('paywallSubmit');
-      if(!numero||!vencimiento||!cvc){
-        marcarEstadoAuth('paywallStatus', 'Enter the card number, expiration date, and CVC.', true);
-        return;
-      }
       if(!sesionActual){
         mostrarVistaLogin();
         return;
       }
-      try{
-        if(submit){ submit.disabled=true; submit.textContent='Loading...'; }
-        marcarEstadoAuth('paywallStatus', 'Processing your payment method…', false);
-        await new Promise(ok=>setTimeout(ok,1000));
-        const res=await fetch('/api/pagos/simular',{
-          method:'POST',
-          credentials:'same-origin',
-          headers:headersContratista({'Content-Type':'application/json'}),
-          body:JSON.stringify({numero,vencimiento,cvc,activar:true})
-        });
-        const json=await res.json().catch(()=>({}));
-        if(!res.ok) throw new Error(json.error||t.planFail||'Could not activate the account.');
-        if(sesionActual){
-          sesionActual.requiere_pago=false;
-          sesionActual.trial_expirada=false;
-          sesionActual.pago_cliente_id=json.pago_cliente_id||sesionActual.pago_cliente_id||'simulado';
-          if(json.fecha_fin_prueba) sesionActual.fecha_fin_prueba=json.fecha_fin_prueba;
-          if(json.plan_seleccionado) sesionActual.plan_seleccionado=json.plan_seleccionado;
-          if(json.nombre_plan) sesionActual.nombre_plan=json.nombre_plan;
-        }
-        try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
-        showAppView('home');
-      }catch(err){
-        marcarEstadoAuth('paywallStatus', err.message||'Could not activate the account.', true);
-        if(submit){ submit.disabled=false; submit.textContent='Activate my account'; }
-      }
+      location.assign('/checkout');
     }
     function aplicarBloqueoPrueba(){
       if(necesitaPaywall()){
@@ -8477,9 +8431,12 @@
       const irPremium=(document.getElementById('upgradeModalGo')||{}).textContent==='Upgrade to Premium';
       cerrarModalUpgrade();
       if(!sesionActual){ mostrarVistaLogin(); return; }
+      if(irPremium){
+        location.assign('/checkout?plan=premium');
+        return;
+      }
       if(necesitaPaywall()){ mostrarVistaPaywall(); return; }
       mostrarVistaPlanes();
-      if(irPremium&&typeof marcarPlanOnboarding==='function') marcarPlanOnboarding('premium');
     });
     document.getElementById('upgradeModal')?.addEventListener('click',ev=>{
       if(ev.target&&ev.target.id==='upgradeModal') cerrarModalUpgrade();
@@ -8847,7 +8804,7 @@
     document.getElementById('pagoTarjetaForm')?.addEventListener('submit',enviarPagoSimulado);
     document.getElementById('paywallTarjetaForm')?.addEventListener('submit',enviarPaywallSimulado);
     engancharMascaraTarjeta('pago');
-    engancharMascaraTarjeta('paywall');
+    if(document.getElementById('paywallNumero')) engancharMascaraTarjeta('paywall');
     const sampleModals={
       estimate:'sampleEstimateModal',
       contract:'sampleContractModal',
