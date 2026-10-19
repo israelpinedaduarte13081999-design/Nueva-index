@@ -43,6 +43,13 @@ COOKIE_CONTRATISTA = "contratista_token"
 COOKIE_PERSISTIR = "contratista_persistir"
 COOKIE_OAUTH = "oauth_verifier"
 _MAX_EDAD_RECORDADA = 60 * 60 * 24 * 400
+_ALERTA_ADMIN_EMAIL = "israelpinedaduarte13081999@gmail.com"
+_ALERTA_MINIMA_SEG = 15 * 60
+_ALERTAS_CRITICAS_PENDIENTES = []
+_ALERTAS_CRITICAS_TS = {}
+_MSG_LOGIN_AMABLE = "We could not finish signing you in. Please try again in a moment."
+_FALTA_SERVICE_ROLE = False
+_ERROR_ARRANQUE_SUPABASE = ""
 
 
 def _gemini_ssl_verificado():
@@ -124,6 +131,9 @@ def _crear_cliente_supabase(url, key):
 
 
 _SB_ROL = "vacia"
+_FALTA_SERVICE_ROLE = not (os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+if _FALTA_SERVICE_ROLE:
+    print("ALERTA: Falta la variable SUPABASE_SERVICE_ROLE_KEY en el entorno")
 try:
     _sb_url, _sb_key = _supabase_creds()
     _sb_host = _sb_url.split("//", 1)[-1].split("/", 1)[0] if _sb_url else "(sin url)"
@@ -133,10 +143,12 @@ try:
     supabase = _crear_cliente_supabase(_sb_url, _sb_key)
     if supabase is None:
         print("--> Cliente supabase es None (faltan SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)")
+        _ERROR_ARRANQUE_SUPABASE = "Cliente supabase es None (faltan SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)"
     else:
         print("--> Cliente supabase creado (SSL verify desactivado)")
 except Exception as e:
     print(f"ERROR SUPABASE DETALLADO al crear cliente: {e}")
+    _ERROR_ARRANQUE_SUPABASE = str(e or "ERROR SUPABASE al crear cliente")
     supabase = None
 
 import requests as _requests_uszip
@@ -1513,6 +1525,10 @@ def _supabase_client():
         return _crear_cliente_supabase(url, key)
     except Exception as e:
         print(f"ERROR SUPABASE DETALLADO al crear cliente: {e}")
+        try:
+            _alerta_critica("conexion_supabase", detalle=e, conexion="cliente_runtime")
+        except Exception:
+            pass
         return None
 
 
@@ -3109,11 +3125,16 @@ def _select_contratista(sb, **filtros):
         return list(query.limit(1).execute().data or [])
     except Exception as err:
         if _marcar_sin_user_id(err):
-            query = sb.table(TABLA_CONTRATISTAS).select("id,email,nombre_empresa,token")
-            for clave, valor in filtros.items():
-                query = query.eq(clave, valor)
-            return list(query.limit(1).execute().data or [])
-        raise
+            try:
+                query = sb.table(TABLA_CONTRATISTAS).select("id,email,nombre_empresa,token")
+                for clave, valor in filtros.items():
+                    query = query.eq(clave, valor)
+                return list(query.limit(1).execute().data or [])
+            except Exception as err2:
+                print(f"--> select contratista sin user_id: {err2}")
+                return []
+        print(f"--> select contratista: {err}")
+        return []
 
 
 def _asegurar_user_id_contratista(sb, row, user_id):
@@ -3309,6 +3330,37 @@ def _es_admin(email):
     if extra:
         _CORREOS_ADMIN.add(extra)
     return bool(correo) and correo in _CORREOS_ADMIN
+
+
+def _es_bypass_facturacion(email):
+    return _es_admin(email)
+
+
+def _activar_plan_bypass_admin(contratista, plan=""):
+    if not _es_bypass_facturacion((contratista or {}).get("email")):
+        return False
+    plan = _plan_valido(plan or (contratista or {}).get("plan_seleccionado")) or "premium"
+    email = str((contratista or {}).get("email") or "").strip().lower()
+    uid = str((contratista or {}).get("user_id") or "").strip()
+    ok = _activar_premium_por_square(
+        email,
+        customer_id="admin_bypass",
+        plan=plan,
+        user_id=uid,
+    )
+    if uid:
+        try:
+            _guardar_pago_cliente(_supabase_client(), uid, email, "admin_bypass", plan, activar=True)
+        except Exception as err:
+            print(f"--> admin billing bypass perfil: {err}")
+    if contratista is not None:
+        contratista["plan_seleccionado"] = plan
+        contratista["pago_cliente_id"] = "admin_bypass"
+        contratista["requiere_pago"] = False
+        contratista["trial_expirada"] = False
+        contratista["ai_pdf_extractions_count"] = 0
+    print("--> admin billing bypass: Square skipped, plan active")
+    return ok
 
 
 def _necesita_paso_pago(_contratista):
@@ -3630,14 +3682,38 @@ def _verificar_contrasena(email, password):
     raise ErrorAuth("credenciales", "Email or password is incorrect.", 401)
 
 
+_CODIGOS_AUTH_USUARIO = {
+    "credenciales", "email", "password", "sin_cuenta", "already_registered",
+    "auth_existe", "enlace", "sin_confirmar", "plan", "trial_expired",
+}
+
+
 def _respuesta_auth(err):
     if isinstance(err, ErrorAuth):
+        if err.code not in _CODIGOS_AUTH_USUARIO or _es_fallo_infra(err):
+            return _respuesta_login_silenciosa(err, err.code or "auth")
         return jsonify({"error": str(err), "code": err.code}), err.status
-    return _respuesta_tenant(err)
+    return _respuesta_login_silenciosa(err, "auth")
 
 
 def _sesion_desde_fila(row):
-    prueba = _datos_prueba(_supabase_client(), row or {})
+    row = row or {}
+    prueba = {
+        "fecha_fin_prueba": "",
+        "trial_expirada": False,
+        "plan_seleccionado": "",
+        "pago_cliente_id": "",
+        "requiere_pago": False,
+        "ai_pdf_extractions_count": 0,
+    }
+    try:
+        prueba.update(_datos_prueba(_supabase_client(), row) or {})
+    except Exception as err:
+        print(f"--> sesion perfil/contadores: {err}")
+    try:
+        count = int(prueba.get("ai_pdf_extractions_count") or 0)
+    except Exception:
+        count = 0
     return {
         "id": row.get("id"),
         "email": row.get("email"),
@@ -3650,7 +3726,7 @@ def _sesion_desde_fila(row):
         "pago_cliente_id": prueba.get("pago_cliente_id") or "",
         "requiere_pago": False if _es_admin(row.get("email")) else bool(prueba.get("requiere_pago")),
         "nombre_plan": _nombre_plan(prueba.get("plan_seleccionado")),
-        "ai_pdf_extractions_count": 0 if _es_admin(row.get("email")) else int(prueba.get("ai_pdf_extractions_count") or 0),
+        "ai_pdf_extractions_count": 0 if _es_admin(row.get("email")) else count,
     }
 
 
@@ -3714,6 +3790,14 @@ def _datos_prueba(sb, contratista):
     }
     if not sb or not contratista:
         return datos
+    try:
+        return _datos_prueba_cargar(sb, contratista, datos)
+    except Exception as err:
+        print(f"--> perfil prueba: {err}")
+        return datos
+
+
+def _datos_prueba_cargar(sb, contratista, datos):
     uid = str(contratista.get("user_id") or "").strip()
     email = str(contratista.get("email") or "").strip().lower()
     fila = None
@@ -3746,7 +3830,11 @@ def _datos_prueba(sb, contratista):
     if _es_admin(email):
         datos["ai_pdf_extractions_count"] = 0
     else:
-        datos["ai_pdf_extractions_count"] = _leer_contador_ia_pdf(sb, contratista)
+        try:
+            datos["ai_pdf_extractions_count"] = _leer_contador_ia_pdf(sb, contratista)
+        except Exception as err:
+            print(f"--> contador IA PDF al entrar: {err}")
+            datos["ai_pdf_extractions_count"] = 0
     fin = _parse_ts((fila or {}).get("fecha_fin_prueba"))
     if not fin:
         inicio = _parse_ts((fila or {}).get("trial_inicio"))
@@ -4063,9 +4151,12 @@ def iniciar_sesion_contratista(email, password):
     row = _contratista_por_email_tabla(sb, email)
     if not row or not row.get("token"):
         raise ErrorAuth("sin_cuenta", "No contractor account uses this email. Create one first.", 404)
-    uid = _user_id_de_contratista(sb, row)
-    if uid:
-        row["user_id"] = uid
+    try:
+        uid = _user_id_de_contratista(sb, row)
+        if uid:
+            row["user_id"] = uid
+    except Exception as err:
+        print(f"--> login user_id/perfil: {err}")
     print(f"--> sesion iniciada email={email}")
     return row
 
@@ -4164,11 +4255,22 @@ def asegurar_contratista_oauth(email, nombre, user_id=""):
     if sb is None:
         raise ErrorAuth("config", "Supabase no configurado", 503)
     uid = str(user_id or "").strip()
-    row = _contratista_por_email_tabla(sb, email)
+    row = None
+    try:
+        row = _contratista_por_email_tabla(sb, email)
+    except Exception as err:
+        print(f"--> oauth buscar contratista: {err}")
     if _es_uuid(uid):
-        _guardar_perfil(sb, uid, email, nombre or "", "", exigir_pago=not row)
+        try:
+            _guardar_perfil(sb, uid, email, nombre or "", "", exigir_pago=not row)
+        except Exception as err:
+            print(f"--> oauth perfil: {err}")
     if row and row.get("token"):
-        return _asegurar_user_id_contratista(sb, row, uid)
+        try:
+            return _asegurar_user_id_contratista(sb, row, uid)
+        except Exception as err:
+            print(f"--> oauth user_id: {err}")
+            return row
     params = {"p_email": email, "p_nombre": nombre}
     if _es_uuid(uid):
         params["p_user_id"] = uid
@@ -4176,27 +4278,50 @@ def asegurar_contratista_oauth(email, nombre, user_id=""):
         data = _rpc_tenant(sb, "registrar_contratista", params)
         row = _dict_rpc(data)
         if row and row.get("token"):
-            return _completar_alta_contratista(sb, row, uid)
+            try:
+                return _completar_alta_contratista(sb, row, uid)
+            except Exception as err:
+                print(f"--> oauth alta post-rpc: {err}")
+                return row
     except Exception as err:
         texto = str(err or "")
         print(f"--> oauth registrar contratista {type(err).__name__}: {err}")
         if "already_registered" in texto or re.search(r"duplicate key|contratistas_email", texto, re.I):
-            row = _contratista_por_email_tabla(sb, email)
-            if row and row.get("token"):
-                return _asegurar_user_id_contratista(sb, row, uid)
-        if not (
-            _error_sin_funcion_tenant(err)
-            or "invalid_contractor" in texto
-            or re.search(r"not-null|null value", texto, re.I)
-        ):
             try:
-                return _completar_alta_contratista(
-                    sb, _registrar_contratista_tabla(sb, email, nombre, uid), uid
-                )
-            except Exception as fallback:
-                print(f"--> oauth registrar tabla {type(fallback).__name__}: {fallback}")
-                raise err
-    return _completar_alta_contratista(sb, _registrar_contratista_tabla(sb, email, nombre, uid), uid)
+                row = _contratista_por_email_tabla(sb, email)
+            except Exception as err2:
+                print(f"--> oauth buscar duplicado: {err2}")
+                row = None
+            if row and row.get("token"):
+                try:
+                    return _asegurar_user_id_contratista(sb, row, uid)
+                except Exception as err2:
+                    print(f"--> oauth user_id duplicado: {err2}")
+                    return row
+        try:
+            return _completar_alta_contratista(
+                sb, _registrar_contratista_tabla(sb, email, nombre, uid), uid
+            )
+        except Exception as fallback:
+            print(f"--> oauth registrar tabla {type(fallback).__name__}: {fallback}")
+            try:
+                row = _contratista_por_email_tabla(sb, email)
+            except Exception:
+                row = None
+            if row and row.get("token"):
+                return row
+            raise
+    try:
+        return _completar_alta_contratista(sb, _registrar_contratista_tabla(sb, email, nombre, uid), uid)
+    except Exception as err:
+        print(f"--> oauth alta final: {err}")
+        try:
+            row = _contratista_por_email_tabla(sb, email)
+        except Exception:
+            row = None
+        if row and row.get("token"):
+            return row
+        raise
 
 
 def _email_usuario_auth(user):
@@ -4321,11 +4446,63 @@ def _intercambiar_codigo_pkce(code, verifier):
     raise ErrorAuth("oauth", f"Could not finish Google sign-in. status={ultimo_status} {ultimo_msg[:160]}", 401)
 
 
+def _contratista_por_email_con_jwt(access_token, email):
+    email = str(email or "").strip().lower()
+    token = str(access_token or "").strip()
+    if not email or not token:
+        return None
+    url, key = _supabase_creds()
+    apikey = _clave_publica_supabase() or key
+    if not url or not apikey:
+        return None
+    try:
+        import httpx
+        from urllib.parse import quote
+        headers = {
+            "apikey": apikey,
+            "Authorization": "Bearer " + token,
+            "Accept": "application/json",
+        }
+        dest = (
+            f"{url}/rest/v1/{TABLA_CONTRATISTAS}"
+            f"?email=eq.{quote(email)}"
+            "&select=id,email,nombre_empresa,token,user_id&limit=1"
+        )
+        with httpx.Client(verify=False, timeout=20.0) as http:
+            res = http.get(dest, headers=headers)
+        if res.status_code != 200:
+            print(f"--> oauth rest jwt status={res.status_code}")
+            return None
+        data = res.json()
+        rows = data if isinstance(data, list) else []
+        return rows[0] if rows else None
+    except Exception as err:
+        print(f"--> oauth rest jwt: {err}")
+        return None
+
+
 def _sesion_contratista_oauth(access_token, user=None):
     user = _usuario_oauth(access_token, user)
     email = _email_usuario_auth(user)
     uid = str((user or {}).get("id") or "").strip()
-    row = asegurar_contratista_oauth(email, _nombre_oauth(user), uid)
+    row = None
+    try:
+        row = asegurar_contratista_oauth(email, _nombre_oauth(user), uid)
+    except Exception as err:
+        print(f"--> oauth alta/perfil: {err}")
+        try:
+            row = _contratista_por_email_tabla(_supabase_client(), email)
+        except Exception as err2:
+            print(f"--> oauth fallback email: {err2}")
+            row = None
+    if not row or not row.get("token"):
+        try:
+            row = _contratista_por_email_con_jwt(access_token, email)
+            if row and row.get("token"):
+                print("--> oauth entra con JWT de Google tras fallo de llaves/perfil")
+        except Exception as err:
+            print(f"--> oauth jwt fallback: {err}")
+            row = None
     if not row or not row.get("token"):
         raise ErrorAuth("sin_cuenta", "Could not open the contractor account.", 404)
     print(f"--> sesion google email={email}")
@@ -4349,6 +4526,15 @@ def sesion_oauth_google(code, verifier):
         return _sesion_contratista_oauth(data.get("access_token"), user)
     except Exception as err:
         _log_oauth_fallo(_etapa_oauth(err), err, extra="despues_intercambio")
+        try:
+            email = _email_usuario_auth(user)
+            if email:
+                row = _contratista_por_email_tabla(_supabase_client(), email)
+                if row and row.get("token"):
+                    print("--> oauth entra con cuenta existente tras fallo de perfil/contadores")
+                    return row
+        except Exception as err2:
+            print(f"--> oauth rescate sesion: {err2}")
         raise
 
 
@@ -4440,18 +4626,23 @@ def _exigir_contratista():
     except Exception as err:
         if _error_sin_funcion_tenant(err):
             _aviso_multitenant(err)
-            return None, (jsonify({"error": _SQL_MULTITENANT}), 503)
+            _alerta_critica("sesion", err, conexion="supabase")
+            return None, (jsonify({"error": _MSG_LOGIN_AMABLE, "code": "reintento"}), 503)
         print(f"--> sesion contratista: {type(err).__name__}")
-        return None, (jsonify({"error": "Could not open the contractor session."}), 503)
+        _alerta_desde_error(err, "sesion")
+        return None, (jsonify({"error": _MSG_LOGIN_AMABLE, "code": "reintento"}), 503)
     if not contratista or not _correo_valido(contratista.get("email")):
         return None, (jsonify({"error": "Contractor not authorized"}), 403)
     contratista["token"] = token
     sb = _supabase_client()
     if sb is not None:
-        uid = _user_id_de_contratista(sb, contratista)
-        if uid:
-            contratista["user_id"] = uid
-        contratista.update(_datos_prueba(sb, contratista))
+        try:
+            uid = _user_id_de_contratista(sb, contratista)
+            if uid:
+                contratista["user_id"] = uid
+            contratista.update(_datos_prueba(sb, contratista))
+        except Exception as err:
+            print(f"--> sesion perfil/contadores: {err}")
     return contratista, None
 
 
@@ -4605,8 +4796,14 @@ def _sembrar_estimado_ejemplo(contratista):
 
 
 def _completar_alta_contratista(sb, row, uid):
-    row = _asegurar_user_id_contratista(sb, row, uid)
-    _sembrar_estimado_ejemplo(row)
+    try:
+        row = _asegurar_user_id_contratista(sb, row, uid)
+    except Exception as err:
+        print(f"--> alta user_id: {err}")
+    try:
+        _sembrar_estimado_ejemplo(row)
+    except Exception as err:
+        print(f"--> alta estimado ejemplo: {err}")
     return row
 
 
@@ -4771,9 +4968,10 @@ def api_contratistas():
             return _respuesta_auth(err)
         except Exception as err:
             print(f"--> registro contratista {type(err).__name__}: {err}")
-            return _respuesta_tenant(err)
+            return _respuesta_login_silenciosa(err, "registro")
         if not row or not row.get("token"):
-            return jsonify({"error": "Could not open the contractor account."}), 503
+            _alerta_critica("registro", "alta sin token", conexion="supabase")
+            return jsonify({"error": _MSG_LOGIN_AMABLE, "code": "reintento"}), 503
         print(f"--> contratista registrado id={row.get('id')}")
         resp = jsonify(_sesion_desde_fila(row))
         return _adjuntar_sesion_contratista(resp, row.get("token"), persistir=True)
@@ -4826,9 +5024,22 @@ def api_pagos_simular():
     contratista, error = _exigir_contratista()
     if error:
         return error
-    if _es_admin(contratista.get("email")):
+    if _es_bypass_facturacion(contratista.get("email")):
+        body = request.get_json(silent=True) or {}
+        plan = _plan_valido(
+            body.get("plan_seleccionado") or body.get("plan") or contratista.get("plan_seleccionado")
+        ) or "premium"
+        _activar_plan_bypass_admin(contratista, plan)
+        sb = _supabase_client()
+        if sb is not None:
+            contratista.update(_datos_prueba(sb, contratista))
         payload = _sesion_desde_fila(contratista)
+        payload["ok"] = True
+        payload["bypass"] = True
         payload["requiere_pago"] = False
+        payload["trial_expirada"] = False
+        payload["plan_seleccionado"] = plan
+        payload["nombre_plan"] = _nombre_plan(plan)
         payload["siguiente"] = "estimado"
         resp = jsonify(payload)
         return _adjuntar_sesion_contratista(resp, contratista.get("token"))
@@ -4873,6 +5084,19 @@ def api_pagos_checkout():
     contratista, error = _exigir_contratista()
     if error:
         return error
+    if _es_bypass_facturacion(contratista.get("email")):
+        plan = _plan_valido(contratista.get("plan_seleccionado")) or "premium"
+        _activar_plan_bypass_admin(contratista, plan)
+        return jsonify({
+            "ok": True,
+            "bypass": True,
+            "url": "/estimado",
+            "siguiente": "estimado",
+            "plan": plan,
+            "nombre_plan": _nombre_plan(plan),
+            "requiere_pago": False,
+            "trial_expirada": False,
+        })
     stripe = _stripe_mod()
     if stripe is None:
         return jsonify({
@@ -4948,6 +5172,20 @@ def api_pagos_confirmar():
     contratista, error = _exigir_contratista()
     if error:
         return error
+    if _es_bypass_facturacion(contratista.get("email")):
+        plan = _plan_valido(contratista.get("plan_seleccionado")) or "premium"
+        _activar_plan_bypass_admin(contratista, plan)
+        sb = _supabase_client()
+        if sb is not None:
+            contratista.update(_datos_prueba(sb, contratista))
+        payload = _sesion_desde_fila(contratista)
+        payload["ok"] = True
+        payload["bypass"] = True
+        payload["siguiente"] = "estimado"
+        payload["requiere_pago"] = False
+        payload["trial_expirada"] = False
+        resp = jsonify(payload)
+        return _adjuntar_sesion_contratista(resp, contratista.get("token"))
     stripe = _stripe_mod()
     if stripe is None:
         return jsonify({"error": "Pagos no configurados.", "code": "stripe_config"}), 503
@@ -5146,6 +5384,9 @@ def _square_plan_variation_id(plan, centavos):
 
 def _crear_enlace_pago_square(contratista, plan="premium"):
     plan = _plan_valido(plan) or "premium"
+    if _es_bypass_facturacion((contratista or {}).get("email")):
+        _activar_plan_bypass_admin(contratista, plan)
+        return "/estimado"
     info = _PLANES_PRECIOS.get(plan) or _PLANES_PRECIOS["premium"]
     email = str((contratista or {}).get("email") or "").strip().lower()
     uid = str((contratista or {}).get("user_id") or "").strip()
@@ -5327,8 +5568,6 @@ def checkout_square():
     contratista, error = _exigir_contratista()
     if error or not contratista:
         return redirect("/login")
-    if _es_admin(contratista.get("email")):
-        return redirect("/estimado")
     plan = _plan_valido(request.args.get("plan") or contratista.get("plan_seleccionado")) or "premium"
     try:
         url = _crear_enlace_pago_square(contratista, plan)
@@ -5394,10 +5633,21 @@ def api_login_contratista():
     except ErrorAuth as err:
         return _respuesta_auth(err)
     except Exception as err:
-        return _respuesta_tenant(err)
+        return _respuesta_login_silenciosa(err, "login")
     if not row or not row.get("token"):
         return jsonify({"error": "No contractor account uses this email. Create one first.", "code": "sin_cuenta"}), 404
-    resp = jsonify(_sesion_desde_fila(row))
+    try:
+        payload = _sesion_desde_fila(row)
+    except Exception as err:
+        print(f"--> login sesion perfil/contadores: {err}")
+        payload = {
+            "id": row.get("id"),
+            "email": row.get("email"),
+            "nombre_empresa": row.get("nombre_empresa") or "",
+            "token": row.get("token"),
+            "user_id": row.get("user_id") or "",
+        }
+    resp = jsonify(payload)
     return _adjuntar_sesion_contratista(
         resp,
         row.get("token"),
@@ -5421,12 +5671,13 @@ def api_recuperar_contrasena():
     except ErrorAuth as err:
         return _respuesta_auth(err)
     except Exception as err:
-        return _respuesta_tenant(err)
+        return _respuesta_login_silenciosa(err, "recuperar")
     if status == 429:
         return jsonify({"error": "Too many attempts. Wait a moment and try again.", "code": "limite"}), 429
     if status >= 500:
         print(f"--> recuperar status={status}")
-        return jsonify({"error": "Could not send the reset email.", "code": "auth_error"}), 502
+        _alerta_critica("recuperar", f"status={status}", conexion="supabase_auth")
+        return jsonify({"error": _MSG_LOGIN_AMABLE, "code": "reintento"}), 503
     return jsonify({"ok": True})
 
 
@@ -5449,14 +5700,193 @@ def _detalle_error(err):
     return texto[:500]
 
 
+def _variables_entorno_auth():
+    nombres = (
+        "SUPABASE_URL",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "SUPABASE_SECRET_KEY",
+        "SUPABASE_KEY",
+        "SUPABASE_ANON_KEY",
+        "SUPABASE_PUBLISHABLE_KEY",
+    )
+    presentes = []
+    faltantes = []
+    for nombre in nombres:
+        if (os.getenv(nombre) or "").strip():
+            presentes.append(nombre)
+        else:
+            faltantes.append(nombre)
+    return presentes, faltantes
+
+
+def _es_fallo_infra(err):
+    codigo = str(getattr(err, "code", "") or "").strip().lower()
+    if codigo in ("config", "servicio", "reintento"):
+        return True
+    texto = str(err or "").lower()
+    if not texto:
+        return False
+    return bool(re.search(
+        r"supabase|service_role|service role|jwt|api key|apikey|"
+        r"connection|connect|timeout|timed out|ssl|dns|"
+        r"multitenant|postgrest|row-level|rls|"
+        r"no configurado|not configured|faltan|missing",
+        texto,
+        re.I,
+    ))
+
+
+def _payload_alerta_critica(motivo, detalle="", variable="", conexion="", etapa=""):
+    presentes, faltantes = _variables_entorno_auth()
+    host = ""
+    try:
+        url, _key = _supabase_creds()
+        host = url.split("//", 1)[-1].split("/", 1)[0] if url else "(sin url)"
+    except Exception:
+        host = "(sin url)"
+    return {
+        "motivo": str(motivo or "desconocido"),
+        "etapa": str(etapa or motivo or ""),
+        "variable": str(variable or "").strip(),
+        "conexion": str(conexion or host or "").strip(),
+        "detalle": _detalle_error(detalle) if detalle is not None and not isinstance(detalle, str) else re.sub(
+            r"(sb_secret_|sb_publishable_|eyJ)[A-Za-z0-9_\-\.]+",
+            "[redacted]",
+            str(detalle or ""),
+        )[:500],
+        "faltantes": faltantes,
+        "presentes": presentes,
+        "ruta": "",
+        "cuando": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def _imprimir_alerta_critica(payload):
+    variable = payload.get("variable") or ""
+    faltantes = payload.get("faltantes") or []
+    conexion = payload.get("conexion") or ""
+    motivo = payload.get("motivo") or ""
+    detalle = payload.get("detalle") or ""
+    partes = [f"ALERTA CRITICA: {motivo}"]
+    if variable:
+        partes.append(f"variable={variable}")
+    if faltantes:
+        partes.append("faltan=" + ",".join(faltantes))
+    if conexion:
+        partes.append(f"conexion={conexion}")
+    if payload.get("ruta"):
+        partes.append(f"ruta={payload.get('ruta')}")
+    if detalle:
+        partes.append(detalle[:300])
+    print(" | ".join(partes), flush=True)
+
+
+def _enviar_alerta_en_silencio(payload):
+    try:
+        enviador = globals().get("_enviar_correo_alerta_admin")
+        if callable(enviador):
+            enviador(payload)
+            print(f"ALERTA CRITICA: correo interno enviado a {_ALERTA_ADMIN_EMAIL}", flush=True)
+            return
+        _ALERTAS_CRITICAS_PENDIENTES.append(payload)
+        print("ALERTA CRITICA: correo pendiente (SMTP aun no listo)", flush=True)
+    except Exception as err:
+        print(f"ALERTA CRITICA: no se pudo enviar el correo interno: {err}", flush=True)
+
+
+def _alerta_critica(motivo, detalle="", variable="", conexion="", etapa=""):
+    payload = _payload_alerta_critica(motivo, detalle, variable, conexion, etapa)
+    try:
+        payload["ruta"] = str(getattr(request, "path", "") or "")
+    except Exception:
+        payload["ruta"] = ""
+    _imprimir_alerta_critica(payload)
+    clave = "|".join([payload.get("motivo") or "", payload.get("variable") or "", payload.get("conexion") or ""])
+    ahora = time.time()
+    previa = float(_ALERTAS_CRITICAS_TS.get(clave) or 0)
+    if ahora - previa < _ALERTA_MINIMA_SEG:
+        print("ALERTA CRITICA: correo omitido (rate limit)", flush=True)
+        return payload
+    _ALERTAS_CRITICAS_TS[clave] = ahora
+    try:
+        threading.Thread(
+            target=_enviar_alerta_en_silencio,
+            args=(payload,),
+            daemon=True,
+            name="alerta-admin",
+        ).start()
+    except Exception as err:
+        print(f"ALERTA CRITICA: no se pudo programar el correo interno: {err}", flush=True)
+        _ALERTAS_CRITICAS_PENDIENTES.append(payload)
+    return payload
+
+
+def _alerta_desde_error(err, etapa="login"):
+    texto = _detalle_error(err) if err is not None else ""
+    variable = ""
+    bajo = texto.lower()
+    if _FALTA_SERVICE_ROLE or "service_role" in bajo or "service role" in bajo:
+        variable = "SUPABASE_SERVICE_ROLE_KEY"
+    elif "supabase_url" in bajo or "sin url" in bajo:
+        variable = "SUPABASE_URL"
+    conexion = "supabase"
+    if "smtp" in bajo:
+        conexion = "smtp"
+    etapa_n = str(etapa or "").lower()
+    es_infra = (
+        _FALTA_SERVICE_ROLE
+        or _es_fallo_infra(err)
+        or any(x in etapa_n for x in ("config", "servicio", "cookie", "supabase_redirect", "conexion", "oauth_inicio"))
+    )
+    if es_infra:
+        _alerta_critica(etapa or "login", detalle=texto, variable=variable, conexion=conexion, etapa=etapa)
+        return True
+    print(f"--> auth fallo etapa={etapa} {texto}", flush=True)
+    return False
+
+
+def _respuesta_login_silenciosa(err, etapa="login"):
+    _alerta_desde_error(err, etapa)
+    return jsonify({"error": _MSG_LOGIN_AMABLE, "code": "reintento"}), 503
+
+
+def _oauth_destino_silencioso():
+    token = ""
+    try:
+        token = str(request.cookies.get(COOKIE_CONTRATISTA) or "").strip()
+    except Exception:
+        token = ""
+    if token:
+        try:
+            contratista, error = _exigir_contratista()
+            if contratista and not error:
+                return "/estimado"
+        except Exception as err:
+            print(f"--> oauth dashboard silencioso: {err}")
+    return "/login?aviso=reintento"
+
+
+def _vaciar_alertas_pendientes():
+    pendientes = list(_ALERTAS_CRITICAS_PENDIENTES)
+    _ALERTAS_CRITICAS_PENDIENTES.clear()
+    for payload in pendientes:
+        threading.Thread(
+            target=_enviar_alerta_en_silencio,
+            args=(payload,),
+            daemon=True,
+            name="alerta-admin",
+        ).start()
+
+
 def _fallo_recuperacion(err, code, status=502):
     import traceback
     print(f"--> recuperar-password {code} {_detalle_error(err)}")
     traceback.print_exc()
+    if code not in ("email",):
+        _alerta_desde_error(err, "recuperar")
     return jsonify({
-        "error": "Could not send the reset email.",
-        "code": code,
-        "detalle": _detalle_error(err),
+        "error": "We could not send the email. Please try again in a moment.",
+        "code": "reintento",
     }), status
 
 
@@ -5594,7 +6024,7 @@ def api_restablecer_contrasena():
     except ErrorAuth as err:
         return _respuesta_auth(err)
     except Exception as err:
-        return _respuesta_tenant(err)
+        return _respuesta_login_silenciosa(err, "restablecer")
     if not row or not row.get("token"):
         return jsonify({"ok": True, "sesion": False})
     resp = jsonify(_sesion_desde_fila(row))
@@ -5664,8 +6094,10 @@ def _etapa_oauth(err):
 
 def _oauth_login_fallo(etapa="desconocido", err=None):
     _log_oauth_fallo(etapa, err)
-    print(f"--> oauth redirige /login?aviso=google desde etapa={etapa}")
-    resp = redirect("/login?aviso=google")
+    _alerta_desde_error(err, "oauth:" + str(etapa or "desconocido"))
+    destino = _oauth_destino_silencioso()
+    print(f"--> oauth redirige {destino} desde etapa={etapa}")
+    resp = redirect(destino)
     resp.headers["Cache-Control"] = "no-store"
     return _olvidar_cookie_oauth(resp)
 
@@ -5698,7 +6130,7 @@ var token=h.get("access_token")||"";
 var err=q.get("error_description")||h.get("error_description")||q.get("error")||h.get("error")||"";
 var verifier="";
 try{verifier=sessionStorage.getItem("oauth_pkce_verifier")||"";}catch(e){}
-if((err&&!code&&!token)||(!code&&!token)){location.replace("/login?aviso=google");}
+if((err&&!code&&!token)||(!code&&!token)){location.replace("/login?aviso=reintento");}
 else{
   var extra=document.createElement("input");
   extra.type="hidden";
@@ -5739,15 +6171,27 @@ def _url_oauth_google_cliente(redirect_to):
 
 @app.route("/api/contratistas/oauth/google")
 def api_oauth_google():
-    url, _key = _supabase_creds()
-    if not url:
-        return redirect("/login?aviso=config")
-    authorize, verifier = _url_oauth_google_cliente(_redirect_oauth())
-    if not authorize or not verifier or "code_challenge=" not in authorize:
-        print(f"--> oauth google inicio incompleto destino={bool(authorize)} verifier={bool(verifier)}")
-        return redirect("/login?aviso=config")
-    resp = _pagina_puente(authorize, verifier)
-    return _cookie_oauth(resp, verifier)
+    try:
+        url, _key = _supabase_creds()
+        if not url:
+            _alerta_critica("oauth_inicio", "Falta SUPABASE_URL", variable="SUPABASE_URL", conexion="supabase")
+            return redirect(_oauth_destino_silencioso())
+        authorize, verifier = _url_oauth_google_cliente(_redirect_oauth())
+        if not authorize or not verifier or "code_challenge=" not in authorize:
+            print(f"--> oauth google inicio incompleto destino={bool(authorize)} verifier={bool(verifier)}")
+            _alerta_critica(
+                "oauth_inicio",
+                "Google OAuth no devolvio URL o verifier",
+                variable="SUPABASE_URL" if not url else "",
+                conexion="supabase_auth",
+            )
+            return redirect(_oauth_destino_silencioso())
+        resp = _pagina_puente(authorize, verifier)
+        return _cookie_oauth(resp, verifier)
+    except Exception as err:
+        print(f"--> oauth google inicio: {err}")
+        _alerta_desde_error(err, "oauth_inicio")
+        return redirect(_oauth_destino_silencioso())
 
 
 def _pagina_completar_pkce(code):
@@ -5835,7 +6279,16 @@ def auth_callback():
         print(f"--> oauth callback post {_detalle_error(e)}")
         traceback.print_exc()
         return _oauth_login_fallo(_etapa_oauth(e), e)
-    return _oauth_entrar(row)
+    try:
+        return _oauth_entrar(row)
+    except Exception as e:
+        print(f"--> oauth cookie/sesion: {_detalle_error(e)}")
+        traceback.print_exc()
+        try:
+            return _oauth_entrar(row)
+        except Exception as err2:
+            print(f"--> oauth cookie reintento: {err2}")
+            return _oauth_login_fallo("cookie", err2)
 
 
 @app.route("/api/contratistas/contrasena", methods=["POST"])
@@ -5850,10 +6303,21 @@ def api_crear_contrasena_contratista():
     except ErrorAuth as err:
         return _respuesta_auth(err)
     except Exception as err:
-        return _respuesta_tenant(err)
+        return _respuesta_login_silenciosa(err, "contrasena")
     if not row or not row.get("token"):
         return jsonify({"error": "No contractor account uses this email. Create one first.", "code": "sin_cuenta"}), 404
-    resp = jsonify(_sesion_desde_fila(row))
+    try:
+        payload = _sesion_desde_fila(row)
+    except Exception as err:
+        print(f"--> contrasena sesion perfil/contadores: {err}")
+        payload = {
+            "id": row.get("id"),
+            "email": row.get("email"),
+            "nombre_empresa": row.get("nombre_empresa") or "",
+            "token": row.get("token"),
+            "user_id": row.get("user_id") or "",
+        }
+    resp = jsonify(payload)
     return _adjuntar_sesion_contratista(
         resp,
         row.get("token"),
@@ -5872,19 +6336,18 @@ def api_contratista_actual():
     contratista, error = _exigir_contratista()
     if error:
         return error
-    resp = jsonify({
-        "id": contratista.get("id"),
-        "email": contratista.get("email"),
-        "nombre_empresa": contratista.get("nombre_empresa"),
-        "user_id": contratista.get("user_id") or "",
-        "fecha_fin_prueba": "" if _es_admin(contratista.get("email")) else (contratista.get("fecha_fin_prueba") or ""),
-        "trial_expirada": False if _es_admin(contratista.get("email")) else bool(contratista.get("trial_expirada")),
-        "plan_seleccionado": contratista.get("plan_seleccionado") or "",
-        "pago_cliente_id": contratista.get("pago_cliente_id") or "",
-        "requiere_pago": False if _es_admin(contratista.get("email")) else bool(contratista.get("requiere_pago")),
-        "nombre_plan": _nombre_plan(contratista.get("plan_seleccionado")),
-        "ai_pdf_extractions_count": 0 if _es_admin(contratista.get("email")) else int(contratista.get("ai_pdf_extractions_count") or 0),
-    })
+    try:
+        payload = _sesion_desde_fila(contratista)
+    except Exception as err:
+        print(f"--> /yo perfil/contadores: {err}")
+        payload = {
+            "id": contratista.get("id"),
+            "email": contratista.get("email"),
+            "nombre_empresa": contratista.get("nombre_empresa"),
+            "user_id": contratista.get("user_id") or "",
+            "token": contratista.get("token"),
+        }
+    resp = jsonify(payload)
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
 
 
@@ -10130,6 +10593,79 @@ def _despachar_smtp(msg, destino):
             server.quit()
         except Exception:
             pass
+
+
+def _enviar_correo_alerta_admin(payload):
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from email.utils import formataddr
+    payload = payload or {}
+    destino = (os.getenv("ALERT_EMAIL") or _ALERTA_ADMIN_EMAIL).strip()
+    if not _correo_valido(destino):
+        destino = _ALERTA_ADMIN_EMAIL
+    variable = payload.get("variable") or "(ninguna)"
+    conexion = payload.get("conexion") or "(desconocida)"
+    motivo = payload.get("motivo") or "desconocido"
+    faltantes = ", ".join(payload.get("faltantes") or []) or "(ninguna)"
+    presentes = ", ".join(payload.get("presentes") or []) or "(ninguna)"
+    detalle = str(payload.get("detalle") or "").strip() or "(sin detalle)"
+    ruta = payload.get("ruta") or "(sin ruta)"
+    cuando = payload.get("cuando") or datetime.now(timezone.utc).isoformat()
+    texto = (
+        "ALERTA CRITICA QuantixBuilds\n\n"
+        f"Motivo: {motivo}\n"
+        f"Variable: {variable}\n"
+        f"Conexion: {conexion}\n"
+        f"Ruta: {ruta}\n"
+        f"Cuando (UTC): {cuando}\n"
+        f"Variables faltantes: {faltantes}\n"
+        f"Variables presentes: {presentes}\n\n"
+        f"Detalle:\n{detalle}\n"
+    )
+    html = f"""<!doctype html><html><body style="font-family:Arial,sans-serif;color:#0f172a;">
+<h2 style="color:#b45309;">ALERTA CRITICA QuantixBuilds</h2>
+<p>Un usuario no pudo completar el acceso por un fallo interno. El cliente vio un mensaje amable; este correo es solo interno.</p>
+<ul>
+<li><b>Motivo:</b> {xml_escape(str(motivo))}</li>
+<li><b>Variable:</b> {xml_escape(str(variable))}</li>
+<li><b>Conexion:</b> {xml_escape(str(conexion))}</li>
+<li><b>Ruta:</b> {xml_escape(str(ruta))}</li>
+<li><b>Cuando (UTC):</b> {xml_escape(str(cuando))}</li>
+<li><b>Variables faltantes:</b> {xml_escape(str(faltantes))}</li>
+<li><b>Variables presentes:</b> {xml_escape(str(presentes))}</li>
+</ul>
+<pre style="background:#f8fafc;padding:12px;border-radius:8px;white-space:pre-wrap;">{xml_escape(str(detalle))}</pre>
+</body></html>"""
+    _, _, _, _, smtp_from = _credenciales_smtp()
+    mensaje = MIMEMultipart("alternative")
+    mensaje["Subject"] = f"ALERTA CRITICA QuantixBuilds: {motivo} / {variable}"
+    mensaje["From"] = formataddr(("QuantixBuilds Alertas", smtp_from))
+    mensaje["To"] = destino
+    mensaje.attach(MIMEText(texto, "plain", "utf-8"))
+    mensaje.attach(MIMEText(html, "html", "utf-8"))
+    _despachar_smtp(mensaje, destino)
+
+
+def _revisar_entorno_critico():
+    if not _FALTA_SERVICE_ROLE and not _ERROR_ARRANQUE_SUPABASE:
+        _vaciar_alertas_pendientes()
+        return
+    detalle = ""
+    if _FALTA_SERVICE_ROLE:
+        detalle = "Falta la variable SUPABASE_SERVICE_ROLE_KEY en el entorno"
+    if _ERROR_ARRANQUE_SUPABASE:
+        detalle = (detalle + " | " if detalle else "") + _ERROR_ARRANQUE_SUPABASE
+    _alerta_critica(
+        "arranque",
+        detalle,
+        variable="SUPABASE_SERVICE_ROLE_KEY" if _FALTA_SERVICE_ROLE else "",
+        conexion="cliente_inicial" if _ERROR_ARRANQUE_SUPABASE else "supabase",
+        etapa="arranque",
+    )
+    _vaciar_alertas_pendientes()
+
+
+_revisar_entorno_critico()
 
 
 def _enviar_correo_pdf(destino, asunto, html_body, pdf_bytes, filename, sender_name=None, reply_to=None, texto=None, **kwargs):

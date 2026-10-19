@@ -315,6 +315,7 @@
     .signup-card .auth-note { margin:10px 0 0; color:#64748b; font-size:.8rem; font-weight:600; }
     .signup-card .auth-status { margin:10px 0 0; font-size:.85rem; font-weight:700; color:#0f172a; }
     .signup-card .auth-status.is-error { color:#b91c1c; }
+    .signup-card .auth-status.is-soft { color:#0369a1; }
     .btn-sm:hover { background-color:#0369a1; }
     button,input,textarea { font:inherit; }
     button { cursor:pointer; }
@@ -6473,9 +6474,10 @@
         const aviso=new URLSearchParams(location.search||'').get('aviso');
         if(aviso&&typeof marcarEstadoAuth==='function'){
           const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
-          const mapa={google:t.oauthFail,oauth:t.oauthFail,config:t.oauthFail,enlace:t.linkExpired};
-          console.error('oauth aviso', aviso, location.href);
-          marcarEstadoAuth('loginStatus', mapa[aviso]||t.oauthFail, true);
+          const mapa={google:t.oauthRetry,oauth:t.oauthRetry,config:t.oauthRetry,reintento:t.oauthRetry,enlace:t.linkExpired};
+          if(aviso!=='enlace') console.warn('oauth aviso', aviso);
+          marcarEstadoAuth('loginStatus', mapa[aviso]||t.oauthRetry, aviso==='enlace');
+          try{ history.replaceState({view:'login'},'', '/login'); }catch(_){}
         }
         return;
       }
@@ -8514,7 +8516,8 @@
         mailFail:'We could not send the email. Try again in a moment.',
         resetting:'Saving password…', resetOk:'Password updated. You can log in now.',
         linkExpired:'That link expired or was already used. Request a new one.',
-        oauthFail:'Google sign-in did not finish. Try again, or use your email.'
+        oauthFail:'Google sign-in did not finish. Try again, or use your email.',
+        oauthRetry:'We could not finish signing you in. Please try again in a moment.'
       },
       es:{
         nav:'Iniciar sesión', tabLogin:'Iniciar sesión', tabReg:'Crear cuenta', loginTitle:'Iniciar sesión',
@@ -8542,7 +8545,8 @@
         mailFail:'No pudimos enviar el correo. Inténtalo de nuevo en un momento.',
         resetting:'Guardando contraseña…', resetOk:'Contraseña actualizada. Ya puedes iniciar sesión.',
         linkExpired:'El enlace venció o ya se usó. Pide uno nuevo.',
-        oauthFail:'No se pudo completar el acceso con Google. Inténtalo de nuevo o usa tu correo.'
+        oauthFail:'No se pudo completar el acceso con Google. Inténtalo de nuevo o usa tu correo.',
+        oauthRetry:'No pudimos completar el acceso. Inténtalo de nuevo en un momento.'
       }
     };
     function idiomaAuth(){
@@ -8666,7 +8670,10 @@
       if(!status) return;
       status.hidden=false;
       status.textContent=mensaje||'';
-      status.classList.toggle('is-error', !!error);
+      const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+      const amable=!!mensaje && (mensaje===t.oauthRetry || /try again in a moment|inténtalo de nuevo en un momento/i.test(mensaje));
+      status.classList.toggle('is-error', !!error && !amable);
+      status.classList.toggle('is-soft', amable || (!error && !!mensaje));
     }
     function recordarSesionMarcado(){
       const caja=document.getElementById('loginRecordarme');
@@ -8689,6 +8696,7 @@
     function mensajeErrorAuth(json, fallback){
       const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
       const code=String((json&&json.code)||'');
+      const crudo=String((json&&json.error)||'');
       const mapa={
         credenciales:t.badLogin,
         sin_cuenta:t.noAccountYet,
@@ -8697,9 +8705,15 @@
         password:t.short,
         email:t.badEmail,
         trial_expired:'Your 14-day free trial has expired. Please add a payment method to keep using QuantixBuilds.',
-        plan:'Choose a plan to start your trial.'
+        plan:'Choose a plan to start your trial.',
+        reintento:t.oauthRetry,
+        config:t.oauthRetry,
+        oauth:t.oauthRetry,
+        servicio:t.oauthRetry
       };
-      return mapa[code]||(json&&json.error)||fallback;
+      if(mapa[code]) return mapa[code];
+      if(/supabase|service_role|service role|multitenant|traceback|postgrest|jwt|configured/i.test(crudo)) return t.oauthRetry;
+      return crudo||fallback;
     }
     async function enviarAuth(url, body, statusId, espera, ok, recordar){
       const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
@@ -9081,7 +9095,9 @@
           recordarme:recordarSesionMarcado()
         }, 'loginStatus', t.saving, t.signed, recordarSesionMarcado());
       }catch(err){
-        marcarEstadoAuth('loginStatus', err.message||t.needLogin, true);
+        const tCatch=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
+        const msg=err.message||tCatch.needLogin;
+        marcarEstadoAuth('loginStatus', msg, msg!==tCatch.oauthRetry);
       }
     });
     document.getElementById('crearContrasenaBtn')?.addEventListener('click',async ()=>{
@@ -9093,7 +9109,8 @@
           recordarme:recordarSesionMarcado()
         }, 'loginStatus', t.setting, t.signed, recordarSesionMarcado());
       }catch(err){
-        marcarEstadoAuth('loginStatus', err.message||t.needLogin, true);
+        const msg=err.message||t.needLogin;
+        marcarEstadoAuth('loginStatus', msg, msg!==t.oauthRetry);
       }
     });
     document.getElementById('registroContratistaForm')?.addEventListener('submit',async event=>{
@@ -9133,7 +9150,8 @@
         }, 'registroContratistaStatus', t.creating, t.created);
         if(!cuenta||!cuenta.token) return;
       }catch(err){
-        marcarEstadoAuth('registroContratistaStatus', err.message||t.needLogin, true);
+        const msg=err.message||t.needLogin;
+        marcarEstadoAuth('registroContratistaStatus', msg, msg!==t.oauthRetry);
       }
     });
     document.getElementById('cerrarSesionBtn')?.addEventListener('click',cerrarSesionActual);
