@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 268 36" role="img" aria-label="QuantixBuilds">
+  <title>QuantixBuilds</title>
+  <g fill="#FF5A1F">
+    <path d="M17.8 1.6 32.6 10.2v6.2h-5.1v-3.9L17.8 7.4l-9.1 5.1v11l9.1 5.2 9.7-5.6v-3.8h5.1v6.4L17.8 34.4 3.2 25.9V10.1Z"/>
+    <path d="M16.4 12.2 25.6 18l-9.2 5.8v-3.7h-5.3v-4.2h5.3z"/>
+  </g>
+  <text x="40" y="25.5" font-family="Inter, Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="20" font-weight="800" letter-spacing="-0.04em">
+    <tspan fill="#0B0B0B">Quantix</tspan><tspan fill="#FF5A1F">Builds</tspan>
+  </text>
+</svg>

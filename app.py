@@ -168,8 +168,12 @@ FACTORES_POR_ESTADO = {
 }
 FACTOR_ESTADO_DEFAULT = 1.05
 FACTORES_ZIP_ESPECIALES = {
-    "30327": 1.18,  # Buckhead, Atlanta
+    "30327": 1.18,  # Buckhead, Atlanta — no se aplica; 30327 es mercado base 1.00
 }
+FACTOR_MERCADO_BASE = 1.00
+FACTOR_RESPALDO = 1.00
+PREFIXES_MERCADO_BASE_ATLANTA = frozenset({"303"})
+ZIPS_MERCADO_BASE_ATLANTA = frozenset({"30303", "30327"})
 
 def _iniciar_uszipcode():
     orig_get = _requests_uszip.get
@@ -371,6 +375,567 @@ def sitemap_xml():
     return Response(xml, mimetype="application/xml; charset=utf-8")
 
 
+_ETIQUETA_ACCION_DEMO = {
+    "replace": "Remove and install",
+    "replace_material": "Remove, install plus materials",
+    "install_material": "Install plus materials",
+    "install": "Install only",
+    "demo": "Demolition only",
+    "material": "Material only",
+    "labor": "Install only",
+}
+_DEMO_ZIP_OBRA = "30327"
+_DEMO_DESC_EN = {
+    "ZN-COM-TEJ-ROO-FEL": "3-tab, 25-year composition shingle roofing, without felt",
+    "ZN-DEM-TEJ-ASF-WAS": "Asphalt shingle tear-off and haul-off (20% waste)",
+    "ZN-LIM-MET": "Valley metal",
+    "ZN-STA-STR": "Starter strip",
+    "ZN-DRY-12-HUN": '1/2" drywall — hung only (no tape or finish)',
+    "ZN-DRY-58-HUN": '5/8" drywall — hung only (no tape or finish)',
+    "ZN-SND-DRY-ENC-MAS": "Tape, float, and Level 4 finish, ready for paint",
+    "ZN-INS-PLO-VAL-ESF": "Ball valve, main water shutoff — supply and install",
+    "ZN-INS-PLO-CAL-AGU-5": "Tankless water heater — supply and install",
+    "ZN-PLO-DRE-TEN-TUB": "PVC drain and vent piping, Schedule 40",
+    "ZN-INS-ELE-TOM-GFC": "20A GFCI receptacle — supply and install",
+    "ZN-RPR-ELE-SUS-CAJ": "Replace plastic/metal junction box",
+    "ZN-VOL-WIR-COP-GRO-14": "110V 12/2 copper with ground, metal-clad / armored",
+    "ZN-INS-HVA-MIN-SPL": "12k Mini-split inverter — complete install",
+    "ZN-HVA-LIN-COB-TEN": "Copper line set for mini-split (gas and liquid)",
+    "ZN-INS-HVA-TER-MON": "Wi-Fi thermostat — supply, mount, and configure",
+    "ZN-PNT-PRE-LAV-HID": "Pressure-wash prep and surface treatment",
+    "ZN-PNT-IMP-SEL-FIJ": "One coat acrylic primer / sealer",
+    "ZN-PNT-MUR-MAN-LAT-2": "Two coats premium latex on walls",
+    "ZN-LOS-VIN-LUJ-LVT": "Luxury vinyl plank, click-lock, residential grade",
+    "ZN-DEM-LOS-VIN-LUJ": "Remove existing LVP / LVT click-lock flooring",
+    "ZN-DEM-PIS-CER-BAL": "Remove existing ceramic / tile floor",
+    "ZN-SID-VIN-REV-042IN": "Vinyl siding, residential 0.040–0.042 in",
+    "ZN-INS-SOF-FIB-LAM": "Fiber-cement soffit panels — supply and install",
+    "ZN-SID-TRI-BOA-5": '1" x 8" PVC trim board',
+    "ZN-INS-GAB-ANC-STO": "Stock cabinets — install and anchor",
+    "ZN-INS-BAC-POR-PIE": "Large-format porcelain backsplash",
+    "ZN-DEM-ENC-DES-CUI": "Careful countertop removal for reuse or replacement",
+    "ZN-BAN-AZU-PAR-DUC": "Shower or tub surround wall tile",
+    "ZN-BAN-SAL-BAC-AZU": "Vanity tile backsplash",
+    "ZN-INS-VEN-EXT-BAN": "Standard bath exhaust fan — supply and install",
+    "ZN-TIL-BAS": "Tile base / sanitary cove",
+    "ZN-INS-PTE-ENT-FIB": "Fiberglass entry door — supply and install",
+    "ZN-MOL-ZAP-CLA-NEU": "Base shoe — pneumatic nail, labor only",
+    "ZN-INS-MOL-ZOC-REM": "Base cap / decorative baseboard cap",
+    "ZN-FRA-MET-RIE-CAN": 'Metal stud track 3-5/8", 25 ga',
+    "ZN-FRA-MET-STU-MUR-3": '6" metal stud, 20 ga, wet-wall / facade',
+    "ZN-BET-LAR-MAT-ONL-6": '2x6x16 #2 & better fir/larch — material only',
+    "ZN-VIN-WIN-AWN": "Vinyl awning window, 7–12 SF",
+    "ZN-BAR-FLA-MEM-AUT": "4–6 in self-adhered butyl flashing at openings",
+    "ZN-INS-CAN-BAJ-PLU": "Corrugated downspout — supply and install",
+    "ZN-VAC-ACA-CNC-DRI": "Place and finish driveway concrete",
+    "ZN-DEM-LOS-CNC-4IN": "Remove existing concrete slab up to 4 in",
+    "ZN-INS-CNC-REF-EMP": "3/8 in rebar supply and tying",
+    "ZN-INS-JAR-SUE-ACA": "Screened topsoil — haul and spread",
+    "ZN-ARB-MUN-DES-MAQ": "Stump grinding with a stump grinder",
+    "ZN-DEM-DRY-ACA-LAM": "Drywall tear-out and haul-off",
+    "ZN-CON-GEN-GES-COO": "Project management / subcontractor coordination",
+    "ZN-CON-GEN-REN-ACA": "Roll-off dumpster rental, haul, and dump fees",
+    "ZN-CLN-CON-GEN-FIN": "Final clean and disinfect for owner turnover",
+    "ZN-INS-CON-GEN-MUR": "Poly dust-barrier wall",
+}
+
+
+def _descripcion_demo_en(codigo, fallback=""):
+    return _DEMO_DESC_EN.get(str(codigo or "").strip()) or str(fallback or "").strip() or str(codigo or "").strip()
+
+
+def _money_demo(valor):
+    return f"${float(valor):,.2f}"
+
+
+def _qty_demo(valor):
+    numero = float(valor)
+    if abs(numero - round(numero)) < 1e-9:
+        return f"{int(round(numero)):,}"
+    return f"{numero:,.2f}"
+
+
+def _unitario_con_factor_zip(unitario_base, paquete, factor):
+    """Misma secuencia que aplicarPrecioAccionEnFila + topePaquete."""
+    factor = float(factor)
+    unitario = round(float(unitario_base) * factor, 2)
+    tope = round(float(paquete) * factor, 2) if float(paquete or 0) > 0 else 0.0
+    if tope > 0 and unitario > tope + 0.009:
+        return tope
+    return unitario
+
+
+def _fila_demo_catalogo(spec, fila_cat, factor):
+    codigo = str((spec or {}).get("codigo") or "").strip()
+    accion = str((spec or {}).get("accion") or "install_material").strip()
+    qty = float((spec or {}).get("qty") or 0)
+    etiqueta = _ETIQUETA_ACCION_DEMO.get(accion, accion)
+    base = {
+        "codigo": codigo,
+        "accion": accion,
+        "accion_label": etiqueta,
+        "qty": qty,
+        "qty_txt": _qty_demo(qty),
+        "tax": 0,
+        "tax_txt": "0",
+        "disponible": False,
+        "unit_price": None,
+        "unit_price_txt": "Price unavailable",
+        "subtotal": 0.0,
+        "subtotal_txt": "—",
+        "tax_amount": 0.0,
+    }
+    if not fila_cat or factor is None:
+        base["descripcion"] = _descripcion_demo_en(codigo, (fila_cat or {}).get("descripcion"))
+        base["unidad"] = str((fila_cat or {}).get("unidad") or (spec or {}).get("unidad") or "")
+        return base
+    labor, material, remocion = _componentes_desde_columnas(
+        fila_cat.get("precio_base"),
+        fila_cat.get("precio_material"),
+        fila_cat.get("precio_mano_obra"),
+        fila_cat.get("precio_remocion"),
+        fila_cat.get("categoria") or "",
+        fila_cat.get("descripcion") or "",
+    )
+    paquete = _num(fila_cat.get("precio_base"))
+    unitario_base = _precio_roles_por_accion(labor, remocion, material, labor, accion, paquete)
+    unitario = _unitario_con_factor_zip(unitario_base, paquete, factor)
+    descripcion = _descripcion_demo_en(codigo, fila_cat.get("descripcion"))
+    unidad = str(fila_cat.get("unidad") or (spec or {}).get("unidad") or "").strip()
+    base["descripcion"] = descripcion
+    base["unidad"] = unidad
+    if unitario <= 0:
+        return base
+    subtotal = round(qty * unitario, 2)
+    base.update({
+        "disponible": True,
+        "unit_price": unitario,
+        "unit_price_txt": _money_demo(unitario),
+        "subtotal": subtotal,
+        "subtotal_txt": _money_demo(subtotal),
+        "tax_amount": 0.0,
+    })
+    return base
+
+
+def _armar_demo_publica(slug):
+    slug = str(slug or "").strip().lower()
+    squares = 28.4
+    shingle_qty = round(squares * float(WASTE_FACTOR), 2)
+    plantillas = {
+        "roofing": {
+            "trade": "[RFG] Roofing, shingles, and membranes",
+            "title": "Roof report reading and priced takeoff",
+            "lead": "Sample QuantixBuilds estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Roof / exterior measurement",
+            "area_ref": "Sample roof report",
+            "metrics": [
+                {"value": "28.4", "label": "Squares"},
+                {"value": "6/12", "label": "Pitch"},
+                {"value": "86 LF", "label": "Ridges"},
+                {"value": "42 LF", "label": "Valleys"},
+                {"value": "118 LF", "label": "Eaves"},
+                {"value": "64 LF", "label": "Rakes"},
+                {"value": "15%", "label": "Waste"},
+                {"value": "2,840 SF", "label": "Roof area"},
+            ],
+            "lineas": [
+                {"codigo": "ZN-COM-TEJ-ROO-FEL", "accion": "replace_material", "qty": shingle_qty},
+                {"codigo": "ZN-DEM-TEJ-ASF-WAS", "accion": "demo", "qty": squares},
+                {"codigo": "ZN-LIM-MET", "accion": "install_material", "qty": 42},
+                {"codigo": "ZN-STA-STR", "accion": "install_material", "qty": 118},
+            ],
+        },
+        "drywall": {
+            "trade": "[DRY] Drywall, tape, and texture",
+            "title": "Drywall estimate",
+            "lead": "Sample QuantixBuilds estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Living areas — hang and finish",
+            "area_ref": "Sample project",
+            "metrics": [
+                {"value": "1,280 SF", "label": "Walls 1/2\""},
+                {"value": "640 SF", "label": "Ceilings 5/8\""},
+                {"value": "1,920 SF", "label": "Finish area"},
+                {"value": "Level 4", "label": "Finish"},
+            ],
+            "lineas": [
+                {"codigo": "ZN-DRY-12-HUN", "accion": "install_material", "qty": 1280},
+                {"codigo": "ZN-DRY-58-HUN", "accion": "install_material", "qty": 640},
+                {"codigo": "ZN-SND-DRY-ENC-MAS", "accion": "install", "qty": 1920},
+            ],
+        },
+        "plumbing": {
+            "trade": "[PLM] Plumbing, fixtures, and water heaters",
+            "title": "Plumbing rough-in and fixture takeoff",
+            "lead": "Sample QuantixBuilds plumbing estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Kitchen / water heater — rough-in",
+            "area_ref": "Sample plumbing walkthrough",
+            "metrics": [
+                {"value": "1", "label": "Water heater"},
+                {"value": "1", "label": "Shutoff valve"},
+                {"value": "48 LF", "label": "Drain / vent"},
+            ],
+            "lineas": [
+                {"codigo": "ZN-INS-PLO-CAL-AGU-5", "accion": "install_material", "qty": 1},
+                {"codigo": "ZN-INS-PLO-VAL-ESF", "accion": "install_material", "qty": 1},
+                {"codigo": "ZN-PLO-DRE-TEN-TUB", "accion": "install_material", "qty": 48},
+            ],
+        },
+        "electrical": {
+            "trade": "[ELE] Electrical, devices, and wiring",
+            "title": "Electrical device and circuit takeoff",
+            "lead": "Sample QuantixBuilds electrical estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Kitchen / bath circuits",
+            "area_ref": "Sample electrical walkthrough",
+            "metrics": [
+                {"value": "4", "label": "GFCI devices"},
+                {"value": "2", "label": "Junction boxes"},
+                {"value": "86 LF", "label": "12/2 MC"},
+            ],
+            "lineas": [
+                {"codigo": "ZN-INS-ELE-TOM-GFC", "accion": "install_material", "qty": 4},
+                {"codigo": "ZN-RPR-ELE-SUS-CAJ", "accion": "install_material", "qty": 2},
+                {"codigo": "ZN-VOL-WIR-COP-GRO-14", "accion": "install_material", "qty": 86},
+            ],
+        },
+        "hvac": {
+            "trade": "[HVC] HVAC, equipment, and line sets",
+            "title": "Mini-split change-out takeoff",
+            "lead": "Sample QuantixBuilds HVAC estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Single-zone living area",
+            "area_ref": "Sample HVAC walkthrough",
+            "metrics": [
+                {"value": "1", "label": "12k head"},
+                {"value": "25 LF", "label": "Line set"},
+                {"value": "1", "label": "Thermostat"},
+            ],
+            "lineas": [
+                {"codigo": "ZN-INS-HVA-MIN-SPL", "accion": "install_material", "qty": 1},
+                {"codigo": "ZN-HVA-LIN-COB-TEN", "accion": "install_material", "qty": 25},
+                {"codigo": "ZN-INS-HVA-TER-MON", "accion": "install_material", "qty": 1},
+            ],
+        },
+        "painting": {
+            "trade": "[PNT] Painting, prep, and finish coats",
+            "title": "Interior wall painting takeoff",
+            "lead": "Sample QuantixBuilds painting estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Living room and hall walls",
+            "area_ref": "Sample painting takeoff",
+            "metrics": [
+                {"value": "1,680 SF", "label": "Wall area"},
+                {"value": "2 coats", "label": "Finish"},
+                {"value": "1", "label": "Primer coat"},
+            ],
+            "lineas": [
+                {"codigo": "ZN-PNT-PRE-LAV-HID", "accion": "install_material", "qty": 1680},
+                {"codigo": "ZN-PNT-IMP-SEL-FIJ", "accion": "install_material", "qty": 1680},
+                {"codigo": "ZN-PNT-MUR-MAN-LAT-2", "accion": "install_material", "qty": 1680},
+            ],
+        },
+        "flooring": {
+            "trade": "[FCT] Flooring, LVP, and tile removal",
+            "title": "LVP replacement takeoff",
+            "lead": "Sample QuantixBuilds flooring estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Main-floor living areas",
+            "area_ref": "Sample flooring takeoff",
+            "metrics": [
+                {"value": "640 SF", "label": "New LVP"},
+                {"value": "640 SF", "label": "Tear-out"},
+                {"value": "Click-lock", "label": "Product"},
+            ],
+            "lineas": [
+                {"codigo": "ZN-DEM-LOS-VIN-LUJ", "accion": "demo", "qty": 640},
+                {"codigo": "ZN-LOS-VIN-LUJ-LVT", "accion": "install_material", "qty": 640},
+                {"codigo": "ZN-DEM-PIS-CER-BAL", "accion": "demo", "qty": 80},
+            ],
+        },
+        "siding": {
+            "trade": "[SDG] Siding, soffit, and trim",
+            "title": "Vinyl siding elevation takeoff",
+            "lead": "Sample QuantixBuilds siding estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Rear elevation",
+            "area_ref": "Sample exterior takeoff",
+            "metrics": [
+                {"value": "1,120 SF", "label": "Siding"},
+                {"value": "180 SF", "label": "Soffit"},
+                {"value": "64 LF", "label": "PVC trim"},
+            ],
+            "lineas": [
+                {"codigo": "ZN-SID-VIN-REV-042IN", "accion": "install_material", "qty": 1120},
+                {"codigo": "ZN-INS-SOF-FIB-LAM", "accion": "install_material", "qty": 180},
+                {"codigo": "ZN-SID-TRI-BOA-5", "accion": "install_material", "qty": 64},
+            ],
+        },
+        "kitchen-remodel": {
+            "trade": "[KTR] Kitchen remodel — cabinets and backsplash",
+            "title": "Kitchen cabinet and backsplash takeoff",
+            "lead": "Sample QuantixBuilds kitchen estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Galley kitchen",
+            "area_ref": "Sample kitchen walkthrough",
+            "metrics": [
+                {"value": "22 LF", "label": "Cabinets"},
+                {"value": "28 SF", "label": "Backsplash"},
+                {"value": "18 LF", "label": "Countertop removal"},
+            ],
+            "lineas": [
+                {"codigo": "ZN-DEM-ENC-DES-CUI", "accion": "demo", "qty": 18},
+                {"codigo": "ZN-INS-GAB-ANC-STO", "accion": "install_material", "qty": 22},
+                {"codigo": "ZN-INS-BAC-POR-PIE", "accion": "install_material", "qty": 28},
+            ],
+        },
+        "bathroom-remodel": {
+            "trade": "[BTR] Bathroom remodel — tile and ventilation",
+            "title": "Bathroom tile and exhaust takeoff",
+            "lead": "Sample QuantixBuilds bathroom estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Hall bath",
+            "area_ref": "Sample bathroom walkthrough",
+            "metrics": [
+                {"value": "86 SF", "label": "Shower walls"},
+                {"value": "12 SF", "label": "Vanity backsplash"},
+                {"value": "1", "label": "Exhaust fan"},
+            ],
+            "lineas": [
+                {"codigo": "ZN-BAN-AZU-PAR-DUC", "accion": "install_material", "qty": 86},
+                {"codigo": "ZN-BAN-SAL-BAC-AZU", "accion": "install_material", "qty": 12},
+                {"codigo": "ZN-INS-VEN-EXT-BAN", "accion": "install_material", "qty": 1},
+            ],
+        },
+        "tile": {
+            "trade": "[TIL] Tile, showers, and base",
+            "title": "Shower tile and base takeoff",
+            "lead": "Sample QuantixBuilds tile estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Owner bath shower",
+            "area_ref": "Sample tile takeoff",
+            "metrics": [
+                {"value": "72 SF", "label": "Shower walls"},
+                {"value": "16 LF", "label": "Tile base"},
+                {"value": "8 SF", "label": "Backsplash"},
+            ],
+            "lineas": [
+                {"codigo": "ZN-BAN-AZU-PAR-DUC", "accion": "install_material", "qty": 72},
+                {"codigo": "ZN-TIL-BAS", "accion": "install_material", "qty": 16},
+                {"codigo": "ZN-BAN-SAL-BAC-AZU", "accion": "install_material", "qty": 8},
+            ],
+        },
+        "carpentry": {
+            "trade": "[CRP] Carpentry, doors, and trim",
+            "title": "Entry door and trim takeoff",
+            "lead": "Sample QuantixBuilds carpentry estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Front entry and hall",
+            "area_ref": "Sample carpentry walkthrough",
+            "metrics": [
+                {"value": "1", "label": "Entry door"},
+                {"value": "42 LF", "label": "Base cap"},
+                {"value": "42 LF", "label": "Shoe mold"},
+            ],
+            "lineas": [
+                {"codigo": "ZN-INS-PTE-ENT-FIB", "accion": "install_material", "qty": 1},
+                {"codigo": "ZN-INS-MOL-ZOC-REM", "accion": "install_material", "qty": 42},
+                {"codigo": "ZN-MOL-ZAP-CLA-NEU", "accion": "install", "qty": 42},
+            ],
+        },
+        "framing": {
+            "trade": "[FRM] Framing, metal studs, and lumber",
+            "title": "Interior wall framing takeoff",
+            "lead": "Sample QuantixBuilds framing estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "New partition — wet wall",
+            "area_ref": "Sample framing takeoff",
+            "metrics": [
+                {"value": "48 LF", "label": "Track"},
+                {"value": "96 LF", "label": "Studs"},
+                {"value": "8", "label": "2x6 material"},
+            ],
+            "lineas": [
+                {"codigo": "ZN-FRA-MET-RIE-CAN", "accion": "install_material", "qty": 48},
+                {"codigo": "ZN-FRA-MET-STU-MUR-3", "accion": "install_material", "qty": 96},
+                {"codigo": "ZN-BET-LAR-MAT-ONL-6", "accion": "material", "qty": 8},
+            ],
+        },
+        "windows": {
+            "trade": "[WND] Windows and opening flashing",
+            "title": "Window replacement takeoff",
+            "lead": "Sample QuantixBuilds window estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Rear elevation openings",
+            "area_ref": "Sample window count",
+            "metrics": [
+                {"value": "6", "label": "Vinyl awning"},
+                {"value": "48 LF", "label": "Opening flashing"},
+            ],
+            "lineas": [
+                {"codigo": "ZN-VIN-WIN-AWN", "accion": "install_material", "qty": 6},
+                {"codigo": "ZN-BAR-FLA-MEM-AUT", "accion": "install_material", "qty": 48},
+            ],
+        },
+        "gutters": {
+            "trade": "[GUT] Gutters and downspouts",
+            "title": "Downspout takeoff",
+            "lead": "Sample QuantixBuilds gutter estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Rear eaves — downspouts only",
+            "area_ref": "Sample exterior takeoff",
+            "metrics": [
+                {"value": "36 LF", "label": "Downspout"},
+            ],
+            "catalogo_notas": "Catalog currently has a downspout code. No dedicated seamless-gutter LF code was found in catalogo_items.",
+            "lineas": [
+                {"codigo": "ZN-INS-CAN-BAJ-PLU", "accion": "install_material", "qty": 36},
+            ],
+        },
+        "concrete": {
+            "trade": "[CNC] Concrete, slabs, and driveways",
+            "title": "Driveway replacement takeoff",
+            "lead": "Sample QuantixBuilds concrete estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Front driveway",
+            "area_ref": "Sample concrete takeoff",
+            "metrics": [
+                {"value": "480 SF", "label": "New pour"},
+                {"value": "480 SF", "label": "Tear-out"},
+                {"value": "96 LF", "label": "Rebar"},
+            ],
+            "lineas": [
+                {"codigo": "ZN-DEM-LOS-CNC-4IN", "accion": "demo", "qty": 480},
+                {"codigo": "ZN-INS-CNC-REF-EMP", "accion": "install_material", "qty": 96},
+                {"codigo": "ZN-VAC-ACA-CNC-DRI", "accion": "install_material", "qty": 480},
+            ],
+        },
+        "landscaping": {
+            "trade": "[LND] Landscaping — soil and stump work",
+            "title": "Yard soil and stump takeoff",
+            "lead": "Sample QuantixBuilds landscaping estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Front yard",
+            "area_ref": "Sample landscape walkthrough",
+            "metrics": [
+                {"value": "6 CY", "label": "Topsoil"},
+                {"value": "2", "label": "Stumps"},
+            ],
+            "catalogo_notas": "Catalog currently has topsoil and stump-grinding codes. No sod or hardscape codes were found in catalogo_items.",
+            "lineas": [
+                {"codigo": "ZN-INS-JAR-SUE-ACA", "accion": "install_material", "qty": 6},
+                {"codigo": "ZN-ARB-MUN-DES-MAQ", "accion": "install_material", "qty": 2},
+            ],
+        },
+        "demolition": {
+            "trade": "[DEM] Demolition, tear-out, and haul-off",
+            "title": "Interior selective demo takeoff",
+            "lead": "Sample QuantixBuilds demolition estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Kitchen and hall",
+            "area_ref": "Sample demo walkthrough",
+            "metrics": [
+                {"value": "320 SF", "label": "Drywall tear-out"},
+                {"value": "180 SF", "label": "Tile floor tear-out"},
+                {"value": "1", "label": "Dumpster"},
+            ],
+            "lineas": [
+                {"codigo": "ZN-DEM-DRY-ACA-LAM", "accion": "demo", "qty": 320},
+                {"codigo": "ZN-DEM-PIS-CER-BAL", "accion": "demo", "qty": 180},
+                {"codigo": "ZN-CON-GEN-REN-ACA", "accion": "install_material", "qty": 1},
+            ],
+        },
+        "remodeling": {
+            "trade": "[RMD] Multi-trade residential remodel",
+            "title": "Small remodel — cabinets, drywall, paint",
+            "lead": "Sample QuantixBuilds remodeling estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Kitchen wall and cabinet package",
+            "area_ref": "Sample remodel walkthrough",
+            "metrics": [
+                {"value": "14 LF", "label": "Cabinets"},
+                {"value": "240 SF", "label": "Hang drywall"},
+                {"value": "240 SF", "label": "Paint"},
+            ],
+            "lineas": [
+                {"codigo": "ZN-INS-GAB-ANC-STO", "accion": "install_material", "qty": 14},
+                {"codigo": "ZN-DRY-12-HUN", "accion": "install_material", "qty": 240},
+                {"codigo": "ZN-PNT-MUR-MAN-LAT-2", "accion": "install_material", "qty": 240},
+            ],
+        },
+        "general-contractor": {
+            "trade": "[GC] General conditions and job coordination",
+            "title": "General conditions takeoff",
+            "lead": "Sample QuantixBuilds GC estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
+            "area_title": "Two-week residential job",
+            "area_ref": "Sample GC conditions",
+            "metrics": [
+                {"value": "2 WK", "label": "PM / coordination"},
+                {"value": "1", "label": "Dumpster"},
+                {"value": "1,200 SF", "label": "Final clean"},
+            ],
+            "lineas": [
+                {"codigo": "ZN-CON-GEN-GES-COO", "accion": "install_material", "qty": 2},
+                {"codigo": "ZN-CON-GEN-REN-ACA", "accion": "install_material", "qty": 1},
+                {"codigo": "ZN-INS-CON-GEN-MUR", "accion": "install_material", "qty": 40},
+                {"codigo": "ZN-CLN-CON-GEN-FIN", "accion": "install_material", "qty": 1200},
+            ],
+        },
+    }
+    plantilla = plantillas.get(slug)
+    if not plantilla:
+        return None
+    zona = _zona_mercado_por_zip(_DEMO_ZIP_OBRA)
+    factor = round(float(zona.get("factor")), 2) if zona.get("exito") else None
+    ciudad = str(zona.get("ciudad") or "").strip()
+    estado = str(zona.get("estado") or "").strip()
+    zip_code = str(zona.get("zip") or _DEMO_ZIP_OBRA).strip()
+    zona_nombre = str(zona.get("zona") or "").strip()
+    mercado = str(zona.get("mercado") or "").strip()
+    factor_validado = bool(zona.get("validado"))
+    if factor_validado:
+        factor_fuente_txt = "Confirmed Atlanta base market"
+    elif zona.get("clase") == "indice_interno_supabase":
+        factor_fuente_txt = "Internal index — not commercially validated"
+    else:
+        factor_fuente_txt = "Documented fallback 1.00 — no validated regional index"
+    partes_ubi = [parte for parte in (ciudad, estado) if parte]
+    ubicacion = ", ".join(partes_ubi)
+    if zip_code:
+        ubicacion = f"{ubicacion} {zip_code}".strip() if ubicacion else zip_code
+    codigos = [linea["codigo"] for linea in plantilla["lineas"]]
+    catalogo = _filas_catalogo_por_codigos(codigos) if factor is not None else {}
+    filas = []
+    for linea in plantilla["lineas"]:
+        fila_cat = catalogo.get(linea["codigo"]) or catalogo.get(str(linea["codigo"]).upper())
+        filas.append(_fila_demo_catalogo(linea, fila_cat, factor))
+    subtotal = round(sum(float(fila["subtotal"]) for fila in filas), 2)
+    tax_total = round(sum(float(fila["tax_amount"]) for fila in filas), 2)
+    overhead = round(subtotal * 0.10, 2)
+    profit = round(subtotal * 0.10, 2)
+    grand = round(subtotal + tax_total + overhead + profit, 2)
+    return {
+        "slug": slug,
+        "trade": plantilla["trade"],
+        "title": plantilla["title"],
+        "lead": plantilla["lead"],
+        "area_title": plantilla["area_title"],
+        "area_ref": plantilla["area_ref"],
+        "metrics": plantilla.get("metrics") or [],
+        "filas": filas,
+        "ciudad": ciudad,
+        "estado": estado,
+        "zip": zip_code,
+        "zona": zona_nombre,
+        "mercado": mercado,
+        "factor": factor,
+        "factor_validado": factor_validado,
+        "factor_fuente": zona.get("fuente"),
+        "factor_clase": zona.get("clase"),
+        "ubicacion": ubicacion,
+        "factor_txt": f"×{factor:.2f}" if factor is not None else "unavailable",
+        "factor_fuente_txt": factor_fuente_txt,
+        "subtotal_txt": _money_demo(subtotal),
+        "tax_total_txt": _money_demo(tax_total),
+        "overhead_txt": _money_demo(overhead),
+        "profit_txt": _money_demo(profit),
+        "grand_txt": _money_demo(grand),
+        "catalogo_notas": plantilla.get("catalogo_notas") or "",
+    }
+
+
+def _snapshot_demo_estimado(slug):
+    try:
+        return _armar_demo_publica(slug)
+    except Exception as err:
+        print(f"--> demo publica {slug}: {err}")
+        return None
+
+
 @app.route("/<industry>-software")
 def landing_industria(industry):
     from seo_industrias import industria_por_slug, relacionadas
@@ -415,8 +980,9 @@ def landing_industria(industry):
         "industria.html",
         industria=fila,
         canonical=canonical,
-        relacionadas=relacionadas(fila["slug"], 12, sb),
+        relacionadas=relacionadas(fila["slug"], 19, sb),
         json_ld=json_ld,
+        demo=_snapshot_demo_estimado(fila.get("slug")),
     )
 
 
@@ -441,11 +1007,23 @@ def landing_industria(industry):
 @app.route("/history")
 def home():
     nombre = _nombre_empresa_sesion()
+    vista = _vista_inicial()
+    industrias_seo = []
+    if vista == "login":
+        from seo_industrias import listar_industrias
+        try:
+            industrias_seo = list(listar_industrias(_supabase_client()) or ())
+        except Exception:
+            industrias_seo = []
+        if not industrias_seo:
+            from seo_industrias import listar_industrias as _listar_json
+            industrias_seo = list(_listar_json(None) or ())
     return render_template(
         "index.html",
         nombre_empresa=nombre,
         nombre_empresa_visible=nombre or "Your company",
-        vista=_vista_inicial(),
+        vista=vista,
+        industrias_seo=industrias_seo,
     )
 
 
@@ -494,16 +1072,38 @@ def _factor_de_fila_regional(row):
     )
 
 
+def _codigo_zona_fila(row):
+    return str(_campo_factor(row, "codigo_zona", "zona_codigo") or "").strip().upper()
+
+
 def _zip_de_fila_regional(row):
     crudo = str(_campo_factor(row, "zip", "zip_code", "codigo_postal", "postal_code") or "")
-    return "".join(ch for ch in crudo if ch.isdigit())[:5]
+    zip5 = "".join(ch for ch in crudo if ch.isdigit())[:5]
+    if len(zip5) == 5:
+        return zip5
+    zona = _codigo_zona_fila(row)
+    if len(zona) == 5 and zona.isdigit():
+        return zona
+    return ""
+
+
+def _prefijo_de_fila_regional(row):
+    zona = _codigo_zona_fila(row)
+    if len(zona) == 3 and zona.isdigit():
+        return zona
+    return ""
 
 
 def _estado_de_fila_regional(row):
     estado = str(_campo_factor(row, "estado", "state", "state_code", "st") or "").strip().upper()
     if len(estado) > 2:
         estado = estado[:2]
-    return estado
+    if len(estado) == 2 and estado.isalpha():
+        return estado
+    zona = _codigo_zona_fila(row)
+    if len(zona) == 2 and zona.isalpha():
+        return zona
+    return ""
 
 
 def _es_default_estado(row):
@@ -557,26 +1157,58 @@ def _filas_factores_regionales():
         return []
 
 
+def _es_mercado_base_atlanta(zip_code):
+    zip5 = "".join(ch for ch in str(zip_code or "") if ch.isdigit())[:5]
+    if zip5 in ZIPS_MERCADO_BASE_ATLANTA:
+        return True
+    return len(zip5) == 5 and zip5[:3] in PREFIXES_MERCADO_BASE_ATLANTA
+
+
+def _meta_factor_interno(row, nivel):
+    factor = _factor_de_fila_regional(row)
+    if not factor:
+        return None
+    nombre = str(row.get("nombre_zona") or "").strip() or None
+    codigo = _codigo_zona_fila(row)
+    return {
+        "factor": factor,
+        "codigo_zona": codigo,
+        "nombre_zona": nombre,
+        "nivel": nivel,
+        "fuente": "factores_regionales_usa",
+        "validado": False,
+        "clase": "indice_interno_supabase",
+    }
+
+
 def _factor_desde_supabase(zip_code, estado):
+    """Devuelve metadatos del factor interno. No implica validación comercial."""
     filas = _filas_factores_regionales()
     if not filas:
         return None
+    zip5 = "".join(ch for ch in str(zip_code or "") if ch.isdigit())[:5]
+    prefijo = zip5[:3] if len(zip5) == 5 else ""
+    estado = str(estado or "").strip().upper()[:2]
     for row in filas:
-        factor = _factor_de_fila_regional(row)
-        if factor and _zip_de_fila_regional(row) == zip_code:
-            print(f"--> Factor ZIP {zip_code} en Supabase: {factor}")
-            return factor
+        if len(zip5) == 5 and _zip_de_fila_regional(row) == zip5:
+            meta = _meta_factor_interno(row, "zip")
+            if meta:
+                print(f"--> Factor ZIP {zip5} en Supabase: {meta['factor']} ({meta.get('nombre_zona') or zip5}, interno)")
+                return meta
+    if prefijo:
+        for row in filas:
+            if _prefijo_de_fila_regional(row) == prefijo:
+                meta = _meta_factor_interno(row, "prefijo")
+                if meta:
+                    print(f"--> Factor prefijo {prefijo} en Supabase: {meta['factor']} ({meta.get('nombre_zona') or prefijo}, interno)")
+                    return meta
     if estado:
         for row in filas:
-            factor = _factor_de_fila_regional(row)
-            if factor and _estado_de_fila_regional(row) == estado and _es_default_estado(row):
-                print(f"--> Factor estado {estado} (default) en Supabase: {factor}")
-                return factor
-        for row in filas:
-            factor = _factor_de_fila_regional(row)
-            if factor and _estado_de_fila_regional(row) == estado and not _zip_de_fila_regional(row):
-                print(f"--> Factor estado {estado} en Supabase: {factor}")
-                return factor
+            if _estado_de_fila_regional(row) == estado:
+                meta = _meta_factor_interno(row, "estado")
+                if meta:
+                    print(f"--> Factor estado {estado} en Supabase: {meta['factor']} ({meta.get('nombre_zona') or estado}, interno)")
+                    return meta
     return None
 
 
@@ -587,12 +1219,18 @@ def _zona_mercado_por_zip(zip_code):
         "ciudad": None,
         "estado": None,
         "zona": None,
-        "factor": 1.0,
+        "factor": FACTOR_RESPALDO,
+        "fuente": "fallback",
+        "mercado": None,
+        "codigo_zona": None,
+        "nivel": None,
+        "validado": False,
+        "clase": "respaldo_sin_dato",
         "exito": False,
     }
     if len(zip_limpio) != 5:
         return zona
-    motor = getattr(_search_local, "engine", None)
+    motor = _motor_uszipcode()
     try:
         result = motor.by_zipcode(zip_limpio) if motor is not None else None
         ciudad = _texto_zipcode(result, "major_city", "city", "post_office_city")
@@ -608,34 +1246,96 @@ def _zona_mercado_por_zip(zip_code):
     except Exception as e:
         print(f"ERROR uszipcode lookup {zip_limpio}: {e}")
 
-    factor = _factor_desde_supabase(zip_limpio, zona.get("estado")) if _FACTORES_CACHE else None
-    if factor is None and zip_limpio in FACTORES_ZIP_ESPECIALES:
-        factor = float(FACTORES_ZIP_ESPECIALES[zip_limpio])
+    if _es_mercado_base_atlanta(zip_limpio):
+        zona["factor"] = FACTOR_MERCADO_BASE
+        zona["fuente"] = "atlanta_base"
+        zona["mercado"] = "Atlanta"
+        zona["codigo_zona"] = zip_limpio[:3]
+        zona["nivel"] = "mercado_base"
+        zona["validado"] = True
+        zona["clase"] = "mercado_base_confirmado"
+        zona["ciudad"] = zona["ciudad"] or "Atlanta"
+        zona["estado"] = zona["estado"] or "GA"
         if zip_limpio == "30327":
-            zona["ciudad"] = zona["ciudad"] or "Atlanta"
-            zona["estado"] = zona["estado"] or "GA"
-            zona["zona"] = "Buckhead"
-    if factor is None:
-        factor = float(FACTORES_POR_ESTADO.get(zona.get("estado") or "", FACTOR_ESTADO_DEFAULT))
-    zona["factor"] = round(float(factor), 4)
+            zona["zona"] = zona["zona"] or "Buckhead"
+        zona["exito"] = True
+        return zona
+
+    meta = _factor_desde_supabase(zip_limpio, zona.get("estado"))
+    if meta is not None:
+        zona["factor"] = round(float(meta["factor"]), 4)
+        zona["fuente"] = "factores_regionales_usa"
+        zona["mercado"] = meta.get("nombre_zona")
+        zona["codigo_zona"] = meta.get("codigo_zona")
+        zona["nivel"] = meta.get("nivel")
+        zona["validado"] = False
+        zona["clase"] = "indice_interno_supabase"
+        zona["zona"] = zona.get("zona") or meta.get("nombre_zona")
+        zona["exito"] = True
+        return zona
+
+    zona["factor"] = FACTOR_RESPALDO
+    zona["fuente"] = "fallback"
+    zona["validado"] = False
+    zona["clase"] = "respaldo_sin_dato"
     zona["exito"] = True
     return zona
+
+
+def _referencia_factor(zona):
+    """Texto honesto de procedencia. No presenta índices internos como mercado validado."""
+    clase = str((zona or {}).get("clase") or "")
+    mercado = str((zona or {}).get("mercado") or "").strip()
+    codigo = str((zona or {}).get("codigo_zona") or "").strip()
+    nivel = str((zona or {}).get("nivel") or "").strip()
+    if clase == "mercado_base_confirmado":
+        return "Atlanta catalog base (confirmed). Factor 1.00. No extra surcharge."
+    if clase == "indice_interno_supabase":
+        detalle = " ".join(parte for parte in (nivel, codigo) if parte).strip()
+        nombre = mercado or detalle or "regional row"
+        return (
+            f"Internal Supabase index ({nombre}). "
+            "Not a commercially validated market index. Table has no source or date."
+        )
+    return "Atlanta catalog base 1.00 — no verified local or regional index for this ZIP."
 
 
 @app.route("/api/get-zip-factor/<zip_code>")
 def get_zip_factor(zip_code):
     zona = _zona_mercado_por_zip(zip_code)
     if not zona.get("exito"):
-        return jsonify({"ciudad": None, "estado": None, "factor": FACTOR_ESTADO_DEFAULT, "exito": False}), 400
+        return jsonify({
+            "ciudad": None,
+            "estado": None,
+            "zip": zona.get("zip") or "",
+            "factor": FACTOR_RESPALDO,
+            "fuente": "fallback",
+            "validado": False,
+            "clase": "respaldo_sin_dato",
+            "referencia": "Invalid ZIP. Enter exactly five digits. Using Atlanta catalog base 1.00.",
+            "exito": False,
+        }), 400
     payload = {
         "ciudad": zona.get("ciudad"),
         "estado": zona.get("estado"),
-        "factor": round(float(zona.get("factor") or FACTOR_ESTADO_DEFAULT), 2),
+        "zip": zona.get("zip"),
+        "factor": round(float(zona.get("factor") if zona.get("factor") is not None else FACTOR_RESPALDO), 2),
+        "fuente": zona.get("fuente") or "fallback",
+        "mercado": zona.get("mercado"),
+        "codigo_zona": zona.get("codigo_zona"),
+        "nivel": zona.get("nivel"),
+        "validado": bool(zona.get("validado")),
+        "clase": zona.get("clase") or "respaldo_sin_dato",
+        "referencia": _referencia_factor(zona),
         "exito": True,
     }
     if zona.get("zona"):
         payload["zona"] = zona["zona"]
-    print(f"--> ZIP {zona.get('zip')}: ciudad={payload['ciudad']} estado={payload['estado']} factor={payload['factor']}")
+    print(
+        f"--> ZIP {zona.get('zip')}: ciudad={payload['ciudad']} estado={payload['estado']} "
+        f"factor={payload['factor']} fuente={payload['fuente']} mercado={payload.get('mercado')} "
+        f"validado={payload['validado']}"
+    )
     return jsonify(payload)
 
 client = _crear_cliente_gemini(os.environ.get("GCP_API_KEY") or os.environ.get("GEMINI_API_KEY"))
@@ -7421,8 +8121,18 @@ def _factor_ubicacion(ubicacion):
         return float(zona.get("factor") or 1.0), zona
     estado = texto.upper()[:2] if re.fullmatch(r"[A-Za-z]{2}", texto) else ""
     if estado:
-        return float(FACTORES_POR_ESTADO.get(estado, FACTOR_ESTADO_DEFAULT)), {"estado": estado}
-    return 1.0, {}
+        meta = _factor_desde_supabase("", estado)
+        if meta is None:
+            return FACTOR_RESPALDO, {"estado": estado, "fuente": "fallback", "validado": False, "clase": "respaldo_sin_dato"}
+        return float(meta["factor"]), {
+            "estado": estado,
+            "fuente": "factores_regionales_usa",
+            "mercado": meta.get("nombre_zona"),
+            "codigo_zona": meta.get("codigo_zona"),
+            "validado": False,
+            "clase": "indice_interno_supabase",
+        }
+    return FACTOR_RESPALDO, {"fuente": "fallback", "validado": False, "clase": "respaldo_sin_dato"}
 
 
 _RE_FILA_DEMOLICION = re.compile(r"demolici|retiro|remov|tear|arranc|desmont|raspado", re.I)

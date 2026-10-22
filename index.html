@@ -7,11 +7,25 @@
   {% else %}
   <meta name="viewport" content="width=1200, user-scalable=yes, minimum-scale=0.25, maximum-scale=5">
   {% endif %}
+  {% if vista == 'login' %}
+  <title>QuantixBuilds | Contractor Estimating Software</title>
+  <meta name="description" content="AI estimating software with monthly updated ZIP code pricing, PDF takeoffs, estimates, contracts, and invoices.">
+  <link rel="canonical" href="https://quantixbuilds.com/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="QuantixBuilds | Contractor Estimating Software">
+  <meta property="og:description" content="AI estimating software with monthly updated ZIP code pricing, PDF takeoffs, estimates, contracts, and invoices.">
+  <meta property="og:url" content="https://quantixbuilds.com/">
+  <meta property="og:site_name" content="QuantixBuilds">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="QuantixBuilds | Contractor Estimating Software">
+  <meta name="twitter:description" content="AI estimating software with monthly updated ZIP code pricing, PDF takeoffs, estimates, contracts, and invoices.">
+  {% else %}
   <meta name="description" content="Comprehensive estimating and invoicing platform for professional contractors. Generate accurate quotes with localized ZIP code pricing, extract measurements from PDFs using AI, and automate your contracts in a single tool.">
+  <title>{{ nombre_empresa_visible }} | Documents</title>
+  {% endif %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=Great+Vibes&display=swap" rel="stylesheet">
-  <title>{{ nombre_empresa_visible }} | Documents</title>
   <style>
     :root { --navy:#19385f; --blue:#2d70ad; --blue-soft:#edf5fb; --ink:#1d2b3b; --muted:#627083; --line:#d7e0e8; --gold:#dba72b; --green:#27834e; --green-soft:#effaf2; --paper:#fff; --canvas:#eef2f6; }
     * { box-sizing:border-box; }
@@ -88,8 +102,29 @@
     #view-paywall .auth-status { text-align:center; margin:16px 0 0; }
     #view-login { max-width:none; margin:0; padding:0; width:100%; }
     #view-login.active { display:flex; flex-direction:column; min-height:100dvh; min-height:100vh; }
-    .auth-hero { display:none; }
-    .auth-panel-brand { display:block; margin:0 0 28px; color:#0f172a; font-size:1.35rem; font-weight:800; letter-spacing:-.03em; }
+    .auth-hero { display:flex; flex-direction:column; gap:18px; padding:28px 20px 24px; background:#0b0b0b; color:#fff; }
+    .auth-hero-brand { display:block; margin:0; }
+    .qb-logo-link { display:inline-flex; align-items:center; text-decoration:none; }
+    .qb-logo-img { display:block; height:32px; width:auto; max-width:min(220px,70vw); }
+    .auth-hero-title { margin:8px 0 0; font-size:clamp(1.85rem,7vw,2.6rem); line-height:1.08; letter-spacing:-.045em; font-weight:800; color:#fff; }
+    .auth-hero-title span { color:#FF5A1F; }
+    .auth-hero-lead { margin:0; max-width:42rem; color:rgba(255,255,255,.82); font-size:1.02rem; line-height:1.55; font-weight:500; }
+    .auth-hero-cta { display:flex; flex-wrap:wrap; gap:10px; margin:4px 0 6px; }
+    .qb-cta { display:inline-flex; align-items:center; justify-content:center; min-height:46px; padding:12px 18px; border-radius:999px; font-size:.95rem; font-weight:800; text-decoration:none; }
+    .qb-cta-primary { background:#FF5A1F; color:#fff; border:1px solid #FF5A1F; }
+    .qb-cta-primary:hover { background:#e64e16; color:#fff; }
+    .qb-cta-ghost { background:transparent; color:#fff; border:1.5px solid rgba(255,255,255,.35); }
+    .qb-cta-ghost:hover { border-color:#fff; color:#fff; }
+    .qb-features { list-style:none; margin:8px 0 0; padding:0; display:grid; grid-template-columns:1fr; gap:12px; }
+    .qb-features li { display:flex; gap:12px; align-items:flex-start; padding:12px 12px 12px 0; }
+    .qb-feature-icon { flex:0 0 auto; width:36px; height:36px; border-radius:10px; background:rgba(255,90,31,.14); color:#FF5A1F; display:flex; align-items:center; justify-content:center; }
+    .qb-feature-icon svg { width:20px; height:20px; }
+    .qb-features h2 { margin:0 0 4px; font-size:.92rem; color:#fff; letter-spacing:-.02em; }
+    .qb-features p { margin:0; color:rgba(255,255,255,.68); font-size:.82rem; line-height:1.4; }
+    .auth-trade-hint { margin:0 0 14px; color:#FF5A1F; font-size:.88rem; font-weight:700; }
+    .auth-trade-hint[hidden] { display:none !important; }
+    .auth-panel-brand { display:block; margin:0 0 28px; }
+    .auth-panel-brand .qb-logo-img { height:30px; }
     .auth-panel { flex:1; display:flex; flex-direction:column; width:100%; min-height:100dvh; min-height:100vh; background:#fff; padding:max(28px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom)); overflow-y:auto; }
     #view-login .signup-card,
     #authContratista { max-width:none; width:100%; flex:1; margin:0; padding:0; border:0; border-radius:0; background:#fff; box-shadow:none; }
@@ -112,7 +147,7 @@
     #authContratista .auth-link:hover { color:#1e3a8a; }
     #authContratista .auth-privacy-link { display:block; margin:16px 0 0; text-align:center; color:#1d4ed8; font-size:15px; font-weight:700; text-decoration:none; min-height:44px; padding:10px 0; }
     #authContratista .auth-privacy-link:hover { color:#1e3a8a; text-decoration:underline; }
-    .site-legal-footer { width:100%; margin:auto 0 0; padding:20px 0 0; text-align:center; color:#64748b; font-size:14px; }
+    .site-legal-footer { width:100%; margin:auto 0 0; padding:20px 0 0; text-align:center; color:#64748b; font-size:14px; display:flex; justify-content:center; gap:16px; flex-wrap:wrap; }
     .site-legal-footer a { color:#1d4ed8; font-weight:700; text-decoration:none; }
     .site-legal-footer a:hover { color:#1e3a8a; text-decoration:underline; }
     #authContratista .auth-back { display:inline-flex; align-items:center; margin-top:14px; }
@@ -127,12 +162,12 @@
     .auth-tabs button { flex:1; margin-top:0; min-height:48px; border:1px solid #e2e8f0; background:#f8fafc; color:#334155; border-radius:12px; padding:12px 16px; font-size:15px; font-weight:700; }
     .auth-tabs button.is-active { background:#0f172a; color:#fff; border-color:#0f172a; }
     @media (min-width:900px) {
-      #view-login.active { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); min-height:100vh; }
-      .auth-hero { position:relative; display:flex; flex-direction:column; justify-content:center; gap:16px; padding:120px 56px 64px; background:linear-gradient(165deg,#19385f 0%,#2d70ad 58%,#0284c7 100%); color:#fff; }
-      .auth-hero-brand { position:absolute; top:40px; left:56px; margin:0; font-size:1.5rem; font-weight:800; letter-spacing:-.04em; }
-      .auth-hero-kicker { margin:0; color:#bae6fd; font-size:12px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
-      .auth-hero-title { margin:0; max-width:18ch; font-size:2.4rem; line-height:1.15; letter-spacing:-.04em; font-weight:800; }
-      .auth-hero-lead { margin:0; max-width:34ch; color:rgba(255,255,255,.86); font-size:1.05rem; line-height:1.55; }
+      #view-login.active { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(380px,0.85fr); min-height:100vh; }
+      .auth-hero { position:relative; justify-content:center; gap:18px; padding:88px 48px 48px; overflow:auto; }
+      .auth-hero-brand { position:absolute; top:32px; left:48px; margin:0; }
+      .auth-hero-title { margin:12px 0 0; max-width:14ch; font-size:3rem; }
+      .auth-hero-lead { max-width:46ch; font-size:1.05rem; }
+      .qb-features { grid-template-columns:1fr 1fr; gap:10px 18px; }
       .auth-panel { min-height:100vh; justify-content:center; padding:48px 64px; }
       .auth-panel-brand { display:none; }
       #view-login .signup-card, #authContratista { max-width:440px; width:100%; margin:0 auto; flex:0 1 auto; }
@@ -1065,16 +1100,56 @@
     </div>
   </div>
   <section id="view-login" class="view-section{{ ' active' if vista == 'login' else '' }} no-print">
-      <aside class="auth-hero" aria-hidden="true">
-        <div class="auth-hero-brand">QuantixBuilds</div>
-        <p class="auth-hero-kicker">For professional contractors</p>
-        <h2 class="auth-hero-title">Estimates, invoices, and contracts in one place.</h2>
-        <p class="auth-hero-lead">Build accurate quotes with ZIP pricing, PDF takeoff, and a clean work dashboard.</p>
+      <aside class="auth-hero">
+        <a class="auth-hero-brand qb-logo-link" href="/">
+          <img class="qb-logo-img" src="{{ url_for('static', filename='quantixbuilds-logo-on-dark.svg') }}" width="268" height="36" alt="QuantixBuilds">
+        </a>
+        <h1 class="auth-hero-title">Smarter Estimates. <span>Local Pricing.</span> Less Work.</h1>
+        <p class="auth-hero-lead">AI-powered construction estimating software. Extract measurements from PDF plans, access ZIP code-based material and labor pricing updated monthly, and create professional estimates, contracts, and invoices.</p>
+        <div class="auth-hero-cta">
+          <a class="qb-cta qb-cta-primary" href="#authContratista">Get Started →</a>
+          <a class="qb-cta qb-cta-ghost" href="#qb-features">Explore Features →</a>
+        </div>
+        <ul class="qb-features" id="qb-features">
+          <li>
+            <span class="qb-feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3h8l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M15 3v5h5"/><path d="M8 13h8M8 17h5"/></svg></span>
+            <div><h2>AI-Powered PDF Takeoffs</h2><p>Upload construction plans and extract measurements for your estimates.</p></div>
+          </li>
+          <li>
+            <span class="qb-feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg></span>
+            <div><h2>PDF Import &amp; Conversion</h2><p>Turn existing PDF line items into estimates, contracts, and invoices.</p></div>
+          </li>
+          <li>
+            <span class="qb-feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s7-6.2 7-11.2A7 7 0 0 0 5 9.8C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.2"/></svg></span>
+            <div><h2>ZIP Code-Based Pricing</h2><p>Material and labor pricing localized across the United States.</p></div>
+          </li>
+          <li>
+            <span class="qb-feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg></span>
+            <div><h2>Monthly Updated Material &amp; Labor Prices</h2><p>Catalog prices refresh automatically every month.</p></div>
+          </li>
+          <li>
+            <span class="qb-feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 6h14M5 12h14M5 18h9"/></svg></span>
+            <div><h2>Professional Estimates</h2><p>Quantities, labor, materials, and totals in client-ready documents.</p></div>
+          </li>
+          <li>
+            <span class="qb-feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3h8l5 5v13H7z"/><path d="M15 3v5h5"/><path d="M9 14h6M9 17h4"/></svg></span>
+            <div><h2>Contracts &amp; Invoices</h2><p>Move from approved scope to signed contract and billed invoice.</p></div>
+          </li>
+          <li>
+            <span class="qb-feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h16"/><path d="M7 15l4-5 3 3 5-6"/></svg></span>
+            <div><h2>Complete Contractor Workflow</h2><p>Takeoff, estimate, proposal, contract, and invoice in one platform.</p></div>
+          </li>
+        </ul>
       </aside>
       <div class="auth-panel">
-        <div class="auth-panel-brand">QuantixBuilds</div>
+        <div class="auth-panel-brand">
+          <a class="qb-logo-link" href="/">
+            <img class="qb-logo-img" src="{{ url_for('static', filename='quantixbuilds-logo.svg') }}" width="268" height="36" alt="QuantixBuilds">
+          </a>
+        </div>
         <div class="signup-card" id="authContratista">
         <p class="auth-kicker" id="authKicker">Contractor access</p>
+        <p class="auth-trade-hint" id="authTradeHint" hidden></p>
         <div class="auth-tabs" id="authTabs">
           <button type="button" id="authTabLogin" class="is-active">Log in</button>
           <button type="button" id="authTabRegistro">Create account</button>
@@ -1148,6 +1223,7 @@
         </div>
         <footer class="site-legal-footer">
           <a href="/privacidad">Privacy Policy</a>
+          <a href="/sitemap.xml">Sitemap</a>
         </footer>
       </div>
   </section>
@@ -2080,6 +2156,33 @@
   </datalist>
   <script>
     window.__NOMBRE_EMPRESA__=String(document.body?.getAttribute('data-nombre-empresa')||'').trim();
+    const QB_TRADE_KEY='qb_preferred_trade';
+    const QB_TRADES_LANDING={roofing:'Roofing',drywall:'Drywall',plumbing:'Plumbing',electrical:'Electrical',hvac:'HVAC',painting:'Painting',flooring:'Flooring',siding:'Siding','kitchen-remodel':'Kitchen Remodel','bathroom-remodel':'Bathroom Remodel',tile:'Tile',carpentry:'Carpentry',framing:'Framing',windows:'Windows',gutters:'Gutters',concrete:'Concrete',landscaping:'Landscaping',demolition:'Demolition',remodeling:'Remodeling','general-contractor':'General Contractor'};
+    let qbTradeAplicadoEnPagina=false;
+    function capturarTradeDesdeLanding(){
+      try{
+        const slug=String(new URLSearchParams(location.search||'').get('trade')||'').trim().toLowerCase();
+        if(QB_TRADES_LANDING[slug]) sessionStorage.setItem(QB_TRADE_KEY, slug);
+      }catch(_){}
+    }
+    function leerTradePreferido(){
+      capturarTradeDesdeLanding();
+      try{ return String(sessionStorage.getItem(QB_TRADE_KEY)||'').toLowerCase(); }catch(_){ return ''; }
+    }
+    function mostrarHintTradeLogin(){
+      const el=document.getElementById('authTradeHint');
+      if(!el) return;
+      const name=QB_TRADES_LANDING[leerTradePreferido()];
+      if(name){
+        el.hidden=false;
+        el.textContent=name+' selected. You can change trade type after you sign in.';
+      }else{
+        el.hidden=true;
+        el.textContent='';
+      }
+    }
+    capturarTradeDesdeLanding();
+    mostrarHintTradeLogin();
     const areas = document.querySelector('#areas');
     const areaTemplate = document.querySelector('#areaTemplate');
     const rowTemplate = document.querySelector('#rowTemplate');
@@ -2422,7 +2525,7 @@
       const footer=document.querySelector('[data-brand-footer]')||document.querySelector('.footer-note');
       if(footer) footer.textContent='Document generated by '+n+' · Amounts in USD';
       const titulo=document.getElementById('documentTitle')?.textContent||'Document';
-      document.title=titulo+' | '+n;
+      if(!document.body.classList.contains('auth-solo')) document.title=titulo+' | '+n;
     }
     function headersContratista(extra){
       const headers=Object.assign({Accept:'application/json'}, extra||{});
@@ -2514,15 +2617,16 @@
       const zip=(document.querySelector('#zip-code')?.value||'').replace(/\D/g,'').slice(0,5);
       const api=(typeof factorNacionalActual==='object'&&factorNacionalActual.zip===zip)?factorNacionalActual:null;
       const factor=api&&Number.isFinite(Number(api.factor))?Number(api.factor):(typeof factorZipActual==='function'?factorZipActual():1);
-      let loc='National average';
-      if(api&&(api.ciudad||api.estado)){
+      let loc='Atlanta catalog base';
+      if(zip&&zip.length!==5){
+        loc='Invalid ZIP';
+      }else if(api&&(api.ciudad||api.estado||api.mercado)){
         const estadoNombre=nombreEstadoUSA(api.estado)||api.estado;
-        loc=api.ciudad&&estadoNombre?api.ciudad+' / '+estadoNombre:(api.ciudad||estadoNombre);
-      }else if(zip){
-        const info=typeof obtenerFactorMercado==='function'?obtenerFactorMercado(zip):null;
-        loc=(info&&(etiquetaUbicacionZip(info)))||nombreEstadoUSA(info&&info.state)||loc;
+        loc=api.ciudad&&estadoNombre?api.ciudad+' / '+estadoNombre:(api.mercado||api.ciudad||estadoNombre);
       }
-      badge.textContent=loc+' | Factor: x'+Number(factor).toFixed(2);
+      const ref=api&&api.referencia?String(api.referencia):(!zip?'Enter a 5-digit ZIP':'Atlanta catalog base 1.00 — no ZIP factor loaded');
+      badge.title=ref;
+      badge.textContent=loc+' | ×'+Number(factor).toFixed(2)+(api&&api.validado?' | confirmed base':(api&&api.exito===false?' | invalid ZIP':' | internal/base ref'));
       const auto=document.querySelector('#toggleAutoPrecios')?.checked!==false;
       badge.style.background=auto?'#d1e7dd':'#f8d7da';
       badge.style.color=auto?'#0f5132':'#842029';
@@ -2577,7 +2681,7 @@
     }
     function recalcularPreciosPorZip(){ if(typeof recalcularPreciosCatalogoPorZip==='function')recalcularPreciosCatalogoPorZip(); document.querySelectorAll('.fila-trabajo').forEach(row=>{ if(row.getAttribute('data-precio-base')!=null&&String(row.getAttribute('data-precio-base')).trim()!=='')return; if(typeof aplicarPrecioAutomaticoFila==='function')aplicarPrecioAutomaticoFila(row,false); }); if(typeof ejecutarMotorPrecios==='function')ejecutarMotorPrecios(); else if(typeof update==='function')update(); }
     async function buscarPorZip(zip){ return consultarFactorZipNacional(zip); }
-    let factorNacionalActual = { zip:'', ciudad:'', estado:'', factor:1, zona:'', exito:false };
+    let factorNacionalActual = { zip:'', ciudad:'', estado:'', factor:1, zona:'', mercado:'', fuente:'fallback', validado:false, referencia:'', exito:false };
     let consultaZipFactorSeq = 0;
     function aplicarRespuestaFactorZip(zip, data){
       let ciudad=String((data&&(data.ciudad||data.city||data.major_city))||'').trim();
@@ -2592,8 +2696,13 @@
         zip,
         ciudad,
         estado,
-        factor:Number.isFinite(factor)&&factor>0?factor:1.05,
+        factor:Number.isFinite(factor)&&factor>0?factor:1,
         zona,
+        mercado:String((data&&data.mercado)||'').trim(),
+        fuente:String((data&&data.fuente)||'fallback'),
+        validado:!!(data&&data.validado),
+        referencia:String((data&&data.referencia)||'').trim(),
+        nivel:String((data&&data.nivel)||'').trim(),
         exito:data&&data.exito!==false
       };
       ubicacionZipActual={ zip, city:ciudad, state:estado, stateName:nombreEstadoUSA(estado) };
@@ -2610,7 +2719,10 @@
       if(input)input.value=zipLimpio;
       if(zipLimpio.length!==5){
         if(!zipLimpio){
-          factorNacionalActual={ zip:'', ciudad:'', estado:'', factor:1, zona:'', exito:false };
+          factorNacionalActual={ zip:'', ciudad:'', estado:'', factor:1, zona:'', mercado:'', fuente:'fallback', validado:false, referencia:'Enter a 5-digit ZIP. Using Atlanta catalog base 1.00.', exito:false };
+          if(typeof actualizarBadgeZonaMercado==='function')actualizarBadgeZonaMercado();
+        }else{
+          factorNacionalActual={ zip:zipLimpio, ciudad:'', estado:'', factor:1, zona:'', mercado:'', fuente:'fallback', validado:false, referencia:'Invalid ZIP. Enter exactly five digits. Using Atlanta catalog base 1.00.', exito:false };
           if(typeof actualizarBadgeZonaMercado==='function')actualizarBadgeZonaMercado();
         }
         return;
@@ -2682,14 +2794,13 @@
       }
     });
 
-    function factorRegionalActual(){ return obtenerFactorMercado(document.querySelector('#zip-code')?.value).factor; }
+    function factorRegionalActual(){ return typeof factorZipActual==='function'?factorZipActual():1; }
     function factorZipActual(){
       const zip=String((document.querySelector('#zip-code')||document.getElementById('zipCode'))?.value||'').replace(/\D/g,'').slice(0,5);
       if(typeof factorNacionalActual==='object'&&factorNacionalActual.zip===zip&&Number.isFinite(Number(factorNacionalActual.factor))&&Number(factorNacionalActual.factor)>0){
         return Number(factorNacionalActual.factor);
       }
-      const factor=Number(typeof obtenerFactorMercado==='function'?obtenerFactorMercado(zip).factor:1);
-      return Number.isFinite(factor)&&factor>0?factor:1;
+      return 1;
     }
     function preciosAutomaticosActivos(){
       return document.querySelector('#toggleAutoPrecios')?.checked===true;
@@ -2703,7 +2814,7 @@
       const factor=Number.isFinite(Number(factorForzado))&&Number(factorForzado)>0?Number(factorForzado):factorZipActual();
       const aplicar=auto&&Number.isFinite(factor)&&factor>0;
       document.querySelectorAll('.fila-trabajo[data-precio-base], tr[data-precio-base]').forEach(row=>{
-        if(filaPrecioDesdeApi(row)){
+        if(filaPrecioDesdeApi(row)||row.dataset.precioImportado==='1'){
           if(typeof recalcularSubtotalFila==='function')recalcularSubtotalFila(row);
           return;
         }
@@ -3006,13 +3117,30 @@
     function aplicarOficioEnUI(oficio, opts={}){
       const sel=document.querySelector('#select-categoria-trabajo');
       if(!sel||!oficio)return;
-      const code={roofing:'RFG',siding:'SDG',flooring:'FCT',bathroom:'BTR',kitchen:'KTR',drywall:'DRY',painting:'PNT',tile:'TIL',framing:'FRM',windows:'WND',gutters:'GUT',plumbing:'PLM',electrical:'ELE',hvac:'HVC',demolition:'DEM',deck:'DCK'}[String(oficio).toLowerCase()];
+      const code={roofing:'RFG',siding:'SDG',flooring:'FCT',bathroom:'BTR','bathroom-remodel':'BTR',kitchen:'KTR','kitchen-remodel':'KTR',drywall:'DRY',painting:'PNT',tile:'TIL',framing:'FRM',windows:'WND',gutters:'GUT',plumbing:'PLM',electrical:'ELE',hvac:'HVC',demolition:'DEM',deck:'DCK'}[String(oficio).toLowerCase()];
       const opt=[...sel.options].find(o=>code&&String(o.value).indexOf('['+code+']')===0);
       if(opt){
         sel.value=opt.value;
         if(typeof actualizarServicioFactura==='function')actualizarServicioFactura(opt.value, opts);
       }
     }
+    function aplicarEspecialidadDesdeLanding(){
+      if(qbTradeAplicadoEnPagina) return;
+      const slug=leerTradePreferido();
+      if(!QB_TRADES_LANDING[slug]) return;
+      if(!document.body.classList.contains('con-sesion')) return;
+      const skipTemplate=!!document.querySelector('#areas .fila-trabajo');
+      aplicarOficioEnUI(slug, {skipTemplate});
+      qbTradeAplicadoEnPagina=true;
+    }
+    document.querySelector('#select-categoria-trabajo')?.addEventListener('change',()=>{
+      qbTradeAplicadoEnPagina=true;
+      const oficio=typeof oficioDesdeUI==='function'?oficioDesdeUI():'';
+      try{
+        if(QB_TRADES_LANDING[oficio]) sessionStorage.setItem(QB_TRADE_KEY, oficio);
+        else sessionStorage.removeItem(QB_TRADE_KEY);
+      }catch(_){}
+    });
     async function pedirPreciosIaFila(row){
       if(!exigirFeature('ai_pdf')) return;
       const desc=((row.querySelector('.item-desc')||row.querySelector('.description'))?.value||'').trim();
@@ -3997,7 +4125,24 @@
     function aplicarCargosMinimosNacionales(){ let total=0; document.querySelectorAll('.fila-trabajo').forEach(row=>{ total+=recalcularSubtotalFila(row); }); return total; }
     function calcularDrywallPorVolumen(cantidad,unidad,modo='solo_mano_obra'){ const cant=parseFloat(cantidad)||0; const totalSqFt=unidad==='Hoja 4x8'?cant*32:cant; let tarifaSqFt; if(totalSqFt>=9600)tarifaSqFt=modo==='solo_mano_obra'?.85:2.10; else if(totalSqFt>=6400)tarifaSqFt=modo==='solo_mano_obra'?.98:2.30; else tarifaSqFt=modo==='solo_mano_obra'?1.18:2.57; const precioUnitario=unidad==='Hoja 4x8'?tarifaSqFt*32:tarifaSqFt; return {sqFtEquivalentes:totalSqFt,precioUnitario:precioUnitario.toFixed(2),subtotal:(cant*precioUnitario).toFixed(2)}; }
     function obtenerCategoriaRegional(description,unit){ const material=buscarMaterialPredictivo(description); if(material)return material.categoria; const text=String(description||'').toLowerCase(); if(/roof|techo|roofing|shingle/.test(text)||unit==='sq')return 'roofing'; if(/siding|revestimiento/.test(text))return 'siding'; if(/tile|azulejo|baldosa/.test(text))return 'tile'; if(/lvp|vinyl|vinil|piso|floor/.test(text)||unit==='sf'&&/acabado/.test(text))return 'lvp'; if(/drywall|sheetrock|yeso/.test(text))return 'drywall'; if(/paint|pintura/.test(text))return 'painting'; if(/trim|baseboard|zócalo|zocalo|moldura|carpinter/.test(text)||unit==='lf')return 'trim'; if(/demo|demolición|demolicion|preparación|preparacion/.test(text))return 'demolition'; return ''; }
-    function obtenerFactorMercado(zip){ const limpio=String(zip||'').replace(/\D/g,'').slice(0,5); if(limpio.length<3)return {region:'National average',factor:1,state:'',city:'',stateName:''}; const rango=rangoZipUSA(limpio); const city=ubicacionZipActual.zip===limpio?ubicacionZipActual.city:''; let factor=rango?Number(rango.factor):1; if(typeof FACTORES_ZIP==='object'&&FACTORES_ZIP[limpio]!=null){ const override=Number(FACTORES_ZIP[limpio]); if(Number.isFinite(override)&&override>0)factor=override; } if(!Number.isFinite(factor)||factor<=0)factor=1; if(!rango)return {region:city||'National average',factor,state:ubicacionZipActual.state||'',city,stateName:ubicacionZipActual.stateName||'National average'}; const region=etiquetaUbicacionZip({city,state:rango.state,stateName:rango.stateName,region:rango.stateName}); return {region,factor,state:rango.state,city,stateName:rango.stateName}; }
+    function obtenerFactorMercado(zip){
+      const limpio=String(zip||'').replace(/\D/g,'').slice(0,5);
+      if(typeof factorNacionalActual==='object'&&factorNacionalActual.zip===limpio&&Number.isFinite(Number(factorNacionalActual.factor))&&Number(factorNacionalActual.factor)>0){
+        const ciudad=factorNacionalActual.ciudad||'';
+        const estado=factorNacionalActual.estado||'';
+        return {
+          region:ciudad||factorNacionalActual.mercado||nombreEstadoUSA(estado)||'Atlanta catalog base',
+          factor:Number(factorNacionalActual.factor),
+          state:estado,
+          city:ciudad,
+          stateName:nombreEstadoUSA(estado),
+          validado:!!factorNacionalActual.validado,
+          referencia:factorNacionalActual.referencia||''
+        };
+      }
+      if(limpio.length&&limpio.length!==5)return {region:'Invalid ZIP',factor:1,state:'',city:'',stateName:'',validado:false,referencia:'Enter exactly five digits. Using Atlanta catalog base 1.00.'};
+      return {region:'Atlanta catalog base',factor:1,state:'',city:'',stateName:'',validado:false,referencia:'Atlanta catalog base 1.00 — no ZIP factor loaded'};
+    }
     function calcularFactorTerritorialNacional(zip){ return obtenerFactorMercado(zip).factor; }
     function ejecutarMotorPrecios(actualizarTotal=true){ const auto=document.querySelector('#toggleAutoPrecios')?.checked; const minimos=document.querySelector('#toggleMinimos')?.checked; const zip=document.querySelector('#zip-code')?.value.trim(); const badge=document.querySelector('#badgeZonaMercado'); const {region,factor}=obtenerFactorMercado(zip); if(badge){ badge.textContent=`📍 ${region} | Factor: x${factor.toFixed(2)}`; badge.style.background=auto?'#d1e7dd':'#f8d7da'; badge.style.color=auto?'#0f5132':'#842029'; } document.querySelectorAll('.fila-trabajo').forEach(row=>{ if(filaPrecioFijo(row))return; const description=row.querySelector('.description')?.value||''; const unit=(row.querySelector('.select-unidad')?.value||'SF').toLowerCase(); const category=obtenerCategoriaRegional(description,unit); const scope=row.querySelector('.select-alcance')?.value||detectarAlcance(description); const scopeFactor={full:1,labor:.45,replace:1.3,demo:1}[scope]||1; const catalog=CATALOGO_REGIONAL[category]||{basePrecio:0,cargoMinBase:0}; const basePrice=scope==='demo'?(unit==='sq'?55:1.75):catalog.basePrecio; const quantity=Number(row.querySelector('.input-cantidad')?.value)||0; const priceInput=row.querySelector('.price'); const finalUnitPrice=basePrice*scopeFactor*factor;  const price=Number(priceInput?.value)||0; const subtotal=quantity*price; const minimum=catalog.cargoMinBase*factor; const effective=minimos&&quantity>0&&subtotal<minimum?minimum:subtotal; row.dataset.categoria=category; row.dataset.alcance=scope; row.dataset.factorAlcance=String(scopeFactor); row.dataset.tarifaBase=String(basePrice); row.dataset.factorZip=String(factor); row.dataset.regionalSubtotal=String(effective); const tag=row.querySelector('.tag-minimo'); if(tag){ tag.style.display=effective>subtotal?'inline':'none'; tag.textContent=effective>subtotal?`(Min. regional: ${money.format(minimum)})`:''; } }); if(actualizarTotal&&!regionalActualizando){ regionalActualizando=true; update(); regionalActualizando=false; } }
     const ejecutarMotorPreciosBase = ejecutarMotorPrecios;
@@ -4708,7 +4853,7 @@
     function savePaymentState(){ localStorage.setItem(paymentStorageKey,JSON.stringify(paymentState)); }
     function markPaidIfNeeded(balance,total){ if(total>0 && balance<=0 && paymentState.status!=='paid'){ paymentState.status='paid'; paymentState.paidDate=paymentState.paidDate||new Date().toISOString().slice(0,10); document.querySelector('#status').value='paid'; savePaymentState(); } }
     function update(){ const paymentWasFocused=document.activeElement?.id==='paidAmount'; let grand=0; const lines=[]; document.querySelectorAll('.area').forEach((area,index)=>{ let subtotal=0; area.querySelectorAll('tbody tr').forEach(row=>{const total=recalcularSubtotalFila(row);subtotal+=total;}); grand+=subtotal; const title=area.querySelector('.area-title').value||`Area ${index+1}`; lines.push({title,subtotal}); }); const paid=Math.max(Number(paymentState.paidAmount)||0,0); const balance=Math.max(grand-paid,0); markPaidIfNeeded(balance,grand); const isPaid=paymentState.status==='paid'||(grand>0&&balance<=0); document.querySelector('#summary').innerHTML=lines.map(line=>`<div class="summary-line"><span>${line.title.replace(/^Área de /i,'').replace(/^Area of /i,'')}</span><strong>${money.format(line.subtotal)}</strong></div>`).join('')+`<div class="payment-tracking"><div class="field-row"><label for="paidAmount">Amount paid</label><input id="paidAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="${paymentState.paidAmount}"></div>${htmlBotonesDeposito()}</div><div class="summary-line grand"><span>${translations[language].total}</span><strong>${money.format(grand)}<br>USD</strong></div><div class="summary-line"><span id="depositLabel">${translations[language].deposit}</span><strong>${money.format(paid)} USD</strong></div><div class="summary-line balance"><span id="finalPaymentLabel">${translations[language].finalPayment}</span><strong>${money.format(balance)} USD</strong></div>`; const paymentInput=document.querySelector('#paidAmount'); paymentInput.addEventListener('input',event=>{ paymentState.paidAmount=event.target.value; paymentState.status='open'; paymentState.paidDate=''; savePaymentState(); update(); }); document.querySelectorAll('[data-payment-action]').forEach(button=>button.addEventListener('click',()=>{ aplicarPagoRapido(button.dataset.paymentAction,grand); })); document.querySelector('#paidStamp').hidden=!isPaid||docMode!=='invoice'; document.querySelector('#paidDate').textContent=paymentState.paidDate?'Paid date: '+paymentState.paidDate:''; if(paymentWasFocused) paymentInput.focus(); }
-    function renderMode(nextMode){ docMode=nextMode; const isInvoice=docMode==='invoice'; const isContract=docMode==='contract'; const title=isInvoice?'INVOICE':isContract?'WORK CONTRACT':'ESTIMATE'; document.querySelector('#documentTitle').textContent=title; document.title=title+' | '+nombreEmpresaActiva(); document.querySelector('#itemsHeading').textContent=isInvoice?'INVOICE ITEMS':'SCOPE OF WORK'; document.querySelector('#legalTerms').hidden=isInvoice; const signatures=document.querySelector('#signatures'); if(signatures){ signatures.hidden=!isContract; signatures.setAttribute('aria-hidden', isContract?'false':'true'); } document.documentElement.classList.toggle('is-contract', isContract); document.querySelector('#dueDateRow').hidden=!isInvoice; const billTo=document.querySelector('.bill-to'); if(billTo)billTo.hidden=!isInvoice; document.querySelector('.payments').hidden=!isInvoice; document.querySelector('.summary').classList.toggle('invoice-summary',isInvoice); document.querySelector('.invoice-thanks').hidden=!isInvoice; document.querySelector('#paidStamp').hidden=!isInvoice; document.querySelector('#termsHeading').textContent='TERMS AND EXCLUSIONS'; document.querySelector('#docMode').value=docMode; if(typeof aplicarFolioEnPantalla==='function')aplicarFolioEnPantalla(document.getElementById('quote')?.value); if(isInvoice && document.querySelector('#areas').children.length) update(); }
+    function renderMode(nextMode){ docMode=nextMode; const isInvoice=docMode==='invoice'; const isContract=docMode==='contract'; const title=isInvoice?'INVOICE':isContract?'WORK CONTRACT':'ESTIMATE'; document.querySelector('#documentTitle').textContent=title; if(!document.body.classList.contains('auth-solo')) document.title=title+' | '+nombreEmpresaActiva(); document.querySelector('#itemsHeading').textContent=isInvoice?'INVOICE ITEMS':'SCOPE OF WORK'; document.querySelector('#legalTerms').hidden=isInvoice; const signatures=document.querySelector('#signatures'); if(signatures){ signatures.hidden=!isContract; signatures.setAttribute('aria-hidden', isContract?'false':'true'); } document.documentElement.classList.toggle('is-contract', isContract); document.querySelector('#dueDateRow').hidden=!isInvoice; const billTo=document.querySelector('.bill-to'); if(billTo)billTo.hidden=!isInvoice; document.querySelector('.payments').hidden=!isInvoice; document.querySelector('.summary').classList.toggle('invoice-summary',isInvoice); document.querySelector('.invoice-thanks').hidden=!isInvoice; document.querySelector('#paidStamp').hidden=!isInvoice; document.querySelector('#termsHeading').textContent='TERMS AND EXCLUSIONS'; document.querySelector('#docMode').value=docMode; if(typeof aplicarFolioEnPantalla==='function')aplicarFolioEnPantalla(document.getElementById('quote')?.value); if(isInvoice && document.querySelector('#areas').children.length) update(); }
     function puntoFirma(canvas,event){
       const t=(event.touches&&event.touches[0])||(event.changedTouches&&event.changedTouches[0])||event;
       const rect=canvas.getBoundingClientRect();
@@ -4902,7 +5047,7 @@
     function setLanguage(){
       language='en';
       document.documentElement.lang='en';
-      document.title='Invoice | '+nombreEmpresaActiva();
+      if(!document.body.classList.contains('auth-solo')) document.title='Invoice | '+nombreEmpresaActiva();
     }
     function populateSpecialties(){ const selector=document.querySelector('#select-categoria-trabajo')||document.querySelector('#specialty'); if(!selector)return; selector.setAttribute('aria-label',translations[language].specialty); }
     function servicioComercialIngles(categoria){
@@ -6062,6 +6207,7 @@
     capturarRecuperacion();
     aplicarViewportApp(document.body.classList.contains('auth-solo')||document.body.classList.contains('pagando')||document.body.classList.contains('paywall'));
     function mostrarVistaLogin(){
+      if(typeof mostrarHintTradeLogin==='function') mostrarHintTradeLogin();
       document.body.classList.add('auth-solo');
       document.body.classList.remove('con-sesion','eligiendo-plan','pagando','paywall');
       aplicarViewportApp(true);
@@ -6408,6 +6554,7 @@
       const upgradeBtn=document.getElementById('cambiarPlanNav');
       if(upgradeBtn) upgradeBtn.classList.toggle('active', view==='planes');
       aplicarFeatureGating();
+      if(typeof aplicarEspecialidadDesdeLanding==='function') aplicarEspecialidadDesdeLanding();
       if(view==='quote'){
         if(options.mode){
           const select=document.querySelector('#docMode');

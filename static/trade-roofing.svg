@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Roofing">
+  <rect width="64" height="64" rx="16" fill="#0B0B0B"/>
+  <path d="M12 34 32 16l20 18" fill="none" stroke="#FF5A1F" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M20 34v14h24V34" fill="none" stroke="#FF5A1F" stroke-width="3.2" stroke-linejoin="round"/>
+  <path d="M32 16v8" fill="none" stroke="#FF5A1F" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M24 41h16M24 46h10" fill="none" stroke="#FF5A1F" stroke-width="2.2" stroke-linecap="round"/>
+</svg>

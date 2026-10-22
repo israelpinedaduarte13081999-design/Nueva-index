@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Drywall">
+  <rect width="64" height="64" rx="16" fill="#0B0B0B"/>
+  <rect x="14" y="14" width="28" height="36" rx="2.5" fill="none" stroke="#FF5A1F" stroke-width="3.2"/>
+  <path d="M14 26h28M28 14v36" fill="none" stroke="#FF5A1F" stroke-width="2"/>
+  <path d="M40 40.5h10.5c.8 0 1.5.7 1.5 1.5v2c0 .8-.7 1.5-1.5 1.5H36" fill="none" stroke="#FF5A1F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M36 45.5h-6" fill="none" stroke="#FF5A1F" stroke-width="2.6" stroke-linecap="round"/>
+</svg>

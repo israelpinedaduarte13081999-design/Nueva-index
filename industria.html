@@ -23,7 +23,8 @@
     body { margin:0; background:#f1f5f9; color:#1e293b; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
     a { color:#1d4ed8; }
     header { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:16px 28px; background:#fff; border-bottom:1px solid var(--line); }
-    .brand { color:var(--ink); font-weight:800; text-decoration:none; font-size:1.05rem; }
+    .brand { display:inline-flex; align-items:center; color:var(--ink); font-weight:800; text-decoration:none; }
+    .brand img { display:block; height:32px; width:auto; max-width:min(200px,58vw); }
     .header-actions { display:flex; gap:10px; }
     .btn { display:inline-flex; align-items:center; justify-content:center; min-height:42px; padding:8px 16px; border-radius:10px; text-decoration:none; font-weight:700; font-size:.92rem; }
     .btn-ghost { color:var(--ink); border:1px solid var(--line); background:#fff; }
@@ -51,27 +52,91 @@
     footer { border-top:1px solid var(--line); background:#fff; padding:18px 28px 28px; color:var(--muted); font-size:.85rem; }
     footer nav { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:8px; }
     footer a { color:#334155; text-decoration:none; }
+    .trade-icon { display:none; }
+    body.landing-qb { background:#0b0b0b; color:#fff; }
+    body.landing-qb header { background:#0b0b0b; border-bottom:1px solid rgba(255,255,255,.12); }
+    body.landing-qb .btn-ghost { color:#fff; border-color:rgba(255,255,255,.22); background:transparent; }
+    body.landing-qb .btn-ghost:hover { border-color:#FF5A1F; color:#FF5A1F; }
+    body.landing-qb .btn-primary { background:#FF5A1F; border-color:#FF5A1F; color:#fff; }
+    body.landing-qb .btn-primary:hover { background:#e04e18; border-color:#e04e18; }
+    body.landing-qb .kicker { color:#FF5A1F; }
+    body.landing-qb h1, body.landing-qb .keywords h2, body.landing-qb .related h2, body.landing-qb article h2 { color:#fff; }
+    body.landing-qb .lead, body.landing-qb .keywords p, body.landing-qb article p { color:rgba(255,255,255,.78); }
+    body.landing-qb article { background:#141414; border-color:rgba(255,255,255,.1); }
+    body.landing-qb .chip { background:#141414; border-color:rgba(255,255,255,.14); color:rgba(255,255,255,.82); }
+    body.landing-qb .related a { color:#FF5A1F; }
+    body.landing-qb footer { background:#0b0b0b; border-top-color:rgba(255,255,255,.12); color:rgba(255,255,255,.55); }
+    body.landing-qb footer a { color:rgba(255,255,255,.7); }
+    body.landing-qb .trade-icon { display:block; width:56px; height:56px; margin:0 0 16px; }
+    body.landing-qb .trade-icon img { display:block; width:56px; height:56px; }
+    .qb-demo { max-width:920px; margin:0 auto; padding:8px 20px 48px; }
+    .qb-demo-head { margin:0 0 16px; }
+    .qb-demo-head .kicker { margin-bottom:8px; }
+    .qb-demo-head h2 { margin:0 0 8px; font-size:1.2rem; letter-spacing:-.03em; }
+    .qb-demo-head p { margin:0; color:#475569; line-height:1.55; max-width:720px; }
+    body.landing-qb .qb-demo-head h2 { color:#fff; }
+    body.landing-qb .qb-demo-head p { color:rgba(255,255,255,.78); }
+    .qb-shot { background:#fff; color:#0f172a; border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,.12); box-shadow:0 18px 48px rgba(0,0,0,.35); }
+    .qb-shot-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 14px; background:#0b0b0b; color:#fff; }
+    .qb-shot-bar img { height:22px; width:auto; display:block; }
+    .qb-shot-badge { font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:#FF5A1F; border:1px solid rgba(255,90,31,.45); border-radius:999px; padding:4px 8px; }
+    .qb-shot-toolbar { display:flex; flex-wrap:wrap; gap:8px; padding:12px 14px; background:#111; border-bottom:1px solid rgba(255,255,255,.08); }
+    .qb-chip { display:inline-flex; align-items:center; gap:6px; min-height:32px; padding:4px 10px; border-radius:8px; background:#1c1c1c; color:#fff; font-size:.78rem; font-weight:700; border:1px solid rgba(255,255,255,.1); }
+    .qb-chip span { color:#94a3b8; font-weight:600; }
+    .qb-chip strong { color:#FF5A1F; }
+    .qb-shot-body { padding:16px 16px 18px; }
+    .qb-shot-title { display:flex; justify-content:space-between; gap:12px; align-items:baseline; margin:0 0 12px; }
+    .qb-shot-title h3 { margin:0; font-size:.78rem; letter-spacing:.12em; text-transform:uppercase; color:#0b0b0b; }
+    .qb-shot-title small { color:#64748b; font-size:.78rem; }
+    .qb-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin:0 0 14px; }
+    .qb-metric { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px 10px 9px; }
+    .qb-metric b { display:block; font-size:1.05rem; letter-spacing:-.03em; color:#0b0b0b; }
+    .qb-metric span { display:block; margin-top:2px; color:#64748b; font-size:.7rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+    .qb-shot-table-wrap { overflow-x:auto; }
+    .qb-shot table { width:100%; min-width:760px; border-collapse:collapse; font-size:.78rem; }
+    .qb-shot th { text-align:left; background:#f1f5f9; color:#334155; font-size:.64rem; letter-spacing:.06em; text-transform:uppercase; padding:8px; }
+    .qb-shot td { padding:9px 8px; border-bottom:1px solid #e2e8f0; vertical-align:top; }
+    .qb-shot .num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .qb-shot .code { font-weight:700; font-size:.72rem; white-space:nowrap; }
+    .qb-shot .unavail { color:#b45309; font-weight:700; }
+    .qb-totals { margin:12px 0 0 auto; width:min(300px,100%); }
+    .qb-totals div { display:flex; justify-content:space-between; gap:12px; padding:4px 0; font-size:.85rem; }
+    .qb-totals .grand { border-top:2px solid #0b0b0b; margin-top:6px; padding-top:8px; font-weight:800; }
+    .qb-shot-note { margin:12px 0 0; color:#64748b; font-size:.75rem; line-height:1.45; }
+    .qb-shot-disclaimer { margin:10px 0 0; padding-top:10px; border-top:1px solid #e2e8f0; color:#64748b; font-size:.72rem; line-height:1.5; letter-spacing:.01em; }
     @media (max-width:800px) {
       .grid { grid-template-columns:1fr; }
       header { padding:14px 16px; }
+      .qb-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .qb-shot { overflow-x:auto; }
     }
   </style>
 </head>
-<body>
+<body{% if industria.slug in ['roofing', 'drywall'] %} class="landing-qb"{% endif %}>
+  {% set login_href = '/login?trade=' + industria.slug %}
   <header>
-    <a class="brand" href="/">QuantixBuilds</a>
+    <a class="brand" href="/"><img src="{{ url_for('static', filename='quantixbuilds-logo-on-dark.svg' if industria.slug in ['roofing', 'drywall'] else 'quantixbuilds-logo.svg') }}" width="268" height="36" alt="QuantixBuilds"></a>
     <div class="header-actions">
-      <a class="btn btn-ghost" href="/login">Log in</a>
-      <a class="btn btn-primary" href="/login">Start 14-day free trial</a>
+      <a class="btn btn-ghost" href="{{ login_href }}">Log in</a>
+      <a class="btn btn-primary" href="{{ login_href }}">Start 14-day free trial</a>
     </div>
   </header>
   <section class="hero">
+    {% if industria.slug == 'roofing' %}
+    <span class="trade-icon"><img src="{{ url_for('static', filename='trade-roofing.svg') }}" width="56" height="56" alt=""></span>
+    {% elif industria.slug == 'drywall' %}
+    <span class="trade-icon"><img src="{{ url_for('static', filename='trade-drywall.svg') }}" width="56" height="56" alt=""></span>
+    {% endif %}
     <p class="kicker">{{ industria.name }} software · United States</p>
     <h1>{{ industria.h1 }}</h1>
     <p class="lead">{{ industria.lead }}</p>
     <div class="hero-cta">
-      <a class="btn btn-primary" href="/login">Create {{ industria.name|lower }} estimates</a>
-      <a class="btn btn-ghost" href="/login">See invoices and contracts</a>
+      {% if industria.slug in ['roofing', 'drywall'] %}
+      <a class="btn btn-primary" href="{{ login_href }}">Get Started →</a>
+      {% else %}
+      <a class="btn btn-primary" href="{{ login_href }}">Create {{ industria.name|lower }} estimates</a>
+      {% endif %}
+      <a class="btn btn-ghost" href="{{ login_href }}">See invoices and contracts</a>
     </div>
   </section>
   <section class="grid">
@@ -88,6 +153,89 @@
       <p>Issue a remodeling or construction agreement with terms, payment schedule, and e-signature spaces that match the {{ industria.name|lower }} scope.</p>
     </article>
   </section>
+  {% if demo %}
+  <section class="qb-demo" aria-label="QuantixBuilds {{ industria.name }} estimate demonstration">
+    <div class="qb-demo-head">
+      <p class="kicker">Product demonstration</p>
+      <h2>{{ demo.title }}</h2>
+      <p>{{ demo.lead }}</p>
+    </div>
+    <div class="qb-shot">
+      <div class="qb-shot-bar">
+        <img src="{{ url_for('static', filename='quantixbuilds-logo-on-dark.svg') }}" width="180" height="24" alt="QuantixBuilds">
+        <span class="qb-shot-badge">Sample project</span>
+      </div>
+      <div class="qb-shot-toolbar">
+        <div class="qb-chip"><span>Trade type</span> <strong>{{ demo.trade }}</strong></div>
+        <div class="qb-chip"><span>Document</span> <strong>ESTIMATE</strong></div>
+        <div class="qb-chip"><span>City</span> <strong>{{ demo.ciudad or '—' }}</strong></div>
+        <div class="qb-chip"><span>State</span> <strong>{{ demo.estado or '—' }}</strong></div>
+        <div class="qb-chip"><span>ZIP Code</span> <strong>{{ demo.zip }}</strong></div>
+        {% if demo.zona %}<div class="qb-chip"><span>Zone</span> <strong>{{ demo.zona }}</strong></div>{% endif %}
+        {% if demo.mercado %}<div class="qb-chip"><span>Market</span> <strong>{{ demo.mercado }}</strong></div>{% endif %}
+        <div class="qb-chip"><span>Regional factor</span> <strong>{{ demo.factor_txt }}</strong></div>
+        <div class="qb-chip"><span>Factor source</span> <strong>{{ demo.factor_fuente_txt or 'Confirmed Atlanta base market' }}</strong></div>
+      </div>
+      <div class="qb-shot-body">
+        {% if demo.metrics %}
+        <div class="qb-shot-title">
+          <h3>{{ demo.area_title }}</h3>
+          <small>{{ demo.area_ref }}</small>
+        </div>
+        <div class="qb-metrics">
+          {% for metric in demo.metrics %}
+          <div class="qb-metric"><b>{{ metric.value }}</b><span>{{ metric.label }}</span></div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        <div class="qb-shot-title">
+          <h3>Scope of work</h3>
+          <small>{{ demo.ubicacion }} · demonstration only</small>
+        </div>
+        <div class="qb-shot-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Action</th>
+              <th>Work description</th>
+              <th class="num">Qty</th>
+              <th>Unit</th>
+              <th class="num">Unit price</th>
+              <th class="num">TAX</th>
+              <th class="num">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for fila in demo.filas %}
+            <tr>
+              <td class="code">{{ fila.codigo }}</td>
+              <td>{{ fila.accion_label }}</td>
+              <td>{{ fila.descripcion }}</td>
+              <td class="num">{{ fila.qty_txt }}</td>
+              <td>{{ fila.unidad }}</td>
+              <td class="num{% if not fila.disponible %} unavail{% endif %}">{{ fila.unit_price_txt }}</td>
+              <td class="num">{{ fila.tax_txt }}</td>
+              <td class="num">{{ fila.subtotal_txt }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        <div class="qb-totals">
+          <div><span>Subtotal</span><span>{{ demo.subtotal_txt }}</span></div>
+          <div><span>Overhead (10%)</span><span>{{ demo.overhead_txt }}</span></div>
+          <div><span>Profit (10%)</span><span>{{ demo.profit_txt }}</span></div>
+          <div><span>Tax (0.00%)</span><span>{{ demo.tax_total_txt }}</span></div>
+          <div class="grand"><span>Grand total</span><span>{{ demo.grand_txt }}</span></div>
+        </div>
+        <p class="qb-shot-note">Sample project in {{ demo.ubicacion }}. Quantities are examples. Unit prices come from the QuantixBuilds catalog and the ZIP market factor used by the live estimator. Not a bid and not associated with any customer account.</p>
+        {% if demo.catalogo_notas %}<p class="qb-shot-disclaimer">{{ demo.catalogo_notas }}</p>{% endif %}
+        <p class="qb-shot-disclaimer">Demo Estimate — Pricing is based on the selected location and available catalog rates. Actual costs may vary by ZIP Code, project conditions, and pricing updates.</p>
+      </div>
+    </div>
+  </section>
+  {% endif %}
   <section class="keywords">
     <h2>Built for {{ industria.contractor }} nationwide</h2>
     <p>QuantixBuilds is estimating, invoicing, and contract software for {{ industria.contractor }} across the United States. Search for {{ industria.keywords[0] if industria.keywords else industria.name|lower + " estimating software" }} and you get documents your clients can trust—not a generic spreadsheet.</p>
@@ -109,7 +257,7 @@
   <footer>
     <nav>
       <a href="/">Home</a>
-      <a href="/login">Log in</a>
+      <a href="{{ login_href }}">Log in</a>
       <a href="/privacidad">Privacy Policy</a>
       <a href="/sitemap.xml">Sitemap</a>
     </nav>
