@@ -1994,6 +1994,10 @@
     <option value="Remover piso existente (alfombra / vinil / baldosa)"></option>
     <option value="Instalación de techo shingle arquitectónico"></option>
     <option value="Instalación de siding vinílico o fiber cement"></option>
+    <option value="Instalacion de revestimiento de fibrocemento HardiePlank"></option>
+    <option value="Instalacion de revestimiento de vinilo tradicional con aislante"></option>
+    <option value="Instalacion de revestimiento de fibrocemento HardiePlank por escuadra"></option>
+    <option value="Instalacion de revestimiento de vinilo tradicional con aislante por escuadra"></option>
     <option value="Instalación de drywall, encintado y acabado"></option>
     <option value="Pintura interior de paredes y cielos"></option>
     <option value="Instalación de molduras, crown molding y trim"></option>
@@ -2066,6 +2070,10 @@
     <option value="Remover piso existente (alfombra / vinil / baldosa)"></option>
     <option value="Instalación de techo shingle arquitectónico"></option>
     <option value="Instalación de siding vinílico o fiber cement"></option>
+    <option value="Instalacion de revestimiento de fibrocemento HardiePlank"></option>
+    <option value="Instalacion de revestimiento de vinilo tradicional con aislante"></option>
+    <option value="Instalacion de revestimiento de fibrocemento HardiePlank por escuadra"></option>
+    <option value="Instalacion de revestimiento de vinilo tradicional con aislante por escuadra"></option>
     <option value="Instalación de drywall, encintado y acabado"></option>
     <option value="Pintura interior de paredes y cielos"></option>
     <option value="Instalación de molduras, crown molding y trim"></option>
@@ -2348,6 +2356,8 @@
       // FACHADAS, SIDING Y VENTANAS
       { nombre: 'Instalacion de revestimiento de fibrocemento HardiePlank', familia: 'EXTERIOR', unidad: 'Sq Ft', precio: 4.75 },
       { nombre: 'Instalacion de revestimiento de vinilo tradicional con aislante', familia: 'EXTERIOR', unidad: 'Sq Ft', precio: 3.80 },
+      { nombre: 'Instalacion de revestimiento de fibrocemento HardiePlank por escuadra', familia: 'EXTERIOR', unidad: 'SQ', precio: 475.00 },
+      { nombre: 'Instalacion de revestimiento de vinilo tradicional con aislante por escuadra', familia: 'EXTERIOR', unidad: 'SQ', precio: 380.00 },
       { nombre: 'Instalacion de ventana vinilica de doble panel de reemplazo', familia: 'EXTERIOR', unidad: 'EA', precio: 140.00 },
       { nombre: 'Instalacion de puerta exterior principal con cerradura de seguridad', familia: 'EXTERIOR', unidad: 'EA', precio: 260.00 },
 
@@ -2864,8 +2874,91 @@
     }
     function recalcularPreciosCatalogoPorZip(){ aplicarFactorZIP(); }
     function filaPrecioFijo(row){ return !!(row&&(row.dataset.precioCatalogo==='1'||row.dataset.precioImportado==='1'||row.dataset.origenPrecio==='supabase')); }
-    function normalizarUnidad(unidad){ const raw=String(unidad||'').trim(); const t=normalizarCatalogoText(raw).replace(/\s+/g,' '); if(['SQ','SF','LF','EA','HR','CY','LS','BAG','PC'].includes(raw.toUpperCase()))return raw.toUpperCase(); if(/^(pc|pcs|pieza|piezas)$/.test(t))return 'PC'; if(/^(bag|saco|bulto)$/.test(t))return 'BAG'; if(/^(ls|lump|lump sum|precio cerrado|por el tanto)$/.test(t))return 'LS'; if(/^(sq|squares?|escuadra)$/.test(t))return 'SQ'; if(/^(sf|sq ft|sqft|square feet|pies cuadrados|hoja|hoja 4x8)$/.test(t)||t==='unit'||t==='global')return 'SF'; if(/^(lf|lin ft|linear|linear feet|pies lineales)$/.test(t))return 'LF'; if(/^(ea|each|pza|pzas|unidad|unidades|pcs)$/.test(t))return 'EA'; if(/^(hr|hrs|hour|hours|hora|horas)$/.test(t))return 'HR'; if(/^(cy|cubic|cubic yards?|yardas cubicas)$/.test(t))return 'CY'; return 'SF'; }
-    function unidadPorDefectoDesdeTexto(text){ const t=normalizarCatalogoText(text); if(/completo|lump sum|precio cerrado|por el tanto|remodelaci[oó]n completa|backsplash completo|cambio de deck/.test(t))return 'LS'; if(/roof|techo|shingle|siding|revestimiento/.test(t))return 'SQ'; if(/(\bhora\b|\bhour\b|\bhr\b)/.test(t))return 'HR'; if(/concreto|concrete|zapata|footing|\bcy\b|yarda/.test(t))return 'CY'; if(/puerta|ventana|inodoro|toilet|gabinete|vanity|dumpster|contenedor/.test(t))return 'EA'; if(/rodapi|baseboard|moldura|fascia|trim|crown|lineal/.test(t))return 'LF'; return 'SF'; }
+    function normalizarUnidad(unidad){ const raw=String(unidad||'').trim(); const t=normalizarCatalogoText(raw).replace(/\s+/g,' '); if(['SQ','SF','LF','EA','HR','CY','LS','BAG','PC'].includes(raw.toUpperCase()))return raw.toUpperCase(); if(/^(pc|pcs|pieza|piezas)$/.test(t))return 'PC'; if(/^(bag|saco|bulto)$/.test(t))return 'BAG'; if(/^(ls|lump|lump sum|precio cerrado|por el tanto)$/.test(t))return 'LS'; if(/^(sq|squares?|escuadras?)$/.test(t))return 'SQ'; if(/^(sf|sq ft|sqft|square feet|pies cuadrados|hoja|hoja 4x8)$/.test(t)||t==='unit'||t==='global')return 'SF'; if(/^(lf|lin ft|linear|linear feet|pies lineales)$/.test(t))return 'LF'; if(/^(ea|each|pza|pzas|unidad|unidades|pcs)$/.test(t))return 'EA'; if(/^(hr|hrs|hour|hours|hora|horas)$/.test(t))return 'HR'; if(/^(cy|cubic|cubic yards?|yardas cubicas)$/.test(t))return 'CY'; return 'SF'; }
+    const SF_POR_ESCUADRA = 100;
+    function textoSidingMaterial(item){
+      if(item==null)return '';
+      if(typeof item==='string')return item;
+      return [item.desc,item.descripcion,item.descripcion_es,item.descripcion_en,item.nombre,item.categoria,item.familia].filter(Boolean).join(' ');
+    }
+    function esSidingMaterialPorArea(item){
+      const t=normalizarCatalogoText(textoSidingMaterial(item));
+      if(!t)return false;
+      const unit=normalizarUnidad((item&&(item.unit||item.unidad))||'');
+      if(unit&&unit!=='SF'&&unit!=='SQ')return false;
+      if(/soffit|fascia|trim board|j-channel|j channel|perfil j|flash|tapajuntas|pintura|paint|lavado|pressure wash|recargo|altura|accesorio|j-block|sellador|calafateo|andamio|gata|fence|cerca|ventana|window|durock|piso comercial|wainscot|epoxico|bodega|barrier|barrera climatica/.test(t))return false;
+      if((/demolici[oó]n|retiro|tear.?off|desprendimiento|desmonte/.test(t))&&!/instalaci[oó]n|install/.test(t))return false;
+      return /siding|revestimiento|hardieplank|hardiepanel|hardieshingle|clapboard|dutch lap|fiber.?cement|fibrocemento|vinil residencial|vinyl siding|estuco|eifs|chapa de piedra|stacked stone|cedar|t1-11|tablero ranurado/.test(t);
+    }
+    function factorUnidadSiding(desde,hacia){
+      const a=normalizarUnidad(desde);
+      const b=normalizarUnidad(hacia);
+      if(a===b)return 1;
+      if(a==='SF'&&b==='SQ')return SF_POR_ESCUADRA;
+      if(a==='SQ'&&b==='SF')return 1/SF_POR_ESCUADRA;
+      return 1;
+    }
+    function esFilaSidingMaterialArea(row){
+      if(!row)return false;
+      const desc=((row.querySelector('.item-desc')||row.querySelector('.description'))?.value||'')+' '+(row.dataset.nucleoDesc||'')+' '+(row.dataset.catalogoRama||'');
+      const unit=row.querySelector('.select-unidad')?.value||row.dataset.catalogoUnit||'';
+      return esSidingMaterialPorArea({desc,unit,categoria:row.dataset.catalogoRama});
+    }
+    function factorConversionSidingFila(row){
+      if(!esFilaSidingMaterialArea(row))return 1;
+      const base=normalizarUnidad(row.dataset.catalogoUnit||row.dataset.materialUnidad||'SF');
+      const sel=normalizarUnidad(row.querySelector('.select-unidad')?.value||base);
+      return factorUnidadSiding(base,sel);
+    }
+    function precioVisibleSiding(item){
+      const base=Number(item&&(item.precio_zona||item.price||item.precio_base||item.precio))||0;
+      if(normalizarUnidad(item&&item.unit)==='SQ'&&normalizarUnidad((item&&item.unidadBase)||'SF')==='SF')return Math.round(base*SF_POR_ESCUADRA*100)/100;
+      return base;
+    }
+    function clonarSidingPorEscuadra(item){
+      if(!item||!esSidingMaterialPorArea(item)||normalizarUnidad(item.unit||item.unidad)==='SQ')return null;
+      const clone=Object.assign({},item);
+      clone.unit='SQ';
+      clone.unidad='SQ';
+      clone.unidadBase='SF';
+      clone.varianteUnidad='SQ';
+      const sufEn=' — per square (1 SQ = 100 SF)';
+      const sufEs=' — por escuadra (1 SQ = 100 SF)';
+      if(clone.desc&&!/per square|escuadra/i.test(clone.desc))clone.desc=clone.desc+sufEn;
+      if(clone.descripcion&&!/per square|escuadra/i.test(clone.descripcion))clone.descripcion=clone.descripcion+sufEn;
+      if(clone.descripcion_en&&!/per square/i.test(clone.descripcion_en))clone.descripcion_en=clone.descripcion_en+sufEn;
+      if(clone.descripcion_es&&!/escuadra/i.test(clone.descripcion_es))clone.descripcion_es=clone.descripcion_es+sufEs;
+      clone.codigoBase=item.codigo||item.code||item.codigoBase||'';
+      return clone;
+    }
+    function expandirSidingEscuadras(resultados){
+      const out=[];
+      (resultados||[]).forEach(item=>{
+        out.push(item);
+        const sq=clonarSidingPorEscuadra(item);
+        if(sq)out.push(sq);
+      });
+      return out;
+    }
+    function unidadPorDefectoDesdeTexto(text){ const t=normalizarCatalogoText(text); if(/completo|lump sum|precio cerrado|por el tanto|remodelaci[oó]n completa|backsplash completo|cambio de deck/.test(t))return 'LS'; if(/siding|revestimiento|hardieplank|hardiepanel|hardieshingle/.test(t))return /escuadra|per square|\bsq\b/.test(t)?'SQ':'SF'; if(/roof|techo|shingle/.test(t))return 'SQ'; if(/(\bhora\b|\bhour\b|\bhr\b)/.test(t))return 'HR'; if(/concreto|concrete|zapata|footing|\bcy\b|yarda/.test(t))return 'CY'; if(/puerta|ventana|inodoro|toilet|gabinete|vanity|dumpster|contenedor/.test(t))return 'EA'; if(/rodapi|baseboard|moldura|fascia|trim|crown|lineal/.test(t))return 'LF'; return 'SF'; }
+    CATALOGO_PREDICTIVO.slice().forEach(item=>{
+      if(!esSidingMaterialPorArea(item)||normalizarUnidad(item.unidad)!=='SF')return;
+      const nombreSq=String(item.nombre||'').replace(/\s+$/,'')+' por escuadra';
+      if(CATALOGO_PREDICTIVO.some(x=>normalizarCatalogoText(x.nombre)===normalizarCatalogoText(nombreSq)))return;
+      const precioSq=Math.round(Number(item.precio||0)*SF_POR_ESCUADRA*100)/100;
+      if(!(precioSq>0))return;
+      CATALOGO_PREDICTIVO.push({
+        nombre:nombreSq,
+        familia:item.familia,
+        categoria:(item.categoria||'siding')+'_sq',
+        precio:precioSq,
+        unidad:'SQ',
+        precioContratista:precioSq,
+        precioSubcontratista:precioSq,
+        min:item.min||0,
+        palabras:[].concat(item.palabras||[],['escuadra','square','sq'])
+      });
+    });
     function precioAlzadoSugerido(text){ const t=normalizarCatalogoText(text); if(/bano|baño|bathroom/.test(t)&&/completo|remodel/.test(t))return 8500; if(/cocina|kitchen/.test(t)&&/completo|remodel/.test(t))return 14500; if(/backsplash/.test(t)&&/completo/.test(t))return 1850; if(/\bdeck\b/.test(t))return 4800; if(/paquete|precio cerrado|lump sum|por el tanto/.test(t))return 2500; return 0; }
     function cargoMinimoOficio(text){ const t=normalizarCatalogoText(text); const key=Object.keys(CARGOS_MINIMOS_MAESTROS).find(candidate=>candidate!=='defecto'&&t.includes(candidate))||'defecto'; return CARGOS_MINIMOS_MAESTROS[key].gc*factorRegionalActual(); }
     function aplicarUnidadLS(row){ const unitSelect=row.querySelector('.select-unidad,.item-unit'); if(!unitSelect||unitSelect.value!=='LS')return; const qty=row.querySelector('.input-cantidad')||row.querySelector('.quantity'); if(qty)qty.value='1'; }
@@ -3206,7 +3299,7 @@
       if(codigoBase)row.dataset.codigoBase=codigoBase;
       if(nucleo)row.dataset.nucleoDesc=nucleo;
       row.dataset.catalogoRama=(item&&(item.familia||item.categoria))||row.dataset.catalogoRama||'';
-      if(item&&item.unit)row.dataset.catalogoUnit=String(item.unit).toUpperCase();
+      if(item&&(item.unidadBase||item.unit))row.dataset.catalogoUnit=String(item.unidadBase||item.unit).toUpperCase();
       row.dataset.materialLock='1';
     }
     function contextoMaterialFila(row){
@@ -3551,7 +3644,9 @@
       };
       const paquete=numeroPrecio(columnas.paquete);
       let unitarioBase=precioDesdeRolesVariantes(columnas,accion);
-      const unitario=topePaquete(unitarioBase*factor, paquete>0?redondearPrecio(paquete*factor):0);
+      const factorUnidad=typeof factorConversionSidingFila==='function'?factorConversionSidingFila(row):1;
+      unitarioBase=unitarioBase*factorUnidad;
+      const unitario=topePaquete(unitarioBase*factor, paquete>0?redondearPrecio(paquete*factor*factorUnidad):0);
       if(priceInput){
         if(unitario>0)priceInput.value=unitario.toFixed(2);
         else if(tieneDesgloseCatalogo(columnas)||row.dataset.columnasCatalogo)priceInput.value='0.00';
@@ -4001,7 +4096,7 @@
       }
       if(typeof consultarYAplicarPrecioSupabase==='function')consultarYAplicarPrecioSupabase(row,asignarUnidad);
     }
-    function aplicarSugerenciaMaterial(row){ const material=buscarMaterialPredictivo((row.querySelector('.item-desc')||row.querySelector('.description'))?.value); if(!material)return null; const unitSelect=row.querySelector('.select-unidad'); if(unitSelect){ const u=normalizarUnidad(material.unidad||unidadPorDefectoDesdeTexto(material.nombre)); if([...unitSelect.options].some(opt=>opt.value===u)&&row.dataset.unidadManual!=='1')unitSelect.value=u; } row.dataset.materialCategoria=material.categoria; row.dataset.materialPrecio=String(material.precio); row.dataset.materialMin=String(material.min); return material; }
+    function aplicarSugerenciaMaterial(row){ const material=buscarMaterialPredictivo((row.querySelector('.item-desc')||row.querySelector('.description'))?.value); if(!material)return null; const unitSelect=row.querySelector('.select-unidad'); if(unitSelect){ const u=normalizarUnidad(material.unidad||unidadPorDefectoDesdeTexto(material.nombre)); if([...unitSelect.options].some(opt=>opt.value===u)&&row.dataset.unidadManual!=='1')unitSelect.value=u; } row.dataset.materialCategoria=material.categoria; row.dataset.materialPrecio=String(material.precio); row.dataset.materialMin=String(material.min); row.dataset.materialUnidad=normalizarUnidad(material.unidad||''); if(esSidingMaterialPorArea(material)&&!row.dataset.catalogoUnit)row.dataset.catalogoUnit=normalizarUnidad(material.unidad||'SF'); return material; }
     function poblarCatalogoPartidas(row){ const select=row?.querySelector('.codigo-item, .selector-item'); if(!select||select.options.length>1)return; const groups={}; Object.entries(catalogoRemodelacion).forEach(([key,[category,description]])=>{ (groups[category]??=[]).push({key,description}); }); Object.entries(groups).forEach(([category,items])=>{ const group=document.createElement('optgroup'); group.label=category; items.forEach(item=>{ const option=document.createElement('option'); option.value=item.key; option.textContent=item.description; group.appendChild(option); }); select.appendChild(group); }); if (typeof CATALOGO === 'object') { const catGroup = document.createElement('optgroup'); catGroup.label = 'Base catalog'; Object.entries(CATALOGO).forEach(([key, item]) => { const option = document.createElement('option'); option.value = key; option.textContent = item.nombre || (key.replace('_', ' ').toUpperCase() + ' - $' + item.precioBase + '/' + item.unidad); catGroup.appendChild(option); }); select.appendChild(catGroup); } }
     function encontrarPartidaEnTarifas(queryCode, queryDesc) {
       const code = normalizarCatalogoText(queryCode);
@@ -4432,7 +4527,7 @@
     function pintarSugerenciasCatalogo(input, resultados){
       const menu=menuSugerenciasCatalogo(true);
       menu.innerHTML='';
-      const items=(resultados||[]).map(enriquecerItemSugerencia).filter(Boolean);
+      const items=expandirSidingEscuadras((resultados||[]).map(enriquecerItemSugerencia).filter(Boolean));
       if(!items.length){
         const empty=document.createElement('div');
         empty.className='task-dropdown-group';
@@ -4461,7 +4556,7 @@
         label.textContent=(item.codigo||item.categoria||'—')+' / '+(item.desc||item.descripcion||'');
         const meta=document.createElement('span');
         meta.className='item-meta';
-        meta.textContent=item.unit+' · $'+Number(item.precio_zona||item.price||0).toFixed(2);
+        meta.textContent=item.unit+' · $'+Number(precioVisibleSiding(item)||item.precio_zona||item.price||0).toFixed(2);
         opt.appendChild(label);
         opt.appendChild(meta);
         const elegir=e=>{
@@ -4647,6 +4742,8 @@
       const unitSelect=fila.querySelector('select.select-unidad, select.unit-select, .item-unit, select[name*="unidad"]');
       const qtyInput=fila.querySelector('input.input-cantidad, input.quantity, input[name*="cant"]');
       if(item.unit)asegurarOpcionUnidad(unitSelect, item.unit);
+      if(item.unidadBase)fila.dataset.catalogoUnit=String(item.unidadBase).toUpperCase();
+      else if(item.unit)fila.dataset.catalogoUnit=String(item.unit).toUpperCase();
       fila.dataset.unidadManual='1';
       if(qtyInput&&(!qtyInput.value||parseFloat(qtyInput.value)===0))qtyInput.value=1;
       const actionSelect=fila.querySelector('.item-action');
@@ -8434,7 +8531,7 @@
     async function importEsx(file){ if(typeof JSZip!=='function')throw new Error('JSZip no está disponible'); clearTechnicalPreview(); const zip=await JSZip.loadAsync(file); const xmlTexts=[]; let imageFile=null; for(const entry of Object.values(zip.files)){ if(entry.dir)continue; const lower=entry.name.toLowerCase(); if(lower.endsWith('.xml'))xmlTexts.push(await entry.async('string')); if(!imageFile&&/\.(jpg|jpeg|png|gif|webp)$/i.test(lower))imageFile=entry; } const rowCount=importMeasurements(xmlTexts); if(imageFile){ const imageBlob=await imageFile.async('blob'); reportPreviewUrl=URL.createObjectURL(imageBlob); const image=document.createElement('img'); image.alt='Croquis técnico extraído del reporte ESX'; image.src=reportPreviewUrl; showTechnicalPreview(image,rowCount?'Mediciones y croquis extraídos de '+file.name:'Croquis extraído de '+file.name); } else if(rowCount){ const note=document.createElement('p'); note.textContent='Mediciones extraídas de '+file.name+'. No se encontró una imagen de croquis dentro del archivo.'; showTechnicalPreview(note); } else { alert('No recognizable measurements were found in the ESX file.'); } }
     async function importReport(file){ if(!exigirCuotaIaPdf()) return; const extension=file.name.split('.').pop().toLowerCase(); try { if(extension==='esx')await importEsx(file); else if(extension==='xml') { clearTechnicalPreview(); const xml=await file.text(); const rowCount=importMeasurements([xml]); if(rowCount) { const note=document.createElement('p'); note.textContent='Mediciones XML importadas: '+file.name; showTechnicalPreview(note); } else alert('No recognizable measurements were found in the XML.'); } else if(extension==='pdf') { await enviarRoofReportAlServidor(file); } else if(['jpg','jpeg','png'].includes(extension))await showImagePreview(file); } catch(error){ alert('Could not process the technical report.'); console.error(error); } finally { document.querySelector('#reportFileInput').value=''; } }
     function update(){ const paymentWasFocused=document.activeElement?.id==='paidAmount'; let subtotalTotal=0; let taxTotal=0; const lines=[]; document.querySelectorAll('.area').forEach((area,index)=>{ let areaSubtotal=0; area.querySelectorAll('tbody tr').forEach(row=>{ const taxRate=Math.max(Number(row.querySelector('.tax').value)||0,0); const lineSubtotal=recalcularSubtotalFila(row); const lineTax=lineSubtotal*taxRate/100; areaSubtotal+=lineSubtotal; subtotalTotal+=lineSubtotal; taxTotal+=lineTax; }); const title=area.querySelector('.area-title').value||`Area ${index+1}`; lines.push({title,subtotal:areaSubtotal}); }); const gc=typeof esContratistaGeneral==='function'?esContratistaGeneral():true; const montoOverhead=gc?subtotalTotal*(typeof MARGEN_OVERHEAD==='number'?MARGEN_OVERHEAD:.10):0; const montoProfit=gc?subtotalTotal*(typeof MARGEN_PROFIT==='number'?MARGEN_PROFIT:.10):0; const ajusteMinimo=ajusteCargoMinimoProyecto(subtotalTotal); const grand=subtotalTotal+ajusteMinimo+taxTotal+montoOverhead+montoProfit; const paid=Math.max(Number(paymentState.paidAmount)||0,0); const balance=Math.max(grand-paid,0); markPaidIfNeeded(balance,grand); const isPaid=paymentState.status==='paid'||(grand>0&&balance<=0); const minimoLine=ajusteMinimo>0?`<div class="summary-line" id="fila-cargo-minimo"><span>Minimum charge <small>(project under ${money.format(UMBRAL_CARGO_MINIMO_PROYECTO)})</small></span><strong id="val-cargo-minimo">${money.format(ajusteMinimo)} USD</strong></div>`:''; const averageTax=subtotalTotal?taxTotal/subtotalTotal*100:0; const opLines=gc?`<div class="summary-line" id="fila-overhead"><span>Overhead (10%)</span><strong id="val-overhead">${money.format(montoOverhead)} USD</strong></div><div class="summary-line" id="fila-profit"><span>Profit (10%)</span><strong id="val-profit">${money.format(montoProfit)} USD</strong></div>`:''; document.querySelector('#summary').innerHTML=lines.map(line=>`<div class="summary-line"><span>${line.title.replace(/^Área de /i,'').replace(/^Area of /i,'')}</span><strong>${money.format(line.subtotal)}</strong></div>`).join('')+`<div class="payment-tracking"><div class="field-row"><label for="paidAmount">Amount paid</label><input id="paidAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="${paymentState.paidAmount}"></div>${htmlBotonesDeposito()}</div><div class="summary-line"><span>Subtotal</span><strong id="val-subtotal-base">${money.format(subtotalTotal)} USD</strong></div>`+minimoLine+opLines+`<div class="summary-line"><span>Tax <small>(${averageTax.toFixed(2)}%)</small></span><strong>${money.format(taxTotal)} USD</strong></div><div class="summary-line grand"><span>Grand total</span><strong id="val-total-general">${money.format(grand)}<br>USD</strong></div><div class="summary-line"><span id="depositLabel">${translations[language].deposit}</span><strong>${money.format(paid)} USD</strong></div><div class="summary-line balance"><span id="finalPaymentLabel">${translations[language].finalPayment}</span><strong>${money.format(balance)} USD</strong></div>`; const paymentInput=document.querySelector('#paidAmount'); paymentInput.addEventListener('input',event=>{ paymentState.paidAmount=event.target.value; paymentState.status='open'; paymentState.paidDate=''; savePaymentState(); update(); }); document.querySelectorAll('[data-payment-action]').forEach(button=>button.addEventListener('click',()=>{ aplicarPagoRapido(button.dataset.paymentAction,grand); })); document.querySelector('#paidStamp').hidden=!isPaid||docMode!=='invoice'; document.querySelector('#paidDate').textContent=paymentState.paidDate?'Paid date: '+paymentState.paidDate:''; if(paymentWasFocused) paymentInput.focus(); }
-    function configurarMotorPrecios(){ ['zip-code','toggleAutoPrecios','toggleMinimos'].forEach(id=>{ const element=document.querySelector('#'+id); if(element)element.addEventListener(element.type==='text'?'input':'change',()=>{ if(id==='zip-code'){ if(typeof consultarFactorZipNacional==='function')consultarFactorZipNacional(element.value); return; } ejecutarMotorPrecios(); }); }); document.addEventListener('change',event=>{ if(event.target.matches('#select-tipo-contratista')){ if(typeof update==='function')update(); } else if(event.target.matches('.select-rol,#select-rol'))ejecutarMotorPrecios(); }); document.addEventListener('input',event=>{ const row=event.target.closest('.fila-trabajo'); if(!row||row.dataset.traduciendo==='1')return; if(event.target.matches('.code,.item-desc,.description')){ if(event.target.matches('.item-desc,.description')&&row.dataset.updatingDesc!=='1'){ preservarContextoMaterialEnEdicion(row,event.target.value); } update(); } else if(event.target.matches('.input-cantidad,.quantity,.price,.input-precio,.tax')){ recalcularSubtotalFila(row); update(); } }); document.addEventListener('change',event=>{ const row=event.target.closest('.fila-trabajo'); if(!row)return; if(event.target.matches('.item-action')){ actualizarDescripcionPorAccion(row); return; } else if(event.target.matches('.select-alcance')){ actualizarDescripcionPorAccion(row); if(typeof recalcularPrecioPorAccion==='function')recalcularPrecioPorAccion(row); else { aplicarPrecioAutomaticoFila(row,false); update(); } } else if(event.target.matches('.code')){ if(typeof aplicarPrecioAutomaticoFila==='function')aplicarPrecioAutomaticoFila(row,false); update(); } else if(event.target.matches('.item-desc,.description')){ update(); } else if(event.target.matches('.select-unidad,.item-unit')){ row.dataset.unidadManual='1'; if(event.target.value==='LS')aplicarUnidadLS(row); if(!filaPrecioFijo(row))aplicarPrecioAutomaticoFila(row,false); update(); } }); }
+    function configurarMotorPrecios(){ ['zip-code','toggleAutoPrecios','toggleMinimos'].forEach(id=>{ const element=document.querySelector('#'+id); if(element)element.addEventListener(element.type==='text'?'input':'change',()=>{ if(id==='zip-code'){ if(typeof consultarFactorZipNacional==='function')consultarFactorZipNacional(element.value); return; } ejecutarMotorPrecios(); }); }); document.addEventListener('change',event=>{ if(event.target.matches('#select-tipo-contratista')){ if(typeof update==='function')update(); } else if(event.target.matches('.select-rol,#select-rol'))ejecutarMotorPrecios(); }); document.addEventListener('input',event=>{ const row=event.target.closest('.fila-trabajo'); if(!row||row.dataset.traduciendo==='1')return; if(event.target.matches('.code,.item-desc,.description')){ if(event.target.matches('.item-desc,.description')&&row.dataset.updatingDesc!=='1'){ preservarContextoMaterialEnEdicion(row,event.target.value); } update(); } else if(event.target.matches('.input-cantidad,.quantity,.price,.input-precio,.tax')){ recalcularSubtotalFila(row); update(); } }); document.addEventListener('change',event=>{ const row=event.target.closest('.fila-trabajo'); if(!row)return; if(event.target.matches('.item-action')){ actualizarDescripcionPorAccion(row); return; } else if(event.target.matches('.select-alcance')){ actualizarDescripcionPorAccion(row); if(typeof recalcularPrecioPorAccion==='function')recalcularPrecioPorAccion(row); else { aplicarPrecioAutomaticoFila(row,false); update(); } } else if(event.target.matches('.code')){ if(typeof aplicarPrecioAutomaticoFila==='function')aplicarPrecioAutomaticoFila(row,false); update(); } else if(event.target.matches('.item-desc,.description')){ update(); } else if(event.target.matches('.select-unidad,.item-unit')){ row.dataset.unidadManual='1'; if(event.target.value==='LS')aplicarUnidadLS(row); if(esFilaSidingMaterialArea(row)){ const roles=typeof rolesDesdeFila==='function'?rolesDesdeFila(row):null; if(roles&&typeof aplicarPrecioAccionEnFila==='function'&&(tieneDesgloseCatalogo(roles)||roles.paquete>0))aplicarPrecioAccionEnFila(row,roles,{silent:true}); else if(Number(row.dataset.materialPrecio)>0){ const priceInput=row.querySelector('.price,.input-precio'); const factor=factorUnidadSiding(row.dataset.materialUnidad||row.dataset.catalogoUnit||'SF',event.target.value); const zip=row.dataset.skipZipFactor==='1'?1:((typeof factorZipActual==='function'?factorZipActual():1)||1); if(priceInput)priceInput.value=(Number(row.dataset.materialPrecio)*factor*zip).toFixed(2); } if(typeof recalcularSubtotalFila==='function')recalcularSubtotalFila(row); } else if(!filaPrecioFijo(row))aplicarPrecioAutomaticoFila(row,false); update(); } }); }
     async function verificarActualizacionMensual(){ if(typeof puedeCatalogo==='function'&&!puedeCatalogo()) return; const fechaGuardada=localStorage.getItem('fecha_actualizacion_precios'); const cache=localStorage.getItem('catalogo_precios_cache'); const badge=document.querySelector('#badgeEstadoSync'); const hoy=new Date(); const dias=fechaGuardada?(hoy-new Date(fechaGuardada))/86400000:DIAS_EXPIRACION; if(dias<DIAS_EXPIRACION&&cache){ Object.assign(CATALOGO_REGIONAL,JSON.parse(cache)); if(badge)badge.textContent=`Current (expires in ${Math.ceil(DIAS_EXPIRACION-dias)}d)`; return; } if(!navigator.onLine)return; try{ const response=await fetch(URL_CATALOGO_NUBE); if(!response.ok)throw new Error('Catalog unavailable'); const remote=await response.json(); Object.keys(CATALOGO_REGIONAL).forEach(key=>{ if(remote[key])Object.assign(CATALOGO_REGIONAL[key],remote[key]); }); localStorage.setItem('catalogo_precios_cache',JSON.stringify(remote)); localStorage.setItem('fecha_actualizacion_precios',hoy.toISOString()); if(badge)badge.textContent='✔ Updated this month'; ejecutarMotorPrecios(); }catch(error){ if(badge)badge.textContent='Offline mode (local prices)'; } }
     document.querySelector('#addArea').addEventListener('click',()=>addArea());
     document.querySelector('#importReportButton').addEventListener('click',ev=>{
@@ -9414,6 +9511,10 @@
     <option value="Remover piso existente (alfombra / vinil / baldosa)"></option>
     <option value="Instalación de techo shingle arquitectónico"></option>
     <option value="Instalación de siding vinílico o fiber cement"></option>
+    <option value="Instalacion de revestimiento de fibrocemento HardiePlank"></option>
+    <option value="Instalacion de revestimiento de vinilo tradicional con aislante"></option>
+    <option value="Instalacion de revestimiento de fibrocemento HardiePlank por escuadra"></option>
+    <option value="Instalacion de revestimiento de vinilo tradicional con aislante por escuadra"></option>
     <option value="Instalación de drywall, encintado y acabado"></option>
     <option value="Pintura interior de paredes y cielos"></option>
     <option value="Instalación de molduras, crown molding y trim"></option>
