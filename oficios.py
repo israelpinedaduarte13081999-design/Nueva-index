@@ -285,7 +285,7 @@ def catalogo_en_carga():
 
 
 _SELECT_CATALOGO_BASE = "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra,precio_remocion"
-_SELECT_CATALOGO = _SELECT_CATALOGO_BASE + ",image_url,last_updated,proveedor"
+_SELECT_CATALOGO = _SELECT_CATALOGO_BASE + ",image_url,last_updated,proveedor,product_url"
 _select_catalogo = _SELECT_CATALOGO
 
 
@@ -325,7 +325,9 @@ def _leer_pagina_catalogo(url, headers, ctx, offset, tamano):
             return lote if isinstance(lote, list) else []
         except Exception as err:
             if _select_catalogo != _SELECT_CATALOGO_BASE and _error_columna_catalogo_faltante(err):
-                if "proveedor" in _select_catalogo:
+                if "product_url" in _select_catalogo:
+                    _select_catalogo = _SELECT_CATALOGO_BASE + ",image_url,last_updated,proveedor"
+                elif "proveedor" in _select_catalogo:
                     _select_catalogo = _SELECT_CATALOGO_BASE + ",image_url,last_updated"
                 elif "last_updated" in _select_catalogo:
                     _select_catalogo = _SELECT_CATALOGO_BASE + ",image_url"

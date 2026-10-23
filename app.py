@@ -78,7 +78,7 @@ TABLA_FALTANTES = "items_faltantes"
 TABLA_HISTORIAL = "historial_estimados"
 TABLA_CONTRATISTAS = "contratistas"
 COLUMNAS_CATALOGO_BASE = "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra,precio_remocion"
-COLUMNAS_CATALOGO = COLUMNAS_CATALOGO_BASE + ",image_url,last_updated,proveedor"
+COLUMNAS_CATALOGO = COLUMNAS_CATALOGO_BASE + ",image_url,last_updated,proveedor,product_url"
 _SQL_MULTITENANT = "Ejecuta multitenant.sql en el editor SQL de Supabase."
 _SQL_HOME_DEPOT = "Ejecuta catalogo_home_depot.sql en el editor SQL de Supabase."
 
@@ -88,6 +88,10 @@ def _ajustar_columnas_catalogo(err):
     texto = str(err or "")
     if not ("42703" in texto or "does not exist" in texto):
         return False
+    if "product_url" in COLUMNAS_CATALOGO and "product_url" in texto:
+        COLUMNAS_CATALOGO = COLUMNAS_CATALOGO_BASE + ",image_url,last_updated,proveedor"
+        print("-->", _SQL_HOME_DEPOT)
+        return True
     if "proveedor" in COLUMNAS_CATALOGO and "proveedor" in texto:
         COLUMNAS_CATALOGO = COLUMNAS_CATALOGO_BASE + ",image_url,last_updated"
         print("-->", _SQL_HOME_DEPOT)
@@ -2369,10 +2373,15 @@ def _texto_catalogo(row, *keys, default=""):
 
 
 def _url_imagen_catalogo(row):
-    raw = _texto_catalogo(row, "image_url", "imageUrl", "imagen_url", "url_imagen", "foto_url")
-    if raw.lower().startswith(("http://", "https://")):
-        return raw
-    return ""
+    from home_depot_apify import sanitizar_url, url_imagen_home_depot
+
+    if not isinstance(row, dict):
+        return ""
+    for key in ("image_url", "imageUrl", "imagen_url", "url_imagen", "foto_url", "thumbnail", "thumbnailUrl"):
+        url = sanitizar_url(row.get(key), imagen=True)
+        if url:
+            return url
+    return url_imagen_home_depot(row) or ""
 
 
 def normalizar_item_catalogo(row, idioma="es"):
@@ -2425,6 +2434,8 @@ def normalizar_item_catalogo(row, idioma="es"):
         "imageUrl": _url_imagen_catalogo(row),
         "last_updated": row.get("last_updated") or "",
         "proveedor": _texto_catalogo(row, "proveedor", "supplier", "vendor", "retailer"),
+        "product_url": _texto_catalogo(row, "product_url", "productUrl", "url_producto"),
+        "productUrl": _texto_catalogo(row, "product_url", "productUrl", "url_producto"),
     }
 
 
@@ -8033,6 +8044,7 @@ def buscar_catalogo():
             item["priceDemo"] = round(demo, 2)
             item["ajuste_zip"] = True
             item["fuente"] = item.get("fuente") or "supabase"
+        items = _overlay_precios_proveedores(items, zona.get("zip") or zip_q)
         items, traduciendo = _items_en_idioma_busqueda(items, idioma)
         print(
             f"--> catálogo supabase q='{q_match}' idioma={idioma} filas={len(filas)} items={len(items)} "
@@ -8058,6 +8070,319 @@ def buscar_catalogo():
         resp = jsonify({"success": False, "error": str(e), "items": []})
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp, 500
+
+
+PROVEEDOR_HOME_DEPOT = "Home Depot"
+
+
+def _tienda_precios(client=None):
+    from proveedores_precios import TiendaPrecios
+    return TiendaPrecios(client if client is not None else _supabase_client())
+
+
+def _aplicar_cache_proveedor(row, cache, zip5, fresco=True):
+    from proveedores_precios import fila_publica_cache, imagen_fresca, precio_fresco
+    if not isinstance(row, dict) or not isinstance(cache, dict):
+        return False
+    publico = fila_publica_cache(cache) or {}
+    try:
+        material = float(publico.get("precio_material") or cache.get("precio_normalizado") or 0)
+    except (TypeError, ValueError):
+        material = 0.0
+    if material <= 0:
+        return False
+    row["precio_material"] = round(material, 2)
+    labor = row.get("_labor_protegida")
+    if labor is None:
+        labor = _num_catalogo(row, "precio_mano_obra", "precio_labor", "labor")
+    demo = _num_catalogo(row, "precio_remocion", "precio_demo")
+    if labor is not None:
+        row["precio_mano_obra"] = labor
+        row["_paquete_respuesta"] = round(float(labor or 0) + material + float(demo or 0), 2)
+    if row.get("_base_protegida") is not None:
+        row["precio_base"] = row["_base_protegida"]
+    foto = publico.get("image_url") or cache.get("image_url") or ""
+    if foto:
+        row["image_url"] = foto
+    enlace = publico.get("product_url") or cache.get("product_url") or ""
+    if enlace:
+        row["product_url"] = enlace
+    row["proveedor"] = publico.get("proveedor") or cache.get("proveedor") or PROVEEDOR_HOME_DEPOT
+    row["store_id"] = publico.get("store_id") or cache.get("tienda_id") or ""
+    row["store_name"] = publico.get("store_name") or cache.get("tienda_nombre") or ""
+    row["last_updated"] = cache.get("last_updated") or publico.get("last_updated") or ""
+    row["image_updated"] = cache.get("image_updated") or ""
+    row["precio_original"] = cache.get("precio_original")
+    row["unidad_original"] = cache.get("unidad_original") or ""
+    row["presentacion"] = cache.get("presentacion") or ""
+    row["moneda"] = cache.get("moneda") or "USD"
+    row["producto_id"] = cache.get("producto_id") or ""
+    row["zip_consulta"] = zip5
+    row["_precio_proveedor"] = True
+    row["_precio_fresco"] = bool(fresco and precio_fresco(cache))
+    row["_imagen_fresca"] = imagen_fresca(cache)
+    row["match_status"] = "ok"
+    row["candidatos"] = []
+    return True
+
+
+def _aplicar_publico_proveedor(row, publico, zip5):
+    from proveedores_precios import ahora_utc
+    if not isinstance(row, dict) or not isinstance(publico, dict):
+        return False
+    try:
+        material = float(publico.get("precio_material") or publico.get("precio_normalizado") or 0)
+    except (TypeError, ValueError):
+        material = 0.0
+    if material <= 0:
+        return False
+    row["precio_material"] = round(material, 2)
+    labor = row.get("_labor_protegida")
+    demo = _num_catalogo(row, "precio_remocion", "precio_demo")
+    if labor is not None:
+        row["precio_mano_obra"] = labor
+        row["_paquete_respuesta"] = round(float(labor or 0) + material + float(demo or 0), 2)
+    if row.get("_base_protegida") is not None:
+        row["precio_base"] = row["_base_protegida"]
+    if publico.get("image_url") or publico.get("imageUrl"):
+        row["image_url"] = publico.get("image_url") or publico.get("imageUrl")
+    if publico.get("product_url") or publico.get("productUrl"):
+        row["product_url"] = publico.get("product_url") or publico.get("productUrl")
+    row["proveedor"] = publico.get("proveedor") or PROVEEDOR_HOME_DEPOT
+    row["store_id"] = publico.get("store_id") or publico.get("tienda_id") or ""
+    row["store_name"] = publico.get("store_name") or publico.get("tienda_nombre") or ""
+    row["last_updated"] = publico.get("last_updated") or ahora_utc().isoformat()
+    row["precio_original"] = publico.get("precio_original")
+    row["unidad_original"] = publico.get("unidad_original") or ""
+    row["presentacion"] = publico.get("presentacion") or ""
+    row["moneda"] = publico.get("moneda") or "USD"
+    row["producto_id"] = publico.get("producto_id") or publico.get("sku") or ""
+    row["zip_consulta"] = zip5
+    row["_precio_proveedor"] = True
+    row["_precio_fresco"] = True
+    row["match_status"] = "ok"
+    row["candidatos"] = []
+    return True
+
+
+def _guardar_precio_proveedor(tienda, row, publico, zip5, consulta=""):
+    from proveedores_precios import fila_desde_publico
+    if tienda is None:
+        return False
+    payload = fila_desde_publico(publico, zip5, consulta=consulta or (row or {}).get("consulta_material") or "")
+    if not payload:
+        return False
+    return bool(tienda.guardar(payload))
+
+
+def _reusar_imagen_proveedor(tienda, row, proveedor=PROVEEDOR_HOME_DEPOT):
+    if tienda is None or not isinstance(row, dict):
+        return
+    if row.get("image_url") and row.get("_imagen_fresca"):
+        return
+    producto_id = str(row.get("producto_id") or "")
+    if not producto_id:
+        return
+    foto = tienda.imagen_producto(proveedor, producto_id)
+    if foto:
+        row["image_url"] = foto
+        row["_imagen_fresca"] = True
+
+
+def _resolver_precios_proveedor(client, filas, zip5, proveedor=PROVEEDOR_HOME_DEPOT):
+    """Revisa Supabase, unifica el scrape entre instancias y no escribe el precio en catalogo_items."""
+    from home_depot_apify import (
+        analizar_coincidencias,
+        extraer_consulta_material,
+        precio_desde_home_depot,
+        producto_publico,
+        scrapear_home_depot,
+        token_apify,
+        unidad_catalogo,
+    )
+    from proveedores_precios import clave_consulta, consultar_con_lock, es_fila_cache, scrape_de, zip_obra
+
+    zip5 = zip_obra(zip5)
+    tienda = _tienda_precios(client)
+    info = {"store_id": "", "store_name": "", "zip": zip5}
+    if not filas:
+        return {"scraped": 0, "fuente": "", "error": "", "tienda": info, "stale": 0}
+    for row in filas:
+        consulta = extraer_consulta_material(row)
+        row["consulta_material"] = consulta
+        row["zip_consulta"] = zip5
+        labor_guardada = _num_catalogo(row, "precio_mano_obra", "precio_labor", "labor")
+        row["_labor_protegida"] = labor_guardada
+        row["_base_protegida"] = _num_catalogo(row, "precio_base")
+        if zip5:
+            hits = tienda.fresco(proveedor, zip5, consulta=consulta)
+            if hits:
+                _aplicar_cache_proveedor(row, hits[0], zip5, fresco=True)
+                _reusar_imagen_proveedor(tienda, row, proveedor)
+                if hits[0].get("tienda_id"):
+                    info["store_id"] = str(hits[0].get("tienda_id") or "")
+                    info["store_name"] = str(hits[0].get("tienda_nombre") or "")
+    if not zip5:
+        return {
+            "scraped": 0,
+            "fuente": "",
+            "error": "Enter the contractor job ZIP to price the nearest store.",
+            "tienda": info,
+            "stale": 0,
+        }
+    pendientes = [row for row in filas if not row.get("_precio_fresco")]
+    if not pendientes:
+        return {"scraped": 0, "fuente": "cache", "error": "", "tienda": info, "stale": 0}
+
+    def _aplicar_ultimo(row):
+        last = tienda.ultimo(proveedor, zip5, consulta=row.get("consulta_material") or "")
+        if last:
+            _aplicar_cache_proveedor(row, last, zip5, fresco=False)
+            _reusar_imagen_proveedor(tienda, row, proveedor)
+            return True
+        return False
+
+    scrape_fn = scrape_de(proveedor) or scrapear_home_depot
+    if proveedor == PROVEEDOR_HOME_DEPOT and not token_apify():
+        for row in pendientes:
+            _aplicar_ultimo(row)
+        return {
+            "scraped": 0,
+            "fuente": "stale",
+            "error": "Missing APIFY_API_TOKEN",
+            "tienda": info,
+            "stale": len(pendientes),
+        }
+    scrapeados_holder = {"n": 0}
+
+    def _persistir(productos, zip_ok, _terminos):
+        usados = set()
+        for row in pendientes:
+            disponibles = [item for item in (productos or []) if id(item) not in usados and not es_fila_cache(item)]
+            info_match = analizar_coincidencias(row, disponibles or [item for item in (productos or []) if not es_fila_cache(item)])
+            row["match_status"] = info_match.get("status") or "none"
+            row["candidatos"] = info_match.get("candidatos") or []
+            match = info_match.get("match")
+            if not match:
+                continue
+            usados.add(id(match))
+            unidad = unidad_catalogo(row)
+            precio_hd = precio_desde_home_depot(match, unidad)
+            publico = producto_publico(match, unidad) or {}
+            if not (precio_hd and precio_hd > 0):
+                if publico.get("image_url"):
+                    _actualizar_sku_home_depot(client, row, publico, None)
+                continue
+            publico["precio_material"] = round(float(precio_hd), 2)
+            if _guardar_precio_proveedor(tienda, row, publico, zip_ok, row.get("consulta_material") or ""):
+                scrapeados_holder["n"] += 1
+            _aplicar_publico_proveedor(row, publico, zip_ok)
+            _actualizar_sku_home_depot(client, row, publico, None)
+            info["store_id"] = str(publico.get("store_id") or info.get("store_id") or "")
+            info["store_name"] = str(publico.get("store_name") or info.get("store_name") or "")
+
+    productos, fuente, hizo_scrape = consultar_con_lock(
+        tienda,
+        proveedor,
+        zip5,
+        [row.get("consulta_material") for row in pendientes],
+        scrape_fn,
+        persistir_fn=_persistir,
+    )
+    if str(fuente).startswith("error:"):
+        for row in pendientes:
+            _aplicar_ultimo(row)
+        return {
+            "scraped": 0,
+            "fuente": "error",
+            "error": str(fuente)[6:],
+            "tienda": info,
+            "stale": len(pendientes),
+        }
+    if fuente in ("cache", "shared") or (productos and es_fila_cache(productos[0])):
+        por_consulta = {}
+        for item in productos or []:
+            if not es_fila_cache(item):
+                continue
+            por_consulta.setdefault(clave_consulta(item.get("consulta_clave")), []).append(item)
+        for row in pendientes:
+            if row.get("_precio_fresco"):
+                continue
+            hits = por_consulta.get(clave_consulta(row.get("consulta_material")))
+            if hits:
+                _aplicar_cache_proveedor(row, hits[0], zip5, fresco=True)
+                _reusar_imagen_proveedor(tienda, row, proveedor)
+                if hits[0].get("tienda_id"):
+                    info["store_id"] = str(hits[0].get("tienda_id") or "")
+                    info["store_name"] = str(hits[0].get("tienda_nombre") or "")
+            else:
+                _aplicar_ultimo(row)
+        return {
+            "scraped": 0,
+            "fuente": fuente or "cache",
+            "error": tienda.last_error or "",
+            "tienda": info,
+            "stale": 0,
+        }
+    for row in pendientes:
+        if row.get("_precio_proveedor"):
+            continue
+        _aplicar_ultimo(row)
+    return {
+        "scraped": scrapeados_holder["n"],
+        "fuente": "scraped" if hizo_scrape else fuente,
+        "error": tienda.last_error or "",
+        "tienda": info,
+        "stale": len([row for row in filas if row.get("_precio_proveedor") and not row.get("_precio_fresco")]),
+    }
+
+
+def _overlay_precios_proveedores(items, zip5, proveedor=PROVEEDOR_HOME_DEPOT):
+    from home_depot_apify import extraer_consulta_material
+    from proveedores_precios import zip_obra
+    zip5 = zip_obra(zip5)
+    if not zip5 or not items:
+        return items
+    tienda = _tienda_precios()
+    if not tienda.disponible:
+        return items
+    for item in items[:12]:
+        if not isinstance(item, dict):
+            continue
+        consulta = extraer_consulta_material(item)
+        if not consulta:
+            continue
+        hits = tienda.fresco(proveedor, zip5, consulta=consulta)
+        if not hits:
+            continue
+        cache = hits[0]
+        try:
+            material = float(cache.get("precio_normalizado") or 0)
+        except (TypeError, ValueError):
+            material = 0.0
+        if material <= 0:
+            continue
+        labor = _num(item.get("precio_labor") or item.get("precio_mano_obra"))
+        demo = _num(item.get("precio_remocion") or item.get("precio_demo"))
+        item["precio_material"] = round(material, 2)
+        item["priceMaterial"] = round(material, 2)
+        item["precio_unitario"] = round(labor + material + demo, 2)
+        item["precio_base"] = item["precio_unitario"]
+        item["precio_zona"] = item["precio_unitario"]
+        item["ajuste_zip"] = False
+        item["proveedor"] = cache.get("proveedor") or proveedor
+        item["last_updated"] = cache.get("last_updated") or ""
+        item["store_id"] = cache.get("tienda_id") or ""
+        item["store_name"] = cache.get("tienda_nombre") or ""
+        item["zip_code"] = zip5
+        if cache.get("image_url"):
+            item["image_url"] = cache.get("image_url")
+            item["imageUrl"] = cache.get("image_url")
+        if cache.get("product_url"):
+            item["product_url"] = cache.get("product_url")
+            item["productUrl"] = cache.get("product_url")
+        item["fuente"] = "supabase_proveedor"
+    return items
 
 
 def _es_sku_material_principal(row):
@@ -8092,7 +8417,7 @@ def _asegurar_columnas_home_depot(client):
     if client is None:
         return False
     try:
-        client.table(TABLA_CATALOGO).select("id,image_url,last_updated,proveedor").limit(1).execute()
+        client.table(TABLA_CATALOGO).select("id,image_url,last_updated,proveedor,product_url").limit(1).execute()
         return True
     except Exception as err:
         _ajustar_columnas_catalogo(err)
@@ -8100,135 +8425,181 @@ def _asegurar_columnas_home_depot(client):
         return False
 
 
-def _actualizar_sku_home_depot(client, row, producto, precio_hd):
-    from home_depot_apify import _ahora_utc, url_imagen_home_depot
+def _actualizar_sku_home_depot(client, row, producto, precio_hd, persistir_consulta=True):
+    from home_depot_apify import _ahora_utc, sanitizar_url, url_imagen_home_depot, url_producto_home_depot
 
     if client is None or not isinstance(row, dict):
         return False
     ident = row.get("id")
     if ident is None:
         return False
-    foto = url_imagen_home_depot(producto)
-    labor = _num_catalogo(row, "precio_mano_obra", "precio_labor", "labor")
-    demo = _num_catalogo(row, "precio_remocion", "precio_demo")
-    payload = {"last_updated": _ahora_utc().isoformat(), "proveedor": "Home Depot"}
+    foto = ""
+    enlace = ""
+    if isinstance(producto, dict):
+        foto = sanitizar_url(producto.get("image_url") or producto.get("imageUrl"), imagen=True) or url_imagen_home_depot(producto)
+        enlace = sanitizar_url(producto.get("product_url") or producto.get("productUrl") or producto.get("url"), imagen=False) or url_producto_home_depot(producto)
+    payload = {}
+    if persistir_consulta:
+        payload["proveedor"] = "Home Depot" if (foto or enlace) else (row.get("proveedor") or "Catalog")
     if foto:
         payload["image_url"] = foto
-    if precio_hd and precio_hd > 0:
-        payload["precio_material"] = round(float(precio_hd), 2)
-        payload["precio_base"] = round(float(precio_hd) + labor + demo, 2)
+    if enlace:
+        payload["product_url"] = enlace
     try:
         client.table(TABLA_CATALOGO).update(payload).eq("id", ident).execute()
         return True
     except Exception as err:
-        _ajustar_columnas_catalogo(err)
+        if _ajustar_columnas_catalogo(err) and "product_url" in payload:
+            payload.pop("product_url", None)
+            try:
+                client.table(TABLA_CATALOGO).update(payload).eq("id", ident).execute()
+                return True
+            except Exception as err2:
+                print(f"--> home-depot update sku: {err2}")
+                return False
         print(f"--> home-depot update sku: {err}")
         return False
 
 
+def _enriquecer_item_home_depot(item, row, zona, zip5, factor):
+    if not item:
+        return None
+    base = _num(item.get("precio_unitario"))
+    labor = _num(item.get("precio_labor") or item.get("precio_mano_obra"))
+    material = _num(item.get("precio_material"))
+    demo = _num(item.get("precio_remocion") or item.get("precio_demo"))
+    paquete = _num(row.get("_paquete_respuesta")) if row.get("_precio_proveedor") else 0
+    if paquete > 0:
+        base = paquete
+        factor = 1.0
+    item["precio_base"] = round(base, 2)
+    item["precio_base_catalogo"] = _num(row.get("_base_protegida") or item.get("precio_unitario"))
+    item["factor_zip"] = round(factor, 4)
+    item["zip_code"] = zip5 or (zona or {}).get("zip") or ""
+    item["ciudad"] = (zona or {}).get("ciudad")
+    item["estado"] = (zona or {}).get("estado")
+    item["precio_zona"] = round(base * factor, 2)
+    item["precio_labor"] = round(labor, 2)
+    item["precio_mano_obra"] = round(labor, 2)
+    item["precio_material"] = round(material, 2)
+    item["precio_demo"] = round(demo, 2)
+    item["precio_remocion"] = round(demo, 2)
+    item["priceLabor"] = round(labor, 2)
+    item["priceMaterial"] = round(material, 2)
+    item["priceDemo"] = round(demo, 2)
+    item["ajuste_zip"] = False if row.get("_precio_proveedor") else True
+    item["image_url"] = _url_imagen_catalogo(row) or item.get("image_url") or ""
+    item["imageUrl"] = item["image_url"]
+    item["product_url"] = item.get("product_url") or row.get("product_url") or ""
+    item["productUrl"] = item["product_url"]
+    item["last_updated"] = row.get("last_updated") or item.get("last_updated") or ""
+    item["proveedor"] = item.get("proveedor") or row.get("proveedor") or ""
+    item["candidatos"] = row.get("candidatos") or []
+    item["match_status"] = row.get("match_status") or ("ok" if item["image_url"] else "none")
+    item["consulta_material"] = row.get("consulta_material") or ""
+    if row.get("_labor_protegida") is not None:
+        labor = round(float(row["_labor_protegida"] or 0), 2)
+        item["precio_labor"] = labor
+        item["precio_mano_obra"] = labor
+        item["priceLabor"] = labor
+    item["store_id"] = row.get("store_id") or ""
+    item["store_name"] = row.get("store_name") or ""
+    item["precio_original"] = row.get("precio_original")
+    item["unidad_original"] = row.get("unidad_original") or ""
+    item["presentacion"] = row.get("presentacion") or ""
+    item["moneda"] = row.get("moneda") or "USD"
+    item["producto_id"] = row.get("producto_id") or ""
+    item["stale"] = bool(row.get("_precio_proveedor") and not row.get("_precio_fresco"))
+    return item
+
+
 @app.route("/api/catalogo/home-depot", methods=["GET", "POST"])
 def catalogo_home_depot():
-    from oficios import invalidar_catalogo
-    from home_depot_apify import (
-        consulta_home_depot,
-        emparejar_producto,
-        precio_desde_home_depot,
-        precio_stale,
-        scrapear_home_depot,
-        token_apify,
-        url_imagen_home_depot,
-    )
+    from home_depot_apify import extraer_consulta_material, token_apify, zip_consulta as _zip_consulta_hd
+    from proveedores_precios import ahora_utc
 
     payload = request.get_json(silent=True) or {}
     q = str(request.args.get("q") or payload.get("q") or payload.get("termino") or "").strip()
     zip_q = request.args.get("zip") or request.args.get("zip_code") or payload.get("zip") or payload.get("zip_code") or ""
-    zip5 = re.sub(r"\D", "", str(zip_q or ""))[:5]
-    if len(zip5) != 5:
-        zip5 = "30327"
-    if len(q) < 3:
-        resp = jsonify({"success": False, "error": "Escribe al menos 3 caracteres.", "items": []})
-        resp.headers["Access-Control-Allow-Origin"] = "*"
-        return resp, 400
-    zona = _zona_mercado_por_zip(zip5)
+    zip5 = _zip_consulta_hd(zip_q)
+    zona = _zona_mercado_por_zip(zip5) if zip5 else {}
     idioma = _idioma_de_busqueda(q) or "en"
     if idioma not in IDIOMAS_CATALOGO:
         idioma = "en"
+    factor = float(zona.get("factor") or 1.0)
+    client = _supabase_client()
+    _asegurar_columnas_home_depot(client)
+    elegir = payload.get("elegir") if isinstance(payload.get("elegir"), dict) else None
+    if elegir:
+        codigo = str(elegir.get("codigo") or elegir.get("code") or "").strip()
+        filas_elegir = _skus_principales_home_depot(codigo or q, 8) if (codigo or q) else []
+        row = next((r for r in filas_elegir if str(r.get("codigo") or "").strip() == codigo), filas_elegir[0] if filas_elegir else None)
+        if row is None:
+            resp = jsonify({"success": False, "error": "Catalog item not found.", "items": []})
+            resp.headers["Access-Control-Allow-Origin"] = "*"
+            return resp, 404
+        row["consulta_material"] = extraer_consulta_material(row)
+        row["_labor_protegida"] = _num_catalogo(row, "precio_mano_obra", "precio_labor", "labor")
+        row["_base_protegida"] = _num_catalogo(row, "precio_base")
+        precio_hd = _num(elegir.get("precio_material") or elegir.get("priceMaterial"))
+        if precio_hd > 0 and zip5:
+            publico = {
+                "proveedor": elegir.get("proveedor") or PROVEEDOR_HOME_DEPOT,
+                "producto_id": elegir.get("producto_id") or elegir.get("sku") or "",
+                "nombre": elegir.get("nombre") or "",
+                "image_url": elegir.get("image_url") or elegir.get("imageUrl") or "",
+                "product_url": elegir.get("product_url") or elegir.get("productUrl") or "",
+                "precio_material": precio_hd,
+                "precio_original": elegir.get("precio_original"),
+                "unidad_original": elegir.get("unidad_original") or "",
+                "unidad": elegir.get("unidad") or row.get("unidad") or "",
+                "presentacion": elegir.get("presentacion") or "",
+                "moneda": elegir.get("moneda") or "USD",
+                "store_id": elegir.get("store_id") or elegir.get("tienda_id") or "",
+                "store_name": elegir.get("store_name") or elegir.get("tienda_nombre") or "",
+                "cobertura_sf": elegir.get("cobertura_sf"),
+                "last_updated": ahora_utc().isoformat(),
+            }
+            _guardar_precio_proveedor(_tienda_precios(client), row, publico, zip5, row.get("consulta_material") or "")
+            _aplicar_publico_proveedor(row, publico, zip5)
+        elif precio_hd > 0:
+            row["precio_material"] = round(precio_hd, 2)
+        _actualizar_sku_home_depot(client, row, elegir, None)
+        item = _enriquecer_item_home_depot(normalizar_item_catalogo(row, idioma), row, zona, zip5, factor)
+        resp = jsonify({"success": True, "items": [item] if item else [], "count": 1 if item else 0, "elegido": True, "zip": zip5})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp
+    if len(q) < 3:
+        resp = jsonify({"success": False, "error": "Enter at least 3 characters.", "items": []})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp, 400
     filas = _skus_principales_home_depot(q, 4)
     if not filas:
         resp = jsonify({"success": True, "items": [], "count": 0, "scraped": False, "zip": zip5})
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp
-    client = _supabase_client()
-    _asegurar_columnas_home_depot(client)
-    pendientes = [row for row in filas if precio_stale(row)]
-    scrapeados = 0
-    error_apify = ""
-    productos = []
-    if pendientes and token_apify():
-        try:
-            productos = scrapear_home_depot([consulta_home_depot(row) for row in pendientes], zip5)
-            usados = set()
-            for row in pendientes:
-                candidatos = [item for item in productos if id(item) not in usados]
-                match = emparejar_producto(row, candidatos)
-                if not match:
-                    continue
-                usados.add(id(match))
-                unidad = str(row.get("unidad") or row.get("unit") or "SF").upper()
-                precio_hd = precio_desde_home_depot(match, unidad)
-                if _actualizar_sku_home_depot(client, row, match, precio_hd):
-                    scrapeados += 1
-                    if precio_hd and precio_hd > 0:
-                        row["precio_material"] = round(float(precio_hd), 2)
-                        labor = _num_catalogo(row, "precio_mano_obra", "precio_labor", "labor")
-                        demo = _num_catalogo(row, "precio_remocion", "precio_demo")
-                        row["precio_base"] = round(float(precio_hd) + labor + demo, 2)
-                    foto = url_imagen_home_depot(match)
-                    if foto:
-                        row["image_url"] = foto
-                    row["last_updated"] = datetime.now(timezone.utc).isoformat()
-                    row["proveedor"] = "Home Depot"
-            if scrapeados:
-                invalidar_catalogo()
-        except Exception as err:
-            error_apify = str(err)
-            print(f"--> home-depot apify: {err}")
-    elif pendientes and not token_apify():
-        error_apify = "Falta APIFY_API_TOKEN"
-    factor = float(zona.get("factor") or 1.0)
+    resolucion = _resolver_precios_proveedor(client, filas, zip5, PROVEEDOR_HOME_DEPOT)
+    scrapeados = int(resolucion.get("scraped") or 0)
+    error_apify = resolucion.get("error") or ""
+    tienda = resolucion.get("tienda") or {"store_id": "", "store_name": "", "zip": zip5}
     items = []
     for row in filas:
-        item = normalizar_item_catalogo(row, idioma)
+        if row.get("_labor_protegida") is not None:
+            row["precio_mano_obra"] = row["_labor_protegida"]
+        if row.get("_base_protegida") is not None and not row.get("_paquete_respuesta"):
+            row["precio_base"] = row["_base_protegida"]
+        item = _enriquecer_item_home_depot(normalizar_item_catalogo(row, idioma), row, zona, zip5, factor)
         if not item:
             continue
-        base = _num(item.get("precio_unitario"))
-        labor = _num(item.get("precio_labor") or item.get("precio_mano_obra"))
-        material = _num(item.get("precio_material"))
-        demo = _num(item.get("precio_remocion") or item.get("precio_demo"))
-        item["precio_base"] = round(base, 2)
-        item["factor_zip"] = round(factor, 4)
-        item["zip_code"] = zona.get("zip") or zip5
-        item["ciudad"] = zona.get("ciudad")
-        item["estado"] = zona.get("estado")
-        item["precio_zona"] = round(base * factor, 2)
-        item["precio_labor"] = round(labor, 2)
-        item["precio_mano_obra"] = round(labor, 2)
-        item["precio_material"] = round(material, 2)
-        item["precio_demo"] = round(demo, 2)
-        item["precio_remocion"] = round(demo, 2)
-        item["priceLabor"] = round(labor, 2)
-        item["priceMaterial"] = round(material, 2)
-        item["priceDemo"] = round(demo, 2)
-        item["ajuste_zip"] = True
-        item["fuente"] = "home_depot" if scrapeados else (item.get("fuente") or "supabase")
-        item["image_url"] = _url_imagen_catalogo(row) or item.get("image_url") or ""
-        item["imageUrl"] = item["image_url"]
-        item["last_updated"] = row.get("last_updated") or item.get("last_updated") or ""
-        item["proveedor"] = item.get("proveedor") or row.get("proveedor") or ""
-        item["stale"] = precio_stale(row)
+        if scrapeados:
+            item["fuente"] = "home_depot"
+        elif row.get("_precio_proveedor"):
+            item["fuente"] = "supabase_proveedor"
+        else:
+            item["fuente"] = item.get("fuente") or "supabase"
         items.append(item)
     print(
-        f"--> home-depot q='{q}' zip={zip5} skus={len(filas)} stale={len(pendientes)} "
+        f"--> home-depot q='{q}' zip={zip5} skus={len(filas)} fuente={resolucion.get('fuente')} "
         f"scraped={scrapeados} token={'si' if token_apify() else 'no'}"
     )
     payload_out = {
@@ -8238,7 +8609,10 @@ def catalogo_home_depot():
         "zip": zip5,
         "scraped": scrapeados > 0,
         "refrescados": scrapeados,
-        "stale": len(pendientes),
+        "stale": int(resolucion.get("stale") or 0),
+        "fuente": resolucion.get("fuente") or "",
+        "store_id": tienda.get("store_id") or "",
+        "store_name": tienda.get("store_name") or "",
         "last_updated": items[0].get("last_updated") if items else "",
     }
     if error_apify:

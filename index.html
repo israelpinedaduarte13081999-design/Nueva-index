@@ -532,6 +532,8 @@
     .task-dropdown-vendor[data-vendor="sherwin-williams"] { background:#f4eef2; color:#6b1d3a; border-color:rgba(107,29,58,.16); }
     .task-dropdown-vendor[data-vendor="catalog"], .task-dropdown-vendor[data-vendor="catalogo"] { background:#f1f5f9; color:#475569; }
     .task-dropdown-item .item-meta { font-size:11px; color:#627d98; background:#e2e8f0; padding:2px 6px; border-radius:4px; margin-left:auto; white-space:nowrap; flex:0 0 auto; }
+    .task-dropdown-item.is-pick { padding-left:22px; background:#f8fafc; }
+    .task-dropdown-item.is-pick .task-dropdown-label { font-size:12px; color:#334155; }
     @media (max-width:720px) {
       .task-dropdown-item { padding:8px 8px; gap:8px; font-size:12px; }
       .task-dropdown-thumb { flex-basis:40px; width:40px; height:40px; }
@@ -3379,7 +3381,8 @@
       const material=numeroPrecio(item&&item.precio_material,item&&item.priceMaterial);
       const demo=numeroPrecio(item&&item.precio_remocion,item&&item.precio_demo,item&&item.priceDemo,item&&item.precioDemo);
       const suma=redondearPrecio(labor+material+demo);
-      const paquete=numeroPrecio(item&&item.precio_base,item&&item.precio_unitario,item&&item.price,item&&item.precio)||suma;
+      const deProveedor=!!(item&&material>0&&(item.ajuste_zip===false||item.fuente==='supabase_proveedor'||item.fuente==='home_depot'));
+      const paquete=deProveedor?suma:(numeroPrecio(item&&item.precio_base,item&&item.precio_unitario,item&&item.price,item&&item.precio)||suma);
       return {labor,material,demo,install:labor,replace:redondearPrecio(labor+demo),paquete};
     }
     function accionDesdeItemCatalogo(item){
@@ -3956,7 +3959,7 @@
       const out=[];
       Object.keys(CATALOGO_TRABAJOS||{}).forEach(cat=>{
         (CATALOGO_TRABAJOS[cat]||[]).forEach(item=>{
-          const mapped={desc:item.desc,unit:item.unit,price:item.price,precio_base:item.price,priceLabor:item.priceLabor,precio_mano_obra:item.priceLabor,precio_labor:item.priceLabor,priceMaterial:item.priceMaterial,precio_material:item.priceMaterial,priceDemo:item.priceDemo,precio_remocion:item.priceDemo,precio_demo:item.priceDemo,familia:cat,categoria:item.categoria||cat,codigo:item.codigo||item.code||'',fuente:'supabase',ajuste_zip:item.ajuste_zip,image_url:urlImagenCatalogo(item.image_url||item.imageUrl),imageUrl:urlImagenCatalogo(item.image_url||item.imageUrl),proveedor:item.proveedor||item.supplier||''};
+          const mapped={desc:item.desc,unit:item.unit,price:item.price,precio_base:item.price,priceLabor:item.priceLabor,precio_mano_obra:item.priceLabor,precio_labor:item.priceLabor,priceMaterial:item.priceMaterial,precio_material:item.priceMaterial,priceDemo:item.priceDemo,precio_remocion:item.priceDemo,precio_demo:item.priceDemo,familia:cat,categoria:item.categoria||cat,codigo:item.codigo||item.code||'',fuente:'supabase',ajuste_zip:item.ajuste_zip,image_url:urlImagenCatalogo(item.image_url||item.imageUrl),imageUrl:urlImagenCatalogo(item.image_url||item.imageUrl),proveedor:item.proveedor||item.supplier||'',product_url:item.product_url||item.productUrl||''};
           if(oficio&&typeof itemPerteneceAOficio==='function'&&!itemPerteneceAOficio(mapped,oficio))return;
           out.push(mapped);
         });
@@ -4065,6 +4068,7 @@
     }
     function aplicarPrecioAutomaticoFila(row,asignarUnidad=true){
       if(isLoadingEstimate)return;
+      if(typeof presupuestoAprobado==='function'&&presupuestoAprobado()&&filaPrecioFijo(row))return;
       if(!puedeCatalogo()) return;
       if(!row||filaPrecioDesdeApi(row))return;
       if(row.dataset.precioImportado==='1')return;
@@ -4270,8 +4274,19 @@
     function colocarCursorEnClic(input, clientX){ const val=input.value||''; const style=getComputedStyle(input); const mirror=document.createElement('span'); mirror.style.cssText=`position:absolute;left:-9999px;white-space:pre;font:${style.font};letter-spacing:${style.letterSpacing}`; document.body.appendChild(mirror); const x=clientX-input.getBoundingClientRect().left-(parseFloat(style.paddingLeft)||0)-(parseFloat(style.borderLeftWidth)||0)+input.scrollLeft; let lo=0,hi=val.length; while(lo<hi){ const mid=Math.ceil((lo+hi)/2); mirror.textContent=val.slice(0,mid); if(mirror.offsetWidth<=x)lo=mid; else hi=mid-1; } mirror.remove(); input.setSelectionRange(lo,lo); }
     const CATALOGO_TRABAJOS = {};
     function urlImagenCatalogo(valor){
-      const raw=String(valor||'').trim();
-      return /^https?:\/\//i.test(raw)?raw:'';
+      if(Array.isArray(valor)){
+        for(const x of valor){
+          const u=urlImagenCatalogo(x&&(x.url||x.imageUrl||x.src)||x);
+          if(u)return u;
+        }
+        return '';
+      }
+      if(valor&&typeof valor==='object')valor=valor.url||valor.imageUrl||valor.src||'';
+      let raw=String(valor||'').trim();
+      if(raw.startsWith('//'))raw='https:'+raw;
+      if(!/^https?:\/\//i.test(raw))return '';
+      if(/homedepot\.com\/p\//i.test(raw)&&!/\.(jpe?g|png|webp|gif)(?:\?|$)/i.test(raw))return '';
+      return raw;
     }
     function nombreProveedorCatalogo(item){
       const raw=String((item&&(item.proveedor||item.supplier||item.vendor||item.retailer))||'').trim();
@@ -4298,6 +4313,11 @@
         imageUrl,
         last_updated:row.last_updated||row.lastUpdated||'',
         proveedor:String(row.proveedor||row.supplier||row.vendor||row.retailer||'').trim(),
+        product_url:String(row.product_url||row.productUrl||'').trim(),
+        productUrl:String(row.product_url||row.productUrl||'').trim(),
+        candidatos:Array.isArray(row.candidatos)?row.candidatos:[],
+        match_status:String(row.match_status||'').trim(),
+        consulta_material:String(row.consulta_material||'').trim(),
         desc,
         descripcion:desc,
         descripcion_es:String(row.descripcion_es||textos.es||row.descripcion||'').trim(),
@@ -4343,7 +4363,8 @@
         const codigo=String(valorCatalogoFila(row,['codigo','code','sku'])||'').trim();
         const image_url=urlImagenCatalogo(valorCatalogoFila(row,['image_url','imageUrl','imagen_url','url_imagen','foto_url']));
         const proveedor=String(valorCatalogoFila(row,['proveedor','supplier','vendor','retailer'])||'').trim();
-        (grouped[categoria]||=[]).push({desc,unit,price,priceLabor,priceMaterial,priceDemo,codigo,image_url,imageUrl:image_url,proveedor});
+        const product_url=String(valorCatalogoFila(row,['product_url','productUrl','url_producto'])||'').trim();
+        (grouped[categoria]||=[]).push({desc,unit,price,priceLabor,priceMaterial,priceDemo,codigo,image_url,imageUrl:image_url,proveedor,product_url,productUrl:product_url});
       });
       return grouped;
     }
@@ -4408,14 +4429,21 @@
       if(badge)badge.textContent=tablaVacia?'Catalog: empty table (local base)':'Catalog: no Supabase table (local base)';
       return false;
     }
+    function zipConsultaContratista(){
+      const obra=String(document.getElementById('zip-code')?.value||'').replace(/\D/g,'').slice(0,5);
+      if(obra.length===5)return obra;
+      const cliente=String(document.getElementById('clientZip')?.value||'').replace(/\D/g,'').slice(0,5);
+      return cliente.length===5?cliente:'';
+    }
     function urlApiHomeDepot(q, zip){
       const base=(location.origin&&location.origin.indexOf('http')===0)?location.origin:'http://127.0.0.1:5000';
-      return base+'/api/catalogo/home-depot?q='+encodeURIComponent(q||'')+'&zip='+encodeURIComponent(zip||'');
+      const zip5=String(zip||zipConsultaContratista()||'').replace(/\D/g,'').slice(0,5);
+      return base+'/api/catalogo/home-depot?q='+encodeURIComponent(q||'')+'&zip='+encodeURIComponent(zip5);
     }
     function refrescarSugerenciasHomeDepot(input, texto, zip, seq){
       if(!puedeCatalogo())return;
       if((texto||'').trim().length<3)return;
-      const zip5=String(zip||'').replace(/\D/g,'').slice(0,5);
+      const zip5=String(zip||zipConsultaContratista()||'').replace(/\D/g,'').slice(0,5);
       if(zip5.length!==5)return;
       const ctrl=new AbortController();
       const corte=setTimeout(()=>ctrl.abort(),95000);
@@ -4426,8 +4454,32 @@
           const hd=extraerItemsBusquedaCatalogo(data);
           if(!hd.length)return;
           const extras=buscarYMostrarCatalogo._ultimos||[];
-          const vistos=new Set(hd.map(item=>String(item.codigo||item.code||'').toUpperCase()));
-          const resto=extras.filter(item=>!vistos.has(String(item.codigo||item.code||'').toUpperCase()));
+          const porCodigo=new Map();
+          extras.forEach(item=>porCodigo.set(String(item.codigo||item.code||'').toUpperCase(),item));
+          hd.forEach(item=>{
+            const clave=String(item.codigo||item.code||'').toUpperCase();
+            const actual=porCodigo.get(clave);
+            if(!actual){
+              porCodigo.set(clave,item);
+              return;
+            }
+            if(item.image_url||item.imageUrl){
+              actual.image_url=item.image_url||item.imageUrl;
+              actual.imageUrl=actual.image_url;
+            }
+            if(item.product_url||item.productUrl)actual.product_url=item.product_url||item.productUrl;
+            if(item.proveedor)actual.proveedor=item.proveedor;
+            if(item.last_updated)actual.last_updated=item.last_updated;
+            if(Number(item.precio_material||item.priceMaterial||0)>0){
+              actual.precio_material=item.precio_material||item.priceMaterial;
+              actual.priceMaterial=actual.precio_material;
+            }
+            actual.candidatos=item.candidatos||actual.candidatos||[];
+            actual.match_status=item.match_status||actual.match_status||'';
+            actual.consulta_material=item.consulta_material||actual.consulta_material||'';
+          });
+          const hdCodigos=new Set(hd.map(item=>String(item.codigo||item.code||'').toUpperCase()));
+          const resto=extras.filter(item=>!hdCodigos.has(String(item.codigo||item.code||'').toUpperCase()));
           buscarYMostrarCatalogo._ultimos=hd.concat(resto);
           pintarSugerenciasCatalogo(input, buscarYMostrarCatalogo._ultimos);
         })
@@ -4445,7 +4497,7 @@
     }
     function urlApiCatalogo(q, extras){
       const base=(location.origin&&location.origin.indexOf('http')===0)?location.origin:'http://127.0.0.1:5000';
-      const zipActivo=String(document.getElementById('zip-code')?.value||document.getElementById('clientZip')?.value||'').replace(/\D/g,'').slice(0,5);
+      const zipActivo=zipConsultaContratista();
       const extra=Object.assign({},extras||{});
       const oficio=extra.oficio||(typeof oficioDesdeUI==='function'?oficioDesdeUI():'');
       delete extra.oficio;
@@ -4502,7 +4554,7 @@
         menu.id='menu-sugerencias-catalogo';
         menu.className='task-dropdown-menu';
         menu.setAttribute('role','listbox');
-        menu.setAttribute('aria-label','Sugerencias del catálogo');
+        menu.setAttribute('aria-label','Catalog suggestions');
         let gesto=null;
         const conservarFoco=event=>{ event.preventDefault(); };
         menu.addEventListener('mousedown',conservarFoco);
@@ -4584,6 +4636,85 @@
         if(el!==except)el.remove();
       });
     }
+    function miniaturaCatalogo(destino, imageUrl){
+      const url=urlImagenCatalogo(imageUrl);
+      if(!url){
+        destino.classList.add('is-empty');
+        return;
+      }
+      const img=document.createElement('img');
+      img.src=url;
+      img.alt='';
+      img.loading='lazy';
+      img.decoding='async';
+      img.referrerPolicy='no-referrer';
+      img.addEventListener('error',()=>{ img.remove(); destino.classList.add('is-empty'); });
+      destino.appendChild(img);
+    }
+    function persistirProductoHomeDepot(item, producto){
+      if(!item||!producto)return;
+      const zip5=zipConsultaContratista();
+      fetch(urlApiHomeDepot(item.desc||item.codigo||'',zip5),{
+        method:'POST',
+        headers:Object.assign({'Content-Type':'application/json'},headersContratista()),
+        credentials:'same-origin',
+        body:JSON.stringify({
+          q:item.desc||item.codigo||'',
+          zip:zip5,
+          elegir:{
+            codigo:item.codigo||item.code||'',
+            image_url:producto.image_url||producto.imageUrl||'',
+            product_url:producto.product_url||producto.productUrl||'',
+            precio_material:Number(producto.precio_material||producto.priceMaterial||0),
+            precio_original:producto.precio_original,
+            unidad_original:producto.unidad_original||'',
+            unidad:producto.unidad||item.unit||'',
+            presentacion:producto.presentacion||'',
+            producto_id:producto.producto_id||producto.sku||'',
+            store_id:producto.store_id||'',
+            store_name:producto.store_name||'',
+            moneda:producto.moneda||'USD',
+            cobertura_sf:producto.cobertura_sf,
+            proveedor:producto.proveedor||'Home Depot',
+            nombre:producto.nombre||''
+          }
+        })
+      }).catch(()=>{});
+    }
+    function presupuestoAprobado(){
+      const st=String(document.querySelector('#status')?.value||(typeof paymentState!=='undefined'&&paymentState&&paymentState.status)||'').toLowerCase();
+      if(st==='paid'||st==='approved'||st==='aprobado'||st==='signed'||st==='firmado')return true;
+      const stamp=document.getElementById('paidStamp');
+      return !!(stamp&&!stamp.hidden);
+    }
+    function aplicarCatalogoConProducto(input, item, producto){
+      const fila=input&&input.closest?input.closest('tr')||input.closest('.fila-trabajo'):null;
+      if(presupuestoAprobado()&&fila&&filaPrecioFijo(fila))return;
+      const elegido=Object.assign({},item);
+      if(producto){
+        const foto=urlImagenCatalogo(producto.image_url||producto.imageUrl);
+        if(foto){
+          elegido.image_url=foto;
+          elegido.imageUrl=foto;
+        }
+        elegido.product_url=producto.product_url||producto.productUrl||elegido.product_url||'';
+        elegido.productUrl=elegido.product_url;
+        elegido.proveedor=producto.proveedor||'Home Depot';
+        const material=Number(producto.precio_material||producto.priceMaterial||0);
+        if(material>0){
+          elegido.precio_material=material;
+          elegido.priceMaterial=material;
+          const labor=numeroPrecio(elegido.precio_mano_obra,elegido.precio_labor,elegido.priceLabor);
+          const demo=numeroPrecio(elegido.precio_remocion,elegido.precio_demo,elegido.priceDemo);
+          elegido.precio_base=redondearPrecio(labor+material+demo);
+          elegido.price=elegido.precio_base;
+          elegido.precio_unitario=elegido.precio_base;
+          elegido.ajuste_zip=false;
+        }
+        persistirProductoHomeDepot(item,producto);
+      }
+      aplicarItemCatalogoTrabajos(input,elegido);
+    }
     function pintarSugerenciasCatalogo(input, resultados){
       const menu=menuSugerenciasCatalogo(true);
       menu.innerHTML='';
@@ -4591,14 +4722,14 @@
       if(!items.length){
         const empty=document.createElement('div');
         empty.className='task-dropdown-group';
-        empty.textContent='No catalog matches';
+        empty.textContent='No catalog matches found';
         menu.appendChild(empty);
         posicionarMenuTareas(input,menu);
         return;
       }
       const cabe=document.createElement('div');
       cabe.className='task-dropdown-group';
-      cabe.textContent=items.length+' coincidencias en catálogo';
+      cabe.textContent=items.length+' CATALOG MATCHES';
       menu.appendChild(cabe);
       items.forEach(item=>{
         const opt=document.createElement('button');
@@ -4615,18 +4746,8 @@
         const thumb=document.createElement('span');
         thumb.className='task-dropdown-thumb';
         const imageUrl=urlImagenCatalogo(item.image_url||item.imageUrl||item.imagen_url);
-        if(imageUrl){
-          const img=document.createElement('img');
-          img.src=imageUrl;
-          img.alt='';
-          img.loading='lazy';
-          img.decoding='async';
-          img.referrerPolicy='no-referrer';
-          img.addEventListener('error',()=>{ img.remove(); thumb.classList.add('is-empty'); });
-          thumb.appendChild(img);
-        }else{
-          thumb.classList.add('is-empty');
-        }
+        const ambiguo=item.match_status==='ambiguous'||(!imageUrl&&(item.candidatos||[]).length);
+        miniaturaCatalogo(thumb, ambiguo?'':imageUrl);
         const copy=document.createElement('span');
         copy.className='task-dropdown-copy';
         const label=document.createElement('span');
@@ -4648,14 +4769,57 @@
         copy.appendChild(metaRow);
         opt.appendChild(thumb);
         opt.appendChild(copy);
-        const elegir=e=>{
+        opt.addEventListener('click',e=>{
           e.preventDefault();
           e.stopPropagation();
           aplicarItemCatalogoTrabajos(input,item);
           cerrarMenusTareas();
-        };
-        opt.addEventListener('click',elegir);
+        });
         menu.appendChild(opt);
+        const picks=(item.candidatos||[]).filter(p=>p&&(p.nombre||p.image_url||p.imageUrl)).slice(0,3);
+        if(picks.length&&(item.match_status==='ambiguous'||!imageUrl)){
+          const sub=document.createElement('div');
+          sub.className='task-dropdown-group';
+          sub.textContent='Choose a matching product';
+          menu.appendChild(sub);
+          picks.forEach(producto=>{
+            const pick=document.createElement('button');
+            pick.type='button';
+            pick.className='task-dropdown-item is-pick';
+            pick.setAttribute('role','option');
+            const pickThumb=document.createElement('span');
+            pickThumb.className='task-dropdown-thumb';
+            miniaturaCatalogo(pickThumb, producto.image_url||producto.imageUrl);
+            const pickCopy=document.createElement('span');
+            pickCopy.className='task-dropdown-copy';
+            const pickLabel=document.createElement('span');
+            pickLabel.className='task-dropdown-label';
+            pickLabel.textContent=producto.nombre||'Home Depot product';
+            const pickMeta=document.createElement('span');
+            pickMeta.className='task-dropdown-meta';
+            const pickVendor=document.createElement('span');
+            pickVendor.className='task-dropdown-vendor';
+            pickVendor.dataset.vendor='home-depot';
+            pickVendor.textContent='Home Depot';
+            const pickPrice=document.createElement('span');
+            pickPrice.className='item-meta';
+            const mat=Number(producto.precio_material||producto.priceMaterial||0);
+            pickPrice.textContent=mat>0?('Material $'+mat.toFixed(2)):'Material';
+            pickMeta.appendChild(pickVendor);
+            pickMeta.appendChild(pickPrice);
+            pickCopy.appendChild(pickLabel);
+            pickCopy.appendChild(pickMeta);
+            pick.appendChild(pickThumb);
+            pick.appendChild(pickCopy);
+            pick.addEventListener('click',e=>{
+              e.preventDefault();
+              e.stopPropagation();
+              aplicarCatalogoConProducto(input,item,producto);
+              cerrarMenusTareas();
+            });
+            menu.appendChild(pick);
+          });
+        }
       });
       posicionarMenuTareas(input,menu);
     }
@@ -4683,7 +4847,7 @@
       const corte=setTimeout(()=>controller.abort(),8000);
       const menu=menuSugerenciasCatalogo(!silencioso);
       if(!silencioso){
-        menu.innerHTML='<div class="task-dropdown-group">Buscando en catálogo…</div>';
+        menu.innerHTML='<div class="task-dropdown-group">Searching catalog…</div>';
         posicionarMenuTareas(input,menu);
       }
       let resultados=[];
@@ -4692,7 +4856,7 @@
       let errorMsg='';
       let data=null;
       try{
-        zipActivo=String(document.getElementById('zip-code')?.value||document.getElementById('clientZip')?.value||'').replace(/\D/g,'').slice(0,5);
+        zipActivo=zipConsultaContratista();
         const oficioTexto=typeof oficioDesdeTexto==='function'?oficioDesdeTexto(texto):'';
         oficio=oficioTexto||(typeof oficioDesdeUI==='function'?oficioDesdeUI():'');
         const response=await fetch(urlApiCatalogo(texto,{campo:campoBusquedaCatalogo(input),oficio:oficio}),{signal:controller.signal,headers:headersContratista(),credentials:'same-origin'});
@@ -4738,7 +4902,7 @@
           if((buscarYMostrarCatalogo._ultimos||[]).length&&buscarYMostrarCatalogo._ultimoTexto===texto){
             resultados=buscarYMostrarCatalogo._ultimos;
             errorMsg='';
-          }else errorMsg='La búsqueda del catálogo tardó demasiado. Intenta otra vez.';
+          }else errorMsg='Catalog search timed out. Try again.';
         }else{
           resultados=[];
           errorMsg=(err&&err.message)||'Could not reach the catalog server.';
@@ -4749,7 +4913,7 @@
       }
       if(seq!==buscarYMostrarCatalogo._seq||buscarYMostrarCatalogo._input!==input)return;
       if(!resultados.length&&data&&data.cargando&&(intento||0)<6){
-        menu.innerHTML='<div class="task-dropdown-group">Buscando en catálogo…</div>';
+        menu.innerHTML='<div class="task-dropdown-group">Searching catalog…</div>';
         posicionarMenuTareas(input,menu);
         return;
       }
@@ -4790,6 +4954,8 @@
     function aplicarItemCatalogoTrabajos(inputElement, item){
       if(isLoadingEstimate)return;
       if(!item)return;
+      const filaBloqueo=inputElement&&inputElement.closest?inputElement.closest('tr')||inputElement.closest('.fila-trabajo'):null;
+      if(presupuestoAprobado()&&filaBloqueo&&filaPrecioFijo(filaBloqueo))return;
       item=enriquecerItemSugerencia(item)||item;
       const roles=rolesDesdeItemCatalogo(item);
       const precioBase=numeroPrecio(item.precio_base,item.precio_unitario,item.price,roles.paquete,item.precio_zona);
@@ -4825,6 +4991,9 @@
       else fila.dataset.precioCatalogo='1';
       fila.setAttribute('data-precio-base', String(precioBase));
       fila.dataset.precioPaquete=String(precioBase);
+      if(item.product_url||item.productUrl)fila.dataset.productUrl=item.product_url||item.productUrl;
+      if(item.image_url||item.imageUrl)fila.dataset.imageUrl=item.image_url||item.imageUrl;
+      if(item.proveedor)fila.dataset.proveedor=item.proveedor;
       if(item.ajuste_zip===false)fila.dataset.skipZipFactor='1';
       else delete fila.dataset.skipZipFactor;
       const codeInput=fila.querySelector('.code');
