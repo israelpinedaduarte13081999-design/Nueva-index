@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 ssl._create_default_https_context = ssl._create_unverified_context
-from flask import Flask, Response, redirect, request, jsonify, send_file, render_template
+from flask import Flask, Response, redirect, request, jsonify, send_file, send_from_directory, render_template
 from xml.sax.saxutils import escape as xml_escape
 from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -330,6 +330,17 @@ def _origin_seo():
     return "https://" + DOMINIO_APP
 
 
+_FAVICON_HEAD = (
+    '<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">'
+    '<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">'
+)
+
+
+@app.route("/favicon.ico")
+def favicon_ico():
+    return send_from_directory(app.static_folder, "favicon.svg", mimetype="image/svg+xml")
+
+
 @app.route("/robots.txt")
 def robots_txt():
     origin = _origin_seo()
@@ -427,6 +438,10 @@ _DEMO_DESC_EN = {
     "ZN-VIN-WIN-AWN": "Vinyl awning window, 7–12 SF",
     "ZN-BAR-FLA-MEM-AUT": "4–6 in self-adhered butyl flashing at openings",
     "ZN-INS-CAN-BAJ-PLU": "Corrugated downspout — supply and install",
+    "ZN-DEM-GUT-SEA-ALU": 'Remove 5" seamless aluminum gutters',
+    "ZN-INS-GUT-SEA-ALU": 'Install 5" seamless aluminum gutters',
+    "ZN-INS-CES-ROL-NAT": "Natural sod rolls (Bermuda or fescue) — supply and install",
+    "ZN-ELE-303": "200A breaker panel with arc-fault breakers",
     "ZN-VAC-ACA-CNC-DRI": "Place and finish driveway concrete",
     "ZN-DEM-LOS-CNC-4IN": "Remove existing concrete slab up to 4 in",
     "ZN-INS-CNC-REF-EMP": "3/8 in rebar supply and tying",
@@ -583,16 +598,18 @@ def _armar_demo_publica(slug):
         },
         "electrical": {
             "trade": "[ELE] Electrical, devices, and wiring",
-            "title": "Electrical device and circuit takeoff",
+            "title": "200A panel, devices, and circuit takeoff",
             "lead": "Sample QuantixBuilds electrical estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
-            "area_title": "Kitchen / bath circuits",
+            "area_title": "Service panel and kitchen / bath circuits",
             "area_ref": "Sample electrical walkthrough",
             "metrics": [
+                {"value": "1", "label": "200A panel"},
                 {"value": "4", "label": "GFCI devices"},
                 {"value": "2", "label": "Junction boxes"},
                 {"value": "86 LF", "label": "12/2 MC"},
             ],
             "lineas": [
+                {"codigo": "ZN-ELE-303", "accion": "replace_material", "qty": 1},
                 {"codigo": "ZN-INS-ELE-TOM-GFC", "accion": "install_material", "qty": 4},
                 {"codigo": "ZN-RPR-ELE-SUS-CAJ", "accion": "install_material", "qty": 2},
                 {"codigo": "ZN-VOL-WIR-COP-GRO-14", "accion": "install_material", "qty": 86},
@@ -768,15 +785,17 @@ def _armar_demo_publica(slug):
         },
         "gutters": {
             "trade": "[GUT] Gutters and downspouts",
-            "title": "Downspout takeoff",
+            "title": "Seamless gutter and downspout takeoff",
             "lead": "Sample QuantixBuilds gutter estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
-            "area_title": "Rear eaves — downspouts only",
+            "area_title": "Eaves and downspouts",
             "area_ref": "Sample exterior takeoff",
             "metrics": [
+                {"value": "118 LF", "label": "Seamless gutter"},
                 {"value": "36 LF", "label": "Downspout"},
             ],
-            "catalogo_notas": "Catalog currently has a downspout code. No dedicated seamless-gutter LF code was found in catalogo_items.",
             "lineas": [
+                {"codigo": "ZN-DEM-GUT-SEA-ALU", "accion": "demo", "qty": 118},
+                {"codigo": "ZN-INS-GUT-SEA-ALU", "accion": "install_material", "qty": 118},
                 {"codigo": "ZN-INS-CAN-BAJ-PLU", "accion": "install_material", "qty": 36},
             ],
         },
@@ -798,18 +817,19 @@ def _armar_demo_publica(slug):
             ],
         },
         "landscaping": {
-            "trade": "[LND] Landscaping — soil and stump work",
-            "title": "Yard soil and stump takeoff",
+            "trade": "[LND] Landscaping — soil, sod, and stump work",
+            "title": "Yard soil, sod, and stump takeoff",
             "lead": "Sample QuantixBuilds landscaping estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
             "area_title": "Front yard",
             "area_ref": "Sample landscape walkthrough",
             "metrics": [
                 {"value": "6 CY", "label": "Topsoil"},
+                {"value": "800 SF", "label": "Sod"},
                 {"value": "2", "label": "Stumps"},
             ],
-            "catalogo_notas": "Catalog currently has topsoil and stump-grinding codes. No sod or hardscape codes were found in catalogo_items.",
             "lineas": [
                 {"codigo": "ZN-INS-JAR-SUE-ACA", "accion": "install_material", "qty": 6},
+                {"codigo": "ZN-INS-CES-ROL-NAT", "accion": "install_material", "qty": 800},
                 {"codigo": "ZN-ARB-MUN-DES-MAQ", "accion": "install_material", "qty": 2},
             ],
         },
@@ -6808,6 +6828,7 @@ def _pagina_puente(destino, verifier=""):
         guardar = f"try{{sessionStorage.setItem('oauth_pkce_verifier',{json.dumps(verifier)});}}catch(e){{}}"
     pagina = (
         "<!doctype html><html><head><meta charset=\"utf-8\">"
+        f"{_FAVICON_HEAD}"
         f"<script>{guardar}location.replace({json.dumps(destino)});</script>"
         "</head><body></body></html>"
     )
@@ -6817,7 +6838,7 @@ def _pagina_puente(destino, verifier=""):
 
 
 def _pagina_callback_hash():
-    pagina = """<!doctype html><html><head><meta charset="utf-8"><title>Signing in</title></head><body>
+    pagina = """<!doctype html><html><head><meta charset="utf-8">""" + _FAVICON_HEAD + """<title>Signing in</title></head><body>
 <form id="completar" method="post" action="/auth/callback">
 <input type="hidden" name="code" id="code">
 <input type="hidden" name="access_token" id="access_token">
@@ -6896,7 +6917,7 @@ def api_oauth_google():
 
 def _pagina_completar_pkce(code):
     import html as html_lib
-    pagina = f"""<!doctype html><html><head><meta charset="utf-8"><title>Signing in</title></head><body>
+    pagina = f"""<!doctype html><html><head><meta charset="utf-8">{_FAVICON_HEAD}<title>Signing in</title></head><body>
 <form id="completar" method="post" action="/auth/callback">
 <input type="hidden" name="code" value="{html_lib.escape(code, quote=True)}">
 <input type="hidden" name="code_verifier" id="code_verifier">
@@ -11561,6 +11582,7 @@ def _html_aceptacion(titulo, mensaje, empresa="", folio="", cliente="", total=No
     nota = f"<p style=\"margin:16px 0 0;color:#b45309;\">{esc(aviso)}</p>" if aviso else ""
     cuerpo = (
         "<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"utf-8\">"
+        f"{_FAVICON_HEAD}"
         f"<title>{esc(titulo)}</title>"
         "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
         "</head><body style=\"margin:0;background:#eef2f7;font-family:Arial,Helvetica,sans-serif;color:#1e293b;\">"

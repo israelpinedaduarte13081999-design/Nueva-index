@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
   {% if vista in ('login', 'pago', 'paywall') %}
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   {% else %}
@@ -6748,7 +6750,7 @@
       const estilos=[...document.querySelectorAll('style')].map(n=>n.textContent||'').join('\n');
       const contrato=document.documentElement.classList.contains('is-contract')?' is-contract':'';
       const titulo=exportFilename();
-      let html=`<!DOCTYPE html><html lang="en" class="print-document${contrato}"><head><meta charset="UTF-8"><title>${titulo}</title><style>${estilos}</style></head><body>${clone.outerHTML}</body></html>`;
+      let html=`<!DOCTYPE html><html lang="en" class="print-document${contrato}"><head><meta charset="UTF-8"><link rel="icon" type="image/svg+xml" href="/static/favicon.svg"><link rel="apple-touch-icon" href="/static/apple-touch-icon.png"><title>${titulo}</title><style>${estilos}</style></head><body>${clone.outerHTML}</body></html>`;
       html=html.replace(/Zipnova/gi,'');
       html=html.replace(/Solid Remodeling(?:\s*(?:&amp;|&)\s*Reconstruction\s*LLC)?/gi, marca);
       return html;
