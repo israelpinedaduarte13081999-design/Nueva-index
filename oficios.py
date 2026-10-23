@@ -8,6 +8,7 @@ import re
 import ssl
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -283,9 +284,26 @@ def catalogo_en_carga():
         return _CACHE_REFRESHING and not _CACHE_CATALOGO
 
 
+_SELECT_CATALOGO_BASE = "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra,precio_remocion"
+_SELECT_CATALOGO = _SELECT_CATALOGO_BASE + ",image_url,last_updated,proveedor"
+_select_catalogo = _SELECT_CATALOGO
+
+
+def _error_columna_catalogo_faltante(err):
+    cuerpo = ""
+    if isinstance(err, urllib.error.HTTPError):
+        try:
+            cuerpo = err.read().decode("utf-8", errors="ignore")
+        except Exception:
+            cuerpo = ""
+    texto = f"{err} {cuerpo}"
+    return "42703" in texto or "does not exist" in texto
+
+
 def _leer_pagina_catalogo(url, headers, ctx, offset, tamano):
+    global _select_catalogo
     params = {
-        "select": "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra,precio_remocion",
+        "select": _select_catalogo,
         "activo": "eq.true",
         "order": "id.asc",
     }
@@ -306,6 +324,14 @@ def _leer_pagina_catalogo(url, headers, ctx, offset, tamano):
                 lote = json.loads(resp.read().decode("utf-8") or "[]")
             return lote if isinstance(lote, list) else []
         except Exception as err:
+            if _select_catalogo != _SELECT_CATALOGO_BASE and _error_columna_catalogo_faltante(err):
+                if "proveedor" in _select_catalogo:
+                    _select_catalogo = _SELECT_CATALOGO_BASE + ",image_url,last_updated"
+                elif "last_updated" in _select_catalogo:
+                    _select_catalogo = _SELECT_CATALOGO_BASE + ",image_url"
+                else:
+                    _select_catalogo = _SELECT_CATALOGO_BASE
+                return _leer_pagina_catalogo(url, headers, ctx, offset, tamano)
             ultimo = err
             time.sleep(0.35 * (intento + 1))
     raise ultimo

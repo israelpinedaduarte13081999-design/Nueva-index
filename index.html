@@ -513,15 +513,31 @@
     .area td:nth-child(1), .area td:nth-child(2), .area td:nth-child(3), td.desc-cell { overflow:visible; position:relative; z-index:20; height:auto; }
     .task-autocomplete-container { position:relative; width:100%; }
     .task-autocomplete-container > .task-dropdown-menu { display:none !important; }
-    .task-dropdown-menu { position:fixed; top:0; left:0; width:min(320px,calc(100vw - 16px)); min-width:0; max-width:calc(100vw - 16px); max-height:250px; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; background:#ffffff; border:1px solid #c9d5e3; border-radius:6px; box-shadow:0 8px 20px rgba(0,0,0,.15); z-index:5000; display:none; font-family:inherit; box-sizing:border-box; }
-    #menu-sugerencias-catalogo { position:fixed !important; z-index:10050 !important; isolation:isolate; min-width:0 !important; width:min(320px,calc(100vw - 16px)); max-width:min(640px,calc(100vw - 16px)); max-height:min(280px,45vh); overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; background:#fff; pointer-events:auto; }
+    .task-dropdown-menu { position:fixed; top:0; left:0; width:min(420px,calc(100vw - 16px)); min-width:0; max-width:calc(100vw - 16px); max-height:250px; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; background:#ffffff; border:1px solid #c9d5e3; border-radius:6px; box-shadow:0 8px 20px rgba(0,0,0,.15); z-index:5000; display:none; font-family:inherit; box-sizing:border-box; }
+    #menu-sugerencias-catalogo { position:fixed !important; z-index:10050 !important; isolation:isolate; min-width:0 !important; width:min(420px,calc(100vw - 16px)); max-width:min(640px,calc(100vw - 16px)); max-height:min(320px,50vh); overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; background:#fff; pointer-events:auto; }
     #menu-sugerencias-catalogo.is-open { display:block !important; }
     .sugerencia-desc-menu { display:none !important; }
     .task-dropdown-group { background:#f0f4f8; color:#19385f; font-weight:700; font-size:11px; padding:6px 10px; text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid #e1e8f0; }
-    .task-dropdown-item { padding:8px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:4px 8px; font-size:13px; color:#333333; border:0; border-bottom:1px solid #f2f5f8; width:100%; max-width:100%; background:#fff; text-align:left; font-family:inherit; transition:background .15s ease; white-space:normal; }
+    .task-dropdown-item { padding:8px 10px; cursor:pointer; display:flex; justify-content:flex-start; align-items:center; flex-wrap:nowrap; gap:10px; font-size:13px; color:#333333; border:0; border-bottom:1px solid #f2f5f8; width:100%; max-width:100%; background:#fff; text-align:left; font-family:inherit; transition:background .15s ease; white-space:normal; }
     .task-dropdown-item:hover, .task-dropdown-item.is-active { background:#eef5fc; color:#19385f; }
-    .task-dropdown-item > span:first-child { min-width:0; flex:1 1 140px; }
-    .task-dropdown-item .item-meta { font-size:11px; color:#627d98; background:#e2e8f0; padding:2px 6px; border-radius:4px; margin-left:0; white-space:normal; }
+    .task-dropdown-thumb { flex:0 0 44px; width:44px; height:44px; border-radius:6px; overflow:hidden; background:#eef2f7; border:1px solid #e2e8f0; display:block; position:relative; pointer-events:none; }
+    .task-dropdown-thumb img { width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; }
+    .task-dropdown-thumb.is-empty { background:#eef2f7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.6'%3E%3Crect x='3.5' y='5' width='17' height='14' rx='2'/%3E%3Ccircle cx='9' cy='10' r='1.6'/%3E%3Cpath d='M4.5 16.5 9 12.5l3 2.4 7.5-6.4'/%3E%3C/svg%3E") center/20px no-repeat; }
+    .task-dropdown-copy { min-width:0; flex:1 1 auto; display:flex; flex-direction:column; align-items:flex-start; gap:5px; }
+    .task-dropdown-copy .task-dropdown-label { display:block; width:100%; line-height:1.35; overflow-wrap:anywhere; }
+    .task-dropdown-meta { display:flex; align-items:center; gap:6px; flex-wrap:wrap; width:100%; min-width:0; }
+    .task-dropdown-vendor { display:inline-flex; align-items:center; max-width:100%; height:18px; padding:0 7px; border-radius:999px; border:1px solid rgba(15,23,42,.08); background:#f8fafc; color:#334155; font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .task-dropdown-vendor[data-vendor="home-depot"] { background:#fff4ef; color:#c2410c; border-color:rgba(194,65,12,.18); }
+    .task-dropdown-vendor[data-vendor="abc-supply"] { background:#eef4fb; color:#1e3a5f; border-color:rgba(30,58,95,.16); }
+    .task-dropdown-vendor[data-vendor="sherwin-williams"] { background:#f4eef2; color:#6b1d3a; border-color:rgba(107,29,58,.16); }
+    .task-dropdown-vendor[data-vendor="catalog"], .task-dropdown-vendor[data-vendor="catalogo"] { background:#f1f5f9; color:#475569; }
+    .task-dropdown-item .item-meta { font-size:11px; color:#627d98; background:#e2e8f0; padding:2px 6px; border-radius:4px; margin-left:auto; white-space:nowrap; flex:0 0 auto; }
+    @media (max-width:720px) {
+      .task-dropdown-item { padding:8px 8px; gap:8px; font-size:12px; }
+      .task-dropdown-thumb { flex-basis:40px; width:40px; height:40px; }
+      .task-dropdown-vendor { height:16px; padding:0 6px; font-size:8px; letter-spacing:.06em; }
+      .task-dropdown-item .item-meta { font-size:10px; }
+    }
     .sugerencia-desc-menu { position:fixed; z-index:10040; margin:0; padding:4px 0; background:#fff; border:1px solid #d0d7e2; border-radius:8px; box-shadow:0 10px 24px rgba(15,23,42,.16); width:min(320px,calc(100vw - 16px)); max-width:calc(100vw - 16px); max-height:min(220px,45vh); overflow-y:auto; box-sizing:border-box; }
     .sugerencia-desc-item { display:block; width:100%; border:0; background:#fff; text-align:left; padding:8px 12px; font:13px/1.35 inherit; color:#1e293b; cursor:pointer; }
     .sugerencia-desc-item:hover, .sugerencia-desc-item:focus { background:#eef5fc; color:#19385f; outline:0; }
@@ -2912,7 +2928,7 @@
     }
     function precioVisibleSiding(item){
       const base=Number(item&&(item.precio_zona||item.price||item.precio_base||item.precio))||0;
-      if(normalizarUnidad(item&&item.unit)==='SQ'&&normalizarUnidad((item&&item.unidadBase)||'SF')==='SF')return Math.round(base*SF_POR_ESCUADRA*100)/100;
+      if(normalizarUnidad(item&&item.unit)==='SQ'&&normalizarUnidad(item&&item.unidadBase)==='SF')return Math.round(base*SF_POR_ESCUADRA*100)/100;
       return base;
     }
     function clonarSidingPorEscuadra(item){
@@ -3940,7 +3956,7 @@
       const out=[];
       Object.keys(CATALOGO_TRABAJOS||{}).forEach(cat=>{
         (CATALOGO_TRABAJOS[cat]||[]).forEach(item=>{
-          const mapped={desc:item.desc,unit:item.unit,price:item.price,precio_base:item.price,priceLabor:item.priceLabor,precio_mano_obra:item.priceLabor,precio_labor:item.priceLabor,priceMaterial:item.priceMaterial,precio_material:item.priceMaterial,priceDemo:item.priceDemo,precio_remocion:item.priceDemo,precio_demo:item.priceDemo,familia:cat,categoria:item.categoria||cat,codigo:item.codigo||item.code||'',fuente:'supabase',ajuste_zip:item.ajuste_zip};
+          const mapped={desc:item.desc,unit:item.unit,price:item.price,precio_base:item.price,priceLabor:item.priceLabor,precio_mano_obra:item.priceLabor,precio_labor:item.priceLabor,priceMaterial:item.priceMaterial,precio_material:item.priceMaterial,priceDemo:item.priceDemo,precio_remocion:item.priceDemo,precio_demo:item.priceDemo,familia:cat,categoria:item.categoria||cat,codigo:item.codigo||item.code||'',fuente:'supabase',ajuste_zip:item.ajuste_zip,image_url:urlImagenCatalogo(item.image_url||item.imageUrl),imageUrl:urlImagenCatalogo(item.image_url||item.imageUrl),proveedor:item.proveedor||item.supplier||''};
           if(oficio&&typeof itemPerteneceAOficio==='function'&&!itemPerteneceAOficio(mapped,oficio))return;
           out.push(mapped);
         });
@@ -4253,6 +4269,17 @@
     function detectarAlcance(description){ const text=String(description||'').toLowerCase(); if(/solo\s+demolici[oó]n|\bdemo\b|demolition|tear\s*off|remove\s+only|arrancar/.test(text))return 'demo'; if(/arrancar\s+y\s+poner|remove\s*(?:&|and)?\s*replace|replace|reemplaz/.test(text))return 'replace'; if(/solo\s+mano\s+de\s+obra|mano\s+de\s+obra|labor\s+only|labor\s+only|\blabor\b/.test(text))return 'labor'; return 'full'; }
     function colocarCursorEnClic(input, clientX){ const val=input.value||''; const style=getComputedStyle(input); const mirror=document.createElement('span'); mirror.style.cssText=`position:absolute;left:-9999px;white-space:pre;font:${style.font};letter-spacing:${style.letterSpacing}`; document.body.appendChild(mirror); const x=clientX-input.getBoundingClientRect().left-(parseFloat(style.paddingLeft)||0)-(parseFloat(style.borderLeftWidth)||0)+input.scrollLeft; let lo=0,hi=val.length; while(lo<hi){ const mid=Math.ceil((lo+hi)/2); mirror.textContent=val.slice(0,mid); if(mirror.offsetWidth<=x)lo=mid; else hi=mid-1; } mirror.remove(); input.setSelectionRange(lo,lo); }
     const CATALOGO_TRABAJOS = {};
+    function urlImagenCatalogo(valor){
+      const raw=String(valor||'').trim();
+      return /^https?:\/\//i.test(raw)?raw:'';
+    }
+    function nombreProveedorCatalogo(item){
+      const raw=String((item&&(item.proveedor||item.supplier||item.vendor||item.retailer))||'').trim();
+      return raw || 'Catalog';
+    }
+    function slugProveedorCatalogo(nombre){
+      return String(nombre||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+    }
     function mapearItemCatalogoApi(row){
       if(!row)return null;
       const textos=row.descripciones&&typeof row.descripciones==='object'?row.descripciones:{};
@@ -4262,10 +4289,15 @@
       if(!desc&&!(row.codigo||row.code))return null;
       const precioBase=numeroPrecio(row.precio_base,row.precio_unitario,row.unit_price,row.precio,row.price,row.rate);
       const precioZona=numeroPrecio(row.precio_zona)||precioBase;
+      const imageUrl=urlImagenCatalogo(row.image_url||row.imageUrl||row.imagen_url||row.url_imagen||row.foto_url);
       return {
         codigo:String(row.codigo||row.code||row.sku||'').trim(),
         categoria:String(row.categoria||row.category||row.familia||'GENERAL').toUpperCase(),
         familia:String(row.familia||row.categoria||row.category||'GENERAL').toUpperCase(),
+        image_url:imageUrl,
+        imageUrl,
+        last_updated:row.last_updated||row.lastUpdated||'',
+        proveedor:String(row.proveedor||row.supplier||row.vendor||row.retailer||'').trim(),
         desc,
         descripcion:desc,
         descripcion_es:String(row.descripcion_es||textos.es||row.descripcion||'').trim(),
@@ -4309,7 +4341,9 @@
         const priceMaterial=Number(valorCatalogoFila(row,['precio_material','material','material_price','precio_mat']))||0;
         const priceDemo=Number(valorCatalogoFila(row,['precio_remocion','precio_demo','demo','precio_demolicion','tear_off','precio_tearoff']))||0;
         const codigo=String(valorCatalogoFila(row,['codigo','code','sku'])||'').trim();
-        (grouped[categoria]||=[]).push({desc,unit,price,priceLabor,priceMaterial,priceDemo,codigo});
+        const image_url=urlImagenCatalogo(valorCatalogoFila(row,['image_url','imageUrl','imagen_url','url_imagen','foto_url']));
+        const proveedor=String(valorCatalogoFila(row,['proveedor','supplier','vendor','retailer'])||'').trim();
+        (grouped[categoria]||=[]).push({desc,unit,price,priceLabor,priceMaterial,priceDemo,codigo,image_url,imageUrl:image_url,proveedor});
       });
       return grouped;
     }
@@ -4373,6 +4407,32 @@
       }
       if(badge)badge.textContent=tablaVacia?'Catalog: empty table (local base)':'Catalog: no Supabase table (local base)';
       return false;
+    }
+    function urlApiHomeDepot(q, zip){
+      const base=(location.origin&&location.origin.indexOf('http')===0)?location.origin:'http://127.0.0.1:5000';
+      return base+'/api/catalogo/home-depot?q='+encodeURIComponent(q||'')+'&zip='+encodeURIComponent(zip||'');
+    }
+    function refrescarSugerenciasHomeDepot(input, texto, zip, seq){
+      if(!puedeCatalogo())return;
+      if((texto||'').trim().length<3)return;
+      const zip5=String(zip||'').replace(/\D/g,'').slice(0,5);
+      if(zip5.length!==5)return;
+      const ctrl=new AbortController();
+      const corte=setTimeout(()=>ctrl.abort(),95000);
+      fetch(urlApiHomeDepot(texto,zip5),{signal:ctrl.signal,headers:headersContratista(),credentials:'same-origin'})
+        .then(res=>res.json().catch(()=>({})))
+        .then(data=>{
+          if(seq!==buscarYMostrarCatalogo._seq||buscarYMostrarCatalogo._input!==input)return;
+          const hd=extraerItemsBusquedaCatalogo(data);
+          if(!hd.length)return;
+          const extras=buscarYMostrarCatalogo._ultimos||[];
+          const vistos=new Set(hd.map(item=>String(item.codigo||item.code||'').toUpperCase()));
+          const resto=extras.filter(item=>!vistos.has(String(item.codigo||item.code||'').toUpperCase()));
+          buscarYMostrarCatalogo._ultimos=hd.concat(resto);
+          pintarSugerenciasCatalogo(input, buscarYMostrarCatalogo._ultimos);
+        })
+        .catch(()=>{})
+        .finally(()=>clearTimeout(corte));
     }
     function extraerItemsBusquedaCatalogo(data){
       if(Array.isArray(data))return data;
@@ -4508,7 +4568,7 @@
     }
     function posicionarMenuTareas(input, menu){
       if(!input||!menu)return;
-      colocarMenuEnPantalla(input,menu,{minAncho:Math.min(320,window.innerWidth-16),maxAlto:250,z:10050});
+      colocarMenuEnPantalla(input,menu,{minAncho:Math.min(400,window.innerWidth-16),maxAlto:320,z:10050});
       menu.style.display='block';
       menu.classList.add('is-open');
     }
@@ -4552,13 +4612,42 @@
         opt.dataset.precioDemo=String(item.precioDemo||0);
         opt.dataset.unit=item.unit||'';
         opt.dataset.desc=item.desc||item.descripcion_es||item.descripcion||'';
+        const thumb=document.createElement('span');
+        thumb.className='task-dropdown-thumb';
+        const imageUrl=urlImagenCatalogo(item.image_url||item.imageUrl||item.imagen_url);
+        if(imageUrl){
+          const img=document.createElement('img');
+          img.src=imageUrl;
+          img.alt='';
+          img.loading='lazy';
+          img.decoding='async';
+          img.referrerPolicy='no-referrer';
+          img.addEventListener('error',()=>{ img.remove(); thumb.classList.add('is-empty'); });
+          thumb.appendChild(img);
+        }else{
+          thumb.classList.add('is-empty');
+        }
+        const copy=document.createElement('span');
+        copy.className='task-dropdown-copy';
         const label=document.createElement('span');
+        label.className='task-dropdown-label';
         label.textContent=(item.codigo||item.categoria||'—')+' / '+(item.desc||item.descripcion||'');
+        const metaRow=document.createElement('span');
+        metaRow.className='task-dropdown-meta';
+        const vendor=document.createElement('span');
+        const proveedor=nombreProveedorCatalogo(item);
+        vendor.className='task-dropdown-vendor';
+        vendor.dataset.vendor=slugProveedorCatalogo(proveedor);
+        vendor.textContent=proveedor;
         const meta=document.createElement('span');
         meta.className='item-meta';
         meta.textContent=item.unit+' · $'+Number(precioVisibleSiding(item)||item.precio_zona||item.price||0).toFixed(2);
-        opt.appendChild(label);
-        opt.appendChild(meta);
+        metaRow.appendChild(vendor);
+        metaRow.appendChild(meta);
+        copy.appendChild(label);
+        copy.appendChild(metaRow);
+        opt.appendChild(thumb);
+        opt.appendChild(copy);
         const elegir=e=>{
           e.preventDefault();
           e.stopPropagation();
@@ -4682,6 +4771,7 @@
         posicionarMenuTareas(input,menuErr);
       }else{
         pintarSugerenciasCatalogo(input, resultados);
+        refrescarSugerenciasHomeDepot(input, texto, zipActivo, seq);
       }
       clearTimeout(buscarYMostrarCatalogo._faltanteTimer);
       if(!resultados.length && !errorMsg && texto.length>=5){

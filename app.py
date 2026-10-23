@@ -77,8 +77,30 @@ TABLA_FACTORES = "factores_regionales_usa"
 TABLA_FALTANTES = "items_faltantes"
 TABLA_HISTORIAL = "historial_estimados"
 TABLA_CONTRATISTAS = "contratistas"
-COLUMNAS_CATALOGO = "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra,precio_remocion"
+COLUMNAS_CATALOGO_BASE = "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra,precio_remocion"
+COLUMNAS_CATALOGO = COLUMNAS_CATALOGO_BASE + ",image_url,last_updated,proveedor"
 _SQL_MULTITENANT = "Ejecuta multitenant.sql en el editor SQL de Supabase."
+_SQL_HOME_DEPOT = "Ejecuta catalogo_home_depot.sql en el editor SQL de Supabase."
+
+
+def _ajustar_columnas_catalogo(err):
+    global COLUMNAS_CATALOGO
+    texto = str(err or "")
+    if not ("42703" in texto or "does not exist" in texto):
+        return False
+    if "proveedor" in COLUMNAS_CATALOGO and "proveedor" in texto:
+        COLUMNAS_CATALOGO = COLUMNAS_CATALOGO_BASE + ",image_url,last_updated"
+        print("-->", _SQL_HOME_DEPOT)
+        return True
+    if "last_updated" in COLUMNAS_CATALOGO and "last_updated" in texto:
+        COLUMNAS_CATALOGO = COLUMNAS_CATALOGO_BASE + ",image_url"
+        print("-->", _SQL_HOME_DEPOT)
+        return True
+    if "image_url" in COLUMNAS_CATALOGO and "image_url" in texto:
+        COLUMNAS_CATALOGO = COLUMNAS_CATALOGO_BASE
+        print("-->", _SQL_HOME_DEPOT)
+        return True
+    return False
 
 def _tipo_clave_supabase(key):
     texto = str(key or "")
@@ -2346,6 +2368,13 @@ def _texto_catalogo(row, *keys, default=""):
     return default
 
 
+def _url_imagen_catalogo(row):
+    raw = _texto_catalogo(row, "image_url", "imageUrl", "imagen_url", "url_imagen", "foto_url")
+    if raw.lower().startswith(("http://", "https://")):
+        return raw
+    return ""
+
+
 def normalizar_item_catalogo(row, idioma="es"):
     if not isinstance(row, dict):
         return None
@@ -2392,6 +2421,10 @@ def normalizar_item_catalogo(row, idioma="es"):
         "precio_mano_obra": round(_num_catalogo(row, "precio_mano_obra", "precio_labor", "labor"), 2),
         "alcance": _alcance_exclusivo_descripcion(desc_ui) or "completo",
         "fuente": "supabase",
+        "image_url": _url_imagen_catalogo(row),
+        "imageUrl": _url_imagen_catalogo(row),
+        "last_updated": row.get("last_updated") or "",
+        "proveedor": _texto_catalogo(row, "proveedor", "supplier", "vendor", "retailer"),
     }
 
 
@@ -2466,15 +2499,18 @@ def buscar_filas_catalogo(q):
                 query = query.or_(filtro)
             data = query.limit(limite).execute()
             return list(data.data or [])
-        except Exception:
+        except Exception as err:
+            if _ajustar_columnas_catalogo(err):
+                return buscar_filas_catalogo(q)
             try:
                 query = client.table(TABLA_CATALOGO).select(COLUMNAS_CATALOGO).eq("activo", True)
                 if termino:
                     query = query.ilike("descripcion", f"%{termino}%")
                 data = query.limit(limite).execute()
                 return list(data.data or [])
-            except Exception:
-                pass
+            except Exception as err2:
+                if _ajustar_columnas_catalogo(err2):
+                    return buscar_filas_catalogo(q)
     return _buscar_catalogo_rest(termino, limite)
 
 
@@ -4128,6 +4164,7 @@ _API_CATALOGO = {
     "/api/buscar-catalogo",
     "/api/precio-accion",
     "/api/catalogo/guardar-ia",
+    "/api/catalogo/home-depot",
 }
 _API_IA_PDF = (
     "/api/sugerir-precios-ia",
@@ -4346,7 +4383,12 @@ def _feature_api(path):
     if ruta.startswith("/api/import-planos/status") or ruta.startswith("/api/process-architectural-plans/status"):
         return "ai_pdf_quota"
     base = ruta.rstrip("/") or ruta
-    if base in _API_CATALOGO or ruta.startswith("/api/search-catalog") or ruta.startswith("/api/buscar-catalogo"):
+    if (
+        base in _API_CATALOGO
+        or ruta.startswith("/api/search-catalog")
+        or ruta.startswith("/api/buscar-catalogo")
+        or ruta.startswith("/api/catalogo/home-depot")
+    ):
         return "catalog"
     for pref in _API_IA_PDF_CUOTA:
         if ruta == pref or ruta.startswith(pref + "/"):
@@ -8016,6 +8058,194 @@ def buscar_catalogo():
         resp = jsonify({"success": False, "error": str(e), "items": []})
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp, 500
+
+
+def _es_sku_material_principal(row):
+    codigo = str((row or {}).get("codigo") or (row or {}).get("code") or "").upper()
+    blob = f"{codigo} {(row or {}).get('descripcion') or (row or {}).get('description') or ''}".lower()
+    if codigo.startswith("ZN-DEM") or re.search(r"\bdemo\b|tear.?off|demolici|retiro de", blob):
+        return False
+    return True
+
+
+def _skus_principales_home_depot(termino, limite=4):
+    from oficios import esperar_catalogo
+    from home_depot_apify import LIMITE_SKUS, consulta_home_depot
+
+    esperar_catalogo(12)
+    tope = int(limite or LIMITE_SKUS)
+    filas = _filas_catalogo_locales(termino, limite=40) or []
+    principales = [row for row in filas if _es_sku_material_principal(row) and consulta_home_depot(row)]
+    if len(principales) < tope:
+        vistos = {id(row) for row in principales}
+        for row in filas:
+            if id(row) in vistos:
+                continue
+            if consulta_home_depot(row):
+                principales.append(row)
+            if len(principales) >= tope:
+                break
+    return principales[:tope]
+
+
+def _asegurar_columnas_home_depot(client):
+    if client is None:
+        return False
+    try:
+        client.table(TABLA_CATALOGO).select("id,image_url,last_updated,proveedor").limit(1).execute()
+        return True
+    except Exception as err:
+        _ajustar_columnas_catalogo(err)
+        print("-->", _SQL_HOME_DEPOT)
+        return False
+
+
+def _actualizar_sku_home_depot(client, row, producto, precio_hd):
+    from home_depot_apify import _ahora_utc, url_imagen_home_depot
+
+    if client is None or not isinstance(row, dict):
+        return False
+    ident = row.get("id")
+    if ident is None:
+        return False
+    foto = url_imagen_home_depot(producto)
+    labor = _num_catalogo(row, "precio_mano_obra", "precio_labor", "labor")
+    demo = _num_catalogo(row, "precio_remocion", "precio_demo")
+    payload = {"last_updated": _ahora_utc().isoformat(), "proveedor": "Home Depot"}
+    if foto:
+        payload["image_url"] = foto
+    if precio_hd and precio_hd > 0:
+        payload["precio_material"] = round(float(precio_hd), 2)
+        payload["precio_base"] = round(float(precio_hd) + labor + demo, 2)
+    try:
+        client.table(TABLA_CATALOGO).update(payload).eq("id", ident).execute()
+        return True
+    except Exception as err:
+        _ajustar_columnas_catalogo(err)
+        print(f"--> home-depot update sku: {err}")
+        return False
+
+
+@app.route("/api/catalogo/home-depot", methods=["GET", "POST"])
+def catalogo_home_depot():
+    from oficios import invalidar_catalogo
+    from home_depot_apify import (
+        consulta_home_depot,
+        emparejar_producto,
+        precio_desde_home_depot,
+        precio_stale,
+        scrapear_home_depot,
+        token_apify,
+        url_imagen_home_depot,
+    )
+
+    payload = request.get_json(silent=True) or {}
+    q = str(request.args.get("q") or payload.get("q") or payload.get("termino") or "").strip()
+    zip_q = request.args.get("zip") or request.args.get("zip_code") or payload.get("zip") or payload.get("zip_code") or ""
+    zip5 = re.sub(r"\D", "", str(zip_q or ""))[:5]
+    if len(zip5) != 5:
+        zip5 = "30327"
+    if len(q) < 3:
+        resp = jsonify({"success": False, "error": "Escribe al menos 3 caracteres.", "items": []})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp, 400
+    zona = _zona_mercado_por_zip(zip5)
+    idioma = _idioma_de_busqueda(q) or "en"
+    if idioma not in IDIOMAS_CATALOGO:
+        idioma = "en"
+    filas = _skus_principales_home_depot(q, 4)
+    if not filas:
+        resp = jsonify({"success": True, "items": [], "count": 0, "scraped": False, "zip": zip5})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp
+    client = _supabase_client()
+    _asegurar_columnas_home_depot(client)
+    pendientes = [row for row in filas if precio_stale(row)]
+    scrapeados = 0
+    error_apify = ""
+    productos = []
+    if pendientes and token_apify():
+        try:
+            productos = scrapear_home_depot([consulta_home_depot(row) for row in pendientes], zip5)
+            usados = set()
+            for row in pendientes:
+                candidatos = [item for item in productos if id(item) not in usados]
+                match = emparejar_producto(row, candidatos)
+                if not match:
+                    continue
+                usados.add(id(match))
+                unidad = str(row.get("unidad") or row.get("unit") or "SF").upper()
+                precio_hd = precio_desde_home_depot(match, unidad)
+                if _actualizar_sku_home_depot(client, row, match, precio_hd):
+                    scrapeados += 1
+                    if precio_hd and precio_hd > 0:
+                        row["precio_material"] = round(float(precio_hd), 2)
+                        labor = _num_catalogo(row, "precio_mano_obra", "precio_labor", "labor")
+                        demo = _num_catalogo(row, "precio_remocion", "precio_demo")
+                        row["precio_base"] = round(float(precio_hd) + labor + demo, 2)
+                    foto = url_imagen_home_depot(match)
+                    if foto:
+                        row["image_url"] = foto
+                    row["last_updated"] = datetime.now(timezone.utc).isoformat()
+                    row["proveedor"] = "Home Depot"
+            if scrapeados:
+                invalidar_catalogo()
+        except Exception as err:
+            error_apify = str(err)
+            print(f"--> home-depot apify: {err}")
+    elif pendientes and not token_apify():
+        error_apify = "Falta APIFY_API_TOKEN"
+    factor = float(zona.get("factor") or 1.0)
+    items = []
+    for row in filas:
+        item = normalizar_item_catalogo(row, idioma)
+        if not item:
+            continue
+        base = _num(item.get("precio_unitario"))
+        labor = _num(item.get("precio_labor") or item.get("precio_mano_obra"))
+        material = _num(item.get("precio_material"))
+        demo = _num(item.get("precio_remocion") or item.get("precio_demo"))
+        item["precio_base"] = round(base, 2)
+        item["factor_zip"] = round(factor, 4)
+        item["zip_code"] = zona.get("zip") or zip5
+        item["ciudad"] = zona.get("ciudad")
+        item["estado"] = zona.get("estado")
+        item["precio_zona"] = round(base * factor, 2)
+        item["precio_labor"] = round(labor, 2)
+        item["precio_mano_obra"] = round(labor, 2)
+        item["precio_material"] = round(material, 2)
+        item["precio_demo"] = round(demo, 2)
+        item["precio_remocion"] = round(demo, 2)
+        item["priceLabor"] = round(labor, 2)
+        item["priceMaterial"] = round(material, 2)
+        item["priceDemo"] = round(demo, 2)
+        item["ajuste_zip"] = True
+        item["fuente"] = "home_depot" if scrapeados else (item.get("fuente") or "supabase")
+        item["image_url"] = _url_imagen_catalogo(row) or item.get("image_url") or ""
+        item["imageUrl"] = item["image_url"]
+        item["last_updated"] = row.get("last_updated") or item.get("last_updated") or ""
+        item["proveedor"] = item.get("proveedor") or row.get("proveedor") or ""
+        item["stale"] = precio_stale(row)
+        items.append(item)
+    print(
+        f"--> home-depot q='{q}' zip={zip5} skus={len(filas)} stale={len(pendientes)} "
+        f"scraped={scrapeados} token={'si' if token_apify() else 'no'}"
+    )
+    payload_out = {
+        "success": True,
+        "items": items[:4],
+        "count": len(items[:4]),
+        "zip": zip5,
+        "scraped": scrapeados > 0,
+        "refrescados": scrapeados,
+        "stale": len(pendientes),
+        "last_updated": items[0].get("last_updated") if items else "",
+    }
+    if error_apify:
+        payload_out["error"] = error_apify
+    resp = jsonify(payload_out)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
 
 
 @app.route("/api/sugerir-precios-ia", methods=["POST"])

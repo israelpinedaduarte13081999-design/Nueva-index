@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.25, maximum-scale=5, user-scalable=yes">
   <title>{{ industria.title }}</title>
   <meta name="description" content="{{ industria.meta }}">
   <meta name="keywords" content="{{ industria.keywords|join(', ') }}">
@@ -78,7 +78,7 @@
     .qb-demo-head p { margin:0; color:#475569; line-height:1.55; max-width:720px; }
     body.landing-qb .qb-demo-head h2 { color:#fff; }
     body.landing-qb .qb-demo-head p { color:rgba(255,255,255,.78); }
-    .qb-shot { background:#fff; color:#0f172a; border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,.12); box-shadow:0 18px 48px rgba(0,0,0,.35); }
+    .qb-shot { background:#fff; color:#0f172a; border-radius:16px; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; border:1px solid rgba(255,255,255,.12); box-shadow:0 18px 48px rgba(0,0,0,.35); }
     .qb-shot-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 14px; background:#0b0b0b; color:#fff; }
     .qb-shot-bar img { height:22px; width:auto; display:block; }
     .qb-shot-badge { font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:#FF5A1F; border:1px solid rgba(255,90,31,.45); border-radius:999px; padding:4px 8px; }
@@ -94,10 +94,11 @@
     .qb-metric { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px 10px 9px; }
     .qb-metric b { display:block; font-size:1.05rem; letter-spacing:-.03em; color:#0b0b0b; }
     .qb-metric span { display:block; margin-top:2px; color:#64748b; font-size:.7rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
-    .qb-shot-table-wrap { overflow-x:visible; width:100%; }
-    .qb-shot table { width:100%; table-layout:fixed; border-collapse:collapse; font-size:.78rem; }
-    .qb-shot th { text-align:left; background:#f1f5f9; color:#334155; font-size:.64rem; letter-spacing:.06em; text-transform:uppercase; padding:8px; }
-    .qb-shot td { padding:9px 8px; border-bottom:1px solid #e2e8f0; vertical-align:top; overflow-wrap:anywhere; }
+    .qb-shot-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; width:100%; }
+    .qb-shot table { width:100%; min-width:1000px; table-layout:auto; border-collapse:collapse; font-size:.78rem; }
+    .qb-shot th { text-align:left; background:#f1f5f9; color:#334155; font-size:.64rem; letter-spacing:.06em; text-transform:uppercase; padding:8px; white-space:nowrap; }
+    .qb-shot td { padding:9px 8px; border-bottom:1px solid #e2e8f0; vertical-align:top; }
+    .qb-shot td:nth-child(3) { overflow-wrap:anywhere; }
     .qb-shot .num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
     .qb-shot .code { font-weight:700; font-size:.72rem; white-space:nowrap; }
     .qb-shot .unavail { color:#b45309; font-weight:700; }
@@ -113,19 +114,8 @@
       .qb-demo { padding:8px 12px 36px; }
       .qb-shot-body { padding:12px 10px 14px; }
       .qb-shot-toolbar { padding:10px; }
-      .qb-shot { overflow-x:visible; }
-      .qb-shot-table-wrap { overflow-x:hidden; }
-      .qb-shot table { font-size:.66rem; }
-      .qb-shot th { font-size:.56rem; letter-spacing:.03em; padding:5px 4px; }
-      .qb-shot td { padding:5px 4px; }
-      .qb-shot .code { font-size:.58rem; white-space:normal; word-break:break-word; }
-      .qb-shot th:nth-child(1), .qb-shot td:nth-child(1),
-      .qb-shot th:nth-child(2), .qb-shot td:nth-child(2),
-      .qb-shot th:nth-child(7), .qb-shot td:nth-child(7) { display:none; }
     }
     @media (max-width:480px) {
-      .qb-shot table { font-size:.6rem; }
-      .qb-shot th, .qb-shot td { padding:4px 3px; }
       .qb-shot-body { padding:10px 8px 12px; }
       .qb-chip { font-size:.68rem; padding:3px 7px; min-height:28px; }
       .qb-totals { width:100%; font-size:.8rem; }
