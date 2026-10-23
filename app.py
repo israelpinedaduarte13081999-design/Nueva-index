@@ -8075,6 +8075,26 @@ def buscar_catalogo():
 PROVEEDOR_HOME_DEPOT = "Home Depot"
 
 
+def _foto_catalogo_valida(url):
+    from home_depot_apify import sanitizar_url
+    return sanitizar_url(url, imagen=True)
+
+
+def _reparar_imagen_proveedor(ident, url):
+    """Quita una URL que no es foto. No toca last_updated ni el precio."""
+    if not ident or _foto_catalogo_valida(url):
+        return False
+    client = _supabase_client()
+    if client is None:
+        return False
+    try:
+        client.table("catalogo_proveedor_precios").update({"image_url": None}).eq("id", ident).execute()
+        return True
+    except Exception as err:
+        print(f"--> reparar imagen proveedor: {err}")
+        return False
+
+
 def _tienda_precios(client=None):
     from proveedores_precios import TiendaPrecios
     return TiendaPrecios(client if client is not None else _supabase_client())
@@ -8101,9 +8121,11 @@ def _aplicar_cache_proveedor(row, cache, zip5, fresco=True):
         row["_paquete_respuesta"] = round(float(labor or 0) + material + float(demo or 0), 2)
     if row.get("_base_protegida") is not None:
         row["precio_base"] = row["_base_protegida"]
-    foto = publico.get("image_url") or cache.get("image_url") or ""
+    foto = _foto_catalogo_valida(publico.get("image_url") or cache.get("image_url") or "")
     if foto:
         row["image_url"] = foto
+    elif cache.get("image_url") and cache.get("id"):
+        _reparar_imagen_proveedor(cache.get("id"), cache.get("image_url"))
     enlace = publico.get("product_url") or cache.get("product_url") or ""
     if enlace:
         row["product_url"] = enlace
@@ -8144,8 +8166,9 @@ def _aplicar_publico_proveedor(row, publico, zip5):
         row["_paquete_respuesta"] = round(float(labor or 0) + material + float(demo or 0), 2)
     if row.get("_base_protegida") is not None:
         row["precio_base"] = row["_base_protegida"]
-    if publico.get("image_url") or publico.get("imageUrl"):
-        row["image_url"] = publico.get("image_url") or publico.get("imageUrl")
+    foto = _foto_catalogo_valida(publico.get("image_url") or publico.get("imageUrl") or "")
+    if foto:
+        row["image_url"] = foto
     if publico.get("product_url") or publico.get("productUrl"):
         row["product_url"] = publico.get("product_url") or publico.get("productUrl")
     row["proveedor"] = publico.get("proveedor") or PROVEEDOR_HOME_DEPOT
@@ -8172,6 +8195,7 @@ def _guardar_precio_proveedor(tienda, row, publico, zip5, consulta=""):
     payload = fila_desde_publico(publico, zip5, consulta=consulta or (row or {}).get("consulta_material") or "")
     if not payload:
         return False
+    payload["image_url"] = _foto_catalogo_valida(payload.get("image_url") or "") or None
     return bool(tienda.guardar(payload))
 
 
@@ -8375,9 +8399,10 @@ def _overlay_precios_proveedores(items, zip5, proveedor=PROVEEDOR_HOME_DEPOT):
         item["store_id"] = cache.get("tienda_id") or ""
         item["store_name"] = cache.get("tienda_nombre") or ""
         item["zip_code"] = zip5
-        if cache.get("image_url"):
-            item["image_url"] = cache.get("image_url")
-            item["imageUrl"] = cache.get("image_url")
+        foto = _foto_catalogo_valida(cache.get("image_url") or "")
+        if foto:
+            item["image_url"] = foto
+            item["imageUrl"] = foto
         if cache.get("product_url"):
             item["product_url"] = cache.get("product_url")
             item["productUrl"] = cache.get("product_url")
@@ -8443,7 +8468,7 @@ def _actualizar_sku_home_depot(client, row, producto, precio_hd, persistir_consu
         payload["proveedor"] = "Home Depot" if (foto or enlace) else (row.get("proveedor") or "Catalog")
     if foto:
         payload["image_url"] = foto
-    if enlace:
+    if enlace and "product_url" in COLUMNAS_CATALOGO:
         payload["product_url"] = enlace
     try:
         client.table(TABLA_CATALOGO).update(payload).eq("id", ident).execute()
@@ -8511,6 +8536,45 @@ def _enriquecer_item_home_depot(item, row, zona, zip5, factor):
     item["producto_id"] = row.get("producto_id") or ""
     item["stale"] = bool(row.get("_precio_proveedor") and not row.get("_precio_fresco"))
     return item
+
+
+@app.route("/api/catalogo/imagen", methods=["GET"])
+def catalogo_imagen():
+    import urllib.request
+    from home_depot_apify import host_imagen_permitido, sanitizar_url
+
+    cruda = request.args.get("u") or request.args.get("url") or ""
+    url = sanitizar_url(cruda, imagen=True)
+    if not url or not host_imagen_permitido(url):
+        return Response(status=404)
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0",
+            "Accept": "image/jpeg,image/png,image/webp,image/*;q=0.8",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            tipo = (resp.headers.get("Content-Type") or "image/jpeg").split(";")[0].strip()
+            cuerpo = resp.read(2_000_000)
+            if not cuerpo or (
+                "image" not in tipo.lower()
+                and "octet-stream" not in tipo.lower()
+                and cuerpo[:3] not in (b"\xff\xd8\xff", b"\x89PN")
+                and cuerpo[:4] not in (b"RIFF", b"GIF8")
+            ):
+                return Response(status=404)
+            if cuerpo[:3] == b"\xff\xd8\xff":
+                tipo = "image/jpeg"
+            elif cuerpo[:4] == b"RIFF":
+                tipo = "image/webp"
+            out = Response(cuerpo, mimetype=tipo)
+            out.headers["Cache-Control"] = "public, max-age=86400"
+            return out
+    except Exception as err:
+        print(f"--> catalogo imagen: {err}")
+        return Response(status=404)
 
 
 @app.route("/api/catalogo/home-depot", methods=["GET", "POST"])

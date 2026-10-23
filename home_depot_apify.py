@@ -33,11 +33,12 @@ _LABOR = re.compile(
 )
 _CATEGORIA_PREFIJO = re.compile(r"^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9 /]{2,40}\s+[—\-–]\s+")
 _ALIAS_EN = (
-    (r"\bsiding de vinilo\b", "vinyl siding"),
+    (r"revestimiento de vinil(?:o)?", "vinyl siding"),
+    (r"\bsiding(?:\s+de)?\s+vinil(?:o)?\b", "vinyl siding"),
     (r"\bsiding de fibrocemento\b", "fiber cement siding"),
     (r"\bpiso de vinilo de lujo|\bpiso de vinilo\b", "luxury vinyl plank"),
     (r"\bpiso de madera|\bpiso de roble\b", "hardwood flooring"),
-    (r"\bvinilo\b", "vinyl"),
+    (r"\bvinil(?:o)?\b", "vinyl"),
     (r"\bfibrocemento\b", "fiber cement"),
     (r"\bmadera tratada\b", "pressure treated lumber"),
     (r"\bteja asf[aá]ltica\b", "architectural shingles"),
@@ -45,6 +46,13 @@ _ALIAS_EN = (
     (r"\bsistema clic\b", "click lock"),
     (r"\br[ií]gido\b", "rigid"),
     (r"\bmembrana\b", "underlayment"),
+)
+_FAMILIA_MATERIAL = (
+    ("siding", r"siding|revestimiento|clapboard|hardie|t1-11|soffit"),
+    ("flooring", r"floor(?:ing)?|piso|plank|hardwood|lvp|lvt|laminate|vinyl plank"),
+    ("roofing", r"shingle|teja|roof|underlayment|felt"),
+    ("drywall", r"drywall|yeso|gypsum|sheetrock"),
+    ("paint", r"paint|pintura|gallon"),
 )
 _PREFIJO_OBRA = re.compile(
     r"^(remover,\s*instalar m[aá]s materiales:?|instalar m[aá]s materiales:?|"
@@ -114,10 +122,22 @@ def sanitizar_url(raw, *, imagen=False):
         texto = "https:" + texto
     if not texto.lower().startswith(("http://", "https://")):
         return ""
-    if imagen and re.search(r"homedepot\.com/p/", texto, re.I):
-        if not re.search(r"\.(jpe?g|png|webp|gif)(?:\?|$)", texto, re.I):
+    if imagen:
+        if re.search(r"homedepot\.com/p/", texto, re.I) and not re.search(r"\.(jpe?g|png|webp|gif|avif)(?:\?|$)", texto, re.I):
+            return ""
+        if re.search(r"images\.thdstatic\.com/productimages/", texto, re.I):
+            return texto
+        if not re.search(r"\.(jpe?g|png|webp|gif|avif)(?:\?|$)", texto, re.I):
             return ""
     return texto
+
+
+def host_imagen_permitido(url):
+    texto = sanitizar_url(url, imagen=True)
+    if not texto:
+        return False
+    host = texto.split("/")[2].lower() if "://" in texto else ""
+    return host.endswith("thdstatic.com") or host.endswith("homedepot.com") or host.endswith("akamaized.net")
 
 
 def _urls_desde_valor(valor, *, imagen=False):
@@ -217,7 +237,48 @@ def extraer_consulta_material(row):
     for patron, dest in _ALIAS_EN:
         texto = re.sub(patron, dest, texto, flags=re.I)
     texto = re.sub(r"\s+", " ", texto).strip(" ,.-")
+    if texto and not re.search(r"[a-z]{3,}", texto):
+        texto = consulta_desde_codigo(row) or texto
+    elif _consulta_espanol(texto):
+        desde_codigo = consulta_desde_codigo(row)
+        if desde_codigo:
+            extra = []
+            if re.search(r"clapboard|dutch lap|dutch\s*la", texto, re.I):
+                extra.append("clapboard")
+            if re.search(r"t1-11|t111", texto, re.I):
+                extra.append("T1-11")
+            texto = (" ".join([desde_codigo, *extra])).strip()
     return texto[:90]
+
+
+def _consulta_espanol(texto):
+    t = str(texto or "").lower()
+    return bool(re.search(r"\b(revestimiento|instalaci[oó]n|piso|madera|vinil|teja|yeso|demolici[oó]n|residencial|est[aá]ndar|pulg)\b", t))
+
+
+def consulta_desde_codigo(row):
+    codigo = str((row or {}).get("codigo") or (row or {}).get("code") or "").upper()
+    if "SID" in codigo and "VIN" in codigo:
+        return "vinyl siding"
+    if "SID" in codigo and re.search(r"FIB|CEM|HAR", codigo):
+        return "fiber cement siding"
+    if "PIS" in codigo and "VIN" in codigo:
+        return "luxury vinyl plank"
+    if re.search(r"WOO|HRD|OAK", codigo) and re.search(r"FLO|PIS", codigo):
+        return "hardwood flooring"
+    if re.search(r"SHI|TEJ|LAM", codigo) and re.search(r"ROF|ROOF|TEJ", codigo):
+        return "architectural shingles"
+    if "DRY" in codigo:
+        return "drywall sheet"
+    return ""
+
+
+def familia_material(texto):
+    blob = str(texto or "").lower()
+    for nombre, patron in _FAMILIA_MATERIAL:
+        if re.search(patron, blob):
+            return nombre
+    return ""
 
 
 def consulta_home_depot(row):
@@ -362,12 +423,31 @@ def presentaciones_compatibles(row, item):
     return False
 
 
+def producto_mismo_tipo(row, item):
+    if not isinstance(item, dict):
+        return False
+    consulta = extraer_consulta_material(row)
+    fam_row = familia_material(consulta + " " + descripcion_material(row) + " " + str((row or {}).get("codigo") or ""))
+    fam_item = familia_material(_blob_producto(item))
+    if fam_row and fam_item and fam_row != fam_item:
+        return False
+    if fam_row and not fam_item:
+        return parecido(consulta, _blob_producto(item)) >= 0.22
+    if not fam_row:
+        return parecido(consulta, _blob_producto(item)) >= 0.28
+    return True
+
+
 def producto_compatible(row, item):
     if not isinstance(item, dict):
         return False
     if not unidades_compatibles(row, item):
         return False
     if not presentaciones_compatibles(row, item):
+        return False
+    fam_row = familia_material(extraer_consulta_material(row) + " " + descripcion_material(row) + " " + str((row or {}).get("codigo") or ""))
+    fam_item = familia_material(_blob_producto(item))
+    if fam_row and fam_item and fam_row != fam_item:
         return False
     specs = extraer_especificaciones(extraer_consulta_material(row))
     if specs:
@@ -496,30 +576,42 @@ def analizar_coincidencias(row, productos):
     consulta = extraer_consulta_material(row)
     unidad = unidad_catalogo(row)
     ranked = []
+    visibles = []
     for item in productos or []:
         if not isinstance(item, dict):
-            continue
-        if not producto_compatible(row, item):
             continue
         zip_row = str((row or {}).get("zip_consulta") or "")
         if zip_row and not verificar_tienda(item, zip_row):
             continue
-        ranked.append((_score_producto(consulta, item, row), item))
+        if not producto_mismo_tipo(row, item):
+            continue
+        score = _score_producto(consulta, item, row)
+        visibles.append((score, item))
+        if producto_compatible(row, item):
+            ranked.append((score, item))
     ranked.sort(key=lambda par: par[0], reverse=True)
+    visibles.sort(key=lambda par: par[0], reverse=True)
     candidatos = []
-    for score, item in ranked[:3]:
+    vistos = set()
+    for score, item in (ranked[:3] or visibles[:3]):
+        clave = str(item.get("productId") or item.get("url") or id(item))
+        if clave in vistos:
+            continue
+        vistos.add(clave)
         publico = producto_publico(item, unidad)
-        if publico:
+        if publico and (publico.get("image_url") or publico.get("nombre")):
             publico["score"] = round(score, 3)
             candidatos.append(publico)
-    if not ranked or ranked[0][0] < 0.32:
-        return {"status": "none", "match": None, "score": 0.0, "candidatos": candidatos}
-    mejor, segundo = ranked[0][0], ranked[1][0] if len(ranked) > 1 else 0.0
-    if segundo and (mejor - segundo) < 0.12:
+        if len(candidatos) >= 3:
+            break
+    if ranked and ranked[0][0] >= 0.32:
+        mejor, segundo = ranked[0][0], ranked[1][0] if len(ranked) > 1 else 0.0
+        if not (segundo and (mejor - segundo) < 0.12) and precio_desde_home_depot(ranked[0][1], unidad) is not None:
+            return {"status": "confident", "match": ranked[0][1], "score": mejor, "candidatos": []}
         return {"status": "ambiguous", "match": None, "score": mejor, "candidatos": candidatos}
-    if precio_desde_home_depot(ranked[0][1], unidad) is None:
-        return {"status": "ambiguous", "match": None, "score": mejor, "candidatos": candidatos}
-    return {"status": "confident", "match": ranked[0][1], "score": mejor, "candidatos": []}
+    if candidatos:
+        return {"status": "ambiguous", "match": None, "score": visibles[0][0] if visibles else 0.0, "candidatos": candidatos}
+    return {"status": "none", "match": None, "score": 0.0, "candidatos": []}
 
 
 def emparejar_producto(row, productos):

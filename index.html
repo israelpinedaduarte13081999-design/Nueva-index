@@ -4285,8 +4285,17 @@
       let raw=String(valor||'').trim();
       if(raw.startsWith('//'))raw='https:'+raw;
       if(!/^https?:\/\//i.test(raw))return '';
-      if(/homedepot\.com\/p\//i.test(raw)&&!/\.(jpe?g|png|webp|gif)(?:\?|$)/i.test(raw))return '';
+      if(/\/api\/catalogo\/imagen\b/i.test(raw))return raw;
+      if(/homedepot\.com\/p\//i.test(raw)&&!/\.(jpe?g|png|webp|gif|avif)(?:\?|$)/i.test(raw))return '';
+      if(/images\.thdstatic\.com\/productimages\//i.test(raw))return raw;
+      if(!/\.(jpe?g|png|webp|gif|avif)(?:\?|$)/i.test(raw))return '';
       return raw;
+    }
+    function urlProxyImagenCatalogo(url){
+      const limpia=urlImagenCatalogo(url);
+      if(!limpia)return '';
+      if(/\/api\/catalogo\/imagen\b/i.test(limpia))return limpia;
+      return '/api/catalogo/imagen?u='+encodeURIComponent(limpia);
     }
     function nombreProveedorCatalogo(item){
       const raw=String((item&&(item.proveedor||item.supplier||item.vendor||item.retailer))||'').trim();
@@ -4642,13 +4651,30 @@
         destino.classList.add('is-empty');
         return;
       }
+      destino.classList.remove('is-empty');
       const img=document.createElement('img');
-      img.src=url;
       img.alt='';
       img.loading='lazy';
       img.decoding='async';
       img.referrerPolicy='no-referrer';
-      img.addEventListener('error',()=>{ img.remove(); destino.classList.add('is-empty'); });
+      img.width=44;
+      img.height=44;
+      img.addEventListener('error',()=>{
+        if(img.dataset.proxy==='1'){
+          img.remove();
+          destino.classList.add('is-empty');
+          return;
+        }
+        const proxy=urlProxyImagenCatalogo(url);
+        if(!proxy||proxy===img.src){
+          img.remove();
+          destino.classList.add('is-empty');
+          return;
+        }
+        img.dataset.proxy='1';
+        img.src=proxy;
+      });
+      img.src=url;
       destino.appendChild(img);
     }
     function persistirProductoHomeDepot(item, producto){
