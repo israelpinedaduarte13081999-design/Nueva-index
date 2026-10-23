@@ -420,6 +420,8 @@ _DEMO_DESC_EN = {
     "ZN-DEM-LOS-VIN-LUJ": "Remove existing LVP / LVT click-lock flooring",
     "ZN-DEM-PIS-CER-BAL": "Remove existing ceramic / tile floor",
     "ZN-SID-VIN-REV-042IN": "Vinyl siding, residential 0.040–0.042 in",
+    "ZN-SID-FIB-DUE-HOR": 'James HardiePlank 8-1/4" horizontal lap siding',
+    "ZN-DEM-SID-VIE-DIS": "Remove existing siding and haul-off debris",
     "ZN-INS-SOF-FIB-LAM": "Fiber-cement soffit panels — supply and install",
     "ZN-SID-TRI-BOA-5": '1" x 8" PVC trim board',
     "ZN-INS-GAB-ANC-STO": "Stock cabinets — install and anchor",
@@ -514,9 +516,17 @@ def _fila_demo_catalogo(spec, fila_cat, factor):
     )
     paquete = _num(fila_cat.get("precio_base"))
     unitario_base = _precio_roles_por_accion(labor, remocion, material, labor, accion, paquete)
-    unitario = _unitario_con_factor_zip(unitario_base, paquete, factor)
     descripcion = _descripcion_demo_en(codigo, fila_cat.get("descripcion"))
-    unidad = str(fila_cat.get("unidad") or (spec or {}).get("unidad") or "").strip()
+    unidad_cat = str(fila_cat.get("unidad") or "").strip()
+    unidad_spec = str((spec or {}).get("unidad") or "").strip()
+    unidad = unidad_cat or unidad_spec
+    if unidad_spec.upper() == "SQ" and unidad_cat.upper() == "SF":
+        unitario_base = round(float(unitario_base) * 100, 2)
+        paquete = round(float(paquete) * 100, 2) if paquete else 0.0
+        unidad = "SQ"
+        if "per square" not in descripcion.lower():
+            descripcion = f"{descripcion} — per square (1 SQ = 100 SF)"
+    unitario = _unitario_con_factor_zip(unitario_base, paquete, factor)
     base["descripcion"] = descripcion
     base["unidad"] = unidad
     if unitario <= 0:
@@ -668,19 +678,22 @@ def _armar_demo_publica(slug):
         },
         "siding": {
             "trade": "[SDG] Siding, soffit, and trim",
-            "title": "Vinyl siding elevation takeoff",
+            "title": "Siding takeoff — SF, squares, soffit, install, and tear-off",
             "lead": "Sample QuantixBuilds siding estimate. Quantities are examples. Unit prices, actions, and totals use the same catalog engine as the live estimator.",
             "area_title": "Rear elevation",
             "area_ref": "Sample exterior takeoff",
             "metrics": [
-                {"value": "1,120 SF", "label": "Siding"},
+                {"value": "1,120 SF", "label": "Vinyl siding"},
+                {"value": "12 SQ", "label": "HardiePlank"},
                 {"value": "180 SF", "label": "Soffit"},
-                {"value": "64 LF", "label": "PVC trim"},
+                {"value": "64 LF", "label": "Trim labor"},
             ],
             "lineas": [
                 {"codigo": "ZN-SID-VIN-REV-042IN", "accion": "install_material", "qty": 1120},
+                {"codigo": "ZN-SID-FIB-DUE-HOR", "accion": "install_material", "qty": 12, "unidad": "SQ"},
                 {"codigo": "ZN-INS-SOF-FIB-LAM", "accion": "install_material", "qty": 180},
-                {"codigo": "ZN-SID-TRI-BOA-5", "accion": "install_material", "qty": 64},
+                {"codigo": "ZN-SID-TRI-BOA-5", "accion": "install", "qty": 64},
+                {"codigo": "ZN-DEM-SID-VIE-DIS", "accion": "demo", "qty": 1120},
             ],
         },
         "kitchen-remodel": {
