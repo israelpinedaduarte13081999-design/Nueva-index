@@ -640,6 +640,7 @@ def scrapear_home_depot(terminos, zip_code):
         raise RuntimeError("Falta el ZIP del contratista para consultar la tienda de Home Depot")
     token = token_apify()
     if not token:
+        print("--> apify home-depot: sin APIFY_API_TOKEN en el entorno")
         raise RuntimeError("Falta APIFY_API_TOKEN en .env")
     cuerpo = {
         "searchTerms": busquedas,
@@ -652,6 +653,10 @@ def scrapear_home_depot(terminos, zip_code):
         + _actor_path(actor_home_depot())
         + "/run-sync-get-dataset-items?timeout="
         + str(TIMEOUT_APIFY)
+    )
+    print(
+        f"--> apify home-depot: llamando actor={actor_home_depot()} "
+        f"zip={zip5} terminos={busquedas} token=si"
     )
     req = urllib.request.Request(
         url,
@@ -667,11 +672,25 @@ def scrapear_home_depot(terminos, zip_code):
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT_APIFY + 15, context=ctx) as resp:
             data = json.loads(resp.read().decode("utf-8") or "[]")
+            status = getattr(resp, "status", 200)
     except urllib.error.HTTPError as err:
         detalle = err.read().decode("utf-8", errors="ignore")[:400]
+        print(f"--> apify home-depot: HTTP {err.code} zip={zip5} detalle={detalle}")
         raise RuntimeError(f"Apify Home Depot {err.code}: {detalle}") from err
+    except Exception as err:
+        print(f"--> apify home-depot: error de red zip={zip5} tipo={type(err).__name__}")
+        raise
     productos = data if isinstance(data, list) else []
-    return [item for item in productos if verificar_tienda(item, zip5)] if productos else []
+    con_foto = 0
+    for item in productos:
+        if isinstance(item, dict) and url_imagen_home_depot(item):
+            con_foto += 1
+    filtrados = [item for item in productos if verificar_tienda(item, zip5)] if productos else []
+    print(
+        f"--> apify home-depot: ok status={status} zip={zip5} "
+        f"recibidos={len(productos)} con_foto={con_foto} tienda_ok={len(filtrados)}"
+    )
+    return filtrados
 
 
 try:

@@ -8662,9 +8662,12 @@ def catalogo_home_depot():
         else:
             item["fuente"] = item.get("fuente") or "supabase"
         items.append(item)
+    fotos = sum(1 for item in items if item.get("image_url") or item.get("imageUrl"))
+    cands = sum(len(item.get("candidatos") or []) for item in items)
     print(
         f"--> home-depot q='{q}' zip={zip5} skus={len(filas)} fuente={resolucion.get('fuente')} "
-        f"scraped={scrapeados} token={'si' if token_apify() else 'no'}"
+        f"scraped={scrapeados} fotos={fotos} candidatos={cands} "
+        f"token={'si' if token_apify() else 'no'} error={(error_apify or '')[:160]}"
     )
     payload_out = {
         "success": True,
