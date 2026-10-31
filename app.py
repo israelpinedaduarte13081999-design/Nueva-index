@@ -5793,23 +5793,167 @@ def _firma_base64_valida(valor):
 
 
 def _publico_desde_historial(doc, contratista=None):
-    cliente = doc.get("cliente") if isinstance(doc.get("cliente"), dict) else {}
-    firmas = doc.get("firmas") if isinstance(doc.get("firmas"), dict) else {}
-    return {
-        "id": doc.get("id"),
-        "folio": doc.get("folio"),
-        "tipo": doc.get("tipo"),
-        "cliente_nombre": doc.get("cliente_nombre"),
-        "total": doc.get("total"),
-        "estado": doc.get("estado"),
-        "fecha": doc.get("fecha"),
+    vista = documento_desde_fila_historial(doc) if isinstance(doc, dict) else {}
+    cliente = vista.get("cliente") if isinstance(vista.get("cliente"), dict) else {}
+    if not isinstance(cliente, dict):
+        cliente = {}
+    snapshot = vista.get("snapshot") if isinstance(vista.get("snapshot"), dict) else {}
+    snap_client = snapshot.get("client") if isinstance(snapshot.get("client"), dict) else {}
+    company = snapshot.get("company") if isinstance(snapshot.get("company"), dict) else {}
+    firmas = vista.get("firmas") if isinstance(vista.get("firmas"), dict) else {}
+    vista.update({
         "firmas": firmas,
         "firma_ip": doc.get("firma_ip") or firmas.get("clienteIp") or "",
         "firma_fecha": doc.get("firma_fecha") or firmas.get("clienteFecha") or "",
-        "cliente_email": cliente.get("email") or "",
+        "cliente_email": cliente.get("email") or snap_client.get("email") or vista.get("cliente_email") or "",
+        "cliente_telefono": cliente.get("phone") or cliente.get("telefono") or snap_client.get("phone") or "",
         "contratista_id": doc.get("contratista_id"),
-        "contratista_email": (contratista or {}).get("email") or "",
-        "nombre_empresa": (contratista or {}).get("nombre_empresa") or "",
+        "contratista_email": (contratista or {}).get("email") or company.get("email") or "",
+        "contratista_telefono": company.get("phone") or (contratista or {}).get("telefono") or "",
+        "nombre_empresa": (contratista or {}).get("nombre_empresa") or company.get("name") or vista.get("nombre_empresa") or "",
+        "representante": company.get("representative") or "",
+        "estado": doc.get("estado") or vista.get("status") or vista.get("estado"),
+    })
+    return vista
+
+
+def _dinero_publico(valor):
+    try:
+        if valor is None or valor == "":
+            return ""
+        return f"${float(valor):,.2f}"
+    except (TypeError, ValueError):
+        return str(valor or "")
+
+
+def _numero_publico(valor, default=0.0):
+    try:
+        if valor is None or valor == "":
+            return default
+        return float(valor)
+    except (TypeError, ValueError):
+        return default
+
+
+def _linea_contrato_publico(raw):
+    if isinstance(raw, dict):
+        qty = _numero_publico(raw.get("cantidad") if raw.get("cantidad") is not None else raw.get("qty") or raw.get("quantity"))
+        price = _numero_publico(raw.get("precio_unitario") if raw.get("precio_unitario") is not None else raw.get("price") or raw.get("unit_price"))
+        tax = _numero_publico(raw.get("tax") or raw.get("impuesto"))
+        base = round(qty * price, 2)
+        tax_amt = round(base * tax / 100.0, 2) if tax else 0.0
+        subtotal = raw.get("subtotal")
+        if subtotal is None or subtotal == "":
+            subtotal = base
+        accion = str(raw.get("accion") or raw.get("action") or "").strip()
+        return {
+            "codigo": str(raw.get("codigo") or raw.get("code") or "").strip(),
+            "accion": _ETIQUETA_ACCION_DEMO.get(accion, accion.replace("_", " ")).strip(),
+            "descripcion": _texto_descripcion_partida(raw) or str(raw.get("descripcion") or raw.get("description") or raw.get("desc") or "").strip(),
+            "cantidad": qty,
+            "cantidad_txt": f"{qty:g}",
+            "unidad": str(raw.get("unidad") or raw.get("unit") or "").strip(),
+            "precio_txt": _dinero_publico(price),
+            "tax_txt": f"{tax:g}%" if tax else "—",
+            "tax_amt": tax_amt,
+            "subtotal": _numero_publico(subtotal),
+            "subtotal_txt": _dinero_publico(subtotal),
+            "area": str(raw.get("area") or "").strip(),
+        }
+    if isinstance(raw, (list, tuple)):
+        return _linea_contrato_publico({
+            "codigo": raw[0] if len(raw) > 0 else "",
+            "descripcion": raw[1] if len(raw) > 1 else "",
+            "cantidad": raw[2] if len(raw) > 2 else 0,
+            "precio_unitario": raw[3] if len(raw) > 3 else 0,
+            "unidad": raw[4] if len(raw) > 4 else "",
+            "tax": raw[5] if len(raw) > 5 else 0,
+            "accion": raw[6] if len(raw) > 6 else "",
+        })
+    return None
+
+
+def _areas_contrato_publico(datos):
+    snapshot = (datos or {}).get("snapshot") if isinstance((datos or {}).get("snapshot"), dict) else {}
+    areas_doc = (datos or {}).get("areas")
+    areas = areas_doc if isinstance(areas_doc, list) and areas_doc else (snapshot.get("areas") or [])
+    items = (datos or {}).get("items") or []
+    bloques = []
+    if isinstance(areas, list):
+        for area in areas:
+            if not isinstance(area, dict):
+                continue
+            filas = []
+            for raw in area.get("rows") or area.get("items") or []:
+                linea = _linea_contrato_publico(raw)
+                if linea and (linea["descripcion"] or linea["codigo"] or linea["subtotal"]):
+                    filas.append(linea)
+            if filas:
+                bloques.append({
+                    "titulo": str(area.get("titleEn") or area.get("title") or area.get("nombre") or "Scope of work").strip(),
+                    "referencia": str(area.get("reference") or area.get("referencia") or "").strip(),
+                    "filas": filas,
+                    "subtotal": sum(f["subtotal"] for f in filas),
+                    "subtotal_txt": _dinero_publico(sum(f["subtotal"] for f in filas)),
+                })
+    if not bloques and isinstance(items, list):
+        grupos = []
+        indice = {}
+        for raw in items:
+            linea = _linea_contrato_publico(raw)
+            if not linea or not (linea["descripcion"] or linea["codigo"] or linea["subtotal"]):
+                continue
+            clave = linea["area"] or "Scope of work"
+            if clave not in indice:
+                indice[clave] = len(grupos)
+                grupos.append({"titulo": clave, "referencia": "", "filas": []})
+            grupos[indice[clave]]["filas"].append(linea)
+        for bloque in grupos:
+            bloque["subtotal"] = sum(f["subtotal"] for f in bloque["filas"])
+            bloque["subtotal_txt"] = _dinero_publico(bloque["subtotal"])
+        bloques = grupos
+    return bloques
+
+
+def _vista_contrato_publico(datos):
+    datos = datos or {}
+    bloques = _areas_contrato_publico(datos)
+    subtotal = sum(bloque["subtotal"] for bloque in bloques)
+    tax_total = sum(f.get("tax_amt") or 0 for bloque in bloques for f in bloque.get("filas") or [])
+    total = datos.get("total")
+    try:
+        total_num = float(total) if total is not None and total != "" else (subtotal + tax_total)
+    except (TypeError, ValueError):
+        total_num = subtotal + tax_total
+    fecha = str(datos.get("fecha") or datos.get("date") or "")[:10]
+    totales = []
+    if bloques:
+        totales.append({"label": "Work subtotal", "valor": _dinero_publico(subtotal), "destacado": False})
+    if tax_total > 0:
+        totales.append({"label": "Sales tax", "valor": _dinero_publico(tax_total), "destacado": False})
+    extras = round(total_num - subtotal - tax_total, 2)
+    if bloques and extras > 0.02:
+        totales.append({"label": "Additional charges", "valor": _dinero_publico(extras), "destacado": False})
+    if total_num or bloques:
+        totales.append({"label": "Contract total", "valor": _dinero_publico(total_num), "destacado": True})
+    return {
+        "empresa": datos.get("nombre_empresa") or "",
+        "empresa_email": datos.get("contratista_email") or "",
+        "empresa_telefono": datos.get("contratista_telefono") or "",
+        "representante": datos.get("representante") or "",
+        "folio": datos.get("folio") or "",
+        "fecha": fecha,
+        "cliente": datos.get("cliente_nombre") or datos.get("client") or "",
+        "cliente_email": datos.get("cliente_email") or "",
+        "cliente_telefono": datos.get("cliente_telefono") or "",
+        "direccion": datos.get("direccion") or datos.get("address") or "",
+        "areas": bloques,
+        "terminos": str(datos.get("terminos") or datos.get("terms") or "").strip(),
+        "notas": str(datos.get("notas") or datos.get("projectNotes") or "").strip(),
+        "totales": totales,
+        "subtotal_txt": _dinero_publico(subtotal) if bloques else "",
+        "total_txt": _dinero_publico(total_num) if total_num or bloques else "",
+        "tiene_alcance": bool(bloques),
     }
 
 
@@ -12412,14 +12556,18 @@ def _respuesta_pagina_firma(datos, titulo, mensaje, boton=False, aviso="", statu
         except (TypeError, ValueError):
             monto = str(total)
     firmas = (datos or {}).get("firmas") if isinstance((datos or {}).get("firmas"), dict) else {}
+    contrato = _vista_contrato_publico(datos)
+    if not contrato.get("total_txt") and monto:
+        contrato["total_txt"] = monto
     pagina = render_template(
         "aceptar.html",
         titulo=titulo,
         mensaje=mensaje,
-        empresa=(datos or {}).get("nombre_empresa") or "",
-        folio=(datos or {}).get("folio") or "",
-        cliente=(datos or {}).get("cliente_nombre") or "",
-        total=monto,
+        empresa=contrato.get("empresa") or (datos or {}).get("nombre_empresa") or "",
+        folio=contrato.get("folio") or (datos or {}).get("folio") or "",
+        cliente=contrato.get("cliente") or (datos or {}).get("cliente_nombre") or "",
+        total=contrato.get("total_txt") or monto,
+        contrato=contrato,
         boton=boton,
         aviso=aviso,
         firmado=_contrato_esta_firmado((datos or {}).get("estado")),
@@ -12712,7 +12860,7 @@ def aceptar_contrato_publico(token_aceptacion):
         return _respuesta_pagina_firma(
             datos,
             "Sign contract",
-            "Review the contract details, draw your signature, and tap Save signature.",
+            "Read the full contract below, then sign at the bottom.",
             boton=True,
         )
     payload = request.get_json(silent=True) or request.form or {}

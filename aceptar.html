@@ -8,72 +8,229 @@
   <meta name="robots" content="noindex,nofollow">
   <title>{{ titulo }}</title>
   <style>
-    body { margin:0; background:#eef2f7; color:#1e293b; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
-    main { max-width:560px; margin:28px auto; background:#fff; padding:24px 20px 28px; border-radius:14px; box-shadow:0 10px 30px rgba(15,23,42,.08); }
-    h1 { margin:0 0 10px; font-size:1.45rem; }
-    p { margin:0 0 10px; line-height:1.5; }
-    .detalle { margin:16px 0 20px; padding:14px 16px; background:#f8fafc; border-radius:10px; }
-    .detalle p { margin:0 0 8px; }
-    .detalle p:last-child { margin:0; }
-    .pad { margin:18px 0 8px; }
-    .pad h2 { margin:0 0 8px; font-size:1rem; }
-    canvas { display:block; width:100%; height:180px; border:1.5px dashed #94a3b8; border-radius:10px; background:#fff; touch-action:none; cursor:crosshair; }
+    :root { --ink:#0f172a; --muted:#64748b; --line:#dbe3ee; --navy:#0d47a1; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:#e8eef6; color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+    body.firma-activa { overflow:hidden; touch-action:none; overscroll-behavior:none; }
+    main { max-width:860px; margin:20px auto 48px; background:#fff; padding:28px 22px 36px; border-radius:14px; box-shadow:0 10px 30px rgba(15,23,42,.08); }
+    .doc-head { display:flex; flex-wrap:wrap; justify-content:space-between; gap:16px; padding-bottom:18px; border-bottom:2px solid #19385f; }
+    .brand { font-size:1.35rem; font-weight:800; letter-spacing:.01em; }
+    .brand small, .meta { display:block; color:var(--muted); font-size:.88rem; font-weight:500; margin-top:4px; }
+    h1 { margin:18px 0 8px; font-size:1.45rem; }
+    h2 { margin:0 0 10px; font-size:1.05rem; color:#19385f; }
+    p { margin:0 0 10px; line-height:1.55; }
+    .intro { color:#334155; }
+    .partes { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:18px 0 8px; }
+    .card { padding:14px 16px; background:#f8fafc; border:1px solid var(--line); border-radius:10px; }
+    .card p { margin:0 0 6px; }
+    .card p:last-child { margin:0; }
+    .label { display:block; font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+    .seccion { margin:28px 0 8px; }
+    .area-block { margin:0 0 22px; }
+    .area-head { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; margin-bottom:8px; }
+    .area-head h3 { margin:0; font-size:1rem; }
+    .ref { color:var(--muted); font-size:.88rem; }
+    .tabla-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--line); border-radius:10px; }
+    table { width:100%; border-collapse:collapse; min-width:640px; font-size:.9rem; }
+    th, td { padding:9px 10px; border-bottom:1px solid #edf2f7; text-align:left; vertical-align:top; }
+    th { background:#f1f5f9; color:#334155; font-size:.75rem; letter-spacing:.04em; text-transform:uppercase; }
+    td.num, th.num { text-align:right; white-space:nowrap; }
+    tbody tr:last-child td { border-bottom:0; }
+    .area-sub { margin:8px 0 0; text-align:right; font-size:.92rem; }
+    .texto-largo { white-space:pre-wrap; background:#f8fafc; border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+    .totales { margin:10px 0 0 auto; max-width:360px; width:100%; }
+    .totales .fila { display:flex; justify-content:space-between; gap:16px; padding:8px 0; border-bottom:1px solid #edf2f7; }
+    .totales .fila.grand { border-bottom:0; margin-top:4px; padding-top:12px; border-top:2px solid #19385f; font-size:1.08rem; font-weight:800; }
+    .firma-zona { margin-top:36px; padding-top:22px; border-top:2px solid #19385f; }
+    .pad-preview { display:block; width:100%; min-height:168px; border:1.5px dashed #94a3b8; border-radius:12px; background:#fff; cursor:pointer; padding:0; text-align:center; color:#64748b; font-weight:700; }
+    .pad-preview img { display:block; width:100%; height:168px; object-fit:contain; }
+    .pad-preview span { display:block; padding:68px 16px; }
     .acciones { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
     button { min-height:46px; padding:10px 16px; border-radius:10px; font-weight:700; font-size:1rem; cursor:pointer; }
     .btn { background:#fff; border:1px solid #cbd5e1; color:#0f172a; }
-    .btn-primary { background:#0d47a1; border:1px solid #0d47a1; color:#fff; }
+    .btn-primary { background:var(--navy); border:1px solid var(--navy); color:#fff; }
     .btn-primary:disabled { opacity:.6; cursor:wait; }
     .status { min-height:1.3em; margin-top:12px; color:#334155; }
     .status.is-error { color:#b91c1c; }
     .status.is-ok { color:#15803d; }
     .firma-guardada { margin-top:12px; padding:12px; border:1px solid #bbf7d0; background:#f0fdf4; border-radius:10px; }
-    .firma-guardada img { display:block; width:100%; max-height:140px; object-fit:contain; background:#fff; border:1px solid #dcfce7; border-radius:8px; }
-    .meta { color:#64748b; font-size:.85rem; }
+    .firma-guardada img { display:block; width:100%; max-height:160px; object-fit:contain; background:#fff; border:1px solid #dcfce7; border-radius:8px; }
+    .firma-modal { position:fixed; inset:0; z-index:80; display:none; align-items:center; justify-content:center; padding:16px; background:rgba(15,23,42,.72); }
+    .firma-modal.is-open { display:flex !important; }
+    .firma-modal-card { width:min(96vw,760px); background:#fff; border-radius:16px; padding:16px 16px 18px; box-shadow:0 20px 50px rgba(15,23,42,.28); }
+    .firma-modal-card h2 { margin-bottom:6px; }
+    .firma-modal-card p { color:var(--muted); font-size:.9rem; }
+    #firmaCanvas { display:block; width:100%; height:min(48vh,280px); border:1.5px dashed #94a3b8; border-radius:12px; background:#fff; touch-action:none; cursor:crosshair; overscroll-behavior:none; }
+    @media (max-width:720px) {
+      main { margin:0; border-radius:0; padding:20px 14px 32px; }
+      .partes { grid-template-columns:1fr; }
+      #firmaCanvas { height:min(56vh,320px); }
+    }
   </style>
 </head>
 <body>
+  {% set c = contrato or {} %}
   <main>
+    <header class="doc-head">
+      <div>
+        <div class="brand">{{ c.empresa or empresa or "QuantixBuilds" }}</div>
+        {% if c.representante %}<small>{{ c.representante }}</small>{% endif %}
+        {% if c.empresa_email %}<small>{{ c.empresa_email }}</small>{% endif %}
+        {% if c.empresa_telefono %}<small>{{ c.empresa_telefono }}</small>{% endif %}
+      </div>
+      <div>
+        {% if c.folio or folio %}<strong>Contract {{ c.folio or folio }}</strong>{% endif %}
+        {% if c.fecha %}<span class="meta">Date {{ c.fecha }}</span>{% endif %}
+      </div>
+    </header>
     <h1>{{ titulo }}</h1>
-    <p>{{ mensaje }}</p>
-    {% if empresa or folio or cliente or total %}
-    <div class="detalle">
-      {% if empresa %}<p><strong>Company</strong> {{ empresa }}</p>{% endif %}
-      {% if folio %}<p><strong>Contract</strong> {{ folio }}</p>{% endif %}
-      {% if cliente %}<p><strong>Client</strong> {{ cliente }}</p>{% endif %}
-      {% if total %}<p><strong>Total</strong> {{ total }}</p>{% endif %}
-    </div>
-    {% endif %}
-    {% if firmado and firma_imagen %}
-    <div class="firma-guardada">
-      <p><strong>Signed</strong></p>
-      <img src="{{ firma_imagen }}" alt="Client signature">
-      {% if firma_fecha %}<p class="meta">Date: {{ firma_fecha }}</p>{% endif %}
-    </div>
-    {% elif boton %}
-    <form id="firmaForm">
-      <div class="pad">
-        <h2>Draw your signature</h2>
-        <canvas id="firmaCanvas" width="520" height="180" aria-label="Signature pad"></canvas>
+    <p class="intro">{{ mensaje }}</p>
+    <section class="partes">
+      <div class="card">
+        <span class="label">Contractor</span>
+        <p><strong>{{ c.empresa or empresa or "—" }}</strong></p>
+        {% if c.empresa_email %}<p>{{ c.empresa_email }}</p>{% endif %}
+        {% if c.empresa_telefono %}<p>{{ c.empresa_telefono }}</p>{% endif %}
       </div>
-      <div class="acciones">
-        <button class="btn" type="button" id="firmaClear">Clear</button>
-        <button class="btn-primary" type="submit" id="firmaSubmit">Save signature</button>
+      <div class="card">
+        <span class="label">Client</span>
+        <p><strong>{{ c.cliente or cliente or "—" }}</strong></p>
+        {% if c.cliente_email %}<p>{{ c.cliente_email }}</p>{% endif %}
+        {% if c.cliente_telefono %}<p>{{ c.cliente_telefono }}</p>{% endif %}
+        {% if c.direccion %}<p>{{ c.direccion }}</p>{% endif %}
       </div>
-      <p class="status" id="firmaStatus" role="status"></p>
-    </form>
+    </section>
+
+    <section class="seccion" id="alcance">
+      <h2>Scope of work</h2>
+      {% if c.tiene_alcance %}
+        {% for area in c.areas %}
+        <div class="area-block">
+          <div class="area-head">
+            <h3>{{ loop.index }}. {{ area.titulo }}</h3>
+            {% if area.referencia %}<span class="ref">{{ area.referencia }}</span>{% endif %}
+          </div>
+          <div class="tabla-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Action</th>
+                  <th>Work description</th>
+                  <th class="num">Qty</th>
+                  <th>Unit</th>
+                  <th class="num">Unit price</th>
+                  <th class="num">Tax</th>
+                  <th class="num">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for fila in area.filas %}
+                <tr>
+                  <td>{{ fila.codigo or "—" }}</td>
+                  <td>{{ fila.accion or "—" }}</td>
+                  <td>{{ fila.descripcion or "—" }}</td>
+                  <td class="num">{{ fila.cantidad_txt }}</td>
+                  <td>{{ fila.unidad or "—" }}</td>
+                  <td class="num">{{ fila.precio_txt }}</td>
+                  <td class="num">{{ fila.tax_txt }}</td>
+                  <td class="num">{{ fila.subtotal_txt }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <p class="area-sub"><strong>Area total</strong> {{ area.subtotal_txt }}</p>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p class="intro">The contractor did not attach a line-item breakdown to this contract.</p>
+      {% endif %}
+    </section>
+
+    {% if c.terminos %}
+    <section class="seccion" id="terminos">
+      <h2>Terms and conditions</h2>
+      <div class="texto-largo">{{ c.terminos }}</div>
+    </section>
     {% endif %}
-    {% if aviso %}<p class="status is-error">{{ aviso }}</p>{% endif %}
+
+    {% if c.notas %}
+    <section class="seccion" id="notas">
+      <h2>Project notes</h2>
+      <div class="texto-largo">{{ c.notas }}</div>
+    </section>
+    {% endif %}
+
+    <section class="seccion" id="totales">
+      <h2>Contract totals</h2>
+      <div class="totales">
+        {% if c.totales %}
+          {% for fila in c.totales %}
+          <div class="fila{% if fila.destacado %} grand{% endif %}"><span>{{ fila.label }}</span><strong>{{ fila.valor }}</strong></div>
+          {% endfor %}
+        {% else %}
+          <div class="fila grand"><span>Contract total</span><strong>{{ c.total_txt or total or "—" }}</strong></div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="firma-zona" id="firmaZona">
+      {% if firmado and firma_imagen %}
+      <div class="firma-guardada">
+        <p><strong>Signed</strong></p>
+        <img src="{{ firma_imagen }}" alt="Client signature">
+        {% if firma_fecha %}<p class="meta">Date: {{ firma_fecha }}</p>{% endif %}
+      </div>
+      {% elif boton %}
+      <form id="firmaForm">
+        <div class="pad">
+          <h2>Client signature</h2>
+          <p>Read the full contract above. Tap the box to enlarge the signature pad, then sign with your finger or mouse.</p>
+          <button type="button" class="pad-preview" id="firmaAbrir" aria-haspopup="dialog">
+            <img id="firmaPreview" hidden alt="Your signature">
+            <span id="firmaHint">Tap to sign</span>
+          </button>
+        </div>
+        <div class="acciones">
+          <button class="btn" type="button" id="firmaClear">Clear</button>
+          <button class="btn-primary" type="submit" id="firmaSubmit">Save signature</button>
+        </div>
+        <p class="status" id="firmaStatus" role="status"></p>
+      </form>
+      {% endif %}
+      {% if aviso %}<p class="status is-error">{{ aviso }}</p>{% endif %}
+    </section>
   </main>
+
   {% if boton %}
+  <div class="firma-modal" id="firmaModal" hidden>
+    <div class="firma-modal-card" role="dialog" aria-modal="true" aria-labelledby="firmaModalTitle">
+      <h2 id="firmaModalTitle">Sign this contract</h2>
+      <p>Draw your signature. The page will not scroll while you are signing.</p>
+      <canvas id="firmaCanvas" width="900" height="360" aria-label="Signature pad"></canvas>
+      <div class="acciones">
+        <button class="btn" type="button" id="firmaModalClear">Clear</button>
+        <button class="btn" type="button" id="firmaModalCancel">Cancel</button>
+        <button class="btn-primary" type="button" id="firmaModalDone">Use this signature</button>
+      </div>
+    </div>
+  </div>
   <script>
     (function(){
       const canvas=document.getElementById('firmaCanvas');
       const status=document.getElementById('firmaStatus');
       const submit=document.getElementById('firmaSubmit');
+      const modal=document.getElementById('firmaModal');
+      const preview=document.getElementById('firmaPreview');
+      const hint=document.getElementById('firmaHint');
       if(!canvas)return;
       const ctx=canvas.getContext('2d');
       let drawing=false;
+      let firmaLista='';
       canvas.dataset.hasInk='0';
+      canvas.style.touchAction='none';
+
       function punto(ev){
         const t=(ev.touches&&ev.touches[0])||(ev.changedTouches&&ev.changedTouches[0])||ev;
         const rect=canvas.getBoundingClientRect();
@@ -84,9 +241,48 @@
         for(let i=3;i<data.length;i+=4){ if(data[i]>8) return false; }
         return true;
       }
+      function mostrarPreview(dataUrl){
+        firmaLista=dataUrl||'';
+        if(preview){
+          if(firmaLista){
+            preview.src=firmaLista;
+            preview.hidden=false;
+            if(hint) hint.hidden=true;
+          }else{
+            preview.removeAttribute('src');
+            preview.hidden=true;
+            if(hint) hint.hidden=false;
+          }
+        }
+      }
+      function abrirModal(){
+        if(!modal)return;
+        modal.hidden=false;
+        modal.classList.add('is-open');
+        document.body.classList.add('firma-activa');
+        canvas.style.touchAction='none';
+        if(firmaLista){
+          const img=new Image();
+          img.onload=function(){
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            ctx.drawImage(img,0,0,canvas.width,canvas.height);
+            canvas.dataset.hasInk='1';
+          };
+          img.src=firmaLista;
+        }
+        try{ canvas.scrollIntoView({behavior:'smooth',block:'center'}); }catch(_){}
+      }
+      function cerrarModal(){
+        if(!modal)return;
+        modal.classList.remove('is-open');
+        modal.hidden=true;
+        document.body.classList.remove('firma-activa');
+        drawing=false;
+      }
       function start(ev){
         ev.preventDefault();
         drawing=true;
+        canvas.style.touchAction='none';
         try{ if(ev.pointerId!=null) canvas.setPointerCapture(ev.pointerId); }catch(_){}
         const p=punto(ev);
         ctx.beginPath();
@@ -98,7 +294,7 @@
         const p=punto(ev);
         ctx.lineTo(p.x,p.y);
         ctx.strokeStyle='#19385f';
-        ctx.lineWidth=2.6;
+        ctx.lineWidth=2.8;
         ctx.lineCap='round';
         ctx.lineJoin='round';
         ctx.stroke();
@@ -108,6 +304,12 @@
         if(!drawing) return;
         drawing=false;
         try{ if(ev&&ev.pointerId!=null) canvas.releasePointerCapture(ev.pointerId); }catch(_){}
+      }
+      function limpiar(){
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        canvas.dataset.hasInk='0';
+        mostrarPreview('');
+        if(status){ status.textContent=''; status.className='status'; }
       }
       if(window.PointerEvent){
         canvas.addEventListener('pointerdown',start);
@@ -122,18 +324,31 @@
         canvas.addEventListener('touchmove',move,{passive:false});
         canvas.addEventListener('touchend',end,{passive:false});
       }
-      document.getElementById('firmaClear')?.addEventListener('click',()=>{
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        canvas.dataset.hasInk='0';
-        if(status){ status.textContent=''; status.className='status'; }
-      });
-      document.getElementById('firmaForm')?.addEventListener('submit', async (ev)=>{
-        ev.preventDefault();
+      canvas.addEventListener('touchmove',function(ev){ ev.preventDefault(); },{passive:false});
+      modal?.addEventListener('touchmove',function(ev){
+        if(ev.target===canvas || canvas.contains(ev.target)) ev.preventDefault();
+      },{passive:false});
+      document.getElementById('firmaAbrir')?.addEventListener('click',abrirModal);
+      document.getElementById('firmaModalCancel')?.addEventListener('click',cerrarModal);
+      document.getElementById('firmaModalClear')?.addEventListener('click',limpiar);
+      document.getElementById('firmaModalDone')?.addEventListener('click',()=>{
         if(canvas.dataset.hasInk!=='1' && vacio()){
           if(status){ status.textContent='Draw your signature first.'; status.className='status is-error'; }
           return;
         }
-        const firma=canvas.toDataURL('image/png');
+        mostrarPreview(canvas.toDataURL('image/png'));
+        cerrarModal();
+      });
+      modal?.addEventListener('click',(ev)=>{ if(ev.target===modal) cerrarModal(); });
+      document.getElementById('firmaClear')?.addEventListener('click',limpiar);
+      document.getElementById('firmaForm')?.addEventListener('submit', async (ev)=>{
+        ev.preventDefault();
+        const firma=firmaLista || ((canvas.dataset.hasInk==='1' || !vacio()) ? canvas.toDataURL('image/png') : '');
+        if(!firma || (canvas.dataset.hasInk!=='1' && !firmaLista && vacio())){
+          if(status){ status.textContent='Draw your signature first.'; status.className='status is-error'; }
+          abrirModal();
+          return;
+        }
         try{
           if(submit){ submit.disabled=true; submit.textContent='Saving...'; }
           if(status){ status.textContent=''; status.className='status'; }
