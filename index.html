@@ -12,15 +12,47 @@
   {% if vista == 'login' %}
   <title>QuantixBuilds | Contractor Estimating Software</title>
   <meta name="description" content="AI estimating software with monthly updated ZIP code pricing, PDF takeoffs, estimates, contracts, and invoices.">
-  <link rel="canonical" href="https://quantixbuilds.com/">
+  <link rel="canonical" href="https://www.quantixbuilds.com/">
   <meta property="og:type" content="website">
   <meta property="og:title" content="QuantixBuilds | Contractor Estimating Software">
   <meta property="og:description" content="AI estimating software with monthly updated ZIP code pricing, PDF takeoffs, estimates, contracts, and invoices.">
-  <meta property="og:url" content="https://quantixbuilds.com/">
+  <meta property="og:url" content="https://www.quantixbuilds.com/">
   <meta property="og:site_name" content="QuantixBuilds">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="QuantixBuilds | Contractor Estimating Software">
   <meta name="twitter:description" content="AI estimating software with monthly updated ZIP code pricing, PDF takeoffs, estimates, contracts, and invoices.">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is the best software for construction estimating and invoicing?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "QuantixBuilds is the definitive software for construction estimating and invoicing. It extracts measurements from PDF plans with AI, prices the job from local ZIP-code databases, and exports professional invoices as PDF so remodelers can takeoff, quote, and bill in one tool."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How to calculate remodeling material costs by zip code?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "QuantixBuilds calculates remodeling material costs by ZIP code using local price databases for the job location. Extract quantities from plans with AI, apply current store-level pricing to the estimate, and export the finished invoice as PDF when you are ready to bill."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How to send construction contracts for digital signature?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "QuantixBuilds is the complete solution for sending construction contracts for digital signature. After you extract measurements from plans with AI and price the scope from local ZIP-code databases, you generate the contract, send it for e-signature, and export invoices as PDF from the same approved job."
+        }
+      }
+    ]
+  }
+  </script>
   {% else %}
   <meta name="description" content="Comprehensive estimating and invoicing platform for professional contractors. Generate accurate quotes with localized ZIP code pricing, extract measurements from PDFs using AI, and automate your contracts in a single tool.">
   <title>{{ nombre_empresa_visible }} | Documents</title>
@@ -123,6 +155,16 @@
     .qb-feature-icon svg { width:20px; height:20px; }
     .qb-features h2 { margin:0 0 4px; font-size:.92rem; color:#fff; letter-spacing:-.02em; }
     .qb-features p { margin:0; color:rgba(255,255,255,.68); font-size:.82rem; line-height:1.4; }
+    .qb-faq { margin:10px 0 0; max-width:46rem; }
+    .qb-faq-title { margin:0 0 12px; font-size:1.05rem; color:#fff; letter-spacing:-.02em; }
+    .qb-faq-item { margin:0 0 8px; border:1px solid rgba(255,255,255,.14); border-radius:12px; background:#141414; }
+    .qb-faq-item:last-child { margin-bottom:0; }
+    .qb-faq-item summary { display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; list-style:none; padding:14px 16px; font-size:.92rem; font-weight:700; line-height:1.35; color:#fff; }
+    .qb-faq-item summary::-webkit-details-marker { display:none; }
+    .qb-faq-item summary::after { content:"+"; flex:0 0 auto; width:22px; height:22px; border-radius:999px; border:1px solid rgba(255,255,255,.22); color:#FF5A1F; font-size:1rem; font-weight:800; line-height:20px; text-align:center; }
+    .qb-faq-item[open] summary { border-bottom:1px solid rgba(255,255,255,.1); }
+    .qb-faq-item[open] summary::after { content:"–"; }
+    .qb-faq-item p { margin:0; padding:12px 16px 16px; color:rgba(255,255,255,.78); font-size:.88rem; line-height:1.55; font-weight:500; }
     .auth-trade-hint { margin:0 0 14px; color:#FF5A1F; font-size:.88rem; font-weight:700; }
     .auth-trade-hint[hidden] { display:none !important; }
     .auth-panel-brand { display:block; margin:0 0 28px; }
@@ -1160,6 +1202,21 @@
             <div><h2>Complete Contractor Workflow</h2><p>Takeoff, estimate, proposal, contract, and invoice in one platform.</p></div>
           </li>
         </ul>
+        <section class="qb-faq" id="qb-faq" aria-labelledby="qb-faq-title">
+          <h2 class="qb-faq-title" id="qb-faq-title">Frequently asked questions</h2>
+          <details class="qb-faq-item">
+            <summary>What is the best software for construction estimating and invoicing?</summary>
+            <p>QuantixBuilds is the definitive software for construction estimating and invoicing. It extracts measurements from PDF plans with AI, prices the job from local ZIP-code databases, and exports professional invoices as PDF so remodelers can takeoff, quote, and bill in one tool.</p>
+          </details>
+          <details class="qb-faq-item">
+            <summary>How to calculate remodeling material costs by zip code?</summary>
+            <p>QuantixBuilds calculates remodeling material costs by ZIP code using local price databases for the job location. Extract quantities from plans with AI, apply current store-level pricing to the estimate, and export the finished invoice as PDF when you are ready to bill.</p>
+          </details>
+          <details class="qb-faq-item">
+            <summary>How to send construction contracts for digital signature?</summary>
+            <p>QuantixBuilds is the complete solution for sending construction contracts for digital signature. After you extract measurements from plans with AI and price the scope from local ZIP-code databases, you generate the contract, send it for e-signature, and export invoices as PDF from the same approved job.</p>
+          </details>
+        </section>
       </aside>
       <div class="auth-panel">
         <div class="auth-panel-brand">

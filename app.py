@@ -353,7 +353,7 @@ def _industrias_seo():
 
 
 def _origin_seo():
-    return "https://" + DOMINIO_APP
+    return "https://www." + DOMINIO_APP
 
 
 _FAVICON_HEAD = (
@@ -373,7 +373,29 @@ def robots_txt():
     cuerpo = (
         "User-agent: *\n"
         "Allow: /\n"
+        "Allow: /login\n"
+        "Allow: /privacidad\n"
         "Allow: /*-software\n"
+        "Disallow: /panel\n"
+        "Disallow: /panel/\n"
+        "Disallow: /estimado\n"
+        "Disallow: /estimate\n"
+        "Disallow: /contrato\n"
+        "Disallow: /contract\n"
+        "Disallow: /factura\n"
+        "Disallow: /invoice\n"
+        "Disallow: /cotizador\n"
+        "Disallow: /quote\n"
+        "Disallow: /historial\n"
+        "Disallow: /history\n"
+        "Disallow: /pago\n"
+        "Disallow: /pago/\n"
+        "Disallow: /checkout\n"
+        "Disallow: /planes\n"
+        "Disallow: /suscripcion\n"
+        "Disallow: /activar\n"
+        "Disallow: /restablecer\n"
+        "Disallow: /aceptar/\n"
         "Disallow: /api/\n"
         "Disallow: /auth/\n"
         f"Sitemap: {origin}/sitemap.xml\n"
@@ -386,13 +408,22 @@ def sitemap_xml():
     from seo_industrias import fecha_lastmod
     origin = _origin_seo()
     lastmod = fecha_lastmod()
-    urls = [
+    vistos = set()
+    urls = []
+    for path, changefreq, priority in (
         ("/", "weekly", "1.0"),
-        ("/privacidad", "yearly", "0.3"),
         ("/login", "weekly", "0.6"),
-    ]
-    for fila in _industrias_seo():
-        urls.append((fila["path"], "weekly", "0.8"))
+        ("/privacidad", "yearly", "0.3"),
+    ):
+        if path not in vistos:
+            vistos.add(path)
+            urls.append((path, changefreq, priority))
+    for fila in _industrias_seo() or ():
+        path = str((fila or {}).get("path") or "").strip()
+        if not path.startswith("/") or path in vistos:
+            continue
+        vistos.add(path)
+        urls.append((path, "weekly", "0.8"))
     partes = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
@@ -409,7 +440,9 @@ def sitemap_xml():
         ])
     partes.append("</urlset>")
     xml = "\n".join(partes) + "\n"
-    return Response(xml, mimetype="application/xml; charset=utf-8")
+    resp = Response(xml, mimetype="application/xml")
+    resp.headers["Content-Type"] = "application/xml"
+    return resp
 
 
 _ETIQUETA_ACCION_DEMO = {
@@ -3798,9 +3831,9 @@ def _canonico_quantixbuilds():
     if request.method not in ("GET", "HEAD"):
         return None
     host = _host_publico()
-    if host != "www." + DOMINIO_APP:
+    if host != DOMINIO_APP:
         return None
-    destino = "https://" + DOMINIO_APP + request.full_path
+    destino = "https://www." + DOMINIO_APP + request.full_path
     if destino.endswith("?") and not request.query_string:
         destino = destino[:-1]
     return redirect(destino, code=301)

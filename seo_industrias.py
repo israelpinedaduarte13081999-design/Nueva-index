@@ -105,7 +105,7 @@ def relacionadas(slug, limite=10, sb=None):
     return otras[: max(0, int(limite or 0))]
 
 
-def url_industria(slug, origin="https://quantixbuilds.com", sb=None):
+def url_industria(slug, origin="https://www.quantixbuilds.com", sb=None):
     fila = industria_por_slug(slug, sb)
     if not fila:
         return ""
