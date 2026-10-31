@@ -77,6 +77,8 @@ TABLA_FACTORES = "factores_regionales_usa"
 TABLA_FALTANTES = "items_faltantes"
 TABLA_HISTORIAL = "historial_estimados"
 TABLA_CONTRATISTAS = "contratistas"
+TABLA_FEEDBACK = "feedback"
+_SQL_FEEDBACK = "Ejecuta feedback.sql en el editor SQL de Supabase."
 COLUMNAS_CATALOGO_BASE = "id,codigo,descripcion,unidad,categoria,precio_base,precio_material,precio_mano_obra,precio_remocion"
 COLUMNAS_CATALOGO = COLUMNAS_CATALOGO_BASE + ",image_url,last_updated,proveedor,product_url"
 _SQL_MULTITENANT = "Ejecuta multitenant.sql en el editor SQL de Supabase."
@@ -305,7 +307,7 @@ def _bloquear_api_si_expirada():
     path = request.path or ""
     if not path.startswith("/api/"):
         return None
-    if path.startswith("/api/contratistas") or path.startswith("/api/pagos"):
+    if path.startswith("/api/contratistas") or path.startswith("/api/pagos") or path.startswith("/api/feedback"):
         return None
     if not _token_contratista_solicitud():
         return None
@@ -375,6 +377,10 @@ def robots_txt():
         "Allow: /\n"
         "Allow: /login\n"
         "Allow: /privacidad\n"
+        "Allow: /pricing\n"
+        "Allow: /construction-estimates\n"
+        "Allow: /digital-signatures\n"
+        "Allow: /zip-code-pricing\n"
         "Allow: /*-software\n"
         "Disallow: /panel\n"
         "Disallow: /panel/\n"
@@ -405,6 +411,7 @@ def robots_txt():
 
 @app.route("/sitemap.xml")
 def sitemap_xml():
+    from seo_esquemas import urls_sitemap_caracteristicas
     from seo_industrias import fecha_lastmod
     origin = _origin_seo()
     lastmod = fecha_lastmod()
@@ -412,6 +419,7 @@ def sitemap_xml():
     urls = []
     for path, changefreq, priority in (
         ("/", "weekly", "1.0"),
+        *urls_sitemap_caracteristicas(),
         ("/login", "weekly", "0.6"),
         ("/privacidad", "yearly", "0.3"),
     ):
@@ -1028,14 +1036,67 @@ def _snapshot_demo_estimado(slug):
         return None
 
 
+def _landing_caracteristica(slug):
+    from seo_esquemas import caracteristica_por_slug, howto_visible, listar_caracteristicas, schema_howto
+    fila = caracteristica_por_slug(slug)
+    if not fila:
+        return Response("Page not found", status=404, mimetype="text/plain; charset=utf-8")
+    canonical = _origin_seo() + fila["path"]
+    howto = howto_visible(fila["howto_name"], fila["howto_description"], fila["pasos"])
+    json_ld = json.dumps({
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebPage",
+                "url": canonical,
+                "name": fila["title"],
+                "description": fila["meta"],
+                "inLanguage": "en-US",
+            },
+            schema_howto(howto["name"], howto["description"], canonical, howto["pasos"]),
+        ],
+    }, ensure_ascii=False)
+    otras = [item for item in listar_caracteristicas() if item["slug"] != fila["slug"]]
+    return render_template(
+        "caracteristica.html",
+        feature=fila,
+        howto=howto,
+        canonical=canonical,
+        relacionadas=otras,
+        json_ld=json_ld,
+    )
+
+
+@app.route("/pricing")
+def landing_pricing():
+    return _landing_caracteristica("pricing")
+
+
+@app.route("/construction-estimates")
+def landing_construction_estimates():
+    return _landing_caracteristica("construction-estimates")
+
+
+@app.route("/digital-signatures")
+def landing_digital_signatures():
+    return _landing_caracteristica("digital-signatures")
+
+
+@app.route("/zip-code-pricing")
+def landing_zip_code_pricing():
+    return _landing_caracteristica("zip-code-pricing")
+
+
 @app.route("/<industry>-software")
 def landing_industria(industry):
+    from seo_esquemas import howto_industria, schema_howto
     from seo_industrias import industria_por_slug, relacionadas
     sb = _supabase_client()
     fila = industria_por_slug(industry, sb)
     if not fila:
         return Response("Page not found", status=404, mimetype="text/plain; charset=utf-8")
     canonical = _origin_seo() + fila["path"]
+    howto = howto_industria(fila, canonical)
     json_ld = json.dumps({
         "@context": "https://schema.org",
         "@graph": [
@@ -1066,11 +1127,13 @@ def landing_industria(industry):
                 "description": fila["meta"],
                 "inLanguage": "en-US",
             },
+            schema_howto(howto["name"], howto["description"], canonical, howto["pasos"]),
         ],
     }, ensure_ascii=False)
     return render_template(
         "industria.html",
         industria=fila,
+        howto=howto,
         canonical=canonical,
         relacionadas=relacionadas(fila["slug"], 19, sb),
         json_ld=json_ld,
@@ -1110,12 +1173,17 @@ def home():
         if not industrias_seo:
             from seo_industrias import listar_industrias as _listar_json
             industrias_seo = list(_listar_json(None) or ())
+    video_ld = ""
+    if vista == "login":
+        from seo_esquemas import schema_video_demo
+        video_ld = json.dumps(schema_video_demo(_origin_seo()), ensure_ascii=False)
     return render_template(
         "index.html",
         nombre_empresa=nombre,
         nombre_empresa_visible=nombre or "Your company",
         vista=vista,
         industrias_seo=industrias_seo,
+        video_ld=video_ld,
     )
 
 
@@ -3358,6 +3426,46 @@ def api_items_faltantes():
         return jsonify({"error": str(err)}), 500
 
 
+@app.route("/api/feedback", methods=["POST"])
+def api_feedback():
+    contratista, error = _exigir_contratista()
+    if error:
+        return error
+    payload = request.get_json(silent=True) or {}
+    try:
+        calificacion = int(payload.get("calificacion") or payload.get("rating") or 0)
+    except (TypeError, ValueError):
+        calificacion = 0
+    if calificacion < 1 or calificacion > 5:
+        return jsonify({"error": "Choose a rating from 1 to 5."}), 400
+    comentario = str(payload.get("comentario") or payload.get("comment") or "").strip()[:2000]
+    sb = _supabase_client()
+    if sb is None:
+        return jsonify({"error": "Could not save feedback right now."}), 503
+    fila = {
+        "calificacion": calificacion,
+        "comentario": comentario,
+        "email": str(contratista.get("email") or "").strip().lower() or None,
+    }
+    cid = contratista.get("id")
+    if cid:
+        fila["contratista_id"] = cid
+    uid = contratista.get("user_id")
+    if uid:
+        fila["user_id"] = uid
+    try:
+        res = sb.table(TABLA_FEEDBACK).insert(fila).execute()
+        row = (list(res.data or []) or [None])[0] or {}
+        return jsonify({"ok": True, "id": row.get("id")}), 201
+    except Exception as err:
+        detalle = str(err)
+        if re.search(r"feedback|PGRST205|does not exist|schema cache", detalle, re.I):
+            print("--> Falta crear la tabla feedback en Supabase.", _SQL_FEEDBACK)
+            return jsonify({"error": "Feedback table is not ready. Run feedback.sql in Supabase."}), 503
+        print(f"--> feedback: {type(err).__name__}")
+        return jsonify({"error": "Could not save feedback right now."}), 503
+
+
 _SQL_HISTORIAL_ESTIMADOS = """
 create table if not exists public.historial_estimados (
   id uuid primary key default gen_random_uuid(),
@@ -5529,8 +5637,16 @@ def _guardar_historial_tabla(sb, contratista, fila):
         fila["token_aceptacion"] = token_actual or str(uuid.uuid4())
     elif existente and existente.get("token_aceptacion"):
         fila["token_aceptacion"] = existente.get("token_aceptacion")
-    if existente and str(existente.get("estado") or "").lower() == "accepted":
-        fila["estado"] = "accepted"
+    if existente and _contrato_esta_firmado(existente.get("estado")):
+        fila["estado"] = existente.get("estado") or "Firmado"
+        firmas_prev = existente.get("firmas") if isinstance(existente.get("firmas"), dict) else {}
+        firmas_nuevas = fila.get("firmas") if isinstance(fila.get("firmas"), dict) else {}
+        if firmas_prev.get("cliente") and not firmas_nuevas.get("cliente"):
+            fila["firmas"] = firmas_prev
+        elif firmas_prev or firmas_nuevas:
+            mezcladas = dict(firmas_prev)
+            mezcladas.update(firmas_nuevas)
+            fila["firmas"] = mezcladas
 
     def _escribir(metodo, payload, ident=None):
         query = getattr(sb.table(TABLA_HISTORIAL), metodo)(payload)
@@ -5642,43 +5758,42 @@ def obtener_historial_tenant(contratista, ident):
     return _buscar_historial_por_id(sb, ident, contratista["id"])
 
 
-def leer_contrato_publico(token_aceptacion):
-    if not _es_uuid(token_aceptacion):
-        return None
-    sb = _supabase_client()
-    if sb is None:
-        raise RuntimeError("Supabase no configurado")
+_RE_FIRMA_PNG = re.compile(r"^data:image/png;base64,[A-Za-z0-9+/=\s]+$")
+_ESTADOS_FIRMADO = {"firmado", "signed", "accepted"}
+
+
+def _contrato_esta_firmado(estado):
+    return str(estado or "").strip().lower() in _ESTADOS_FIRMADO
+
+
+def _ip_solicitud():
+    forwarded = str(request.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+    if forwarded:
+        return forwarded[:64]
+    real = str(request.headers.get("X-Real-IP") or "").strip()
+    if real:
+        return real[:64]
+    return str(request.remote_addr or "")[:64]
+
+
+def _firma_base64_valida(valor):
+    texto = str(valor or "").strip()
+    if not _RE_FIRMA_PNG.match(texto):
+        return ""
+    if len(texto) < 800 or len(texto) > 400000:
+        return ""
     try:
-        data = _rpc_tenant(sb, "leer_contrato_publico", {"p_token": str(token_aceptacion)})
-        return _dict_rpc(data)
-    except Exception as err:
-        if not _error_sin_funcion_tenant(err):
-            raise
-    res = (
-        sb.table(TABLA_HISTORIAL)
-        .select("*")
-        .eq("token_aceptacion", str(token_aceptacion))
-        .limit(1)
-        .execute()
-    )
-    rows = list(res.data or [])
-    if not rows:
-        return None
-    doc = rows[0]
-    if str(doc.get("tipo") or "").lower() not in ("contract", "contrato"):
-        return None
-    contratista = None
-    if doc.get("contratista_id"):
-        cres = (
-            sb.table(TABLA_CONTRATISTAS)
-            .select("id,email,nombre_empresa")
-            .eq("id", doc["contratista_id"])
-            .limit(1)
-            .execute()
-        )
-        crows = list(cres.data or [])
-        contratista = crows[0] if crows else None
+        raw = base64.b64decode(texto.split(",", 1)[1], validate=False)
+    except Exception:
+        return ""
+    if len(raw) < 80 or raw[:8] != b"\x89PNG\r\n\x1a\n":
+        return ""
+    return texto
+
+
+def _publico_desde_historial(doc, contratista=None):
     cliente = doc.get("cliente") if isinstance(doc.get("cliente"), dict) else {}
+    firmas = doc.get("firmas") if isinstance(doc.get("firmas"), dict) else {}
     return {
         "id": doc.get("id"),
         "folio": doc.get("folio"),
@@ -5687,6 +5802,9 @@ def leer_contrato_publico(token_aceptacion):
         "total": doc.get("total"),
         "estado": doc.get("estado"),
         "fecha": doc.get("fecha"),
+        "firmas": firmas,
+        "firma_ip": doc.get("firma_ip") or firmas.get("clienteIp") or "",
+        "firma_fecha": doc.get("firma_fecha") or firmas.get("clienteFecha") or "",
         "cliente_email": cliente.get("email") or "",
         "contratista_id": doc.get("contratista_id"),
         "contratista_email": (contratista or {}).get("email") or "",
@@ -5694,29 +5812,91 @@ def leer_contrato_publico(token_aceptacion):
     }
 
 
-def marcar_contrato_aceptado(token_aceptacion):
+def leer_contrato_publico(token_aceptacion):
     if not _es_uuid(token_aceptacion):
         return None
     sb = _supabase_client()
     if sb is None:
         raise RuntimeError("Supabase no configurado")
+    res = (
+        sb.table(TABLA_HISTORIAL)
+        .select("*")
+        .eq("token_aceptacion", str(token_aceptacion))
+        .limit(1)
+        .execute()
+    )
+    rows = list(res.data or [])
+    if rows:
+        doc = rows[0]
+        if str(doc.get("tipo") or "").lower() not in ("contract", "contrato"):
+            return None
+        contratista = None
+        if doc.get("contratista_id"):
+            cres = (
+                sb.table(TABLA_CONTRATISTAS)
+                .select("id,email,nombre_empresa")
+                .eq("id", doc["contratista_id"])
+                .limit(1)
+                .execute()
+            )
+            crows = list(cres.data or [])
+            contratista = crows[0] if crows else None
+        return _publico_desde_historial(doc, contratista)
     try:
-        data = _rpc_tenant(sb, "marcar_contrato_aceptado", {"p_token": str(token_aceptacion)})
+        data = _rpc_tenant(sb, "leer_contrato_publico", {"p_token": str(token_aceptacion)})
         return _dict_rpc(data)
     except Exception as err:
         if not _error_sin_funcion_tenant(err):
             raise
+    return None
+
+
+def marcar_contrato_firmado(token_aceptacion, firma_b64, ip="", metodo="remoto"):
+    if not _es_uuid(token_aceptacion):
+        return None
+    firma = _firma_base64_valida(firma_b64)
+    if not firma:
+        raise ValueError("Draw a valid signature before saving.")
+    sb = _supabase_client()
+    if sb is None:
+        raise RuntimeError("Supabase no configurado")
     actual = leer_contrato_publico(token_aceptacion)
     if not actual:
         return None
-    already = str(actual.get("estado") or "").lower() == "accepted"
-    if not already:
-        sb.table(TABLA_HISTORIAL).update({
-            "estado": "accepted",
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).eq("id", actual["id"]).eq("token_aceptacion", str(token_aceptacion)).execute()
-    actual["already"] = already
-    actual["estado"] = "accepted"
+    already = _contrato_esta_firmado(actual.get("estado")) and bool((actual.get("firmas") or {}).get("cliente"))
+    if already:
+        actual["already"] = True
+        return actual
+    ahora = datetime.now(timezone.utc)
+    ahora_txt = ahora.isoformat()
+    firmas = dict(actual.get("firmas") or {}) if isinstance(actual.get("firmas"), dict) else {}
+    firmas.update({
+        "cliente": firma,
+        "clienteFecha": ahora_txt,
+        "clienteIp": str(ip or "")[:64],
+        "clienteMetodo": str(metodo or "remoto")[:32],
+    })
+    payload = {
+        "estado": "Firmado",
+        "firmas": firmas,
+        "updated_at": ahora_txt,
+    }
+    extra = dict(payload)
+    extra["firma_ip"] = str(ip or "")[:64]
+    extra["firma_fecha"] = ahora_txt
+    query = sb.table(TABLA_HISTORIAL).update(extra).eq("id", actual["id"]).eq("token_aceptacion", str(token_aceptacion))
+    try:
+        query.execute()
+    except Exception as err:
+        if "firma_ip" in str(err) or "firma_fecha" in str(err) or "42703" in str(err):
+            sb.table(TABLA_HISTORIAL).update(payload).eq("id", actual["id"]).eq("token_aceptacion", str(token_aceptacion)).execute()
+        else:
+            raise
+    actual.update(payload)
+    actual["firma_ip"] = extra["firma_ip"]
+    actual["firma_fecha"] = ahora_txt
+    actual["already"] = False
+    actual["estado"] = "Firmado"
     return actual
 
 
@@ -5730,20 +5910,13 @@ def revertir_aceptacion_contrato(token_aceptacion, estado_anterior):
     if sb is None:
         return False
     try:
-        _rpc_tenant(sb, "revertir_aceptacion_contrato", {
-            "p_token": str(token_aceptacion),
-            "p_estado": estado,
-        })
-        return True
-    except Exception as err:
-        if not _error_sin_funcion_tenant(err):
-            print(f"--> revertir aceptacion: {err}")
+        actual = leer_contrato_publico(token_aceptacion)
+        if not actual:
             return False
-    try:
         sb.table(TABLA_HISTORIAL).update({
             "estado": estado,
             "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).eq("token_aceptacion", str(token_aceptacion)).eq("estado", "accepted").execute()
+        }).eq("id", actual["id"]).eq("token_aceptacion", str(token_aceptacion)).execute()
         return True
     except Exception as err:
         print(f"--> revertir aceptacion: {err}")
@@ -11975,7 +12148,7 @@ def _cuerpo_html_estimado(tipo, empresa, enlace_aceptacion=None):
             "<p style=\"margin:22px 0;\">"
             f"<a href=\"{url}\" style=\"display:inline-block;background:#0d47a1;color:#ffffff;"
             "text-decoration:none;padding:12px 22px;border-radius:6px;font-weight:700;\">"
-            "Aceptar contrato</a></p>"
+            "Sign contract / Firmar contrato</a></p>"
             "<p style=\"margin:0 0 14px;color:#475569;font-size:13px;\">"
             "Si el botón no abre, copia este enlace en el navegador:<br>"
             f"<span style=\"word-break:break-all;\">{url}</span></p>"
@@ -12002,7 +12175,7 @@ def _texto_documento_cliente(tipo, empresa, enlace_aceptacion=None):
         "El documento va adjunto en este correo.",
     ]
     if enlace_aceptacion and nombre_doc == "contrato":
-        lineas.extend(["", f"Aceptar contrato: {enlace_aceptacion}"])
+        lineas.extend(["", f"Sign contract: {enlace_aceptacion}"])
     lineas.extend(["", "Gracias,", empresa, ""])
     return "\n".join(lineas)
 
@@ -12182,6 +12355,79 @@ def _url_aceptacion(token):
     return f"{base}/aceptar/{token}"
 
 
+def _firmar_contrato_guardado(row, firma_b64, ip="", metodo="en_persona"):
+    firma = _firma_base64_valida(firma_b64)
+    if not firma:
+        raise ValueError("Draw a valid signature before saving.")
+    if str((row or {}).get("tipo") or "").lower() not in ("contract", "contrato"):
+        raise ValueError("Only contracts can be signed.")
+    token = row.get("token_aceptacion")
+    if token:
+        return marcar_contrato_firmado(token, firma, ip, metodo)
+    sb = _supabase_client()
+    if sb is None:
+        raise RuntimeError("Supabase no configurado")
+    ahora = datetime.now(timezone.utc).isoformat()
+    firmas = dict(row.get("firmas") or {}) if isinstance(row.get("firmas"), dict) else {}
+    firmas.update({
+        "cliente": firma,
+        "clienteFecha": ahora,
+        "clienteIp": str(ip or "")[:64],
+        "clienteMetodo": str(metodo or "en_persona")[:32],
+    })
+    payload = {"estado": "Firmado", "firmas": firmas, "updated_at": ahora}
+    extra = dict(payload)
+    extra["firma_ip"] = str(ip or "")[:64]
+    extra["firma_fecha"] = ahora
+    try:
+        sb.table(TABLA_HISTORIAL).update(extra).eq("id", row["id"]).execute()
+    except Exception as err:
+        if "firma_ip" in str(err) or "firma_fecha" in str(err) or "42703" in str(err):
+            sb.table(TABLA_HISTORIAL).update(payload).eq("id", row["id"]).execute()
+        else:
+            raise
+    row = dict(row)
+    row.update(payload)
+    row["already"] = False
+    return row
+
+
+def _respuesta_pagina_firma(datos, titulo, mensaje, boton=False, aviso="", status=200, as_json=False):
+    if as_json:
+        if status >= 400:
+            return jsonify({"error": mensaje or aviso or titulo}), status
+        return jsonify({
+            "ok": True,
+            "estado": (datos or {}).get("estado") or "Firmado",
+            "id": (datos or {}).get("id"),
+            "folio": (datos or {}).get("folio"),
+            "already": bool((datos or {}).get("already")),
+        }), status
+    total = (datos or {}).get("total")
+    monto = ""
+    if total is not None and total != "":
+        try:
+            monto = f"${float(total):,.2f}"
+        except (TypeError, ValueError):
+            monto = str(total)
+    firmas = (datos or {}).get("firmas") if isinstance((datos or {}).get("firmas"), dict) else {}
+    pagina = render_template(
+        "aceptar.html",
+        titulo=titulo,
+        mensaje=mensaje,
+        empresa=(datos or {}).get("nombre_empresa") or "",
+        folio=(datos or {}).get("folio") or "",
+        cliente=(datos or {}).get("cliente_nombre") or "",
+        total=monto,
+        boton=boton,
+        aviso=aviso,
+        firmado=_contrato_esta_firmado((datos or {}).get("estado")),
+        firma_imagen=firmas.get("cliente") or "",
+        firma_fecha=(datos or {}).get("firma_fecha") or firmas.get("clienteFecha") or "",
+    )
+    return Response(pagina, status=status, mimetype="text/html", headers={"Cache-Control": "no-store"})
+
+
 def _contratista_para_envio(data):
     contratista, error = _exigir_contratista()
     if error:
@@ -12357,72 +12603,134 @@ def api_enviar_estimado():
     })
 
 
+@app.route("/api/contratos/firmar", methods=["POST"])
+def api_firmar_contrato_panel():
+    contratista, error = _exigir_contratista()
+    if error:
+        return error
+    data = request.get_json(silent=True) or {}
+    ident = str(data.get("id") or data.get("documentId") or "").strip()
+    if not ident:
+        return jsonify({"error": "Save the contract before saving the signature."}), 400
+    try:
+        row = obtener_historial_tenant(contratista, ident)
+    except Exception as err:
+        return _respuesta_tenant(err)
+    if not row:
+        return jsonify({"error": "Contract not found for this contractor."}), 404
+    try:
+        datos = _firmar_contrato_guardado(row, data.get("firma") or data.get("signature"), _ip_solicitud(), "en_persona")
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+    except Exception as err:
+        print(f"--> firmar contrato panel: {type(err).__name__}")
+        return jsonify({"error": "Could not save the signature."}), 503
+    return jsonify({
+        "ok": True,
+        "id": (datos or {}).get("id") or row.get("id"),
+        "estado": (datos or {}).get("estado") or "Firmado",
+        "already": bool((datos or {}).get("already")),
+    }), 201 if not (datos or {}).get("already") else 200
+
+
+@app.route("/api/contratos/enviar-firma", methods=["POST"])
+def api_enviar_firma():
+    data = request.get_json(silent=True) or {}
+    data = dict(data)
+    data["type"] = "contract"
+    destino = str(data.get("to") or data.get("email") or data.get("clientEmail") or "").strip()
+    if not _correo_valido(destino):
+        return jsonify({"error": "Add a valid client email before sending."}), 400
+    contratista, error = _contratista_para_envio(data)
+    if error:
+        return error
+    try:
+        enlace = _enlace_aceptacion_documento(contratista, data.get("id") or data.get("documentId"), "contract")
+    except Exception as err:
+        return jsonify({"error": str(err)}), 400
+    empresa = _sanear_nombre_remitente(contratista.get("nombre_empresa")) or "QuantixBuilds"
+    folio = str(data.get("folio") or data.get("quote") or data.get("number") or "").strip()
+    asunto = _sanear_asunto(f"Sign your contract — {empresa}" + (f" — {folio}" if folio else ""))
+    import html as html_lib
+    url = html_lib.escape(str(enlace), quote=True)
+    empresa_html = html_lib.escape(empresa)
+    html_body = (
+        "<html><body style=\"margin:0;padding:24px;background:#ffffff;font-family:Arial,Helvetica,sans-serif;"
+        "color:#1e293b;font-size:15px;line-height:1.6;\">"
+        "<p style=\"margin:0 0 14px;\">Hello,</p>"
+        f"<p style=\"margin:0 0 14px;\"><strong>{empresa_html}</strong> sent you a construction contract to sign.</p>"
+        "<p style=\"margin:0 0 14px;\">Open the link on your phone or computer, draw your signature, and tap Save signature.</p>"
+        "<p style=\"margin:22px 0;\">"
+        f"<a href=\"{url}\" style=\"display:inline-block;background:#0d47a1;color:#ffffff;"
+        "text-decoration:none;padding:12px 22px;border-radius:6px;font-weight:700;\">"
+        "Sign contract</a></p>"
+        "<p style=\"margin:0 0 14px;color:#475569;font-size:13px;\">"
+        f"If the button does not open, copy this link:<br><span style=\"word-break:break-all;\">{url}</span></p>"
+        f"<p style=\"margin:0;\">Thank you,<br><strong>{empresa_html}</strong></p>"
+        "</body></html>"
+    )
+    texto = (
+        f"Hello,\n\n{empresa} sent you a construction contract to sign.\n"
+        f"Open this link, draw your signature, and save it:\n{enlace}\n\nThank you,\n{empresa}\n"
+    )
+    try:
+        _enviar_correo_html(
+            destino,
+            asunto,
+            html_body,
+            texto,
+            sender_name=empresa,
+            reply_to=str(contratista.get("email") or "").strip(),
+        )
+    except Exception as err:
+        print(f"--> enviar firma: {err}")
+        return jsonify({"error": "Could not send the signature email."}), 502
+    print(f"--> enlace firma enviado a={destino}")
+    return jsonify({"ok": True, "to": destino, "enlace_firma": enlace, "subject": asunto})
+
+
 @app.route("/aceptar/<token_aceptacion>", methods=["GET", "POST"])
 def aceptar_contrato_publico(token_aceptacion):
     token = str(token_aceptacion or "").strip()
+    quiere_json = "application/json" in str(request.headers.get("Accept") or "").lower() or request.is_json
     if not _es_uuid(token):
-        pagina = _html_aceptacion("Contrato no encontrado", "Este enlace de aceptación no es válido.")
-        return Response(pagina, status=404, mimetype="text/html")
+        return _respuesta_pagina_firma(None, "Contract not found", "This signature link is not valid.", status=404, as_json=quiere_json)
     try:
-        if request.method == "GET":
-            datos = leer_contrato_publico(token)
-        else:
-            previo = leer_contrato_publico(token)
-            datos = marcar_contrato_aceptado(token)
+        datos = leer_contrato_publico(token)
     except Exception as err:
         print(f"--> aceptar contrato: {err}")
         if _error_sin_funcion_tenant(err):
             _aviso_multitenant(err)
-            pagina = _html_aceptacion("No se pudo abrir el contrato", _SQL_MULTITENANT)
-        else:
-            pagina = _html_aceptacion("No se pudo abrir el contrato", "Inténtalo de nuevo en unos minutos.")
-        return Response(pagina, status=503, mimetype="text/html")
+            return _respuesta_pagina_firma(None, "Could not open the contract", _SQL_MULTITENANT, status=503, as_json=quiere_json)
+        return _respuesta_pagina_firma(None, "Could not open the contract", "Try again in a few minutes.", status=503, as_json=quiere_json)
     if not datos:
-        pagina = _html_aceptacion("Contrato no encontrado", "Este enlace no corresponde a un contrato pendiente.")
-        return Response(pagina, status=404, mimetype="text/html")
-    empresa = datos.get("nombre_empresa") or ""
-    folio = datos.get("folio") or ""
-    cliente = datos.get("cliente_nombre") or ""
-    total = datos.get("total")
-    aviso = ""
-    if request.method == "POST" and not datos.get("already"):
+        return _respuesta_pagina_firma(None, "Contract not found", "This link does not match a pending contract.", status=404, as_json=quiere_json)
+    if request.method == "GET":
+        if _contrato_esta_firmado(datos.get("estado")) and (datos.get("firmas") or {}).get("cliente"):
+            return _respuesta_pagina_firma(datos, "Contract signed", "This contract has already been signed.", boton=False)
+        return _respuesta_pagina_firma(
+            datos,
+            "Sign contract",
+            "Review the contract details, draw your signature, and tap Save signature.",
+            boton=True,
+        )
+    payload = request.get_json(silent=True) or request.form or {}
+    previo = datos
+    try:
+        datos = marcar_contrato_firmado(token, payload.get("firma") or payload.get("signature"), _ip_solicitud(), "remoto")
+    except ValueError as err:
+        return _respuesta_pagina_firma(previo, "Sign contract", str(err), boton=True, aviso=str(err), status=400, as_json=quiere_json)
+    except Exception as err:
+        print(f"--> firmar contrato remoto: {type(err).__name__}")
+        return _respuesta_pagina_firma(previo, "Could not save the signature", "Try again in a few minutes.", boton=True, status=503, as_json=quiere_json)
+    if not datos:
+        return _respuesta_pagina_firma(None, "Contract not found", "This link does not match a pending contract.", status=404, as_json=quiere_json)
+    if not datos.get("already"):
         try:
             _notificar_aceptacion_contratista(datos)
         except Exception as err:
-            print(f"--> notificar aceptacion: {err}")
-            estado_previo = str((previo or {}).get("estado") or "pending")
-            revertir_aceptacion_contrato(token, estado_previo)
-            pagina = _html_aceptacion(
-                "No se pudo completar la aceptación",
-                "El contrato no se marcó como aceptado porque falló el aviso al contratista. Inténtalo de nuevo.",
-                empresa=empresa,
-                folio=folio,
-                cliente=cliente,
-                total=total,
-                boton=True,
-                token=token,
-            )
-            return Response(pagina, status=502, mimetype="text/html")
-        titulo = "Contrato aceptado"
-        mensaje = "Gracias. El contratista ya recibió la confirmación."
-    elif str(datos.get("estado") or "").lower() == "accepted":
-        titulo = "Contrato ya aceptado"
-        mensaje = "Este contrato ya había sido aceptado. No hace falta volver a confirmarlo."
-    else:
-        titulo = "Aceptar contrato"
-        mensaje = "Revisa los datos y confirma con el botón si estás de acuerdo."
-    pagina = _html_aceptacion(
-        titulo,
-        mensaje,
-        empresa=empresa,
-        folio=folio,
-        cliente=cliente,
-        total=total,
-        boton=request.method == "GET" and str(datos.get("estado") or "").lower() != "accepted",
-        token=token,
-        aviso=aviso,
-    )
-    return Response(pagina, mimetype="text/html", headers={"Cache-Control": "no-store"})
+            print(f"--> notificar firma: {err}")
+    return _respuesta_pagina_firma(datos, "Contract signed", "Thank you. The contractor has been notified.", boton=False, as_json=quiere_json)
 
 
 def _precalentar_busquedas():

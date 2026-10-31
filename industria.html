@@ -67,6 +67,18 @@
     body.landing-qb article { background:#141414; border-color:rgba(255,255,255,.1); }
     body.landing-qb .chip { background:#141414; border-color:rgba(255,255,255,.14); color:rgba(255,255,255,.82); }
     body.landing-qb .related a { color:#FF5A1F; }
+    .howto { max-width:920px; margin:0 auto; padding:8px 20px 40px; }
+    .howto h2 { margin:0 0 10px; font-size:1.2rem; letter-spacing:-.03em; color:var(--ink); }
+    .howto > p { margin:0 0 18px; color:#334155; line-height:1.55; }
+    .howto ol { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:12px; }
+    .howto li { background:#fff; border:1px solid var(--line); border-radius:14px; padding:18px 18px 16px; }
+    .howto li strong { display:block; margin:0 0 6px; font-size:1.02rem; color:var(--ink); }
+    .howto li p { margin:0; color:#475569; line-height:1.55; font-size:.95rem; }
+    body.landing-qb .howto h2 { color:#fff; }
+    body.landing-qb .howto > p { color:rgba(255,255,255,.78); }
+    body.landing-qb .howto li { background:#141414; border-color:rgba(255,255,255,.1); }
+    body.landing-qb .howto li strong { color:#fff; }
+    body.landing-qb .howto li p { color:rgba(255,255,255,.78); }
     body.landing-qb footer { background:#0b0b0b; border-top-color:rgba(255,255,255,.12); color:rgba(255,255,255,.55); }
     body.landing-qb footer a { color:rgba(255,255,255,.7); }
     body.landing-qb .trade-icon { display:block; width:56px; height:56px; margin:0 0 16px; }
@@ -149,6 +161,21 @@
       <a class="btn btn-ghost" href="{{ login_href }}">See invoices and contracts</a>
     </div>
   </section>
+  {% if howto %}
+  <section class="howto" id="howto" aria-labelledby="howto-title">
+    <p class="kicker">How it works</p>
+    <h2 id="howto-title">{{ howto.name }}</h2>
+    <p>{{ howto.description }}</p>
+    <ol>
+      {% for paso in howto.pasos %}
+      <li>
+        <strong>{{ paso.name }}</strong>
+        <p>{{ paso.text }}</p>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+  {% endif %}
   <section class="grid">
     <article>
       <h2>{{ industria.name }} estimates</h2>
@@ -267,6 +294,10 @@
   <footer>
     <nav>
       <a href="/">Home</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/construction-estimates">Estimates</a>
+      <a href="/digital-signatures">Digital signatures</a>
+      <a href="/zip-code-pricing">ZIP-code pricing</a>
       <a href="{{ login_href }}">Log in</a>
       <a href="/privacidad">Privacy Policy</a>
       <a href="/sitemap.xml">Sitemap</a>

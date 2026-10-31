@@ -53,6 +53,7 @@
     ]
   }
   </script>
+  {% if video_ld %}<script type="application/ld+json">{{ video_ld|safe }}</script>{% endif %}
   {% else %}
   <meta name="description" content="Comprehensive estimating and invoicing platform for professional contractors. Generate accurate quotes with localized ZIP code pricing, extract measurements from PDFs using AI, and automate your contracts in a single tool.">
   <title>{{ nombre_empresa_visible }} | Documents</title>
@@ -304,6 +305,22 @@
     .upgrade-modal-panel h2 { margin:0 0 10px; color:#0f172a; font-size:1.35rem; }
     .upgrade-modal-panel p { margin:0 0 22px; color:#475569; font-size:.98rem; line-height:1.5; }
     .upgrade-modal-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+    #feedbackNav[hidden] { display:none !important; }
+    .feedback-modal { position:fixed; inset:0; z-index:96; display:flex; align-items:center; justify-content:center; padding:24px 16px; background:rgba(15,23,42,.55); }
+    .feedback-modal[hidden] { display:none !important; }
+    .feedback-modal-panel { width:min(460px,100%); background:#fff; border-radius:16px; padding:28px 26px 22px; box-shadow:0 24px 64px rgba(15,23,42,.28); }
+    .feedback-modal-panel h2 { margin:0 0 8px; color:#0f172a; font-size:1.35rem; text-align:center; }
+    .feedback-modal-panel .feedback-lead { margin:0 0 18px; color:#475569; font-size:.98rem; line-height:1.5; text-align:center; }
+    .feedback-stars { display:flex; justify-content:center; gap:8px; margin:0 0 16px; }
+    .feedback-star { width:44px; height:44px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; color:#94a3b8; font-size:1.35rem; line-height:1; cursor:pointer; }
+    .feedback-star:hover, .feedback-star.is-on { border-color:#f6d58b; background:#fffbeb; color:#dba72b; }
+    .feedback-modal-panel label { display:block; margin:0 0 8px; color:#334155; font-size:.92rem; font-weight:600; }
+    .feedback-modal-panel textarea { width:100%; min-height:110px; resize:vertical; padding:12px 14px; border:1px solid #cbd5e1; border-radius:12px; font:inherit; font-size:.95rem; color:#0f172a; }
+    .feedback-modal-panel textarea:focus { outline:2px solid #bfdbfe; border-color:#2563eb; }
+    .feedback-status { margin:12px 0 0; min-height:1.3em; color:#334155; font-size:.9rem; text-align:center; }
+    .feedback-status.is-error { color:#b91c1c; }
+    .feedback-status.is-ok { color:#15803d; }
+    .feedback-modal-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:18px; }
     .action-card { background:#f8fafc; border:1px solid #e2e8f0; padding:24px; border-radius:10px; text-align:left; transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease; }
     .action-card.history-card { cursor:pointer; color:inherit; text-decoration:none; display:block; }
     .action-card.history-card:hover, .action-carsd.main-doc-card:hover { transform:translateY(-2px); border-color:#0284c7; background:#ffffff; box-shadow:0 8px 16px rgba(2,132,199,.08); }
@@ -659,6 +676,10 @@
     .signature-box[data-sign-mode="type"] .signature-canvas { display:none; }
     .signature-box[data-sign-mode="draw"] .typed-signature-preview { display:none; }
     .signature-line { margin-top:6px; border-top:1px solid var(--ink); padding-top:5px; color:var(--muted); font-size:11px; }
+    .signature-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+    .signature-saved { margin:8px 0 0; color:#15803d; font-size:.82rem; font-weight:700; }
+    .signature-saved[hidden] { display:none !important; }
+    .badge-signed { background-color:#dcfce7; color:#166534; }
     .client-details-card { overflow:visible; position:relative; z-index:8; }
     .address-autocomplete { position:relative; min-width:0; }
     .address-autocomplete-menu { position:fixed; z-index:6000; width:min(100%,calc(100vw - 16px)); max-width:calc(100vw - 16px); max-height:min(260px,45vh); overflow-y:auto; margin:0; padding:4px 0; background:#fff; border:1px solid #c9d5e3; border-radius:6px; box-shadow:0 10px 24px rgba(15,23,42,.16); box-sizing:border-box; }
@@ -1148,6 +1169,7 @@
       <button class="nav-btn{{ ' active' if vista == 'quote' else '' }}" type="button" data-view="quote" data-i18n="nav.quote">Quote</button>
       <button class="nav-btn{{ ' active' if vista == 'history' else '' }}" type="button" data-view="history" data-i18n="nav.history">History</button>
       <button class="nav-btn nav-upgrade{{ ' active' if vista == 'planes' else '' }}" type="button" id="cambiarPlanNav">Change Plan / Upgrade</button>
+      <button class="nav-btn" type="button" id="feedbackNav"{{ '' if vista != 'login' else ' hidden' }}>Feedback</button>
       <button class="nav-btn" type="button" id="cerrarSesionNav"{{ '' if vista != 'login' else ' hidden' }}>Log out</button>
     </div>
   </nav>
@@ -1159,6 +1181,28 @@
         <button class="btn" type="button" id="upgradeModalClose">Not now</button>
         <button class="btn btn-primary" type="button" id="upgradeModalGo">Change Plan / Upgrade</button>
       </div>
+    </div>
+  </div>
+  <div class="feedback-modal" id="feedbackModal" hidden>
+    <div class="feedback-modal-panel" role="dialog" aria-modal="true" aria-labelledby="feedbackModalTitle">
+      <h2 id="feedbackModalTitle">Feedback</h2>
+      <p class="feedback-lead" id="feedbackModalLead">Rate QuantixBuilds from 1 to 5 and leave a comment if you want.</p>
+      <form id="feedbackForm">
+        <div class="feedback-stars" role="radiogroup" aria-label="Rating from 1 to 5">
+          <button class="feedback-star" type="button" data-rating="1" aria-pressed="false" title="1 star">★</button>
+          <button class="feedback-star" type="button" data-rating="2" aria-pressed="false" title="2 stars">★</button>
+          <button class="feedback-star" type="button" data-rating="3" aria-pressed="false" title="3 stars">★</button>
+          <button class="feedback-star" type="button" data-rating="4" aria-pressed="false" title="4 stars">★</button>
+          <button class="feedback-star" type="button" data-rating="5" aria-pressed="false" title="5 stars">★</button>
+        </div>
+        <label for="feedbackComentario">Comment (optional)</label>
+        <textarea id="feedbackComentario" name="comentario" maxlength="2000" placeholder="What should we improve?"></textarea>
+        <p class="feedback-status" id="feedbackStatus" role="status"></p>
+        <div class="feedback-modal-actions">
+          <button class="btn" type="button" id="feedbackModalClose">Not now</button>
+          <button class="btn btn-primary" type="submit" id="feedbackSubmit">Send feedback</button>
+        </div>
+      </form>
     </div>
   </div>
   <section id="view-login" class="view-section{{ ' active' if vista == 'login' else '' }} no-print">
@@ -1299,6 +1343,10 @@
         </div>
         </div>
         <footer class="site-legal-footer">
+          <a href="/pricing">Pricing</a>
+          <a href="/construction-estimates">Estimates</a>
+          <a href="/digital-signatures">Signatures</a>
+          <a href="/zip-code-pricing">ZIP pricing</a>
           <a href="/privacidad">Privacy Policy</a>
           <a href="/sitemap.xml">Sitemap</a>
         </footer>
@@ -1842,6 +1890,10 @@
             <svg class="export-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg>
             Send by email
           </button>
+          <button class="export-action" id="sendForSignatureExportButton" type="button" hidden>
+            <svg class="export-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg>
+            Send for signature
+          </button>
         </div>
         <button class="btn export-dialog-close" id="closeExportButton" type="button">Close</button>
       </div>
@@ -1994,6 +2046,11 @@
             </div>
             <div class="typed-signature-preview is-empty">Signature preview</div>
             <div class="signature-line" data-i18n="signLine">Name and date</div>
+            <div class="signature-actions no-print">
+              <button class="btn btn-primary" type="button" id="saveClientSignatureButton">Save signature</button>
+              <button class="btn" type="button" id="sendForSignatureButton">Send for signature</button>
+            </div>
+            <p class="signature-saved" id="clientSignatureSaved" hidden></p>
           </div>
         </div>
       </section>
@@ -5294,7 +5351,7 @@
     function savePaymentState(){ localStorage.setItem(paymentStorageKey,JSON.stringify(paymentState)); }
     function markPaidIfNeeded(balance,total){ if(total>0 && balance<=0 && paymentState.status!=='paid'){ paymentState.status='paid'; paymentState.paidDate=paymentState.paidDate||new Date().toISOString().slice(0,10); document.querySelector('#status').value='paid'; savePaymentState(); } }
     function update(){ const paymentWasFocused=document.activeElement?.id==='paidAmount'; let grand=0; const lines=[]; document.querySelectorAll('.area').forEach((area,index)=>{ let subtotal=0; area.querySelectorAll('tbody tr').forEach(row=>{const total=recalcularSubtotalFila(row);subtotal+=total;}); grand+=subtotal; const title=area.querySelector('.area-title').value||`Area ${index+1}`; lines.push({title,subtotal}); }); const paid=Math.max(Number(paymentState.paidAmount)||0,0); const balance=Math.max(grand-paid,0); markPaidIfNeeded(balance,grand); const isPaid=paymentState.status==='paid'||(grand>0&&balance<=0); document.querySelector('#summary').innerHTML=lines.map(line=>`<div class="summary-line"><span>${line.title.replace(/^Área de /i,'').replace(/^Area of /i,'')}</span><strong>${money.format(line.subtotal)}</strong></div>`).join('')+`<div class="payment-tracking"><div class="field-row"><label for="paidAmount">Amount paid</label><input id="paidAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="${paymentState.paidAmount}"></div>${htmlBotonesDeposito()}</div><div class="summary-line grand"><span>${translations[language].total}</span><strong>${money.format(grand)}<br>USD</strong></div><div class="summary-line"><span id="depositLabel">${translations[language].deposit}</span><strong>${money.format(paid)} USD</strong></div><div class="summary-line balance"><span id="finalPaymentLabel">${translations[language].finalPayment}</span><strong>${money.format(balance)} USD</strong></div>`; const paymentInput=document.querySelector('#paidAmount'); paymentInput.addEventListener('input',event=>{ paymentState.paidAmount=event.target.value; paymentState.status='open'; paymentState.paidDate=''; savePaymentState(); update(); }); document.querySelectorAll('[data-payment-action]').forEach(button=>button.addEventListener('click',()=>{ aplicarPagoRapido(button.dataset.paymentAction,grand); })); document.querySelector('#paidStamp').hidden=!isPaid||docMode!=='invoice'; document.querySelector('#paidDate').textContent=paymentState.paidDate?'Paid date: '+paymentState.paidDate:''; if(paymentWasFocused) paymentInput.focus(); }
-    function renderMode(nextMode){ docMode=nextMode; const isInvoice=docMode==='invoice'; const isContract=docMode==='contract'; const title=isInvoice?'INVOICE':isContract?'WORK CONTRACT':'ESTIMATE'; document.querySelector('#documentTitle').textContent=title; if(!document.body.classList.contains('auth-solo')) document.title=title+' | '+nombreEmpresaActiva(); document.querySelector('#itemsHeading').textContent=isInvoice?'INVOICE ITEMS':'SCOPE OF WORK'; document.querySelector('#legalTerms').hidden=isInvoice; const signatures=document.querySelector('#signatures'); if(signatures){ signatures.hidden=!isContract; signatures.setAttribute('aria-hidden', isContract?'false':'true'); } document.documentElement.classList.toggle('is-contract', isContract); document.querySelector('#dueDateRow').hidden=!isInvoice; const billTo=document.querySelector('.bill-to'); if(billTo)billTo.hidden=!isInvoice; document.querySelector('.payments').hidden=!isInvoice; document.querySelector('.summary').classList.toggle('invoice-summary',isInvoice); document.querySelector('.invoice-thanks').hidden=!isInvoice; document.querySelector('#paidStamp').hidden=!isInvoice; document.querySelector('#termsHeading').textContent='TERMS AND EXCLUSIONS'; document.querySelector('#docMode').value=docMode; if(typeof aplicarFolioEnPantalla==='function')aplicarFolioEnPantalla(document.getElementById('quote')?.value); if(isInvoice && document.querySelector('#areas').children.length) update(); }
+    function renderMode(nextMode){ docMode=nextMode; const isInvoice=docMode==='invoice'; const isContract=docMode==='contract'; const title=isInvoice?'INVOICE':isContract?'WORK CONTRACT':'ESTIMATE'; document.querySelector('#documentTitle').textContent=title; if(!document.body.classList.contains('auth-solo')) document.title=title+' | '+nombreEmpresaActiva(); document.querySelector('#itemsHeading').textContent=isInvoice?'INVOICE ITEMS':'SCOPE OF WORK'; document.querySelector('#legalTerms').hidden=isInvoice; const signatures=document.querySelector('#signatures'); if(signatures){ signatures.hidden=!isContract; signatures.setAttribute('aria-hidden', isContract?'false':'true'); } const sendExport=document.getElementById('sendForSignatureExportButton'); if(sendExport) sendExport.hidden=!isContract; document.documentElement.classList.toggle('is-contract', isContract); document.querySelector('#dueDateRow').hidden=!isInvoice; const billTo=document.querySelector('.bill-to'); if(billTo)billTo.hidden=!isInvoice; document.querySelector('.payments').hidden=!isInvoice; document.querySelector('.summary').classList.toggle('invoice-summary',isInvoice); document.querySelector('.invoice-thanks').hidden=!isInvoice; document.querySelector('#paidStamp').hidden=!isInvoice; document.querySelector('#termsHeading').textContent='TERMS AND EXCLUSIONS'; document.querySelector('#docMode').value=docMode; if(typeof aplicarFolioEnPantalla==='function')aplicarFolioEnPantalla(document.getElementById('quote')?.value); if(isInvoice && document.querySelector('#areas').children.length) update(); }
     function puntoFirma(canvas,event){
       const t=(event.touches&&event.touches[0])||(event.changedTouches&&event.changedTouches[0])||event;
       const rect=canvas.getBoundingClientRect();
@@ -5421,6 +5478,7 @@
     function restaurarFirmasDocumento(firmas){
       restaurarPanelFirma('client', firmas);
       restaurarPanelFirma('contractor', firmas);
+      if(typeof mostrarMetaFirmaCliente==='function') mostrarMetaFirmaCliente(firmas);
     }
     function modoFirmaCliente(){ return modoFirmaPanel('client'); }
     function setClientSignMode(modo){ setSignMode('client', modo); }
@@ -5436,6 +5494,100 @@
         canvas.dataset.hasInk='1';
       };
       img.src=dataUrl;
+    }
+    let documentoEstadoFirmado=false;
+    function marcarContratoFirmadoLocal(fecha){
+      documentoEstadoFirmado=true;
+      if(typeof paymentState!=='undefined'&&paymentState) paymentState.status='firmado';
+      const statusEl=document.querySelector('#status');
+      if(statusEl) statusEl.value='firmado';
+      const saved=document.getElementById('clientSignatureSaved');
+      if(saved){
+        saved.hidden=false;
+        saved.textContent='Signature saved · '+((fecha||'').slice(0,19).replace('T',' ')||'now');
+      }
+    }
+    function mostrarMetaFirmaCliente(firmas){
+      const fecha=(firmas&&(firmas.clienteFecha||firmas.firma_fecha))||'';
+      if(firmas&&(firmas.cliente||firmas.client)) marcarContratoFirmadoLocal(fecha);
+      else{
+        documentoEstadoFirmado=false;
+        const saved=document.getElementById('clientSignatureSaved');
+        if(saved){ saved.hidden=true; saved.textContent=''; }
+      }
+    }
+    async function asegurarContratoGuardado(){
+      const tipo=typeof tipoDocumentoActual==='function'?tipoDocumentoActual():(typeof docMode!=='undefined'?docMode:'');
+      if(tipo!=='contract') throw new Error('Open a contract first.');
+      await guardarEstimadoEnHistorial();
+      if(!/^[0-9a-f-]{36}$/i.test(String(documentoHistorialId||''))){
+        throw new Error('The contract must be saved before it can be signed.');
+      }
+      return documentoHistorialId;
+    }
+    async function guardarFirmaClienteEnServidor(){
+      const cliente=typeof capturarPanelFirma==='function'?capturarPanelFirma('client'):{};
+      if(!cliente.imagen){
+        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Draw the client signature first','error');
+        else alert('Draw the client signature first');
+        return;
+      }
+      const btn=document.getElementById('saveClientSignatureButton');
+      try{
+        if(btn) btn.disabled=true;
+        await asegurarContratista();
+        const id=await asegurarContratoGuardado();
+        const res=await fetch('/api/contratos/firmar',{
+          method:'POST',
+          credentials:'same-origin',
+          headers:headersContratista({'Content-Type':'application/json'}),
+          body:JSON.stringify({id,firma:cliente.imagen})
+        });
+        const json=await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(json.error||'Could not save the signature.');
+        marcarContratoFirmadoLocal(new Date().toISOString());
+        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Signature saved. Contract is signed.');
+      }catch(err){
+        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado(err.message||'Could not save the signature.','error');
+        else alert(err.message||'Could not save the signature.');
+      }finally{
+        if(btn) btn.disabled=false;
+      }
+    }
+    async function enviarContratoParaFirma(){
+      const destino=String(document.getElementById('clientEmail')?.value||'').trim();
+      const company=String(document.getElementById('company')?.value||'').trim();
+      const contact=String(document.getElementById('email')?.value||'').trim();
+      if(!destino||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destino)){
+        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Add a valid client email first','error');
+        else alert('Add a valid client email first');
+        return;
+      }
+      const btn=document.getElementById('sendForSignatureButton');
+      const btnExport=document.getElementById('sendForSignatureExportButton');
+      try{
+        if(btn) btn.disabled=true;
+        if(btnExport) btnExport.disabled=true;
+        await asegurarContratista();
+        const id=await asegurarContratoGuardado();
+        const folio=String(document.getElementById('quote')?.value||'').trim();
+        const res=await fetch('/api/contratos/enviar-firma',{
+          method:'POST',
+          credentials:'same-origin',
+          headers:headersContratista({'Content-Type':'application/json'}),
+          body:JSON.stringify({id,to:destino,folio,company,nombre_empresa:company,contact})
+        });
+        const json=await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(json.error||'Could not send the signature link.');
+        document.querySelector('#exportModal')?.setAttribute('hidden','');
+        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Signature link emailed to the client');
+      }catch(err){
+        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado(err.message||'Could not send the signature link.','error');
+        else alert(err.message||'Could not send the signature link.');
+      }finally{
+        if(btn) btn.disabled=false;
+        if(btnExport) btnExport.disabled=false;
+      }
     }
     function setupSignature(canvas){
       if(!canvas||canvas.dataset.padReady==='1')return;
@@ -6191,7 +6343,7 @@
         firmaContratista:firmas.contratista,
         contratista_id:localStorage.getItem(contratistaIdKey)||undefined,
         user_id:leerUserIdAuthLocal()||undefined,
-        status:(typeof paymentState!=='undefined'&&paymentState&&paymentState.status==='paid')?'paid':'pending'
+        status:(typeof paymentState!=='undefined'&&paymentState&&(paymentState.status==='paid'||paymentState.status==='firmado'||paymentState.status==='signed'))?paymentState.status:(documentoEstadoFirmado?'Firmado':'pending')
       };
     }
     async function guardarEstimadoEnHistorial(){
@@ -6495,7 +6647,8 @@
       }
       tbody.innerHTML=filtrados.map(({item})=>{
         const paid=item.status==='paid'||item.estado==='paid';
-        const accepted=item.status==='accepted'||item.estado==='accepted';
+        const st=String(item.status||item.estado||'').toLowerCase();
+        const signed=st==='accepted'||st==='firmado'||st==='signed';
         const total=typeof item.total==='number'?(typeof money!=='undefined'?money.format(item.total):('$'+Number(item.total).toFixed(2))): (item.total||'—');
         const openId=item.id||item.folio||item.number||'';
         const direccion=formatearDireccionHistorial(item)||'No address';
@@ -6511,7 +6664,7 @@
           <td>${escHtmlHistorial(clienteNombre)}</td>
           <td>${escHtmlHistorial(item.date||item.fecha||'—')}</td>
           <td>${escHtmlHistorial(total)}</td>
-          <td><span class="badge ${paid?'badge-paid':'badge-pending'}">${paid?'Paid':accepted?'Accepted':'Open'}</span></td>
+          <td><span class="badge ${paid?'badge-paid':signed?'badge-signed':'badge-pending'}">${paid?'Paid':signed?'Signed':'Open'}</span></td>
           <td><button class="btn-sm" type="button" data-open-id="${escHtmlHistorial(openId)}">Open</button></td>
         </tr>`;
       }).join('');
@@ -6647,13 +6800,81 @@
     }
     capturarRecuperacion();
     aplicarViewportApp(document.body.classList.contains('auth-solo')||document.body.classList.contains('pagando')||document.body.classList.contains('paywall'));
+    function mostrarBotonesSesion(visible){
+      const salir=document.getElementById('cerrarSesionNav');
+      const feedback=document.getElementById('feedbackNav');
+      if(salir) salir.hidden=!visible;
+      if(feedback) feedback.hidden=!visible;
+    }
+    let feedbackCalificacion=0;
+    function marcarEstadoFeedback(texto, error){
+      const el=document.getElementById('feedbackStatus');
+      if(!el) return;
+      el.textContent=texto||'';
+      el.classList.toggle('is-error', !!error);
+      el.classList.toggle('is-ok', !error && !!texto);
+    }
+    function pintarEstrellasFeedback(valor){
+      feedbackCalificacion=Number(valor)||0;
+      document.querySelectorAll('.feedback-star').forEach(btn=>{
+        const n=Number(btn.dataset.rating||0);
+        const on=n>0 && n<=feedbackCalificacion;
+        btn.classList.toggle('is-on', on);
+        btn.setAttribute('aria-pressed', on?'true':'false');
+      });
+    }
+    function resetFormularioFeedback(){
+      feedbackCalificacion=0;
+      pintarEstrellasFeedback(0);
+      const comentario=document.getElementById('feedbackComentario');
+      if(comentario) comentario.value='';
+      const submit=document.getElementById('feedbackSubmit');
+      if(submit){ submit.disabled=false; submit.textContent='Send feedback'; }
+      marcarEstadoFeedback('', false);
+    }
+    function cerrarModalFeedback(){
+      const modal=document.getElementById('feedbackModal');
+      if(modal) modal.hidden=true;
+    }
+    function abrirModalFeedback(){
+      if(!sesionActual){ mostrarVistaLogin(); return; }
+      resetFormularioFeedback();
+      const modal=document.getElementById('feedbackModal');
+      if(modal) modal.hidden=false;
+    }
+    async function enviarFeedback(ev){
+      if(ev) ev.preventDefault();
+      if(!sesionActual){ mostrarVistaLogin(); return; }
+      if(feedbackCalificacion<1 || feedbackCalificacion>5){
+        marcarEstadoFeedback('Choose a rating from 1 to 5.', true);
+        return;
+      }
+      const submit=document.getElementById('feedbackSubmit');
+      const comentario=String(document.getElementById('feedbackComentario')?.value||'').trim();
+      try{
+        if(submit){ submit.disabled=true; submit.textContent='Sending...'; }
+        marcarEstadoFeedback('', false);
+        const res=await fetch('/api/feedback',{
+          method:'POST',
+          credentials:'same-origin',
+          headers:headersContratista({'Content-Type':'application/json'}),
+          body:JSON.stringify({calificacion:feedbackCalificacion,comentario})
+        });
+        const json=await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(json.error||'Could not save your feedback.');
+        marcarEstadoFeedback('Thanks. Your feedback was saved.', false);
+        setTimeout(()=>cerrarModalFeedback(), 1400);
+      }catch(err){
+        marcarEstadoFeedback(err.message||'Could not save your feedback.', true);
+        if(submit){ submit.disabled=false; submit.textContent='Send feedback'; }
+      }
+    }
     function mostrarVistaLogin(){
       if(typeof mostrarHintTradeLogin==='function') mostrarHintTradeLogin();
       document.body.classList.add('auth-solo');
       document.body.classList.remove('con-sesion','eligiendo-plan','pagando','paywall');
       aplicarViewportApp(true);
-      const salir=document.getElementById('cerrarSesionNav');
-      if(salir) salir.hidden=true;
+      mostrarBotonesSesion(false);
       document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active',section.id==='view-login'));
       document.querySelectorAll('.nav-btn[data-view]').forEach(btn=>btn.classList.remove('active'));
     }
@@ -6844,8 +7065,7 @@
       document.body.classList.add('pagando');
       document.body.classList.remove('auth-solo','con-sesion','eligiendo-plan','paywall');
       aplicarViewportApp(true);
-      const salir=document.getElementById('cerrarSesionNav');
-      if(salir) salir.hidden=false;
+      mostrarBotonesSesion(true);
       document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active',section.id==='view-pago'));
       document.querySelectorAll('.nav-btn[data-view]').forEach(btn=>btn.classList.remove('active'));
       resumenPlanPago(planSeleccionadoDe());
@@ -6906,8 +7126,7 @@
       document.body.classList.remove('auth-solo','pagando','paywall');
       document.body.classList.toggle('con-sesion', upgrade);
       aplicarViewportApp(false);
-      const salir=document.getElementById('cerrarSesionNav');
-      if(salir) salir.hidden=false;
+      mostrarBotonesSesion(true);
       document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active',section.id==='view-planes'));
       document.querySelectorAll('.nav-btn[data-view]').forEach(btn=>btn.classList.remove('active'));
       const upgradeBtn=document.getElementById('cambiarPlanNav');
@@ -6930,8 +7149,7 @@
       document.body.classList.add('paywall');
       document.body.classList.remove('auth-solo','con-sesion','eligiendo-plan','pagando','prueba-expirada');
       aplicarViewportApp(true);
-      const salir=document.getElementById('cerrarSesionNav');
-      if(salir) salir.hidden=false;
+      mostrarBotonesSesion(true);
       document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active',section.id==='view-paywall'));
       document.querySelectorAll('.nav-btn[data-view]').forEach(btn=>btn.classList.remove('active'));
       const msg=document.getElementById('paywallMensaje');
@@ -6988,8 +7206,7 @@
       document.body.classList.remove('auth-solo','eligiendo-plan','pagando','paywall','prueba-expirada');
       document.body.classList.add('con-sesion');
       aplicarViewportApp(false);
-      const salir=document.getElementById('cerrarSesionNav');
-      if(salir) salir.hidden=false;
+      mostrarBotonesSesion(true);
       document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active',section.id==='view-'+view));
       document.querySelectorAll('.nav-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.view===view));
       const upgradeBtn=document.getElementById('cambiarPlanNav');
@@ -8980,6 +9197,9 @@
       window.print();
     });
     document.querySelector('#emailInvoiceButton').addEventListener('click',emailInvoice);
+    document.getElementById('saveClientSignatureButton')?.addEventListener('click',guardarFirmaClienteEnServidor);
+    document.getElementById('sendForSignatureButton')?.addEventListener('click',enviarContratoParaFirma);
+    document.getElementById('sendForSignatureExportButton')?.addEventListener('click',enviarContratoParaFirma);
     document.querySelector('#printButton').addEventListener('click',guardarEstimadoEnHistorial);
     document.querySelector('#saveHistoryButton')?.addEventListener('click',()=>{
       document.querySelector('#exportModal').hidden=true;
@@ -9030,6 +9250,20 @@
     });
     document.getElementById('upgradeModal')?.addEventListener('click',ev=>{
       if(ev.target&&ev.target.id==='upgradeModal') cerrarModalUpgrade();
+    });
+    document.getElementById('feedbackNav')?.addEventListener('click',abrirModalFeedback);
+    document.getElementById('feedbackModalClose')?.addEventListener('click',cerrarModalFeedback);
+    document.getElementById('feedbackModal')?.addEventListener('click',ev=>{
+      if(ev.target&&ev.target.id==='feedbackModal') cerrarModalFeedback();
+    });
+    document.querySelectorAll('.feedback-star').forEach(btn=>{
+      btn.addEventListener('click',()=>pintarEstrellasFeedback(btn.dataset.rating));
+    });
+    document.getElementById('feedbackForm')?.addEventListener('submit',enviarFeedback);
+    document.addEventListener('keydown',ev=>{
+      if(ev.key!=='Escape') return;
+      const modal=document.getElementById('feedbackModal');
+      if(modal&&!modal.hidden) cerrarModalFeedback();
     });
     document.querySelectorAll('[data-doc-mode]').forEach(el=>{
       el.addEventListener('click',event=>{
