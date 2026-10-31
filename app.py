@@ -268,10 +268,10 @@ def _redirigir_login_si_hay_sesion():
         if not contratista or error:
             return None
         if _prueba_expirada(contratista):
-            return redirect("/suscripcion")
+            return None if _misma_ruta("/suscripcion") else redirect("/suscripcion")
         if not _plan_valido(contratista.get("plan_seleccionado")):
-            return redirect("/planes")
-        return redirect("/estimado")
+            return None if _misma_ruta("/planes") else redirect("/planes")
+        return None if _misma_ruta("/estimado") else redirect("/estimado")
     except Exception:
         return None
 
@@ -285,16 +285,16 @@ def _exigir_login_panel():
     if path not in protegidas:
         return None
     if not _token_contratista_solicitud():
-        return redirect("/login")
+        return None if _misma_ruta("/login") else redirect("/login")
     try:
         contratista, error = _exigir_contratista()
         if contratista and not error:
             if _prueba_expirada(contratista):
                 if path not in _RUTAS_PAYWALL:
-                    return redirect("/suscripcion")
+                    return None if _misma_ruta("/suscripcion") else redirect("/suscripcion")
                 return None
             if path in _RUTAS_PAYWALL or path in _RUTAS_PAGO:
-                return redirect("/estimado")
+                return None if _misma_ruta("/estimado") else redirect("/estimado")
     except Exception:
         pass
     return None
@@ -3934,17 +3934,18 @@ def _adjuntar_sesion_contratista(respuesta, token, persistir=None):
     return respuesta
 
 
+def _misma_ruta(destino):
+    actual = (request.path or "/").rstrip("/") or "/"
+    objetivo = str(destino or "/").split("?", 1)[0].rstrip("/") or "/"
+    return actual == objetivo
+
+
 @app.before_request
 def _canonico_quantixbuilds():
-    if request.method not in ("GET", "HEAD"):
-        return None
-    host = _host_publico()
-    if host != DOMINIO_APP:
-        return None
-    destino = "https://www." + DOMINIO_APP + request.full_path
-    if destino.endswith("?") and not request.query_string:
-        destino = destino[:-1]
-    return redirect(destino, code=301)
+    # No reescribir apex↔www ni forzar HTTPS aquí.
+    # Render/el proxy ya terminan TLS y a veces mandan Host=quantixbuilds.com
+    # aunque el visitante pidió www: un 301 a www choca con el 301 del host y entra en bucle.
+    return None
 
 
 def _error_sin_funcion_tenant(err):
@@ -4912,10 +4913,10 @@ def _url_publica_app():
         return env
     try:
         if _es_dominio_app():
-            return "https://" + DOMINIO_APP
+            return "https://www." + DOMINIO_APP
         return (request.host_url or "").strip().rstrip("/")
     except Exception:
-        return "https://" + DOMINIO_APP
+        return "https://www." + DOMINIO_APP
 
 
 def _guardar_pago_cliente(sb, uid, email, customer_id, plan="", activar=False):
