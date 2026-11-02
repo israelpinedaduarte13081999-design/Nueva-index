@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
-  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.25, maximum-scale=5, user-scalable=yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ feature.title }}</title>
   <meta name="description" content="{{ feature.meta }}">
   <meta name="robots" content="index,follow">
@@ -127,5 +127,6 @@
     </nav>
     <div>QuantixBuilds · contractor estimating, invoices, and signed contracts · quantixbuilds.com</div>
   </footer>
+  {% include "base.html" %}
 </body>
 </html>

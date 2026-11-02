@@ -4,11 +4,7 @@
   <meta charset="UTF-8">
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
-  {% if vista in ('login', 'pago', 'paywall') %}
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  {% else %}
-  <meta name="viewport" content="width=1200, user-scalable=yes, minimum-scale=0.25, maximum-scale=5">
-  {% endif %}
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   {% if vista == 'login' %}
   <title>QuantixBuilds | Contractor Estimating Software</title>
   <meta name="description" content="AI estimating software with monthly updated ZIP code pricing, PDF takeoffs, estimates, contracts, and invoices.">
@@ -6814,8 +6810,8 @@
       return path==='/'||path==='/login'||path==='/iniciar-sesion'||path==='/restablecer';
     }
     let recuperacionPendiente=null;
-    const VIEWPORT_LOGIN='width=device-width, initial-scale=1, viewport-fit=cover';
-    const VIEWPORT_ESCRITORIO='width=1200, user-scalable=yes, minimum-scale=0.25, maximum-scale=5';
+    const VIEWPORT_LOGIN='width=device-width, initial-scale=1.0';
+    const VIEWPORT_ESCRITORIO='width=device-width, initial-scale=1.0';
     function aplicarViewportApp(esLogin){
       const content=esLogin?VIEWPORT_LOGIN:VIEWPORT_ESCRITORIO;
       let meta=document.querySelector('meta[name="viewport"]');
@@ -10461,6 +10457,7 @@
       <p id="medidas-pdf-msg">Analyzing document... This may take a minute or more.</p>
     </div>
   </div>
+  {% include "base.html" %}
 </body>
 </html>
 

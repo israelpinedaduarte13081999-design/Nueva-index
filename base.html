@@ -1,0 +1,121 @@
+<style>
+  #qb-soporte { position:fixed; right:18px; bottom:18px; z-index:55; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  #qb-soporte-toggle {
+    width:56px; height:56px; border:0; border-radius:50%; cursor:pointer;
+    background:#0d47a1; color:#fff; box-shadow:0 10px 24px rgba(13,71,161,.35);
+    display:flex; align-items:center; justify-content:center;
+  }
+  #qb-soporte-toggle:hover { background:#1565c0; }
+  #qb-soporte-toggle svg { width:26px; height:26px; }
+  #qb-soporte-panel {
+    display:none; position:absolute; right:0; bottom:68px; width:min(360px,calc(100vw - 32px));
+    height:min(460px,70vh); background:#fff; border:1px solid #dbe3ee; border-radius:16px;
+    box-shadow:0 18px 40px rgba(15,23,42,.2); flex-direction:column; overflow:hidden;
+  }
+  #qb-soporte.is-open #qb-soporte-panel { display:flex; }
+  #qb-soporte-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 14px; background:#0d47a1; color:#fff; }
+  #qb-soporte-head strong { font-size:.95rem; }
+  #qb-soporte-head span { display:block; font-size:.72rem; opacity:.85; font-weight:500; }
+  #qb-soporte-close { border:0; background:transparent; color:#fff; cursor:pointer; font-size:1.2rem; line-height:1; padding:4px; }
+  #qb-soporte-msgs { flex:1; overflow:auto; padding:12px; background:#f8fafc; display:flex; flex-direction:column; gap:8px; }
+  .qb-soporte-msg { max-width:88%; padding:8px 10px; border-radius:12px; font-size:.88rem; line-height:1.4; white-space:pre-wrap; }
+  .qb-soporte-msg.bot { align-self:flex-start; background:#fff; border:1px solid #e2e8f0; color:#0f172a; }
+  .qb-soporte-msg.user { align-self:flex-end; background:#0d47a1; color:#fff; }
+  .qb-soporte-msg.busy { color:#64748b; font-style:italic; }
+  #qb-soporte-form { display:flex; gap:8px; padding:10px; border-top:1px solid #e2e8f0; background:#fff; }
+  #qb-soporte-input { flex:1; min-height:40px; border:1px solid #cbd5e1; border-radius:10px; padding:8px 10px; font:inherit; resize:none; }
+  #qb-soporte-send { border:0; border-radius:10px; background:#0d47a1; color:#fff; font-weight:700; padding:0 14px; cursor:pointer; }
+  #qb-soporte-send:disabled { opacity:.6; cursor:wait; }
+  @media print { #qb-soporte { display:none !important; } }
+</style>
+<div id="qb-soporte" class="no-print">
+  <div id="qb-soporte-panel" role="dialog" aria-labelledby="qb-soporte-title" aria-modal="false" hidden>
+    <div id="qb-soporte-head">
+      <div>
+        <strong id="qb-soporte-title">QuantixBuilds Help</strong>
+        <span>Estimates, drafts, signatures</span>
+      </div>
+      <button type="button" id="qb-soporte-close" aria-label="Close help chat">×</button>
+    </div>
+    <div id="qb-soporte-msgs" aria-live="polite"></div>
+    <form id="qb-soporte-form">
+      <textarea id="qb-soporte-input" rows="1" maxlength="2000" placeholder="Ask about estimates, autosave, or signatures…"></textarea>
+      <button type="submit" id="qb-soporte-send">Send</button>
+    </form>
+  </div>
+  <button type="button" id="qb-soporte-toggle" aria-label="Open QuantixBuilds help chat" aria-expanded="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+  </button>
+</div>
+<script>
+(function(){
+  const root=document.getElementById('qb-soporte');
+  const panel=document.getElementById('qb-soporte-panel');
+  const toggle=document.getElementById('qb-soporte-toggle');
+  const closeBtn=document.getElementById('qb-soporte-close');
+  const form=document.getElementById('qb-soporte-form');
+  const input=document.getElementById('qb-soporte-input');
+  const send=document.getElementById('qb-soporte-send');
+  const msgs=document.getElementById('qb-soporte-msgs');
+  if(!root||!form||!input)return;
+  const historial=[];
+  function abrir(){
+    root.classList.add('is-open');
+    if(panel){ panel.hidden=false; }
+    if(toggle) toggle.setAttribute('aria-expanded','true');
+    if(!msgs.dataset.ready){
+      pintar('bot','Hi. I can help with estimates, autosave, contract signatures, and quotes.');
+      msgs.dataset.ready='1';
+    }
+    input.focus();
+  }
+  function cerrar(){
+    root.classList.remove('is-open');
+    if(panel) panel.hidden=true;
+    if(toggle) toggle.setAttribute('aria-expanded','false');
+  }
+  function pintar(rol, texto){
+    const div=document.createElement('div');
+    div.className='qb-soporte-msg '+rol;
+    div.textContent=texto;
+    msgs.appendChild(div);
+    msgs.scrollTop=msgs.scrollHeight;
+    return div;
+  }
+  toggle?.addEventListener('click',()=>{ root.classList.contains('is-open')?cerrar():abrir(); });
+  closeBtn?.addEventListener('click',cerrar);
+  form.addEventListener('submit', async (ev)=>{
+    ev.preventDefault();
+    const mensaje=String(input.value||'').trim();
+    if(!mensaje)return;
+    input.value='';
+    pintar('user', mensaje);
+    const espera=pintar('bot busy','Thinking…');
+    if(send) send.disabled=true;
+    try{
+      const res=await fetch('/api/soporte_bot',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Accept':'application/json'},
+        body:JSON.stringify({mensaje, historial})
+      });
+      const json=await res.json().catch(()=>({}));
+      const respuesta=String(json.respuesta||json.reply||json.error||'Human support will contact you.').trim();
+      espera.classList.remove('busy');
+      espera.textContent=respuesta;
+      historial.push({role:'user', text:mensaje});
+      historial.push({role:'model', text:respuesta});
+      if(historial.length>16) historial.splice(0, historial.length-16);
+    }catch(_){
+      espera.classList.remove('busy');
+      espera.textContent='Human support will contact you.';
+    }finally{
+      if(send) send.disabled=false;
+      msgs.scrollTop=msgs.scrollHeight;
+      input.focus();
+    }
+  });
+  input.addEventListener('keydown',(ev)=>{
+    if(ev.key==='Enter'&&!ev.shiftKey){ ev.preventDefault(); form.requestSubmit(); }
+  });
+})();
+</script>

@@ -3466,6 +3466,103 @@ def api_feedback():
         return jsonify({"error": "Could not save feedback right now."}), 503
 
 
+PROMPT_SOPORTE_BOT = (
+    "Eres el asistente técnico de QuantixBuilds. Ayudas a los contratistas a crear estimados, "
+    "usar el sistema de autoguardado, firmar contratos y gestionar sus cotizaciones. "
+    "Responde dudas de la plataforma de forma amable y concisa. "
+    "Si no sabes, indica que soporte humano los contactará. "
+    "REGLA DE SEGURIDAD: Eres un asistente de soporte de solo lectura. No tienes permisos "
+    "para ejecutar comandos, modificar datos del usuario, ni realizar acciones operativas "
+    "dentro de la plataforma. Si el usuario te pide crear, borrar o editar un documento, "
+    "debes negarte educadamente y explicarle cómo puede hacerlo él mismo navegando por "
+    "los menús del software."
+)
+_MSG_SOPORTE_HUMANO = "I could not answer that just now. Human support will contact you."
+_MODELOS_SOPORTE_BOT = ("gemini-3.8-flash", "gemini-2.5-flash", "gemini-flash-latest", "gemini-3.6-flash")
+
+
+def _texto_respuesta_gemini(response):
+    texto = str(getattr(response, "text", None) or "").strip()
+    if texto:
+        return texto
+    for cand in getattr(response, "candidates", None) or []:
+        content = getattr(cand, "content", None)
+        for part in getattr(content, "parts", None) or []:
+            pieza = str(getattr(part, "text", None) or "").strip()
+            if pieza:
+                return pieza
+    return ""
+
+
+def _contenidos_soporte_bot(mensaje, historial):
+    partes = []
+    if isinstance(historial, list):
+        for turno in historial[-12:]:
+            if not isinstance(turno, dict):
+                continue
+            texto = str(turno.get("text") or turno.get("content") or turno.get("mensaje") or "").strip()[:2000]
+            if not texto:
+                continue
+            rol = str(turno.get("role") or "").strip().lower()
+            if rol in ("assistant", "model", "bot"):
+                partes.append(types.Content(role="model", parts=[types.Part.from_text(text=texto)]))
+            else:
+                partes.append(types.Content(role="user", parts=[types.Part.from_text(text=texto)]))
+    partes.append(types.Content(role="user", parts=[types.Part.from_text(text=mensaje)]))
+    return partes
+
+
+def _responder_soporte_bot(mensaje, historial=None):
+    key = (os.getenv("GCP_API_KEY") or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or "").strip()
+    if not key:
+        raise RuntimeError("Falta GEMINI_API_KEY")
+    ia = _crear_cliente_gemini(key)
+    contenidos = _contenidos_soporte_bot(mensaje, historial)
+    config = types.GenerateContentConfig(
+        system_instruction=PROMPT_SOPORTE_BOT,
+        temperature=0.4,
+        max_output_tokens=512,
+        tools=[],
+        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+    )
+    ultimo = None
+    for modelo in _MODELOS_SOPORTE_BOT:
+        try:
+            response = ia.models.generate_content(
+                model=modelo,
+                contents=contenidos,
+                config=config,
+            )
+            texto = _texto_respuesta_gemini(response)
+            if texto:
+                return texto
+        except Exception as err:
+            ultimo = err
+            texto_err = str(err).lower()
+            print(f"--> soporte_bot Gemini {modelo}: {err}")
+            if any(token in texto_err for token in ("503", "unavailable", "high demand", "overloaded", "429", "404", "not_found", "not found")):
+                continue
+            raise
+    raise ultimo or RuntimeError("Gemini no respondió")
+
+
+@app.route("/api/soporte_bot", methods=["POST"])
+def api_soporte_bot():
+    payload = request.get_json(silent=True) or {}
+    mensaje = str(payload.get("mensaje") or payload.get("message") or payload.get("text") or "").strip()
+    if not mensaje:
+        return jsonify({"error": "Write a question first."}), 400
+    if len(mensaje) > 2000:
+        mensaje = mensaje[:2000]
+    historial = payload.get("historial") or payload.get("history") or payload.get("messages") or []
+    try:
+        respuesta = _responder_soporte_bot(mensaje, historial)
+    except Exception as err:
+        print(f"--> soporte_bot: {err}")
+        return jsonify({"ok": True, "respuesta": _MSG_SOPORTE_HUMANO, "fallback": True})
+    return jsonify({"ok": True, "respuesta": respuesta})
+
+
 _SQL_HISTORIAL_ESTIMADOS = """
 create table if not exists public.historial_estimados (
   id uuid primary key default gen_random_uuid(),
