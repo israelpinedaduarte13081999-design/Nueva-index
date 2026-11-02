@@ -12435,7 +12435,10 @@ def _html_a_pdf(html):
             print(f"--> weasyprint: {err}")
     if _WEASYPRINT_HTML:
         try:
-            return _WEASYPRINT_HTML(string=str(html or ""), encoding="utf-8").write_pdf()
+            from weasyprint import CSS as WeasyCSS
+            return _WEASYPRINT_HTML(string=str(html or ""), encoding="utf-8").write_pdf(
+                stylesheets=[WeasyCSS(string="@page { size: Letter; margin: 14mm 12mm; }")]
+            )
         except Exception as err:
             errores.append(f"weasyprint: {err}")
             print(f"--> weasyprint render: {err}")
@@ -12577,7 +12580,7 @@ def _cuerpo_html_estimado(tipo, empresa, enlace_aceptacion=None):
             "<p style=\"margin:22px 0;\">"
             f"<a href=\"{url}\" style=\"display:inline-block;background:#0d47a1;color:#ffffff;"
             "text-decoration:none;padding:12px 22px;border-radius:6px;font-weight:700;\">"
-            "Sign contract / Firmar contrato</a></p>"
+            "Firmar Documento</a></p>"
             "<p style=\"margin:0 0 14px;color:#475569;font-size:13px;\">"
             "Si el botón no abre, copia este enlace en el navegador:<br>"
             f"<span style=\"word-break:break-all;\">{url}</span></p>"
@@ -12604,7 +12607,7 @@ def _texto_documento_cliente(tipo, empresa, enlace_aceptacion=None):
         "El documento va adjunto en este correo.",
     ]
     if enlace_aceptacion and nombre_doc == "contrato":
-        lineas.extend(["", f"Sign contract: {enlace_aceptacion}"])
+        lineas.extend(["", f"Firmar Documento: {enlace_aceptacion}"])
     lineas.extend(["", "Gracias,", empresa, ""])
     return "\n".join(lineas)
 
@@ -12931,29 +12934,59 @@ def _contratista_para_envio(data):
     return contratista, None
 
 
-def _enlace_aceptacion_documento(contratista, doc_id, tipo):
-    if _partes_documento(tipo)[0] != "contract":
-        return None
+def _preparar_contrato_firma(contratista, doc_id):
     ident = str(doc_id or "").strip()
     if not ident:
         raise RuntimeError("Save the contract before sending it.")
     row = obtener_historial_tenant(contratista, ident)
     if not row:
         raise RuntimeError("Contract not found for this contractor.")
+    row = dict(row)
     if str(row.get("tipo") or "").lower() not in ("contract", "contrato"):
-        row = dict(row)
         row["tipo"] = "contract"
     if not row.get("token_aceptacion"):
-        row = dict(row)
         row["token_aceptacion"] = str(uuid.uuid4())
-        row["tipo"] = "contract"
         guardado = guardar_historial_tenant(contratista, row)
         if isinstance(guardado, dict):
-            row = guardado
-    token = row.get("token_aceptacion")
-    if not token:
+            row = dict(guardado)
+    token = str(row.get("token_aceptacion") or "").strip()
+    if not token or not _es_uuid(token):
         raise RuntimeError("Could not create the contract acceptance link.")
-    return _url_aceptacion(token)
+    return row, token, _url_aceptacion(token)
+
+
+def _pdf_contrato_carta(row, contratista=None):
+    html = _html_documento_pdf(row, contratista)
+    return _html_a_pdf(html)
+
+
+def _cuerpo_html_firmar_documento(empresa, enlace):
+    import html as html_lib
+    empresa = _sanear_nombre_remitente(empresa) or "QuantixBuilds"
+    empresa_html = html_lib.escape(empresa)
+    url = html_lib.escape(str(enlace), quote=True)
+    return (
+        "<html><body style=\"margin:0;padding:24px;background:#ffffff;font-family:Arial,Helvetica,sans-serif;"
+        "color:#1e293b;font-size:15px;line-height:1.6;\">"
+        "<p style=\"margin:0 0 14px;\">Hello,</p>"
+        f"<p style=\"margin:0 0 14px;\"><strong>{empresa_html}</strong> sent you a construction contract to sign.</p>"
+        "<p style=\"margin:0 0 14px;\">The contract is attached as a PDF. Review it, then tap the secure button to sign.</p>"
+        "<p style=\"margin:22px 0;\">"
+        f"<a href=\"{url}\" style=\"display:inline-block;background:#0d47a1;color:#ffffff;"
+        "text-decoration:none;padding:12px 22px;border-radius:6px;font-weight:700;\">"
+        "Firmar Documento</a></p>"
+        "<p style=\"margin:0 0 14px;color:#475569;font-size:13px;\">"
+        f"If the button does not open, copy this link:<br><span style=\"word-break:break-all;\">{url}</span></p>"
+        f"<p style=\"margin:0;\">Thank you,<br><strong>{empresa_html}</strong></p>"
+        "</body></html>"
+    )
+
+
+def _enlace_aceptacion_documento(contratista, doc_id, tipo):
+    if _partes_documento(tipo)[0] != "contract":
+        return None
+    _row, _token, url = _preparar_contrato_firma(contratista, doc_id)
+    return url
 
 
 def _notificar_aceptacion_contratista(datos):
@@ -13126,48 +13159,47 @@ def api_enviar_firma():
     if error:
         return error
     try:
-        enlace = _enlace_aceptacion_documento(contratista, data.get("id") or data.get("documentId"), "contract")
+        row, _token, enlace = _preparar_contrato_firma(contratista, data.get("id") or data.get("documentId"))
     except Exception as err:
         return jsonify({"error": str(err)}), 400
     empresa = _sanear_nombre_remitente(contratista.get("nombre_empresa")) or "QuantixBuilds"
-    folio = str(data.get("folio") or data.get("quote") or data.get("number") or "").strip()
+    folio = str(data.get("folio") or data.get("quote") or data.get("number") or row.get("folio") or "").strip()
     asunto = _sanear_asunto(f"Sign your contract — {empresa}" + (f" — {folio}" if folio else ""))
-    import html as html_lib
-    url = html_lib.escape(str(enlace), quote=True)
-    empresa_html = html_lib.escape(empresa)
-    html_body = (
-        "<html><body style=\"margin:0;padding:24px;background:#ffffff;font-family:Arial,Helvetica,sans-serif;"
-        "color:#1e293b;font-size:15px;line-height:1.6;\">"
-        "<p style=\"margin:0 0 14px;\">Hello,</p>"
-        f"<p style=\"margin:0 0 14px;\"><strong>{empresa_html}</strong> sent you a construction contract to sign.</p>"
-        "<p style=\"margin:0 0 14px;\">Open the link on your phone or computer, draw your signature, and tap Save signature.</p>"
-        "<p style=\"margin:22px 0;\">"
-        f"<a href=\"{url}\" style=\"display:inline-block;background:#0d47a1;color:#ffffff;"
-        "text-decoration:none;padding:12px 22px;border-radius:6px;font-weight:700;\">"
-        "Sign contract</a></p>"
-        "<p style=\"margin:0 0 14px;color:#475569;font-size:13px;\">"
-        f"If the button does not open, copy this link:<br><span style=\"word-break:break-all;\">{url}</span></p>"
-        f"<p style=\"margin:0;\">Thank you,<br><strong>{empresa_html}</strong></p>"
-        "</body></html>"
-    )
+    filename = _nombre_pdf_adjunto("contract", folio or row.get("folio"))
+    try:
+        pdf_bytes = _pdf_contrato_carta(row, contratista)
+    except Exception as err:
+        print(f"--> enviar firma pdf: {err}")
+        return jsonify({"error": "Could not generate the contract PDF."}), 500
+    html_body = _cuerpo_html_firmar_documento(empresa, enlace)
     texto = (
         f"Hello,\n\n{empresa} sent you a construction contract to sign.\n"
-        f"Open this link, draw your signature, and save it:\n{enlace}\n\nThank you,\n{empresa}\n"
+        "The contract is attached as a PDF.\n"
+        f"Firmar Documento: {enlace}\n\nThank you,\n{empresa}\n"
     )
     try:
-        _enviar_correo_html(
+        _enviar_correo_pdf(
             destino,
             asunto,
             html_body,
-            texto,
+            pdf_bytes,
+            filename,
             sender_name=empresa,
             reply_to=str(contratista.get("email") or "").strip(),
+            texto=texto,
         )
     except Exception as err:
         print(f"--> enviar firma: {err}")
         return jsonify({"error": "Could not send the signature email."}), 502
-    print(f"--> enlace firma enviado a={destino}")
-    return jsonify({"ok": True, "to": destino, "enlace_firma": enlace, "subject": asunto})
+    print(f"--> contrato PDF enviado a={destino} adjunto={filename}")
+    return jsonify({
+        "ok": True,
+        "to": destino,
+        "enlace_firma": enlace,
+        "filename": filename,
+        "subject": asunto,
+        "adjunto": True,
+    })
 
 
 @app.route("/aceptar/<token_aceptacion>", methods=["GET", "POST"])

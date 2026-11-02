@@ -11,7 +11,7 @@
     :root { --ink:#0f172a; --muted:#64748b; --line:#dbe3ee; --navy:#0d47a1; }
     * { box-sizing:border-box; }
     body { margin:0; background:#e8eef6; color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
-    body.firma-activa { overflow:hidden; touch-action:none; overscroll-behavior:none; }
+    html.firma-activa, body.firma-activa { overflow:hidden; touch-action:none; overscroll-behavior:none; height:100%; }
     main { max-width:860px; margin:20px auto 48px; background:#fff; padding:28px 22px 36px; border-radius:14px; box-shadow:0 10px 30px rgba(15,23,42,.08); }
     .doc-head { display:flex; flex-wrap:wrap; justify-content:space-between; gap:16px; padding-bottom:18px; border-bottom:2px solid #19385f; }
     .brand { font-size:1.35rem; font-weight:800; letter-spacing:.01em; }
@@ -55,12 +55,12 @@
     .status.is-ok { color:#15803d; }
     .firma-guardada { margin-top:12px; padding:12px; border:1px solid #bbf7d0; background:#f0fdf4; border-radius:10px; }
     .firma-guardada img { display:block; width:100%; max-height:160px; object-fit:contain; background:#fff; border:1px solid #dcfce7; border-radius:8px; }
-    .firma-modal { position:fixed; inset:0; z-index:80; display:none; align-items:center; justify-content:center; padding:16px; background:rgba(15,23,42,.72); }
+    .firma-modal { position:fixed; inset:0; z-index:80; display:none; align-items:center; justify-content:center; padding:16px; background:rgba(15,23,42,.72); touch-action:none; overscroll-behavior:none; }
     .firma-modal.is-open { display:flex !important; }
-    .firma-modal-card { width:min(96vw,760px); background:#fff; border-radius:16px; padding:16px 16px 18px; box-shadow:0 20px 50px rgba(15,23,42,.28); }
+    .firma-modal-card { width:min(96vw,760px); background:#fff; border-radius:16px; padding:16px 16px 18px; box-shadow:0 20px 50px rgba(15,23,42,.28); touch-action:none; }
     .firma-modal-card h2 { margin-bottom:6px; }
     .firma-modal-card p { color:var(--muted); font-size:.9rem; }
-    #firmaCanvas { display:block; width:100%; height:min(48vh,280px); border:1.5px dashed #94a3b8; border-radius:12px; background:#fff; touch-action:none; cursor:crosshair; overscroll-behavior:none; }
+    #firmaCanvas { display:block; width:100%; height:min(48vh,280px); border:1.5px dashed #94a3b8; border-radius:12px; background:#fff; touch-action:none; cursor:crosshair; overscroll-behavior:none; -ms-touch-action:none; }
     @media (max-width:720px) {
       main { margin:0; border-radius:0; padding:20px 14px 32px; }
       .partes { grid-template-columns:1fr; }
@@ -230,6 +230,7 @@
       let firmaLista='';
       canvas.dataset.hasInk='0';
       canvas.style.touchAction='none';
+      canvas.style.msTouchAction='none';
 
       function punto(ev){
         const t=(ev.touches&&ev.touches[0])||(ev.changedTouches&&ev.changedTouches[0])||ev;
@@ -259,6 +260,7 @@
         if(!modal)return;
         modal.hidden=false;
         modal.classList.add('is-open');
+        document.documentElement.classList.add('firma-activa');
         document.body.classList.add('firma-activa');
         canvas.style.touchAction='none';
         if(firmaLista){
@@ -276,11 +278,13 @@
         if(!modal)return;
         modal.classList.remove('is-open');
         modal.hidden=true;
+        document.documentElement.classList.remove('firma-activa');
         document.body.classList.remove('firma-activa');
         drawing=false;
       }
       function start(ev){
         ev.preventDefault();
+        if(ev.pointerType==='touch' && String(ev.type||'').startsWith('pointer')) return;
         drawing=true;
         canvas.style.touchAction='none';
         try{ if(ev.pointerId!=null) canvas.setPointerCapture(ev.pointerId); }catch(_){}
@@ -289,8 +293,9 @@
         ctx.moveTo(p.x,p.y);
       }
       function move(ev){
-        if(!drawing) return;
         ev.preventDefault();
+        if(ev.pointerType==='touch' && String(ev.type||'').startsWith('pointer')) return;
+        if(!drawing) return;
         const p=punto(ev);
         ctx.lineTo(p.x,p.y);
         ctx.strokeStyle='#19385f';
@@ -311,20 +316,25 @@
         mostrarPreview('');
         if(status){ status.textContent=''; status.className='status'; }
       }
+      canvas.addEventListener('touchstart',start,{passive:false});
+      canvas.addEventListener('touchmove',move,{passive:false});
+      canvas.addEventListener('touchend',end,{passive:false});
+      canvas.addEventListener('touchcancel',end,{passive:false});
       if(window.PointerEvent){
-        canvas.addEventListener('pointerdown',start);
-        canvas.addEventListener('pointermove',move);
+        canvas.addEventListener('pointerdown',start,{passive:false});
+        canvas.addEventListener('pointermove',move,{passive:false});
         canvas.addEventListener('pointerup',end);
         canvas.addEventListener('pointercancel',end);
       }else{
         canvas.addEventListener('mousedown',start);
         canvas.addEventListener('mousemove',move);
         window.addEventListener('mouseup',end);
-        canvas.addEventListener('touchstart',start,{passive:false});
-        canvas.addEventListener('touchmove',move,{passive:false});
-        canvas.addEventListener('touchend',end,{passive:false});
       }
+      canvas.addEventListener('touchstart',function(ev){ ev.preventDefault(); },{passive:false});
       canvas.addEventListener('touchmove',function(ev){ ev.preventDefault(); },{passive:false});
+      modal?.addEventListener('touchstart',function(ev){
+        if(ev.target===canvas || canvas.contains(ev.target)) ev.preventDefault();
+      },{passive:false});
       modal?.addEventListener('touchmove',function(ev){
         if(ev.target===canvas || canvas.contains(ev.target)) ev.preventDefault();
       },{passive:false});

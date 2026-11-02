@@ -5577,7 +5577,7 @@
         const json=await res.json().catch(()=>({}));
         if(!res.ok) throw new Error(json.error||'Could not send the signature link.');
         document.querySelector('#exportModal')?.setAttribute('hidden','');
-        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Signature link emailed to the client');
+        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Contract PDF emailed. The client can sign from the secure button.');
       }catch(err){
         if(typeof mostrarToastGuardado==='function') mostrarToastGuardado(err.message||'Could not send the signature link.','error');
         else alert(err.message||'Could not send the signature link.');
