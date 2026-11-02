@@ -5761,10 +5761,112 @@ def obtener_historial_tenant(contratista, ident):
 
 _RE_FIRMA_PNG = re.compile(r"^data:image/png;base64,[A-Za-z0-9+/=\s]+$")
 _ESTADOS_FIRMADO = {"firmado", "signed", "accepted"}
+_ESTADOS_BORRADOR = {"draft", "borrador"}
+_ESTADOS_INMUTABLES = _ESTADOS_FIRMADO | {"paid", "aprobado", "approved"}
 
 
 def _contrato_esta_firmado(estado):
     return str(estado or "").strip().lower() in _ESTADOS_FIRMADO
+
+
+def _es_estado_borrador(estado):
+    return str(estado or "").strip().lower() in _ESTADOS_BORRADOR
+
+
+def _documento_inmutable(row):
+    estado = str((row or {}).get("estado") or "").strip().lower()
+    return estado in _ESTADOS_INMUTABLES
+
+
+def _tipo_documento_clave(valor):
+    tipo = str(valor or "estimate").strip().lower()
+    if tipo in ("contract", "contrato"):
+        return "contract"
+    if tipo in ("invoice", "factura"):
+        return "invoice"
+    return "estimate"
+
+
+def _buscar_borrador_activo(sb, contratista, tipo, ident=None):
+    cid = str((contratista or {}).get("id") or "").strip()
+    if not cid:
+        return None
+    if _es_uuid(ident):
+        row = _buscar_historial_por_id(sb, ident, cid)
+        if row:
+            return row
+    uid = _user_id_de_contratista(sb, contratista)
+    clave = _tipo_documento_clave(tipo)
+    try:
+        query = (
+            sb.table(TABLA_HISTORIAL)
+            .select("*")
+            .eq("contratista_id", cid)
+            .order("updated_at", desc=True)
+            .limit(40)
+        )
+        res = query.execute()
+    except Exception as err:
+        print(f"--> buscar borrador: {err}")
+        return None
+    for row in list(res.data or []):
+        if not _es_estado_borrador(row.get("estado")):
+            continue
+        if _tipo_documento_clave(row.get("tipo")) != clave:
+            continue
+        row_uid = str(row.get("user_id") or "").strip()
+        if uid and row_uid and row_uid != uid:
+            continue
+        return row
+    return None
+
+
+def _guardar_borrador_tabla(sb, contratista, fila):
+    cid = contratista["id"]
+    fila = dict(fila)
+    fila["contratista_id"] = cid
+    uid = _user_id_de_contratista(sb, contratista)
+    if uid:
+        fila["user_id"] = uid
+    else:
+        fila.pop("user_id", None)
+    existente = _buscar_borrador_activo(sb, contratista, fila.get("tipo"), fila.get("id"))
+    if existente and _documento_inmutable(existente):
+        return existente
+    if existente and not _es_estado_borrador(existente.get("estado")):
+        fila["estado"] = existente.get("estado") or "pending"
+    else:
+        fila["estado"] = "Draft"
+    if existente and existente.get("token_aceptacion"):
+        fila["token_aceptacion"] = existente.get("token_aceptacion")
+    elif str(fila.get("tipo") or "").lower() in ("contract", "contrato"):
+        fila["token_aceptacion"] = fila.get("token_aceptacion") or str(uuid.uuid4())
+
+    def _escribir(metodo, payload, ident=None):
+        query = getattr(sb.table(TABLA_HISTORIAL), metodo)(payload)
+        if ident:
+            query = query.eq("id", ident).eq("contratista_id", cid)
+        try:
+            return query.execute()
+        except Exception as err:
+            if "user_id" in payload and _marcar_sin_user_id(err):
+                limpio = dict(payload)
+                limpio.pop("user_id", None)
+                query = getattr(sb.table(TABLA_HISTORIAL), metodo)(limpio)
+                if ident:
+                    query = query.eq("id", ident).eq("contratista_id", cid)
+                return query.execute()
+            raise
+
+    if existente:
+        ident = existente.get("id")
+        update = {k: v for k, v in fila.items() if k != "id"}
+        _escribir("update", update, ident)
+        return _buscar_historial_por_id(sb, ident, cid) or {**existente, **update, "id": ident}
+    insert = {k: v for k, v in fila.items() if k != "id"}
+    res = _escribir("insert", insert)
+    rows = list(res.data or [])
+    return rows[0] if rows else insert
 
 
 def _ip_solicitud():
@@ -5934,15 +6036,32 @@ def _vista_contrato_publico(datos):
     extras = round(total_num - subtotal - tax_total, 2)
     if bloques and extras > 0.02:
         totales.append({"label": "Additional charges", "valor": _dinero_publico(extras), "destacado": False})
+    tipo_raw = str(datos.get("tipo") or datos.get("type") or datos.get("docMode") or "estimate").strip().lower()
+    if tipo_raw in ("contract", "contrato"):
+        tipo_clave, tipo_label, total_label = "contract", "Contract", "Contract total"
+    elif tipo_raw in ("invoice", "factura"):
+        tipo_clave, tipo_label, total_label = "invoice", "Invoice", "Invoice total"
+    else:
+        tipo_clave, tipo_label, total_label = "estimate", "Estimate", "Estimate total"
     if total_num or bloques:
-        totales.append({"label": "Contract total", "valor": _dinero_publico(total_num), "destacado": True})
+        totales.append({"label": total_label, "valor": _dinero_publico(total_num), "destacado": True})
+    snapshot = datos.get("snapshot") if isinstance(datos.get("snapshot"), dict) else {}
+    company = snapshot.get("company") if isinstance(snapshot.get("company"), dict) else {}
+    firmas = datos.get("firmas") if isinstance(datos.get("firmas"), dict) else {}
+    def _img_firma(valor):
+        texto = str(valor or "").strip()
+        return texto if texto.startswith("data:image/") else ""
     return {
-        "empresa": datos.get("nombre_empresa") or "",
-        "empresa_email": datos.get("contratista_email") or "",
-        "empresa_telefono": datos.get("contratista_telefono") or "",
-        "representante": datos.get("representante") or "",
+        "tipo": tipo_clave,
+        "tipo_label": tipo_label,
+        "empresa": datos.get("nombre_empresa") or company.get("name") or "",
+        "empresa_email": datos.get("contratista_email") or company.get("email") or "",
+        "empresa_telefono": datos.get("contratista_telefono") or company.get("phone") or "",
+        "representante": datos.get("representante") or company.get("representative") or "",
+        "servicio": _servicio_comercial_ingles(company.get("service") or datos.get("servicio") or ""),
         "folio": datos.get("folio") or "",
         "fecha": fecha,
+        "vencimiento": str(snapshot.get("dueDate") or snapshot.get("due_date") or "")[:10],
         "cliente": datos.get("cliente_nombre") or datos.get("client") or "",
         "cliente_email": datos.get("cliente_email") or "",
         "cliente_telefono": datos.get("cliente_telefono") or "",
@@ -5954,6 +6073,10 @@ def _vista_contrato_publico(datos):
         "subtotal_txt": _dinero_publico(subtotal) if bloques else "",
         "total_txt": _dinero_publico(total_num) if total_num or bloques else "",
         "tiene_alcance": bool(bloques),
+        "firma_cliente": _img_firma(firmas.get("cliente") or firmas.get("client")),
+        "firma_contratista": _img_firma(firmas.get("contratista") or firmas.get("contractor")),
+        "firma_cliente_fecha": str(datos.get("firma_fecha") or firmas.get("clienteFecha") or "")[:19],
+        "firma_contratista_fecha": str(firmas.get("contratistaFecha") or firmas.get("contractorFecha") or "")[:19],
     }
 
 
@@ -7487,6 +7610,43 @@ def api_contratista_actual():
         }
     resp = jsonify(payload)
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
+
+
+@app.route("/api/save_draft", methods=["GET", "POST"])
+@app.route("/api/save-draft", methods=["GET", "POST"])
+def api_save_draft():
+    sb = _supabase_client()
+    if sb is None:
+        return jsonify({"error": "Supabase no configurado"}), 503
+    contratista, error = _exigir_contratista()
+    if error:
+        return error
+    if request.method == "GET":
+        tipo = request.args.get("tipo") or request.args.get("type") or "estimate"
+        try:
+            row = _buscar_borrador_activo(sb, contratista, tipo)
+        except Exception as err:
+            print(f"--> save_draft get: {err}")
+            return jsonify({"error": "Could not read the draft."}), 503
+        if not row:
+            return jsonify({"draft": None}), 200
+        return jsonify(documento_desde_fila_historial(row))
+    if contratista.get("trial_expirada"):
+        return jsonify({
+            "error": "Your 14-day free trial has expired. Please add a payment method to keep using QuantixBuilds.",
+            "code": "trial_expired",
+        }), 402
+    body = request.get_json(silent=True) or {}
+    fila = _fila_historial_desde_body(body)
+    fila["estado"] = "Draft"
+    try:
+        guardado = _guardar_borrador_tabla(sb, contratista, fila)
+        if not isinstance(guardado, dict) or not guardado.get("id"):
+            return jsonify({"error": "Could not save the draft."}), 500
+        return jsonify(documento_desde_fila_historial(guardado))
+    except Exception as err:
+        print(f"--> save_draft: {err}")
+        return _respuesta_tenant(err)
 
 
 @app.route("/api/historial", methods=["GET", "POST"])
@@ -12163,6 +12323,33 @@ def _html_a_pdf_navegador(html):
             return fh.read()
 
 
+_WEASYPRINT_HTML = None
+
+
+def _html_a_pdf(html):
+    global _WEASYPRINT_HTML
+    errores = []
+    if _WEASYPRINT_HTML is None:
+        try:
+            from weasyprint import HTML as WeasyHTML
+            _WEASYPRINT_HTML = WeasyHTML
+        except Exception as err:
+            _WEASYPRINT_HTML = False
+            print(f"--> weasyprint: {err}")
+    if _WEASYPRINT_HTML:
+        try:
+            return _WEASYPRINT_HTML(string=str(html or ""), encoding="utf-8").write_pdf()
+        except Exception as err:
+            errores.append(f"weasyprint: {err}")
+            print(f"--> weasyprint render: {err}")
+    try:
+        return _html_a_pdf_navegador(html)
+    except Exception as err:
+        errores.append(str(err))
+        print(f"--> pdf navegador: {err}")
+    raise RuntimeError("Could not generate the PDF. " + "; ".join(errores[:2]))
+
+
 def _bytes_imagen_pdf(raw):
     import base64
     texto = raw if isinstance(raw, str) else ""
@@ -12216,7 +12403,7 @@ def _pdf_desde_solicitud(data):
     if html:
         nombre = str((data or {}).get("nombre_empresa") or (data or {}).get("company") or "").strip()
         html = _html_marca_blanca(_traducir_servicio_en_html_pdf(html), nombre)
-        return _html_a_pdf_navegador(html)
+        return _html_a_pdf(html)
     imagen = _bytes_imagen_pdf((data or {}).get("image") or (data or {}).get("png") or (data or {}).get("dataUrl") or "")
     if imagen:
         return _imagen_a_pdf(imagen)
@@ -12470,6 +12657,54 @@ def _enviar_correo_html(destino, asunto, html_body, texto, sender_name=None, rep
 
 def enviar_correo_pdf(*args, **kwargs):
     return _enviar_correo_pdf(*args, **kwargs)
+
+
+def _html_documento_pdf(datos, contratista=None):
+    publico = _publico_desde_historial(datos or {}, contratista)
+    documento = _vista_contrato_publico(publico)
+    return render_template("documento_pdf.html", documento=documento)
+
+
+def _respuesta_pdf_adjunto(pdf_bytes, filename="Documento.pdf"):
+    nombre = re.sub(r"[^A-Za-z0-9._#-]+", "_", str(filename or "Documento.pdf"))
+    if not nombre.lower().endswith(".pdf"):
+        nombre += ".pdf"
+    if not nombre:
+        nombre = "Documento.pdf"
+    return Response(
+        pdf_bytes,
+        mimetype="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{nombre}"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@app.route("/api/download_pdf/<doc_id>", methods=["GET"])
+@app.route("/api/download-pdf/<doc_id>", methods=["GET"])
+def api_download_pdf(doc_id):
+    ident = str(doc_id or "").strip()
+    if not _es_uuid(ident):
+        return jsonify({"error": "Save the document first."}), 400
+    contratista, error = _exigir_contratista()
+    if error:
+        return error
+    try:
+        row = obtener_historial_tenant(contratista, ident)
+    except Exception as err:
+        print(f"--> download_pdf: {err}")
+        return jsonify({"error": "Could not open the document."}), 503
+    if not row:
+        return jsonify({"error": "Document not found."}), 404
+    try:
+        html = _html_documento_pdf(row, contratista)
+        pdf_bytes = _html_a_pdf(html)
+    except Exception as err:
+        print(f"--> download_pdf render: {err}")
+        return jsonify({"error": "Could not generate the PDF."}), 500
+    filename = _nombre_pdf_adjunto(row.get("tipo"), row.get("folio")) or "Documento.pdf"
+    return _respuesta_pdf_adjunto(pdf_bytes, filename)
 
 
 @app.route("/api/generar-pdf", methods=["POST"])

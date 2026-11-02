@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ documento.tipo_label or "Document" }} {{ documento.folio or "" }}</title>
+  <style>
+    @page { size: Letter; margin: 14mm 12mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #0f172a; font-family: Helvetica, Arial, DejaVu Sans, sans-serif; font-size: 11pt; }
+    h1 { margin: 10px 0 6px; font-size: 18pt; }
+    h2 { margin: 16px 0 8px; font-size: 12pt; color: #19385f; }
+    h3 { margin: 0; font-size: 11pt; }
+    p { margin: 0 0 6px; line-height: 1.4; }
+    .head { display: table; width: 100%; border-bottom: 2px solid #19385f; padding-bottom: 10px; }
+    .head-left, .head-right { display: table-cell; vertical-align: top; }
+    .head-right { text-align: right; }
+    .brand { font-size: 16pt; font-weight: 700; }
+    .muted { color: #64748b; font-size: 9pt; }
+    .partes { width: 100%; margin: 12px 0; }
+    .partes td { width: 50%; vertical-align: top; padding: 8px 10px; background: #f8fafc; border: 1px solid #dbe3ee; }
+    .label { display: block; font-size: 8pt; letter-spacing: .06em; text-transform: uppercase; color: #64748b; font-weight: 700; }
+    table.items { width: 100%; border-collapse: collapse; margin: 6px 0 4px; font-size: 9pt; }
+    table.items th, table.items td { border-bottom: 1px solid #e2e8f0; padding: 5px 6px; text-align: left; vertical-align: top; }
+    table.items th { background: #f1f5f9; font-size: 8pt; text-transform: uppercase; letter-spacing: .03em; }
+    .num { text-align: right; white-space: nowrap; }
+    .area { margin: 0 0 12px; }
+    .area-head { margin-bottom: 4px; }
+    .ref { color: #64748b; font-size: 9pt; }
+    .texto { white-space: pre-wrap; background: #f8fafc; border: 1px solid #dbe3ee; padding: 8px 10px; }
+    .totales { width: 280px; margin-left: auto; }
+    .totales .fila { display: table; width: 100%; padding: 4px 0; border-bottom: 1px solid #edf2f7; }
+    .totales .fila span, .totales .fila strong { display: table-cell; }
+    .totales .fila strong { text-align: right; }
+    .totales .grand { border-top: 2px solid #19385f; border-bottom: 0; font-size: 12pt; padding-top: 8px; }
+    .firmas { width: 100%; margin-top: 22px; }
+    .firmas td { width: 50%; vertical-align: top; padding-right: 16px; }
+    .firma-box { min-height: 70px; border-bottom: 1px solid #94a3b8; padding: 4px 0; }
+    .firma-box img { max-width: 240px; max-height: 72px; }
+  </style>
+</head>
+<body>
+  {% set d = documento or {} %}
+  <div class="head">
+    <div class="head-left">
+      <div class="brand">{{ d.empresa or "QuantixBuilds" }}</div>
+      {% if d.representante %}<div class="muted">{{ d.representante }}</div>{% endif %}
+      {% if d.empresa_email %}<div class="muted">{{ d.empresa_email }}</div>{% endif %}
+      {% if d.empresa_telefono %}<div class="muted">{{ d.empresa_telefono }}</div>{% endif %}
+      {% if d.servicio %}<div class="muted">{{ d.servicio }}</div>{% endif %}
+    </div>
+    <div class="head-right">
+      <strong>{{ d.tipo_label or "Document" }}{% if d.folio %} {{ d.folio }}{% endif %}</strong>
+      {% if d.fecha %}<div class="muted">Date {{ d.fecha }}</div>{% endif %}
+      {% if d.vencimiento %}<div class="muted">Due {{ d.vencimiento }}</div>{% endif %}
+    </div>
+  </div>
+
+  <h1>{{ d.tipo_label or "Document" }}</h1>
+  <table class="partes">
+    <tr>
+      <td>
+        <span class="label">Contractor</span>
+        <p><strong>{{ d.empresa or "—" }}</strong></p>
+        {% if d.empresa_email %}<p>{{ d.empresa_email }}</p>{% endif %}
+        {% if d.empresa_telefono %}<p>{{ d.empresa_telefono }}</p>{% endif %}
+      </td>
+      <td>
+        <span class="label">Client</span>
+        <p><strong>{{ d.cliente or "—" }}</strong></p>
+        {% if d.cliente_email %}<p>{{ d.cliente_email }}</p>{% endif %}
+        {% if d.cliente_telefono %}<p>{{ d.cliente_telefono }}</p>{% endif %}
+        {% if d.direccion %}<p>{{ d.direccion }}</p>{% endif %}
+      </td>
+    </tr>
+  </table>
+
+  <h2>Scope of work</h2>
+  {% if d.tiene_alcance %}
+    {% for area in d.areas %}
+    <div class="area">
+      <div class="area-head">
+        <h3>{{ loop.index }}. {{ area.titulo }}</h3>
+        {% if area.referencia %}<span class="ref">{{ area.referencia }}</span>{% endif %}
+      </div>
+      <table class="items">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Action</th>
+            <th>Work description</th>
+            <th class="num">Qty</th>
+            <th>Unit</th>
+            <th class="num">Unit price</th>
+            <th class="num">Tax</th>
+            <th class="num">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for fila in area.filas %}
+          <tr>
+            <td>{{ fila.codigo or "—" }}</td>
+            <td>{{ fila.accion or "—" }}</td>
+            <td>{{ fila.descripcion or "—" }}</td>
+            <td class="num">{{ fila.cantidad_txt }}</td>
+            <td>{{ fila.unidad or "—" }}</td>
+            <td class="num">{{ fila.precio_txt }}</td>
+            <td class="num">{{ fila.tax_txt }}</td>
+            <td class="num">{{ fila.subtotal_txt }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="num"><strong>Area total</strong> {{ area.subtotal_txt }}</p>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p>No line items were saved with this document.</p>
+  {% endif %}
+
+  {% if d.terminos %}
+  <h2>Terms and conditions</h2>
+  <div class="texto">{{ d.terminos }}</div>
+  {% endif %}
+
+  {% if d.notas %}
+  <h2>Project notes</h2>
+  <div class="texto">{{ d.notas }}</div>
+  {% endif %}
+
+  <h2>{{ d.tipo_label or "Document" }} totals</h2>
+  <div class="totales">
+    {% if d.totales %}
+      {% for fila in d.totales %}
+      <div class="fila{% if fila.destacado %} grand{% endif %}"><span>{{ fila.label }}</span><strong>{{ fila.valor }}</strong></div>
+      {% endfor %}
+    {% else %}
+      <div class="fila grand"><span>Total</span><strong>{{ d.total_txt or "—" }}</strong></div>
+    {% endif %}
+  </div>
+
+  {% if d.firma_contratista or d.firma_cliente %}
+  <table class="firmas">
+    <tr>
+      <td>
+        <span class="label">Contractor signature</span>
+        <div class="firma-box">{% if d.firma_contratista %}<img src="{{ d.firma_contratista }}" alt="Contractor signature">{% endif %}</div>
+        {% if d.firma_contratista_fecha %}<p class="muted">{{ d.firma_contratista_fecha }}</p>{% endif %}
+      </td>
+      <td>
+        <span class="label">Client signature</span>
+        <div class="firma-box">{% if d.firma_cliente %}<img src="{{ d.firma_cliente }}" alt="Client signature">{% endif %}</div>
+        {% if d.firma_cliente_fecha %}<p class="muted">{{ d.firma_cliente_fecha }}</p>{% endif %}
+      </td>
+    </tr>
+  </table>
+  {% endif %}
+</body>
+</html>

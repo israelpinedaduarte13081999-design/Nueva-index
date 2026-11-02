@@ -399,6 +399,7 @@
     .badge { padding:4px 10px; border-radius:999px; font-size:.8rem; font-weight:600; display:inline-block; }
     .badge-pending { background-color:#fef3c7; color:#b45309; }
     .badge-paid { background-color:#dcfce7; color:#15803d; }
+    .badge-draft { background-color:#e2e8f0; color:#334155; }
     .signup-card { margin-top:18px; padding:16px 18px; border:1px solid #e2e8f0; border-radius:12px; background:#fff; max-width:420px; }
     .signup-card h3 { margin:0 0 6px; color:#0f172a; font-size:1.05rem; }
     .signup-card p { margin:0 0 12px; color:#64748b; font-size:.9rem; }
@@ -6137,6 +6138,117 @@
       const modal=document.getElementById('draftModal');
       if(modal)modal.hidden=true;
     }
+    function debounce(fn, wait){
+      let timer=null;
+      const wrapped=function(){
+        const ctx=this;
+        const args=arguments;
+        clearTimeout(timer);
+        timer=setTimeout(()=>fn.apply(ctx, args), wait);
+      };
+      wrapped.flush=function(){
+        if(!timer)return;
+        clearTimeout(timer);
+        timer=null;
+        fn();
+      };
+      wrapped.cancel=function(){
+        clearTimeout(timer);
+        timer=null;
+      };
+      return wrapped;
+    }
+    let omitirRestaurarBorrador=false;
+    let restaurandoBorrador=false;
+    let autoguardadoEnCurso=false;
+    let borradorYaRestaurado=false;
+    function puedeAutoguardarBorrador(){
+      if(restaurandoBorrador||isLoadingEstimate||cargandoDocumentoHistorial||autoguardadoEnCurso)return false;
+      if(typeof documentoEstadoFirmado!=='undefined'&&documentoEstadoFirmado)return false;
+      if(typeof presupuestoAprobado==='function'&&presupuestoAprobado())return false;
+      const vista=document.getElementById('view-quote');
+      if(vista&&!vista.classList.contains('active'))return false;
+      return true;
+    }
+    async function guardarBorradorEnServidor(opts){
+      if(!puedeAutoguardarBorrador())return null;
+      let localOk=false;
+      try{
+        localStorage.setItem(draftStorageKey, JSON.stringify(capturarBorradorEstimado()));
+        localOk=true;
+      }catch(_){}
+      if(!sesionActual)return localOk;
+      autoguardadoEnCurso=true;
+      try{
+        try{ await asegurarContratista(); }catch(_){}
+        const registro=typeof construirRegistroHistorialActual==='function'?construirRegistroHistorialActual():null;
+        if(!registro)return localOk;
+        registro.status='Draft';
+        registro.estado='Draft';
+        const res=await fetch('/api/save_draft',{
+          method:'POST',
+          credentials:'same-origin',
+          keepalive:!!(opts&&opts.keepalive),
+          headers:headersContratista({'Content-Type':'application/json'}),
+          body:JSON.stringify(registro)
+        });
+        if(!res.ok)return localOk;
+        const json=await res.json().catch(()=>null);
+        if(json&&json.id){
+          documentoHistorialId=json.id;
+          try{
+            const url=urlEdicionDocumento(registro.type||tipoDocumentoActual(), json.id);
+            history.replaceState({view:'quote',mode:registro.type||tipoDocumentoActual(),id:json.id},'',url);
+          }catch(_){}
+        }
+        return json||localOk;
+      }catch(err){
+        console.error(err);
+        return localOk;
+      }finally{
+        autoguardadoEnCurso=false;
+      }
+    }
+    const programarAutoguardado=debounce(()=>{ guardarBorradorEnServidor(); }, 3000);
+    async function restaurarBorradorActivo(){
+      if(borradorYaRestaurado||omitirRestaurarBorrador||idDocumentoEnUrl())return false;
+      borradorYaRestaurado=true;
+      restaurandoBorrador=true;
+      isLoadingEstimate=true;
+      try{
+        let data=null;
+        try{
+          try{ await asegurarContratista(); }catch(_){}
+          if(sesionActual){
+            const tipo=typeof tipoDocumentoActual==='function'?tipoDocumentoActual():'estimate';
+            const res=await fetch('/api/save_draft?tipo='+encodeURIComponent(tipo),{
+              credentials:'same-origin',
+              headers:headersContratista()
+            });
+            if(res.ok){
+              const json=await res.json().catch(()=>null);
+              if(json&&json.id&&json.draft!==null) data=json;
+            }
+          }
+        }catch(_){}
+        if(!data) data=leerBorradorEstimado();
+        if(!data||(!data.areas&&!data.snapshot&&!data.items&&!data.id))return false;
+        ocultarAvisoBorrador();
+        if(data.id||data.snapshot||data.items||data.cliente){
+          aplicarDocumentoEnFormulario(data, data.id||documentoHistorialId);
+        }else{
+          restaurarBorradorEstimado(data);
+        }
+        mostrarToastBorrador('Draft restored');
+        return true;
+      }catch(err){
+        console.error(err);
+        return false;
+      }finally{
+        restaurandoBorrador=false;
+        isLoadingEstimate=false;
+      }
+    }
     function normalizarTipoDocumento(valor){
       const t=String(valor||'').toLowerCase().trim();
       if(t==='contract'||t==='contrato'||t==='work contract')return 'contract';
@@ -6649,6 +6761,7 @@
         const paid=item.status==='paid'||item.estado==='paid';
         const st=String(item.status||item.estado||'').toLowerCase();
         const signed=st==='accepted'||st==='firmado'||st==='signed';
+        const draft=st==='draft'||st==='borrador';
         const total=typeof item.total==='number'?(typeof money!=='undefined'?money.format(item.total):('$'+Number(item.total).toFixed(2))): (item.total||'—');
         const openId=item.id||item.folio||item.number||'';
         const direccion=formatearDireccionHistorial(item)||'No address';
@@ -6664,7 +6777,7 @@
           <td>${escHtmlHistorial(clienteNombre)}</td>
           <td>${escHtmlHistorial(item.date||item.fecha||'—')}</td>
           <td>${escHtmlHistorial(total)}</td>
-          <td><span class="badge ${paid?'badge-paid':signed?'badge-signed':'badge-pending'}">${paid?'Paid':signed?'Signed':'Open'}</span></td>
+          <td><span class="badge ${paid?'badge-paid':signed?'badge-signed':draft?'badge-draft':'badge-pending'}">${paid?'Paid':signed?'Signed':draft?'Draft':'Open'}</span></td>
           <td><button class="btn-sm" type="button" data-open-id="${escHtmlHistorial(openId)}">Open</button></td>
         </tr>`;
       }).join('');
@@ -7203,6 +7316,8 @@
         }
         view='home';
       }
+      const saliendoDelGenerador=view!=='quote' && document.getElementById('view-quote')?.classList.contains('active');
+      if(saliendoDelGenerador && typeof programarAutoguardado.flush==='function') programarAutoguardado.flush();
       document.body.classList.remove('auth-solo','eligiendo-plan','pagando','paywall','prueba-expirada');
       document.body.classList.add('con-sesion');
       aplicarViewportApp(false);
@@ -7221,6 +7336,8 @@
         }
         if(options.reset&&typeof createNewInvoice==='function'){
           try{ createNewInvoice(); }catch(err){ console.error(err); }
+        }else if(!options.reset && !idDocumentoEnUrl() && typeof restaurarBorradorActivo==='function'){
+          restaurarBorradorActivo();
         }
         if(!options.noScroll)window.scrollTo({top:0,behavior:'smooth'});
       }
@@ -7338,7 +7455,7 @@
     window.crearDocumento=crearDocumento;
     window.cambiarVista=cambiarVista;
     window.showAppView=showAppView;
-    function createNewInvoice(){ if(cargandoDocumentoHistorial)return; documentoHistorialId=null; guardarDocumentoEnHistorial(); aplicarFolioEnPantalla(siguienteFolio(tipoDocumentoActual())); document.querySelector('#date').value=new Date().toISOString().slice(0,10); ['clientName','clientEmail','clientPhone','clientStreet','clientCity','clientZip'].forEach(id=>document.querySelector('#'+id).value=''); document.querySelector('#clientState').value='GA'; document.querySelector('#dueDate').value=''; paymentState={paidAmount:'',status:'open',paidDate:''}; document.querySelector('#status').value='open'; savePaymentState(); areas.innerHTML=''; areaCount=0; addArea({title:'New work',titleEn:'New work',reference:'',rows:[['','',1,0,'unit']]}); syncClientData(); const profile=JSON.parse(localStorage.getItem(businessProfileStorageKey)||'null'); if(profile) applyBusinessProfile(profile); document.querySelector('#paidStamp').hidden=true; limpiarPanelFirma('client'); limpiarPanelFirma('contractor'); }
+    function createNewInvoice(){ if(cargandoDocumentoHistorial)return; omitirRestaurarBorrador=true; borradorYaRestaurado=true; documentoHistorialId=null; guardarDocumentoEnHistorial(); aplicarFolioEnPantalla(siguienteFolio(tipoDocumentoActual())); document.querySelector('#date').value=new Date().toISOString().slice(0,10); ['clientName','clientEmail','clientPhone','clientStreet','clientCity','clientZip'].forEach(id=>document.querySelector('#'+id).value=''); document.querySelector('#clientState').value='GA'; document.querySelector('#dueDate').value=''; paymentState={paidAmount:'',status:'open',paidDate:''}; document.querySelector('#status').value='open'; savePaymentState(); areas.innerHTML=''; areaCount=0; addArea({title:'New work',titleEn:'New work',reference:'',rows:[['','',1,0,'unit']]}); syncClientData(); const profile=JSON.parse(localStorage.getItem(businessProfileStorageKey)||'null'); if(profile) applyBusinessProfile(profile); document.querySelector('#paidStamp').hidden=true; limpiarPanelFirma('client'); limpiarPanelFirma('contractor'); }
     function leerTextoCampo(el){
       if(!el)return '';
       const tag=String(el.tagName||'').toUpperCase();
@@ -7428,6 +7545,57 @@
         throw new Error(detalle||('PDF request failed ('+res.status+')'));
       }
       return await res.blob();
+    }
+    function nombreArchivoDesdeCabecera(res, fallback){
+      const disp=String(res&&res.headers&&res.headers.get('Content-Disposition')||'');
+      const m=disp.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i);
+      if(!m) return fallback||'Documento.pdf';
+      try{ return decodeURIComponent(m[1].replace(/"/g,'').trim())||fallback||'Documento.pdf'; }
+      catch(_){ return m[1].replace(/"/g,'').trim()||fallback||'Documento.pdf'; }
+    }
+    function forzarDescargaBlob(blob, filename){
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;
+      a.download=filename||'Documento.pdf';
+      a.rel='noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 2500);
+    }
+    async function descargarPdfDocumento(){
+      const btn=document.getElementById('exportPdfButton');
+      if(btn){ btn.disabled=true; }
+      try{
+        try{ await asegurarContratista(); }catch(_){}
+        await guardarEstimadoEnHistorial();
+        const id=String(documentoHistorialId||'').trim();
+        if(!/^[0-9a-f-]{36}$/i.test(id)){
+          throw new Error('Save the document first, then download the PDF.');
+        }
+        const res=await fetch('/api/download_pdf/'+encodeURIComponent(id),{
+          method:'GET',
+          headers:headersContratista({Accept:'application/pdf'}),
+          credentials:'same-origin'
+        });
+        if(!res.ok){
+          let detalle='';
+          try{ const err=await res.json(); detalle=err.error||''; }catch(_){}
+          throw new Error(detalle||('PDF download failed ('+res.status+')'));
+        }
+        const blob=await res.blob();
+        if(!blob||!blob.size) throw new Error('The PDF file was empty.');
+        forzarDescargaBlob(blob, nombreArchivoDesdeCabecera(res, exportFilename()+'.pdf'));
+        document.querySelector('#exportModal').hidden=true;
+        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('PDF downloaded');
+      }catch(error){
+        console.error(error);
+        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado(error.message||'Could not download the PDF','error');
+        else alert(error.message||'Could not download the PDF');
+      }finally{
+        if(btn) btn.disabled=false;
+      }
     }
     async function previewPdfDocumento(){
       const btn=document.getElementById('previewPdfButton');
@@ -9192,10 +9360,7 @@
       try{ await aplicarIdiomaEstimado(); }catch(err){ console.error(err); }
     });
     document.querySelector('#previewPdfButton')?.addEventListener('click',previewPdfDocumento);
-    document.querySelector('#exportPdfButton').addEventListener('click',()=>{
-      document.querySelector('#exportModal').hidden=true;
-      window.print();
-    });
+    document.querySelector('#exportPdfButton').addEventListener('click',descargarPdfDocumento);
     document.querySelector('#emailInvoiceButton').addEventListener('click',emailInvoice);
     document.getElementById('saveClientSignatureButton')?.addEventListener('click',guardarFirmaClienteEnServidor);
     document.getElementById('sendForSignatureButton')?.addEventListener('click',enviarContratoParaFirma);
@@ -9206,7 +9371,11 @@
       guardarEstimadoEnHistorial();
     });
     document.querySelector('#newInvoiceButton').addEventListener('click',createNewInvoice);
-    document.querySelector('#saveDraftButton')?.addEventListener('click',guardarBorradorEstimado);
+    document.querySelector('#saveDraftButton')?.addEventListener('click',async ()=>{
+      const ok=await guardarBorradorEnServidor();
+      if(ok!==null) mostrarToastBorrador('Draft saved');
+      else mostrarToastBorrador('Could not save the draft');
+    });
     document.querySelector('#draftRestoreButton')?.addEventListener('click',()=>{
       const draft=leerBorradorEstimado();
       ocultarAvisoBorrador();
@@ -10024,9 +10193,19 @@
     document.querySelector('#date').value=new Date().toISOString().slice(0,10);
     aplicarFolioEnPantalla(document.getElementById('quote')?.value);
     loadSavedClients();
-    const borradorPendiente=leerBorradorEstimado();
-    if(borradorPendiente) mostrarAvisoBorrador();
-    else initialAreas.forEach(addArea);
+    if(!document.querySelector('#areas .area')) initialAreas.forEach(addArea);
+    const raizGenerador=document.getElementById('view-quote');
+    if(raizGenerador){
+      raizGenerador.addEventListener('input',()=>programarAutoguardado(), true);
+      raizGenerador.addEventListener('change',()=>programarAutoguardado(), true);
+      raizGenerador.addEventListener('click',(ev)=>{
+        if(ev.target.closest('.add-row,.add-row-btn,.remove-row,.remove-area-btn,#addArea')) programarAutoguardado();
+      }, true);
+    }
+    window.addEventListener('pagehide',()=>{
+      if(typeof programarAutoguardado.cancel==='function') programarAutoguardado.cancel();
+      guardarBorradorEnServidor({keepalive:true});
+    });
     document.querySelectorAll('.fila-trabajo').forEach(poblarCatalogoPartidas);
     new MutationObserver(mutations=>mutations.forEach(mutation=>mutation.addedNodes.forEach(node=>{ if(node.nodeType===1){ if(node.matches('.fila-trabajo')){poblarCatalogoPartidas(node); node.querySelectorAll?.('textarea.item-desc, textarea.description').forEach(autoAjustarAlturaDescripcion);} node.querySelectorAll?.('.fila-trabajo').forEach(row=>{poblarCatalogoPartidas(row); row.querySelectorAll?.('textarea.item-desc, textarea.description').forEach(autoAjustarAlturaDescripcion);}); } }))).observe(areas,{childList:true,subtree:true});
     syncClientData();
