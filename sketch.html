@@ -49,17 +49,19 @@
     }
     .qb-top .btn-primary { background:var(--blue); border-color:var(--blue); color:#fff; }
     .qb-top .btn-primary:disabled { opacity:.6; cursor:wait; }
-    .qb-stage { flex:1; position:relative; min-height:0; }
-    #sketch-board { position:absolute; inset:0; background:var(--canvas); }
+    .qb-stage { flex:1; position:relative; min-height:0; isolation:isolate; }
+    #sketch-board { position:absolute; inset:0; z-index:1; background:var(--canvas); pointer-events:auto; touch-action:none; }
     #sketch-board.is-draw { cursor:crosshair; }
     #sketch-board.is-note { cursor:text; }
     #sketch-board.is-delete { cursor:not-allowed; }
-    #planoCanvas { display:block; width:100%; height:100%; touch-action:none; }
+    #sketch-board .canvas-container { position:absolute !important; inset:0; width:100% !important; height:100% !important; touch-action:none; }
+    #sketch-board .canvas-container canvas { display:block; touch-action:none; }
     .qb-float {
       display:none; position:absolute; left:16px; top:16px; z-index:8; width:min(360px,calc(100vw - 120px));
       background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:0 18px 40px rgba(15,35,64,.18); padding:12px;
+      pointer-events:none;
     }
-    .qb-float.is-open { display:block; }
+    .qb-float.is-open { display:block; pointer-events:auto; }
     .qb-float header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
     .qb-float h2 { margin:0; font-size:.92rem; color:var(--navy); }
     .qb-float .close { border:0; background:transparent; font-size:1.2rem; cursor:pointer; color:var(--muted); }
@@ -73,8 +75,9 @@
     .qb-inspector {
       display:none; position:absolute; right:16px; top:16px; z-index:8; width:min(280px,calc(100vw - 110px));
       background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:0 18px 40px rgba(15,35,64,.16); padding:14px;
+      pointer-events:none;
     }
-    .qb-inspector.is-open { display:block; }
+    .qb-inspector.is-open { display:block; pointer-events:auto; }
     .qb-inspector h2 { margin:0 0 10px; font-size:.92rem; color:var(--navy); }
     .qb-inspector label { display:block; font-size:.72rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin:8px 0 4px; }
     .qb-inspector input, .qb-inspector select {
@@ -87,7 +90,8 @@
     .qb-inspector .danger { color:#b91c1c; border-color:#fecaca; }
     @media (max-width:720px) {
       .qb-rail { width:68px; flex-basis:68px; }
-      .qb-inspector, .qb-float { left:8px; right:8px; width:auto; }
+      .qb-float.is-open { width:min(320px,calc(100vw - 84px)); }
+      .qb-inspector.is-open { width:min(260px,calc(100vw - 84px)); }
     }
   </style>
 </head>
@@ -222,17 +226,40 @@
       const inspector=document.getElementById('inspector');
       const paleta=document.getElementById('paletaFlotante');
       const paletaCards=document.getElementById('paletaCards');
+      const rail=document.querySelector('.qb-rail');
       const el=document.getElementById('planoCanvas');
-      if(typeof fabric==='undefined' || !el){
-        if(status){ status.textContent='No se pudo cargar el lienzo.'; status.className='status err'; }
-        return;
-      }
-      const canvas=new fabric.Canvas('planoCanvas',{ selection:true, preserveObjectStacking:true, stopContextMenu:true });
+      let canvas=null;
       let tool='select';
       let drawing=false;
       let origin=null;
       let temp=null;
       let cotaViva=null;
+
+      function setStatus(msg, kind){
+        if(!status) return;
+        status.textContent=msg||'';
+        status.className='status'+(kind?' '+kind:'');
+      }
+
+      if(typeof fabric==='undefined' || !el){
+        if(status){ status.textContent='No se pudo cargar el lienzo.'; status.className='status err'; }
+        console.log('[QB Sketch] Fabric.js no está disponible');
+      } else {
+        canvas=new fabric.Canvas('planoCanvas',{
+          selection:true,
+          preserveObjectStacking:true,
+          stopContextMenu:true,
+          allowTouchScrolling:false,
+          enableRetinaScaling:false,
+          fireRightClick:true
+        });
+        canvas.interactive=true;
+        canvas.selection=true;
+        if(canvas.upperCanvasEl){
+          canvas.upperCanvasEl.style.touchAction='none';
+          canvas.upperCanvasEl.style.pointerEvents='auto';
+        }
+      }
 
       function tokenContratista(){
         try{ return localStorage.getItem('contratista_sesion')||sessionStorage.getItem('contratista_sesion')||''; }catch(_){ return ''; }
@@ -243,16 +270,14 @@
         if(token) headers.Authorization='Bearer '+token;
         return headers;
       }
-      function setStatus(msg, kind){
-        if(!status) return;
-        status.textContent=msg||'';
-        status.className='status'+(kind?' '+kind:'');
-      }
       function sizeCanvas(){
-        canvas.setWidth(Math.max(320, board.clientWidth));
-        canvas.setHeight(Math.max(320, board.clientHeight));
+        if(!canvas || !board) return;
+        const w=Math.max(320, board.clientWidth||0);
+        const h=Math.max(320, board.clientHeight||0);
+        canvas.setDimensions({ width:w, height:h });
         canvas.calcOffset();
         canvas.requestRenderAll();
+        console.log('[QB Sketch] canvas size', w, h, 'interactive', canvas.interactive, 'selection', canvas.selection);
       }
       function fmtPies(px){
         const total=Math.max(0, Math.round(Math.abs(px)/PX_IN));
@@ -273,18 +298,21 @@
         ctx.save();
         ctx.fillStyle='#eef2f6';
         ctx.fillRect(0,0,w,h);
+        ctx.fillStyle='rgba(25,56,95,0.22)';
         for(let x=0;x<=w;x+=GRID){
           for(let y=0;y<=h;y+=GRID){
-            const mayor=(x%(GRID*5)===0)&&(y%(GRID*5)===0);
-            ctx.fillStyle=mayor?'rgba(25,56,95,0.38)':'rgba(25,56,95,0.22)';
-            ctx.beginPath();
-            ctx.arc(x,y, mayor?1.35:0.9, 0, Math.PI*2);
-            ctx.fill();
+            ctx.fillRect(x,y,1.2,1.2);
+          }
+        }
+        ctx.fillStyle='rgba(25,56,95,0.4)';
+        for(let x=0;x<=w;x+=GRID*5){
+          for(let y=0;y<=h;y+=GRID*5){
+            ctx.fillRect(x,y,2,2);
           }
         }
         ctx.restore();
       }
-      canvas.on('before:render', function(){ dibujarPuntos(canvas.contextContainer); });
+      if(canvas) canvas.on('before:render', function(){ if(canvas.contextContainer) dibujarPuntos(canvas.contextContainer); });
 
       function snapPunto(p){
         let x=Math.round(p.x/GRID)*GRID;
@@ -479,11 +507,14 @@
 
       function aplicarTool(nombre){
         tool=nombre||'select';
+        console.log('[QB Sketch] herramienta =', tool);
+        if(!canvas) return;
         drawing=false; temp=null; origin=null;
         if(cotaViva){ canvas.remove(cotaViva); cotaViva=null; }
         canvas.isDrawingMode=false;
+        canvas.interactive=true;
         canvas.discardActiveObject();
-        canvas.selection=tool==='select';
+        canvas.selection=true;
         canvas.skipTargetFind=['wall','opening','space','cota'].indexOf(tool)>=0;
         canvas.forEachObject(function(obj){
           const editable=tool==='select'||tool==='delete';
@@ -581,6 +612,7 @@
         }
       }
 
+      if(canvas){
       canvas.on('object:moving', function(e){ if(e.target) adherirAPared(e.target); });
       canvas.on('object:modified', function(e){ if(e.target) { adherirAPared(e.target); refrescarInspector(); } });
       canvas.on('selection:created', refrescarInspector);
@@ -588,6 +620,7 @@
       canvas.on('selection:cleared', refrescarInspector);
 
       canvas.on('mouse:down', function(opt){
+        console.log('[QB Sketch] mouse:down', tool);
         if(INMUTABLE) return;
         if(tool==='select') return;
         if(tool==='delete'){ if(opt.target){ canvas.remove(opt.target); refrescarInspector(); } return; }
@@ -655,6 +688,7 @@
         drawing=false; temp=null; origin=null; cotaViva=null;
         if(tool==='wall'||tool==='opening'||tool==='space') aplicarTool('select');
       });
+      }
 
       function objetoActivo(){ return canvas.getActiveObject(); }
       function refrescarInspector(){
@@ -711,16 +745,28 @@
         const obj=objetoActivo(); if(!obj) return; canvas.remove(obj); refrescarInspector();
       });
 
-      document.querySelectorAll('[data-tool]').forEach(function(btn){
-        btn.addEventListener('click', function(){ cerrarPaleta(); aplicarTool(btn.dataset.tool); });
-      });
-      document.querySelectorAll('[data-palette]').forEach(function(btn){
-        btn.addEventListener('click', function(){
-          aplicarTool('select');
-          document.querySelectorAll('.qb-rail [data-palette]').forEach(function(b){ b.classList.toggle('is-on', b===btn); });
-          abrirPaleta(btn.dataset.palette);
+      if(rail){
+        rail.addEventListener('click', function(ev){
+          const btn=ev.target.closest('[data-tool],[data-palette]');
+          if(!btn || !rail.contains(btn)) return;
+          ev.preventDefault();
+          const modo=btn.dataset.tool;
+          const pal=btn.dataset.palette;
+          console.log('[QB Sketch] clic barra', { herramienta:modo||null, paleta:pal||null });
+          if(pal){
+            aplicarTool('select');
+            rail.querySelectorAll('[data-palette]').forEach(function(b){ b.classList.toggle('is-on', b===btn); });
+            abrirPaleta(pal);
+            console.log('[QB Sketch] paleta abierta', pal, 'herramienta', tool);
+            return;
+          }
+          if(modo){
+            cerrarPaleta();
+            aplicarTool(modo);
+            console.log('[QB Sketch] estado', { tool:tool, selection:canvas&&canvas.selection, interactive:canvas&&canvas.interactive });
+          }
         });
-      });
+      }
       document.getElementById('paletaCerrar').addEventListener('click', cerrarPaleta);
       paletaCards.addEventListener('click', function(ev){
         const card=ev.target.closest('[data-insert]');
@@ -769,10 +815,24 @@
         if(!bruto) return;
         canvas.loadFromJSON(bruto, function(){ aplicarTool('select'); canvas.requestRenderAll(); });
       }
-      sizeCanvas();
+      function arrancarLienzo(){
+        sizeCanvas();
+        cargarInicial();
+        aplicarTool('select');
+        if(canvas){
+          canvas.interactive=true;
+          canvas.selection=true;
+          canvas.calcOffset();
+        }
+        console.log('[QB Sketch] listo', { tool:tool, tieneCanvas:!!canvas });
+      }
+      requestAnimationFrame(function(){
+        requestAnimationFrame(arrancarLienzo);
+      });
       window.addEventListener('resize', sizeCanvas);
-      cargarInicial();
-      aplicarTool('select');
+      if(window.ResizeObserver && board){
+        new ResizeObserver(function(){ sizeCanvas(); }).observe(board);
+      }
     })();
   </script>
   {% include "base.html" %}
