@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex,nofollow">
   <title>Plano{% if folio %} {{ folio }}{% endif %} | QuantixBuilds</title>
-  <script src="https://cdn.jsdelivr.net/npm/fabric@5.3.1/dist/fabric.min.js"></script>
+  <script src="{{ url_for('static', filename='fabric.min.js') }}"></script>
   <style>
     :root {
       --navy:#19385f; --navy-deep:#0b1f3a; --blue:#0d47a1; --blue-mid:#2d70ad;
@@ -50,12 +50,21 @@
     .qb-top .btn-primary { background:var(--blue); border-color:var(--blue); color:#fff; }
     .qb-top .btn-primary:disabled { opacity:.6; cursor:wait; }
     .qb-stage { flex:1; position:relative; min-height:0; isolation:isolate; }
-    #sketch-board { position:absolute; inset:0; z-index:1; background:var(--canvas); pointer-events:auto; touch-action:none; }
+    #sketch-board {
+      position:absolute; inset:0; z-index:1; background:var(--canvas);
+      pointer-events:auto; touch-action:none; user-select:none; overflow:hidden;
+    }
     #sketch-board.is-draw { cursor:crosshair; }
     #sketch-board.is-note { cursor:text; }
     #sketch-board.is-delete { cursor:not-allowed; }
-    #sketch-board .canvas-container { position:absolute !important; inset:0; width:100% !important; height:100% !important; touch-action:none; }
-    #sketch-board .canvas-container canvas { display:block; touch-action:none; }
+    #sketch-board .canvas-container {
+      position:absolute !important; left:0 !important; top:0 !important;
+      margin:0 !important; transform:none !important;
+    }
+    #sketch-board .canvas-container canvas {
+      display:block; touch-action:none;
+      position:absolute !important; left:0 !important; top:0 !important;
+    }
     .qb-float {
       display:none; position:absolute; left:16px; top:16px; z-index:8; width:min(360px,calc(100vw - 120px));
       background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:0 18px 40px rgba(15,35,64,.18); padding:12px;
@@ -106,15 +115,15 @@
     </div>
     <div class="grp">
       <small>Arquitectura</small>
-      <button type="button" data-tool="wall" title="Trazar muro" onclick="window.qbSketchHerramienta&&window.qbSketchHerramienta('wall')">
+      <button type="button" data-tool="wall" title="Trazar muro">
         <svg viewBox="0 0 24 24"><path d="M4 8h16M4 16h16M8 4v16M16 4v16"/></svg>
         Muro
       </button>
-      <button type="button" data-tool="space" title="Trazar espacio" onclick="window.qbSketchHerramienta&&window.qbSketchHerramienta('space')">
+      <button type="button" data-tool="space" title="Trazar espacio">
         <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/></svg>
         Espacio
       </button>
-      <button type="button" data-tool="opening" title="Apertura de pared" onclick="window.qbSketchHerramienta&&window.qbSketchHerramienta('opening')">
+      <button type="button" data-tool="opening" title="Apertura de pared">
         <svg viewBox="0 0 24 24"><path d="M4 12h6M14 12h6"/><path d="M10 8v8M14 8v8" stroke-dasharray="2 2"/></svg>
         Apertura
       </button>
@@ -129,7 +138,7 @@
         <svg viewBox="0 0 24 24"><path d="M3 19h18M5 19V10l7-6 7 6v9"/></svg>
         Estructuras
       </button>
-      <button type="button" data-tool="note" title="Nota" onclick="window.qbSketchHerramienta&&window.qbSketchHerramienta('note')">
+      <button type="button" data-tool="note" title="Nota">
         <svg viewBox="0 0 24 24"><path d="M4 20h16M7 16l10-10 3 3-10 10H7z"/></svg>
         Nota
       </button>
@@ -150,8 +159,8 @@
         {% if cliente %} · {{ cliente }}{% endif %}
       </span>
       <span class="grow"></span>
-      <span class="status" id="sketch-status">{% if inmutable %}Documento bloqueado.{% else %}Traza muros; las cotas se calculan en pies y pulgadas.{% endif %}</span>
-      <button class="btn btn-primary" type="button" id="guardarPlano" onclick="window.qbSketchGuardar&&window.qbSketchGuardar()"{% if inmutable %} disabled{% endif %}>Guardar plano</button>
+      <span class="status" id="sketch-status">{% if inmutable %}Documento bloqueado.{% else %}Elige Muro, Espacio o Apertura y arrastra en el lienzo.{% endif %}</span>
+      <button class="btn btn-primary" type="button" id="guardarPlano"{% if inmutable %} disabled{% endif %}>Guardar plano</button>
       <a class="btn" href="{{ volver or '/estimado' }}">Volver</a>
     </header>
     <div class="qb-stage">
@@ -196,8 +205,9 @@
       const DOC_ID={{ doc_id|tojson }};
       const INMUTABLE={{ inmutable|tojson }};
       const GRID=12;
-      const SNAP=16;
+      const SNAP=18;
       const PX_IN=1;
+      const MIN_TRAZO=12;
       const JSON_PROPS=['selectable','evented','qbTipo','qbSnap','qbLabel'];
       const NAVY='#19385f';
       const BLUE='#0d47a1';
@@ -220,6 +230,7 @@
         note:'Nota',
         cota:'Cota'
       };
+
       const board=document.getElementById('sketch-board');
       const status=document.getElementById('sketch-status');
       const saveBtn=document.getElementById('guardarPlano');
@@ -228,38 +239,40 @@
       const paletaCards=document.getElementById('paletaCards');
       const rail=document.querySelector('.qb-rail');
       const el=document.getElementById('planoCanvas');
+
       let canvas=null;
       let tool='select';
       let drawing=false;
       let origin=null;
-      let temp=null;
-      let cotaViva=null;
+      let hover=null;
+      let pointerId=null;
+      let guardando=false;
 
       function setStatus(msg, kind){
         if(!status) return;
         status.textContent=msg||'';
         status.className='status'+(kind?' '+kind:'');
       }
+      function esDibujo(nombre){
+        return nombre==='wall'||nombre==='opening'||nombre==='space'||nombre==='note'||nombre==='cota';
+      }
 
       if(typeof fabric==='undefined' || !el){
-        if(status){ status.textContent='No se pudo cargar el lienzo.'; status.className='status err'; }
+        setStatus('No se pudo cargar el lienzo.','err');
         console.log('[QB Sketch] Fabric.js no está disponible');
-      } else {
-        canvas=new fabric.Canvas('planoCanvas',{
-          selection:true,
-          preserveObjectStacking:true,
-          stopContextMenu:true,
-          allowTouchScrolling:false,
-          enableRetinaScaling:false,
-          fireRightClick:true
-        });
-        canvas.interactive=true;
-        canvas.selection=true;
-        if(canvas.upperCanvasEl){
-          canvas.upperCanvasEl.style.touchAction='none';
-          canvas.upperCanvasEl.style.pointerEvents='auto';
-        }
+        return;
       }
+
+      canvas=new fabric.Canvas(el, {
+        selection:true,
+        preserveObjectStacking:true,
+        stopContextMenu:true,
+        allowTouchScrolling:false,
+        enableRetinaScaling:false,
+        fireRightClick:false,
+        skipOffscreen:false
+      });
+      canvas.interactive=true;
 
       function tokenContratista(){
         try{ return localStorage.getItem('contratista_sesion')||sessionStorage.getItem('contratista_sesion')||''; }catch(_){ return ''; }
@@ -270,20 +283,33 @@
         if(token) headers.Authorization='Bearer '+token;
         return headers;
       }
+
       function sizeCanvas(){
-        if(!canvas || !board) return;
-        const w=Math.max(320, board.clientWidth||0);
-        const h=Math.max(320, board.clientHeight||0);
+        if(!canvas || !board || drawing) return;
+        const w=Math.max(320, Math.floor(board.clientWidth||0));
+        const h=Math.max(320, Math.floor(board.clientHeight||0));
+        if(canvas.getWidth()===w && canvas.getHeight()===h){
+          canvas.calcOffset();
+          return;
+        }
         canvas.setDimensions({ width:w, height:h });
+        const px=w+'px', py=h+'px';
+        [canvas.wrapperEl, canvas.lowerCanvasEl, canvas.upperCanvasEl].forEach(function(nodo){
+          if(!nodo) return;
+          nodo.style.width=px;
+          nodo.style.height=py;
+          nodo.style.maxWidth='none';
+          nodo.style.maxHeight='none';
+          nodo.style.left='0px';
+          nodo.style.top='0px';
+        });
         canvas.calcOffset();
         canvas.requestRenderAll();
-        console.log('[QB Sketch] canvas size', w, h, 'interactive', canvas.interactive, 'selection', canvas.selection);
       }
+
       function fmtPies(px){
         const total=Math.max(0, Math.round(Math.abs(px)/PX_IN));
-        const ft=Math.floor(total/12);
-        const inn=total%12;
-        return ft+"'-"+inn+'"';
+        return Math.floor(total/12)+"'-"+(total%12)+'"';
       }
       function parsePies(texto){
         const t=String(texto||'').trim();
@@ -300,39 +326,37 @@
         ctx.fillRect(0,0,w,h);
         ctx.fillStyle='rgba(25,56,95,0.22)';
         for(let x=0;x<=w;x+=GRID){
-          for(let y=0;y<=h;y+=GRID){
-            ctx.fillRect(x,y,1.2,1.2);
-          }
+          for(let y=0;y<=h;y+=GRID) ctx.fillRect(x,y,1.2,1.2);
         }
         ctx.fillStyle='rgba(25,56,95,0.4)';
         for(let x=0;x<=w;x+=GRID*5){
-          for(let y=0;y<=h;y+=GRID*5){
-            ctx.fillRect(x,y,2,2);
-          }
+          for(let y=0;y<=h;y+=GRID*5) ctx.fillRect(x,y,2,2);
         }
         ctx.restore();
       }
-      if(canvas) canvas.on('before:render', function(){ if(canvas.contextContainer) dibujarPuntos(canvas.contextContainer); });
+      canvas.on('before:render', function(){
+        if(canvas.contextContainer) dibujarPuntos(canvas.contextContainer);
+      });
+      canvas.on('after:render', function(){
+        if(drawing && origin && hover) pintarPreview(origin, hover);
+      });
 
-      function snapPunto(p){
-        let x=Math.round(p.x/GRID)*GRID;
-        let y=Math.round(p.y/GRID)*GRID;
-        let mejor=null;
-        paredesDelPlano().forEach(function(seg){
-          const hit=masCercano({x:x,y:y}, seg.a, seg.b);
-          if(!mejor || hit.dist<mejor.dist) mejor=hit;
-        });
-        if(mejor && mejor.dist<=SNAP){
-          x=mejor.x; y=mejor.y;
-        }
-        return {x:x,y:y};
+      function puntoDesdeEvento(ev){
+        const capa=canvas.upperCanvasEl||canvas.lowerCanvasEl||el;
+        const caja=capa.getBoundingClientRect();
+        const sx=(capa.width||caja.width)/(caja.width||1);
+        const sy=(capa.height||caja.height)/(caja.height||1);
+        return {
+          x:(ev.clientX-caja.left)*sx,
+          y:(ev.clientY-caja.top)*sy
+        };
       }
 
       function estiloSimbolo(obj, tipo, snap){
         obj.set({
           qbTipo:tipo, qbSnap:snap||'', qbLabel:NOMBRES[tipo]||tipo,
           selectable:true, evented:true, hasControls:true, hasBorders:true,
-          lockScalingFlip:false, transparentCorners:false,
+          lockScalingFlip:false, transparentCorners:false, objectCaching:false,
           cornerColor:BLUE, cornerStyle:'circle', borderColor:'#90caf9',
           padding:4, originX:'center', originY:'center'
         });
@@ -343,10 +367,9 @@
       }
       function linea(x1,y1,x2,y2, extra){
         return new fabric.Line([x1,y1,x2,y2], Object.assign({
-          stroke:NAVY, strokeWidth:3, strokeLineCap:'round', selectable:false, evented:false
+          stroke:NAVY, strokeWidth:3, strokeLineCap:'round', selectable:false, evented:false, objectCaching:false
         }, extra||{}));
       }
-
       function simboloPuertaAbatible(){
         const W=56;
         return grupo([
@@ -405,7 +428,7 @@
       }
       function simboloEspacioRect(){
         return estiloSimbolo(new fabric.Rect({
-          width:168, height:144, fill:'rgba(13,71,161,0.05)', stroke:NAVY, strokeWidth:5
+          width:168, height:144, fill:'rgba(13,71,161,0.05)', stroke:NAVY, strokeWidth:5, objectCaching:false
         }), 'space-square', '');
       }
       function simboloEspacioL(){
@@ -443,7 +466,6 @@
         'roof-gable':simboloCubierta,
         'stair-run':simboloEscalera
       };
-
       const PALETAS={
         accesos:{
           titulo:'Accesos',
@@ -462,13 +484,6 @@
           items:[
             {id:'roof-gable', label:'Cubierta a dos aguas', svg:'<path d="M4 20h24M6 20l10-12 10 12" stroke="#19385f" fill="none"/><path d="M16 8v12" stroke="#0d47a1" stroke-dasharray="2 2"/>'},
             {id:'stair-run', label:'Tramo de escalera', svg:'<path d="M6 8h16M6 12h16M6 16h16M6 20h16M14 8v12" stroke="#19385f" fill="none"/>'}
-          ]
-        },
-        anotaciones:{
-          titulo:'Anotaciones',
-          items:[
-            {id:'__tool:note', label:'Nota de texto', svg:'<path d="M7 8h18M7 13h14M7 18h10" stroke="#0d47a1"/>'},
-            {id:'__tool:cota', label:'Cota manual', svg:'<path d="M6 16h20M8 13v6M24 13v6" stroke="#0d47a1"/>'}
           ]
         }
       };
@@ -490,8 +505,6 @@
 
       function insertarSimbolo(tipo){
         if(INMUTABLE){ setStatus('Este documento no se puede editar.','err'); return; }
-        if(tipo==='__tool:note'){ aplicarTool('note'); cerrarPaleta(); return; }
-        if(tipo==='__tool:cota'){ aplicarTool('cota'); cerrarPaleta(); return; }
         const factory=FABRICAS[tipo];
         if(!factory) return;
         const obj=factory();
@@ -505,96 +518,42 @@
         setStatus(obj.qbSnap==='wall'?'Colócalo sobre un muro para que se alinee.':'Ajusta tamaño y rotación en el panel.');
       }
 
-      function esDibujo(nombre){
-        return nombre==='wall'||nombre==='opening'||nombre==='space'||nombre==='note'||nombre==='cota';
+      function limpiarPreview(){
+        if(canvas.contextTop) canvas.clearContext(canvas.contextTop);
       }
-      function aplicarTool(nombre){
-        tool=nombre||'select';
-        console.log('[QB Sketch] herramienta =', tool);
-        if(!canvas) return;
-        drawing=false; temp=null; origin=null;
-        if(cotaViva){ try{ canvas.remove(cotaViva); }catch(_){ } cotaViva=null; }
-        canvas.isDrawingMode=false;
-        canvas.interactive=true;
-        canvas.discardActiveObject();
-        canvas.selection=!esDibujo(tool) && tool!=='delete';
-        canvas.skipTargetFind=esDibujo(tool);
-        canvas.forEachObject(function(obj){
-          const editable=tool==='select'||tool==='delete';
-          obj.selectable=editable;
-          obj.evented=editable||tool==='delete';
-        });
-        canvas.defaultCursor=tool==='select'?'default':(tool==='delete'?'not-allowed':(tool==='note'||tool==='cota'?'text':'crosshair'));
-        canvas.hoverCursor=tool==='select'?'move':canvas.defaultCursor;
-        if(board){
-          board.className=tool==='select'?'is-select':(tool==='delete'?'is-delete':(tool==='note'||tool==='cota'?'is-note':'is-draw'));
+      function pintarPreview(a, b){
+        const ctx=canvas.contextTop;
+        if(!ctx || !a || !b) return;
+        canvas.clearContext(ctx);
+        ctx.save();
+        ctx.lineCap='round';
+        ctx.lineJoin='round';
+        if(tool==='space'){
+          const x=Math.min(a.x,b.x), y=Math.min(a.y,b.y);
+          const w=Math.max(1, Math.abs(b.x-a.x)), h=Math.max(1, Math.abs(b.y-a.y));
+          ctx.fillStyle='rgba(13,71,161,0.08)';
+          ctx.strokeStyle=NAVY;
+          ctx.lineWidth=4;
+          ctx.fillRect(x,y,w,h);
+          ctx.strokeRect(x,y,w,h);
+        }else{
+          ctx.strokeStyle=tool==='opening'?GOLD:NAVY;
+          ctx.lineWidth=tool==='opening'?3:6;
+          if(tool==='opening') ctx.setLineDash([10,6]);
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
         }
-        document.querySelectorAll('.qb-rail [data-tool]').forEach(function(btn){
-          btn.classList.toggle('is-on', btn.dataset.tool===tool);
-        });
-        document.querySelectorAll('.qb-rail [data-palette]').forEach(function(btn){ btn.classList.remove('is-on'); });
-        canvas.requestRenderAll();
-        canvas.calcOffset();
-        if(typeof refrescarInspector==='function') refrescarInspector();
-        setStatus(esDibujo(tool)?'Modo listo: arrastra en el lienzo para dibujar.':'Selecciona un elemento o una herramienta.');
-      }
-      window.qbSketchHerramienta=function(nombre){
-        console.log('[QB Sketch] onclick herramienta', nombre);
-        try{ cerrarPaleta(); aplicarTool(nombre); }
-        catch(err){ console.log('[QB Sketch] error herramienta', err); setStatus(String(err.message||err),'err'); }
-      };
-
-      function pointer(opt){
-        if(!canvas) return {x:0,y:0};
-        if(opt && opt.pointer && isFinite(opt.pointer.x)) return {x:opt.pointer.x, y:opt.pointer.y};
-        try{
-          if(opt && opt.e) return canvas.getPointer(opt.e);
-        }catch(_){ }
-        return {x:0,y:0};
+        ctx.setLineDash([]);
+        ctx.fillStyle=BLUE;
+        ctx.font='700 13px system-ui,Segoe UI,sans-serif';
+        ctx.textAlign='center';
+        ctx.textBaseline='bottom';
+        ctx.fillText(fmtPies(Math.hypot(b.x-a.x, b.y-a.y)), (a.x+b.x)/2, (a.y+b.y)/2 - 10);
+        ctx.restore();
       }
 
-      function esPared(obj){
-        if(!obj || obj.qbSnap==='wall') return false;
-        const t=obj.qbTipo||'';
-        if(t==='wall'||t==='opening'||t==='space'||t==='space-square'||t==='space-l') return true;
-        return obj.type==='line' && (obj.strokeWidth||0)>=4;
-      }
-      function puntoCanvas(obj, pt){
-        return fabric.util.transformPoint(new fabric.Point(pt.x, pt.y), obj.calcTransformMatrix());
-      }
-      function extremosLinea(line){
-        const pts=line.calcLinePoints();
-        return { a:puntoCanvas(line,{x:pts.x1,y:pts.y1}), b:puntoCanvas(line,{x:pts.x2,y:pts.y2}) };
-      }
-      function aristasCoords(obj){
-        const c=obj.aCoords||obj.calcACoords();
-        if(!c||!c.tl) return [];
-        return [{a:c.tl,b:c.tr},{a:c.tr,b:c.br},{a:c.br,b:c.bl},{a:c.bl,b:c.tl}];
-      }
-      function aristasPoligono(obj){
-        const pts=obj.points||[];
-        if(pts.length<2) return aristasCoords(obj);
-        const off=obj.pathOffset||{x:0,y:0};
-        const segs=[];
-        for(let i=0;i<pts.length;i++){
-          const cur=pts[i], nxt=pts[(i+1)%pts.length];
-          segs.push({
-            a:puntoCanvas(obj,{x:cur.x-off.x,y:cur.y-off.y}),
-            b:puntoCanvas(obj,{x:nxt.x-off.x,y:nxt.y-off.y})
-          });
-        }
-        return segs;
-      }
-      function paredesDelPlano(ignorar){
-        const segs=[];
-        canvas.getObjects().forEach(function(obj){
-          if(!esPared(obj)||obj===ignorar||obj.qbTipo==='cota') return;
-          if(obj.type==='line') segs.push(extremosLinea(obj));
-          else if(obj.type==='polygon'||obj.qbTipo==='space-l') segs.push.apply(segs, aristasPoligono(obj));
-          else segs.push.apply(segs, aristasCoords(obj));
-        });
-        return segs;
-      }
       function masCercano(p,a,b){
         const dx=b.x-a.x, dy=b.y-a.y, len2=dx*dx+dy*dy;
         if(len2<1) return {x:a.x,y:a.y,dist:Math.hypot(p.x-a.x,p.y-a.y),angle:0};
@@ -603,11 +562,78 @@
         const x=a.x+t*dx, y=a.y+t*dy;
         return {x:x,y:y,dist:Math.hypot(p.x-x,p.y-y),angle:Math.atan2(dy,dx)};
       }
+      function puntoCanvas(obj, pt){
+        return fabric.util.transformPoint(new fabric.Point(pt.x, pt.y), obj.calcTransformMatrix());
+      }
+      function extremosAbsolutos(obj){
+        if(!obj) return [];
+        if(obj.type==='line'){
+          try{
+            const pts=obj.calcLinePoints();
+            return [{ a:puntoCanvas(obj,{x:pts.x1,y:pts.y1}), b:puntoCanvas(obj,{x:pts.x2,y:pts.y2}) }];
+          }catch(_){ return []; }
+        }
+        if(obj.type==='polygon' || obj.qbTipo==='space-l'){
+          const pts=obj.points||[];
+          const off=obj.pathOffset||{x:0,y:0};
+          const segs=[];
+          for(let i=0;i<pts.length;i++){
+            const cur=pts[i], nxt=pts[(i+1)%pts.length];
+            segs.push({
+              a:puntoCanvas(obj,{x:cur.x-off.x,y:cur.y-off.y}),
+              b:puntoCanvas(obj,{x:nxt.x-off.x,y:nxt.y-off.y})
+            });
+          }
+          return segs;
+        }
+        const c=obj.aCoords||obj.calcACoords();
+        if(!c||!c.tl) return [];
+        return [{a:c.tl,b:c.tr},{a:c.tr,b:c.br},{a:c.br,b:c.bl},{a:c.bl,b:c.tl}];
+      }
+      function esPared(obj){
+        if(!obj || obj.qbSnap==='wall' || obj.qbTipo==='cota' || obj.qbTipo==='note') return false;
+        const t=obj.qbTipo||'';
+        return t==='wall'||t==='opening'||t==='space'||t==='space-square'||t==='space-l'||obj.type==='line';
+      }
+      function paredesDelPlano(){
+        const segs=[];
+        try{
+          canvas.getObjects().forEach(function(obj){
+            if(!esPared(obj)) return;
+            extremosAbsolutos(obj).forEach(function(seg){ if(seg && seg.a && seg.b) segs.push(seg); });
+          });
+        }catch(err){
+          console.log('[QB Sketch] paredes', err);
+        }
+        return segs;
+      }
+      function snapPunto(p, ancla){
+        let x=Math.round(p.x/GRID)*GRID;
+        let y=Math.round(p.y/GRID)*GRID;
+        if(ancla){
+          const dx=Math.abs(x-ancla.x), dy=Math.abs(y-ancla.y);
+          if(dx>=dy) y=ancla.y;
+          else x=ancla.x;
+        }
+        try{
+          let mejor=null;
+          paredesDelPlano().forEach(function(seg){
+            const hit=masCercano({x:x,y:y}, seg.a, seg.b);
+            if(!mejor || hit.dist<mejor.dist) mejor=hit;
+            [{p:seg.a},{p:seg.b}].forEach(function(nodo){
+              const d=Math.hypot(x-nodo.p.x, y-nodo.p.y);
+              if(!mejor || d<mejor.dist) mejor={x:nodo.p.x,y:nodo.p.y,dist:d,angle:mejor?mejor.angle:0};
+            });
+          });
+          if(mejor && mejor.dist<=SNAP){ x=mejor.x; y=mejor.y; }
+        }catch(_){ }
+        return {x:x,y:y};
+      }
       function adherirAPared(obj){
         if(!obj || obj.qbSnap!=='wall') return false;
         const centro=obj.getCenterPoint();
         let mejor=null;
-        paredesDelPlano(obj).forEach(function(seg){
+        paredesDelPlano().forEach(function(seg){
           const hit=masCercano(centro, seg.a, seg.b);
           if(!mejor||hit.dist<mejor.dist) mejor=hit;
         });
@@ -618,100 +644,214 @@
         return true;
       }
 
-      function actualizarCotaViva(a,b){
-        const mid={x:(a.x+b.x)/2, y:(a.y+b.y)/2};
-        const txt=fmtPies(Math.hypot(b.x-a.x,b.y-a.y));
-        if(!cotaViva){
-          cotaViva=new fabric.Text(txt,{
-            left:mid.x, top:mid.y-14, fontSize:13, fill:BLUE, fontWeight:'700',
-            originX:'center', originY:'center', selectable:false, evented:false, qbTipo:'cota'
-          });
-          canvas.add(cotaViva);
-        }else{
-          cotaViva.set({ text:txt, left:mid.x, top:mid.y-14 });
-        }
+      function estiloTrazo(obj, tipo){
+        obj.set({
+          qbTipo:tipo,
+          qbSnap:'',
+          qbLabel:NOMBRES[tipo]||tipo,
+          selectable:true,
+          evented:true,
+          objectCaching:false,
+          hasControls:true,
+          hasBorders:true,
+          cornerColor:BLUE,
+          cornerStyle:'circle',
+          borderColor:'#90caf9'
+        });
+        return obj;
+      }
+      function crearLineaAbsoluta(a, b, tipo){
+        const lineaNueva=new fabric.Line([a.x, a.y, b.x, b.y], {
+          stroke: tipo==='opening'?GOLD:NAVY,
+          strokeWidth: tipo==='opening'?3:6,
+          strokeDashArray: tipo==='opening'?[10,6]:null,
+          strokeLineCap:'round',
+          originX:'center',
+          originY:'center',
+          objectCaching:false
+        });
+        estiloTrazo(lineaNueva, tipo);
+        lineaNueva.qbLabel=fmtPies(Math.hypot(b.x-a.x, b.y-a.y));
+        return lineaNueva;
+      }
+      function crearEspacio(a, b){
+        const rect=new fabric.Rect({
+          left:Math.min(a.x,b.x),
+          top:Math.min(a.y,b.y),
+          width:Math.max(1, Math.abs(b.x-a.x)),
+          height:Math.max(1, Math.abs(b.y-a.y)),
+          fill:'rgba(13,71,161,0.06)',
+          stroke:NAVY,
+          strokeWidth:4,
+          originX:'left',
+          originY:'top',
+          objectCaching:false
+        });
+        estiloTrazo(rect, 'space');
+        rect.qbLabel=fmtPies(rect.width)+' × '+fmtPies(rect.height);
+        return rect;
+      }
+      function crearCota(a, b){
+        return new fabric.Text(fmtPies(Math.hypot(b.x-a.x, b.y-a.y)), {
+          left:(a.x+b.x)/2,
+          top:(a.y+b.y)/2-16,
+          fontSize:13,
+          fill:BLUE,
+          fontWeight:'700',
+          originX:'center',
+          originY:'center',
+          selectable:true,
+          evented:true,
+          objectCaching:false,
+          qbTipo:'cota',
+          qbLabel:'Cota'
+        });
       }
 
-      if(canvas){
-      canvas.on('object:moving', function(e){ if(e.target) adherirAPared(e.target); });
-      canvas.on('object:modified', function(e){ if(e.target) { adherirAPared(e.target); refrescarInspector(); } });
-      canvas.on('selection:created', refrescarInspector);
-      canvas.on('selection:updated', refrescarInspector);
-      canvas.on('selection:cleared', refrescarInspector);
+      function cancelarTrazo(){
+        drawing=false;
+        origin=null;
+        hover=null;
+        pointerId=null;
+        limpiarPreview();
+      }
+      function commitTrazo(destino){
+        if(!origin || !destino){ cancelarTrazo(); return; }
+        const dx=destino.x-origin.x, dy=destino.y-origin.y;
+        if(tool==='space'){
+          if(Math.abs(dx)<MIN_TRAZO || Math.abs(dy)<MIN_TRAZO){
+            setStatus('Arrastra un recuadro más grande para el espacio.');
+            cancelarTrazo();
+            return;
+          }
+          const espacio=crearEspacio(origin, destino);
+          canvas.add(espacio);
+          canvas.setActiveObject(espacio);
+        }else if(tool==='wall' || tool==='opening'){
+          if(Math.hypot(dx,dy)<MIN_TRAZO){
+            setStatus('Arrastra al menos 1 pie para confirmar el trazo.');
+            cancelarTrazo();
+            return;
+          }
+          const muro=crearLineaAbsoluta(origin, destino, tool);
+          canvas.add(muro);
+          canvas.add(crearCota(origin, destino));
+          canvas.setActiveObject(muro);
+        }
+        cancelarTrazo();
+        canvas.requestRenderAll();
+        refrescarInspector();
+        setStatus('Elemento añadido. Sigue trazando o pulsa Mover.','ok');
+      }
 
-      canvas.on('mouse:down', function(opt){
-        console.log('[QB Sketch] mouse:down', tool);
-        if(INMUTABLE) return;
-        if(tool==='select') return;
-        if(tool==='delete'){ if(opt.target){ canvas.remove(opt.target); refrescarInspector(); } return; }
-        const p=snapPunto(pointer(opt));
-        if(tool==='note'||tool==='cota'){
+      function aplicarTool(nombre){
+        tool=nombre||'select';
+        cancelarTrazo();
+        canvas.isDrawingMode=false;
+        canvas.interactive=true;
+        canvas.discardActiveObject();
+        canvas.selection=!esDibujo(tool) && tool!=='delete';
+        canvas.skipTargetFind=esDibujo(tool);
+        canvas.forEachObject(function(obj){
+          const editable=tool==='select';
+          obj.selectable=editable;
+          obj.evented=editable || tool==='delete';
+        });
+        canvas.defaultCursor=tool==='select'?'default':(tool==='delete'?'not-allowed':(tool==='note'||tool==='cota'?'text':'crosshair'));
+        canvas.hoverCursor=tool==='select'?'move':canvas.defaultCursor;
+        if(board){
+          board.className=esDibujo(tool) && tool!=='note' && tool!=='cota' ? 'is-draw'
+            : (tool==='delete'?'is-delete':(tool==='note'||tool==='cota'?'is-note':'is-select'));
+        }
+        document.querySelectorAll('.qb-rail [data-tool]').forEach(function(btn){
+          btn.classList.toggle('is-on', btn.dataset.tool===tool);
+        });
+        document.querySelectorAll('.qb-rail [data-palette]').forEach(function(btn){ btn.classList.remove('is-on'); });
+        canvas.calcOffset();
+        canvas.requestRenderAll();
+        refrescarInspector();
+        const ayudas={
+          wall:'Muro listo: pulsa y arrastra. La cota aparece en pies y pulgadas.',
+          space:'Espacio listo: arrastra el rectángulo del área.',
+          opening:'Apertura lista: traza el vano sobre el muro.',
+          note:'Nota lista: toca el lienzo para escribir.',
+          delete:'Toca un elemento para quitarlo.',
+          select:'Selecciona un elemento o una herramienta de trazo.'
+        };
+        setStatus(ayudas[tool]||ayudas.select);
+        console.log('[QB Sketch] herramienta', tool);
+      }
+      window.qbSketchHerramienta=function(nombre){
+        try{ cerrarPaleta(); aplicarTool(nombre); }
+        catch(err){ console.log('[QB Sketch] error herramienta', err); setStatus(String(err.message||err),'err'); }
+      };
+
+      function enPaletaOInspector(nodo){
+        return !!(nodo && (nodo.closest && (nodo.closest('.qb-float') || nodo.closest('.qb-inspector') || nodo.closest('.qb-rail') || nodo.closest('.qb-top') || nodo.closest('#qb-soporte'))));
+      }
+
+      function alPunteroAbajo(ev){
+        if(INMUTABLE || !esDibujo(tool)) return;
+        if(enPaletaOInspector(ev.target)) return;
+        if(ev.pointerType==='mouse' && ev.button!==0) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        const crudo=puntoDesdeEvento(ev);
+        const p=snapPunto(crudo);
+        if(tool==='note' || tool==='cota'){
           const texto=new fabric.IText(tool==='cota'? "8'-0\"" : 'Nota',{
-            left:p.x, top:p.y, fontSize:14, fill:BLUE, fontFamily:'Arial', fontWeight:'700', qbTipo:tool==='cota'?'cota':'note'
+            left:p.x, top:p.y, fontSize:14, fill:BLUE, fontFamily:'Arial', fontWeight:'700',
+            objectCaching:false, qbTipo:tool==='cota'?'cota':'note'
           });
           canvas.add(texto);
           aplicarTool('select');
           canvas.setActiveObject(texto);
           texto.enterEditing();
+          canvas.requestRenderAll();
           return;
         }
         drawing=true;
         origin=p;
-        if(tool==='wall'||tool==='opening'){
-          temp=new fabric.Line([p.x,p.y,p.x,p.y],{
-            stroke: tool==='opening'?GOLD:NAVY,
-            strokeWidth: tool==='opening'?3:6,
-            strokeDashArray: tool==='opening'?[10,6]:null,
-            strokeLineCap:'round', selectable:false, evented:false,
-            qbTipo: tool==='opening'?'opening':'wall', qbSnap:''
-          });
-        }else if(tool==='space'){
-          temp=new fabric.Rect({
-            left:p.x, top:p.y, width:1, height:1,
-            fill:'rgba(13,71,161,.06)', stroke:NAVY, strokeWidth:4,
-            selectable:false, evented:false, qbTipo:'space', qbSnap:''
-          });
-        }
-        if(temp) canvas.add(temp);
-      });
-      canvas.on('mouse:move', function(opt){
-        if(!drawing||!temp||!origin) return;
-        const p=snapPunto(pointer(opt));
-        if(tool==='wall'||tool==='opening'){
-          temp.set({ x2:p.x, y2:p.y });
-          actualizarCotaViva(origin, p);
-        }else if(tool==='space'){
-          temp.set({
-            left:Math.min(origin.x,p.x), top:Math.min(origin.y,p.y),
-            width:Math.max(1, Math.abs(p.x-origin.x)),
-            height:Math.max(1, Math.abs(p.y-origin.y))
-          });
-          actualizarCotaViva(origin, p);
-        }
-        canvas.requestRenderAll();
-      });
-      canvas.on('mouse:up', function(){
-        if(temp){
-          if(temp.type==='line'){
-            const dx=(temp.x2||0)-(temp.x1||0), dy=(temp.y2||0)-(temp.y1||0);
-            if(Math.hypot(dx,dy)<8){
-              canvas.remove(temp);
-              if(cotaViva) canvas.remove(cotaViva);
-            }else{
-              temp.set({ selectable:true, evented:true });
-              temp.qbLabel=fmtPies(Math.hypot(dx,dy));
-              if(cotaViva){ cotaViva.set({ selectable:true, evented:true }); }
-            }
-          }else{
-            temp.set({ selectable:true, evented:true });
-            if(cotaViva) canvas.remove(cotaViva);
-          }
-        }
-        drawing=false; temp=null; origin=null; cotaViva=null;
-        canvas.requestRenderAll();
-        console.log('[QB Sketch] mouse:up, sigue en', tool);
-      });
+        hover=p;
+        pointerId=ev.pointerId;
+        try{ board.setPointerCapture(ev.pointerId); }catch(_){ }
+        pintarPreview(origin, hover);
+        setStatus('Trazando… 0\'-0"');
+        console.log('[QB Sketch] pointerdown', tool, p);
       }
+      function alPunteroMueve(ev){
+        if(!drawing || !origin) return;
+        ev.preventDefault();
+        hover=snapPunto(puntoDesdeEvento(ev), (tool==='wall'||tool==='opening')?origin:null);
+        pintarPreview(origin, hover);
+        setStatus('Trazando… '+fmtPies(Math.hypot(hover.x-origin.x, hover.y-origin.y)));
+      }
+      function alPunteroArriba(ev){
+        if(!drawing) return;
+        ev.preventDefault();
+        const destino=snapPunto(puntoDesdeEvento(ev), (tool==='wall'||tool==='opening')?origin:null);
+        try{ if(pointerId!=null) board.releasePointerCapture(pointerId); }catch(_){ }
+        console.log('[QB Sketch] pointerup', tool, origin, destino);
+        commitTrazo(destino);
+      }
+
+      board.addEventListener('pointerdown', alPunteroAbajo, true);
+      board.addEventListener('pointermove', alPunteroMueve, true);
+      board.addEventListener('pointerup', alPunteroArriba, true);
+      board.addEventListener('pointercancel', function(){ cancelarTrazo(); }, true);
+      board.addEventListener('contextmenu', function(ev){ if(esDibujo(tool)) ev.preventDefault(); });
+
+      canvas.on('object:moving', function(e){ if(e.target) adherirAPared(e.target); });
+      canvas.on('object:modified', function(e){ if(e.target){ adherirAPared(e.target); refrescarInspector(); } });
+      canvas.on('selection:created', refrescarInspector);
+      canvas.on('selection:updated', refrescarInspector);
+      canvas.on('selection:cleared', refrescarInspector);
+      canvas.on('mouse:down', function(opt){
+        if(INMUTABLE || tool!=='delete' || !opt.target) return;
+        canvas.remove(opt.target);
+        refrescarInspector();
+        canvas.requestRenderAll();
+      });
 
       function objetoActivo(){ return canvas.getActiveObject(); }
       function refrescarInspector(){
@@ -727,8 +867,12 @@
         const w=obj.getScaledWidth?obj.getScaledWidth():(obj.width||0);
         const h=obj.getScaledHeight?obj.getScaledHeight():(obj.height||0);
         if(obj.type==='line'){
-          const e=extremosLinea(obj);
-          document.getElementById('propLargo').value=fmtPies(Math.hypot(e.b.x-e.a.x,e.b.y-e.a.y));
+          try{
+            const segs=extremosAbsolutos(obj)[0];
+            document.getElementById('propLargo').value=segs?fmtPies(Math.hypot(segs.b.x-segs.a.x, segs.b.y-segs.a.y)):'';
+          }catch(_){
+            document.getElementById('propLargo').value='';
+          }
           document.getElementById('propAncho').value='';
         }else{
           document.getElementById('propLargo').value=fmtPies(w);
@@ -743,12 +887,20 @@
         const ancho=parsePies(document.getElementById('propAncho').value);
         const rot=parseFloat(document.getElementById('propRot').value);
         if(obj.type==='line' && largo){
-          const e=extremosLinea(obj);
-          const ang=Math.atan2(e.b.y-e.a.y, e.b.x-e.a.x);
-          obj.set({ x2:obj.x1 + Math.cos(ang)*largo, y2:obj.y1 + Math.sin(ang)*largo });
+          const segs=extremosAbsolutos(obj)[0];
+          if(segs){
+            const ang=Math.atan2(segs.b.y-segs.a.y, segs.b.x-segs.a.x);
+            const recambio=crearLineaAbsoluta(segs.a, {
+              x:segs.a.x+Math.cos(ang)*largo,
+              y:segs.a.y+Math.sin(ang)*largo
+            }, obj.qbTipo||'wall');
+            canvas.remove(obj);
+            canvas.add(recambio);
+            canvas.setActiveObject(recambio);
+          }
         }else{
-          if(largo && obj.getScaledWidth()) obj.scaleX=largo/Math.max(obj.width||1,1);
-          if(ancho && obj.getScaledHeight()) obj.scaleY=ancho/Math.max(obj.height||1,1);
+          if(largo && obj.width) obj.scaleX=largo/Math.max(obj.width,1);
+          if(ancho && obj.height) obj.scaleY=ancho/Math.max(obj.height,1);
         }
         if(isFinite(rot)) obj.rotate(rot);
         obj.setCoords();
@@ -773,19 +925,13 @@
           const btn=ev.target.closest('[data-tool],[data-palette]');
           if(!btn || !rail.contains(btn)) return;
           ev.preventDefault();
-          const modo=btn.dataset.tool;
-          const pal=btn.dataset.palette;
-          console.log('[QB Sketch] clic barra', { herramienta:modo||null, paleta:pal||null });
-          if(pal){
+          if(btn.dataset.palette){
             aplicarTool('select');
             rail.querySelectorAll('[data-palette]').forEach(function(b){ b.classList.toggle('is-on', b===btn); });
-            abrirPaleta(pal);
-            console.log('[QB Sketch] paleta abierta', pal, 'herramienta', tool);
+            abrirPaleta(btn.dataset.palette);
             return;
           }
-          if(modo){
-            window.qbSketchHerramienta(modo);
-          }
+          if(btn.dataset.tool) window.qbSketchHerramienta(btn.dataset.tool);
         });
       }
       document.getElementById('paletaCerrar').addEventListener('click', cerrarPaleta);
@@ -794,7 +940,11 @@
         if(card) insertarSimbolo(card.dataset.insert);
       });
       document.addEventListener('keydown', function(ev){
-        if(ev.key==='Escape') cerrarPaleta();
+        if(ev.key==='Escape'){
+          if(drawing) cancelarTrazo();
+          cerrarPaleta();
+          if(esDibujo(tool)) aplicarTool('select');
+        }
         if(INMUTABLE) return;
         if(ev.key!=='Delete' && ev.key!=='Backspace') return;
         const t=ev.target;
@@ -806,29 +956,28 @@
       function exportar(){
         if(!canvas) throw new Error('El lienzo no está listo.');
         canvas.discardActiveObject();
+        limpiarPreview();
         canvas.requestRenderAll();
-        const json=typeof canvas.toJSON==='function'?canvas.toJSON(JSON_PROPS):{objects:[]};
+        const json=canvas.toJSON(JSON_PROPS);
         let imagen='';
-        try{
-          imagen=canvas.toDataURL({ format:'png', multiplier:1, enableRetinaScaling:false });
-        }catch(err){
-          console.log('[QB Sketch] toDataURL png', err);
-          imagen=canvas.toDataURL('png');
-        }
+        try{ imagen=canvas.toDataURL({ format:'png', multiplier:1, enableRetinaScaling:false }); }
+        catch(_){ imagen=canvas.toDataURL('png'); }
         if(imagen && imagen.length>1200000){
           imagen=canvas.toDataURL({ format:'jpeg', quality:0.82, multiplier:1 });
         }
+        canvas.requestRenderAll();
         return { json:json, imagen:imagen };
       }
       async function guardar(){
-        console.log('[QB Sketch] guardar clic', { id:DOC_ID, objetos:canvas?canvas.getObjects().length:0 });
+        if(guardando) return;
+        console.log('[QB Sketch] guardar', { id:DOC_ID, objetos:canvas.getObjects().length });
         if(INMUTABLE){ setStatus('Este documento no se puede editar.','err'); return; }
         if(!DOC_ID){ setStatus('Falta el documento para guardar el plano.','err'); return; }
+        guardando=true;
         try{
           if(saveBtn) saveBtn.disabled=true;
           setStatus('Guardando plano...');
           const payload=exportar();
-          console.log('[QB Sketch] exportado', { tieneJson:!!payload.json, imagen: (payload.imagen||'').length });
           const res=await fetch('/api/proyecto/'+encodeURIComponent(DOC_ID)+'/sketch',{
             method:'POST', credentials:'same-origin', headers:headersAuth(), body:JSON.stringify(payload)
           });
@@ -839,6 +988,7 @@
           console.log('[QB Sketch] error guardar', err);
           setStatus(err.message||'No se pudo guardar el plano.','err');
         }finally{
+          guardando=false;
           if(saveBtn && !INMUTABLE) saveBtn.disabled=false;
         }
       }
@@ -849,22 +999,20 @@
         let bruto=null;
         try{ bruto=JSON.parse(document.getElementById('plano-inicial').textContent||'null'); }catch(_){ bruto=null; }
         if(!bruto) return;
-        canvas.loadFromJSON(bruto, function(){ aplicarTool('select'); canvas.requestRenderAll(); });
+        canvas.loadFromJSON(bruto, function(){
+          canvas.getObjects().forEach(function(obj){ obj.objectCaching=false; obj.setCoords(); });
+          aplicarTool('select');
+          canvas.requestRenderAll();
+        });
       }
       function arrancarLienzo(){
         sizeCanvas();
         cargarInicial();
         aplicarTool('select');
-        if(canvas){
-          canvas.interactive=true;
-          canvas.selection=true;
-          canvas.calcOffset();
-        }
-        console.log('[QB Sketch] listo', { tool:tool, tieneCanvas:!!canvas });
+        canvas.calcOffset();
+        console.log('[QB Sketch] listo', canvas.getWidth(), canvas.getHeight());
       }
-      requestAnimationFrame(function(){
-        requestAnimationFrame(arrancarLienzo);
-      });
+      requestAnimationFrame(function(){ requestAnimationFrame(arrancarLienzo); });
       window.addEventListener('resize', sizeCanvas);
       if(window.ResizeObserver && board){
         new ResizeObserver(function(){ sizeCanvas(); }).observe(board);
