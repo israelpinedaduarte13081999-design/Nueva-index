@@ -106,15 +106,15 @@
     </div>
     <div class="grp">
       <small>Arquitectura</small>
-      <button type="button" data-tool="wall" title="Trazar muro">
+      <button type="button" data-tool="wall" title="Trazar muro" onclick="window.qbSketchHerramienta&&window.qbSketchHerramienta('wall')">
         <svg viewBox="0 0 24 24"><path d="M4 8h16M4 16h16M8 4v16M16 4v16"/></svg>
         Muro
       </button>
-      <button type="button" data-tool="space" title="Trazar espacio">
+      <button type="button" data-tool="space" title="Trazar espacio" onclick="window.qbSketchHerramienta&&window.qbSketchHerramienta('space')">
         <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/></svg>
         Espacio
       </button>
-      <button type="button" data-tool="opening" title="Apertura de pared">
+      <button type="button" data-tool="opening" title="Apertura de pared" onclick="window.qbSketchHerramienta&&window.qbSketchHerramienta('opening')">
         <svg viewBox="0 0 24 24"><path d="M4 12h6M14 12h6"/><path d="M10 8v8M14 8v8" stroke-dasharray="2 2"/></svg>
         Apertura
       </button>
@@ -129,9 +129,9 @@
         <svg viewBox="0 0 24 24"><path d="M3 19h18M5 19V10l7-6 7 6v9"/></svg>
         Estructuras
       </button>
-      <button type="button" data-palette="anotaciones" title="Anotaciones">
+      <button type="button" data-tool="note" title="Nota" onclick="window.qbSketchHerramienta&&window.qbSketchHerramienta('note')">
         <svg viewBox="0 0 24 24"><path d="M4 20h16M7 16l10-10 3 3-10 10H7z"/></svg>
-        Notas
+        Nota
       </button>
     </div>
     <div class="grp" style="margin-top:auto">
@@ -151,7 +151,7 @@
       </span>
       <span class="grow"></span>
       <span class="status" id="sketch-status">{% if inmutable %}Documento bloqueado.{% else %}Traza muros; las cotas se calculan en pies y pulgadas.{% endif %}</span>
-      <button class="btn btn-primary" type="button" id="guardarPlano"{% if inmutable %} disabled{% endif %}>Guardar plano</button>
+      <button class="btn btn-primary" type="button" id="guardarPlano" onclick="window.qbSketchGuardar&&window.qbSketchGuardar()"{% if inmutable %} disabled{% endif %}>Guardar plano</button>
       <a class="btn" href="{{ volver or '/estimado' }}">Volver</a>
     </header>
     <div class="qb-stage">
@@ -505,33 +505,53 @@
         setStatus(obj.qbSnap==='wall'?'Colócalo sobre un muro para que se alinee.':'Ajusta tamaño y rotación en el panel.');
       }
 
+      function esDibujo(nombre){
+        return nombre==='wall'||nombre==='opening'||nombre==='space'||nombre==='note'||nombre==='cota';
+      }
       function aplicarTool(nombre){
         tool=nombre||'select';
         console.log('[QB Sketch] herramienta =', tool);
         if(!canvas) return;
         drawing=false; temp=null; origin=null;
-        if(cotaViva){ canvas.remove(cotaViva); cotaViva=null; }
+        if(cotaViva){ try{ canvas.remove(cotaViva); }catch(_){ } cotaViva=null; }
         canvas.isDrawingMode=false;
         canvas.interactive=true;
         canvas.discardActiveObject();
-        canvas.selection=true;
-        canvas.skipTargetFind=['wall','opening','space','cota'].indexOf(tool)>=0;
+        canvas.selection=!esDibujo(tool) && tool!=='delete';
+        canvas.skipTargetFind=esDibujo(tool);
         canvas.forEachObject(function(obj){
           const editable=tool==='select'||tool==='delete';
           obj.selectable=editable;
           obj.evented=editable||tool==='delete';
         });
-        canvas.defaultCursor=tool==='select'?'default':(tool==='delete'?'not-allowed':(tool==='note'?'text':'crosshair'));
+        canvas.defaultCursor=tool==='select'?'default':(tool==='delete'?'not-allowed':(tool==='note'||tool==='cota'?'text':'crosshair'));
         canvas.hoverCursor=tool==='select'?'move':canvas.defaultCursor;
-        board.className=tool==='select'?'is-select':(tool==='delete'?'is-delete':(tool==='note'?'is-note':'is-draw'));
+        if(board){
+          board.className=tool==='select'?'is-select':(tool==='delete'?'is-delete':(tool==='note'||tool==='cota'?'is-note':'is-draw'));
+        }
         document.querySelectorAll('.qb-rail [data-tool]').forEach(function(btn){
           btn.classList.toggle('is-on', btn.dataset.tool===tool);
         });
+        document.querySelectorAll('.qb-rail [data-palette]').forEach(function(btn){ btn.classList.remove('is-on'); });
         canvas.requestRenderAll();
-        refrescarInspector();
+        canvas.calcOffset();
+        if(typeof refrescarInspector==='function') refrescarInspector();
+        setStatus(esDibujo(tool)?'Modo listo: arrastra en el lienzo para dibujar.':'Selecciona un elemento o una herramienta.');
       }
+      window.qbSketchHerramienta=function(nombre){
+        console.log('[QB Sketch] onclick herramienta', nombre);
+        try{ cerrarPaleta(); aplicarTool(nombre); }
+        catch(err){ console.log('[QB Sketch] error herramienta', err); setStatus(String(err.message||err),'err'); }
+      };
 
-      function pointer(opt){ return canvas.getPointer(opt.e); }
+      function pointer(opt){
+        if(!canvas) return {x:0,y:0};
+        if(opt && opt.pointer && isFinite(opt.pointer.x)) return {x:opt.pointer.x, y:opt.pointer.y};
+        try{
+          if(opt && opt.e) return canvas.getPointer(opt.e);
+        }catch(_){ }
+        return {x:0,y:0};
+      }
 
       function esPared(obj){
         if(!obj || obj.qbSnap==='wall') return false;
@@ -672,11 +692,13 @@
       });
       canvas.on('mouse:up', function(){
         if(temp){
-          temp.set({ selectable:false, evented:false });
           if(temp.type==='line'){
-            const dx=temp.x2-temp.x1, dy=temp.y2-temp.y1;
-            if(Math.hypot(dx,dy)<8){ canvas.remove(temp); if(cotaViva) canvas.remove(cotaViva); }
-            else {
+            const dx=(temp.x2||0)-(temp.x1||0), dy=(temp.y2||0)-(temp.y1||0);
+            if(Math.hypot(dx,dy)<8){
+              canvas.remove(temp);
+              if(cotaViva) canvas.remove(cotaViva);
+            }else{
+              temp.set({ selectable:true, evented:true });
               temp.qbLabel=fmtPies(Math.hypot(dx,dy));
               if(cotaViva){ cotaViva.set({ selectable:true, evented:true }); }
             }
@@ -686,7 +708,8 @@
           }
         }
         drawing=false; temp=null; origin=null; cotaViva=null;
-        if(tool==='wall'||tool==='opening'||tool==='space') aplicarTool('select');
+        canvas.requestRenderAll();
+        console.log('[QB Sketch] mouse:up, sigue en', tool);
       });
       }
 
@@ -761,9 +784,7 @@
             return;
           }
           if(modo){
-            cerrarPaleta();
-            aplicarTool(modo);
-            console.log('[QB Sketch] estado', { tool:tool, selection:canvas&&canvas.selection, interactive:canvas&&canvas.interactive });
+            window.qbSketchHerramienta(modo);
           }
         });
       }
@@ -783,31 +804,46 @@
       });
 
       function exportar(){
+        if(!canvas) throw new Error('El lienzo no está listo.');
         canvas.discardActiveObject();
         canvas.requestRenderAll();
-        const json=canvas.toJSON(JSON_PROPS);
-        let imagen=canvas.toDataURL({ format:'png', multiplier:1, enableRetinaScaling:false });
-        if(imagen.length>1200000) imagen=canvas.toDataURL({ format:'jpeg', quality:0.82, multiplier:1, enableRetinaScaling:false });
+        const json=typeof canvas.toJSON==='function'?canvas.toJSON(JSON_PROPS):{objects:[]};
+        let imagen='';
+        try{
+          imagen=canvas.toDataURL({ format:'png', multiplier:1, enableRetinaScaling:false });
+        }catch(err){
+          console.log('[QB Sketch] toDataURL png', err);
+          imagen=canvas.toDataURL('png');
+        }
+        if(imagen && imagen.length>1200000){
+          imagen=canvas.toDataURL({ format:'jpeg', quality:0.82, multiplier:1 });
+        }
         return { json:json, imagen:imagen };
       }
       async function guardar(){
+        console.log('[QB Sketch] guardar clic', { id:DOC_ID, objetos:canvas?canvas.getObjects().length:0 });
         if(INMUTABLE){ setStatus('Este documento no se puede editar.','err'); return; }
+        if(!DOC_ID){ setStatus('Falta el documento para guardar el plano.','err'); return; }
         try{
           if(saveBtn) saveBtn.disabled=true;
           setStatus('Guardando plano...');
+          const payload=exportar();
+          console.log('[QB Sketch] exportado', { tieneJson:!!payload.json, imagen: (payload.imagen||'').length });
           const res=await fetch('/api/proyecto/'+encodeURIComponent(DOC_ID)+'/sketch',{
-            method:'POST', credentials:'same-origin', headers:headersAuth(), body:JSON.stringify(exportar())
+            method:'POST', credentials:'same-origin', headers:headersAuth(), body:JSON.stringify(payload)
           });
           const json=await res.json().catch(function(){ return {}; });
           if(!res.ok) throw new Error(json.error||'No se pudo guardar el plano.');
           setStatus('Plano guardado. Aparecerá en el PDF.','ok');
         }catch(err){
+          console.log('[QB Sketch] error guardar', err);
           setStatus(err.message||'No se pudo guardar el plano.','err');
         }finally{
           if(saveBtn && !INMUTABLE) saveBtn.disabled=false;
         }
       }
-      saveBtn?.addEventListener('click', guardar);
+      window.qbSketchGuardar=guardar;
+      if(saveBtn) saveBtn.addEventListener('click', function(ev){ ev.preventDefault(); guardar(); });
 
       function cargarInicial(){
         let bruto=null;
