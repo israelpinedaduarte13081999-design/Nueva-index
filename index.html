@@ -1828,6 +1828,7 @@
         <input class="sr-only feat-ai feat-ai-quota" id="input-pdf-upload" type="file" accept="application/pdf" onchange="procesarPDFImportado(this)">
         <button class="btn feat-ai feat-ai-quota" type="button" id="importLineItemsButton" onclick="if(typeof exigirCuotaIaPdf==='function'&&!exigirCuotaIaPdf())return; document.getElementById('input-pdf-upload').click()" data-i18n="importItems">📄 Import line items from PDF</button>
         <button class="btn feat-ai feat-ai-quota" type="button" id="importPlansButton">📐 Import architectural plans</button>
+        <button class="btn" type="button" id="openSketchButton">✏️ Draw floor plan</button>
         <input class="sr-only feat-ai feat-ai-quota" id="plansFileInput" type="file" accept="application/pdf">
         <input class="sr-only feat-ai feat-ai-quota" id="reportFileInput" type="file" accept=".esx,.pdf,.xml,.jpg,.jpeg,.png">
         <button class="btn" id="newInvoiceButton" type="button" data-i18n="newInvoice">+ New invoice</button>
@@ -9262,6 +9263,23 @@
       document.querySelector('#reportFileInput').click();
     });
     document.querySelector('#reportFileInput').addEventListener('change',event=>{ const file=event.target.files[0]; if(file)importReport(file); });
+    async function abrirTableroPlano(){
+      try{
+        await asegurarContratista();
+        if(typeof guardarEstimadoEnHistorial==='function') await guardarEstimadoEnHistorial();
+        const id=String(documentoHistorialId||'').trim();
+        if(!/^[0-9a-f-]{36}$/i.test(id)){
+          if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Save the document first.','error');
+          else alert('Save the document first.');
+          return;
+        }
+        location.href='/proyecto/'+encodeURIComponent(id)+'/sketch';
+      }catch(err){
+        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado(err.message||'Could not open the floor plan.','error');
+        else alert(err.message||'Could not open the floor plan.');
+      }
+    }
+    document.getElementById('openSketchButton')?.addEventListener('click',abrirTableroPlano);
     document.getElementById('importPlansButton')?.addEventListener('click',ev=>{
       if(!exigirCuotaIaPdf()){ ev.preventDefault(); return; }
       document.getElementById('plansFileInput')?.click();

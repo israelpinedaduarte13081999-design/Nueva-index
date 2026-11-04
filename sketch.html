@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Floor plan{% if folio %} {{ folio }}{% endif %} | QuantixBuilds</title>
+  <script src="https://cdn.jsdelivr.net/npm/fabric@5.3.1/dist/fabric.min.js"></script>
+  <style>
+    :root { --navy:#0d47a1; --ink:#0f172a; --muted:#64748b; --line:#dbe3ee; --bg:#e8eef6; }
+    * { box-sizing:border-box; }
+    html, body { height:100%; margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+    body { display:flex; flex-direction:column; min-height:100%; }
+    header { display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; padding:10px 16px; background:#fff; border-bottom:1px solid var(--line); z-index:4; }
+    .brand { font-weight:800; color:var(--navy); text-decoration:none; }
+    .meta { color:var(--muted); font-size:.88rem; }
+    .tools { display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; }
+    .tools button { min-height:42px; padding:8px 12px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; color:var(--ink); font-weight:700; font-size:.88rem; cursor:pointer; }
+    .tools button:hover { border-color:#94a3b8; background:#f8fafc; }
+    .tools button.is-active { background:#e3f2fd; border-color:#90caf9; color:var(--navy); }
+    .tools .save { background:var(--navy); border-color:var(--navy); color:#fff; }
+    .tools .save:hover { background:#1565c0; }
+    .tools .save:disabled { opacity:.6; cursor:wait; }
+    .back { color:var(--navy); font-weight:700; text-decoration:none; }
+    main { flex:1; display:flex; align-items:center; justify-content:center; padding:16px; min-height:0; }
+    #sketch-board {
+      position:relative; width:min(1100px,100%); height:min(720px,calc(100vh - 120px));
+      background:#fff; border:1px solid var(--line); border-radius:16px; overflow:hidden;
+      box-shadow:0 18px 40px rgba(15,23,42,.12);
+      background-image:
+        linear-gradient(to right, rgba(148,163,184,.28) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(148,163,184,.28) 1px, transparent 1px);
+      background-size:24px 24px;
+    }
+    #sketch-board.is-wall, #sketch-board.is-room { cursor:crosshair; }
+    #sketch-board.is-measure { cursor:text; }
+    #sketch-board.is-select { cursor:default; }
+    #sketch-board.is-delete { cursor:not-allowed; }
+    #planoCanvas { display:block; width:100%; height:100%; touch-action:none; }
+    #sketch-status { min-height:1.2em; padding:0 18px 12px; color:var(--muted); font-size:.88rem; }
+    #sketch-status.is-ok { color:#15803d; }
+    #sketch-status.is-error { color:#b91c1c; }
+    @media (max-width:720px) {
+      .tools { width:100%; margin-left:0; }
+      #sketch-board { height:min(620px,calc(100vh - 170px)); border-radius:10px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="brand" href="{{ volver or '/estimado' }}">QuantixBuilds</a>
+    <div class="meta">
+      <strong>Floor plan</strong>
+      {% if folio %}<span> · {{ folio }}</span>{% endif %}
+      {% if cliente %}<span> · {{ cliente }}</span>{% endif %}
+    </div>
+    <nav class="tools" role="toolbar" aria-label="Herramientas de plano">
+      <button type="button" data-tool="wall">Dibujar Pared</button>
+      <button type="button" data-tool="room">Agregar Cuarto</button>
+      <button type="button" data-tool="measure">Agregar Medida</button>
+      <button type="button" data-tool="select" class="is-active">Mover/Seleccionar</button>
+      <button type="button" data-tool="delete">Borrar</button>
+      <button type="button" class="save" id="guardarPlano"{% if inmutable %} disabled{% endif %}>Guardar Plano</button>
+      <a class="back" href="{{ volver or '/estimado' }}">Back to document</a>
+    </nav>
+  </header>
+  <main>
+    <div id="sketch-board" class="is-select">
+      <canvas id="planoCanvas"></canvas>
+    </div>
+  </main>
+  <p id="sketch-status" role="status">{% if inmutable %}This document is signed or paid. The floor plan is read-only.{% else %}Select a tool, then draw on the board.{% endif %}</p>
+  <script type="application/json" id="plano-inicial">{{ plano_json|tojson }}</script>
+  <script>
+    (function(){
+      const DOC_ID={{ doc_id|tojson }};
+      const INMUTABLE={{ inmutable|tojson }};
+      const board=document.getElementById('sketch-board');
+      const status=document.getElementById('sketch-status');
+      const saveBtn=document.getElementById('guardarPlano');
+      const el=document.getElementById('planoCanvas');
+      if(typeof fabric==='undefined' || !el){
+        if(status){ status.textContent='Could not load the drawing library.'; status.className='is-error'; }
+        return;
+      }
+      const canvas=new fabric.Canvas('planoCanvas',{
+        selection:true,
+        preserveObjectStacking:true,
+        stopContextMenu:true,
+        fireRightClick:true
+      });
+      let tool='select';
+      let drawing=false;
+      let origin=null;
+      let temp=null;
+      const cursores={wall:'crosshair',room:'crosshair',measure:'text',select:'default',delete:'not-allowed'};
+
+      function tokenContratista(){
+        try{ return localStorage.getItem('contratista_sesion')||sessionStorage.getItem('contratista_sesion')||localStorage.getItem('contratista_token')||''; }catch(_){ return ''; }
+      }
+      function headersAuth(){
+        const headers={'Content-Type':'application/json','Accept':'application/json'};
+        const token=tokenContratista();
+        if(token) headers.Authorization='Bearer '+token;
+        return headers;
+      }
+      function setStatus(msg, kind){
+        if(!status) return;
+        status.textContent=msg||'';
+        status.className=kind?('is-'+kind):'';
+      }
+      function sizeCanvas(){
+        const w=Math.max(320, board.clientWidth);
+        const h=Math.max(320, board.clientHeight);
+        canvas.setWidth(w);
+        canvas.setHeight(h);
+        canvas.calcOffset();
+        canvas.requestRenderAll();
+      }
+      function aplicarTool(nombre){
+        tool=nombre||'select';
+        drawing=false;
+        temp=null;
+        origin=null;
+        canvas.isDrawingMode=false;
+        canvas.discardActiveObject();
+        const dibujando=tool==='wall'||tool==='room'||tool==='measure'||tool==='delete';
+        canvas.selection=tool==='select';
+        canvas.skipTargetFind=tool==='wall'||tool==='room'||tool==='measure';
+        canvas.forEachObject(function(obj){
+          const editable=tool==='select'||tool==='delete';
+          obj.selectable=editable;
+          obj.evented=editable || tool==='delete';
+        });
+        canvas.defaultCursor=cursores[tool]||'default';
+        canvas.hoverCursor=tool==='select'?'move':(cursores[tool]||'default');
+        board.className='is-'+tool;
+        document.querySelectorAll('[data-tool]').forEach(function(btn){
+          btn.classList.toggle('is-active', btn.dataset.tool===tool);
+        });
+        canvas.requestRenderAll();
+      }
+      function pointer(opt){
+        return canvas.getPointer(opt.e);
+      }
+
+      canvas.on('mouse:down', function(opt){
+        if(INMUTABLE) return;
+        if(tool==='select') return;
+        if(tool==='delete'){
+          if(opt.target) canvas.remove(opt.target);
+          return;
+        }
+        const p=pointer(opt);
+        if(tool==='measure'){
+          const texto=new fabric.IText("0'-0\"",{
+            left:p.x, top:p.y, fontSize:18, fill:'#0d47a1', fontFamily:'Arial',
+            fontWeight:'700'
+          });
+          canvas.add(texto);
+          canvas.setActiveObject(texto);
+          texto.enterEditing();
+          texto.selectAll();
+          return;
+        }
+        drawing=true;
+        origin=p;
+        if(tool==='wall'){
+          temp=new fabric.Line([p.x,p.y,p.x,p.y],{
+            stroke:'#0f172a', strokeWidth:6, strokeLineCap:'round',
+            selectable:false, evented:false
+          });
+        }else if(tool==='room'){
+          temp=new fabric.Rect({
+            left:p.x, top:p.y, width:1, height:1,
+            fill:'rgba(13,71,161,0.08)', stroke:'#0d47a1', strokeWidth:2,
+            selectable:false, evented:false
+          });
+        }
+        if(temp) canvas.add(temp);
+      });
+      canvas.on('mouse:move', function(opt){
+        if(!drawing || !temp || !origin) return;
+        const p=pointer(opt);
+        if(tool==='wall'){
+          temp.set({ x2:p.x, y2:p.y });
+        }else if(tool==='room'){
+          temp.set({
+            left:Math.min(origin.x,p.x),
+            top:Math.min(origin.y,p.y),
+            width:Math.max(1, Math.abs(p.x-origin.x)),
+            height:Math.max(1, Math.abs(p.y-origin.y))
+          });
+        }
+        canvas.requestRenderAll();
+      });
+      canvas.on('mouse:up', function(){
+        if(temp){
+          temp.set({ selectable:tool==='select', evented:tool==='select'||tool==='delete' });
+        }
+        drawing=false;
+        temp=null;
+        origin=null;
+      });
+      document.addEventListener('keydown', function(ev){
+        if(INMUTABLE) return;
+        if(ev.key!=='Delete' && ev.key!=='Backspace') return;
+        const t=ev.target;
+        if(t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable)) return;
+        const activo=canvas.getActiveObject();
+        if(activo && !activo.isEditing){
+          ev.preventDefault();
+          canvas.remove(activo);
+        }
+      });
+
+      document.querySelectorAll('[data-tool]').forEach(function(btn){
+        btn.addEventListener('click', function(){ aplicarTool(btn.dataset.tool); });
+      });
+
+      function exportar(){
+        canvas.discardActiveObject();
+        canvas.requestRenderAll();
+        const json=canvas.toJSON(['selectable','evented']);
+        let imagen=canvas.toDataURL({ format:'png', multiplier:1, enableRetinaScaling:false });
+        if(imagen.length>1200000){
+          imagen=canvas.toDataURL({ format:'jpeg', quality:0.82, multiplier:1, enableRetinaScaling:false });
+        }
+        return { json:json, imagen:imagen };
+      }
+
+      async function guardar(){
+        if(INMUTABLE){ setStatus('This document is signed or paid and cannot be edited.','error'); return; }
+        try{
+          if(saveBtn) saveBtn.disabled=true;
+          setStatus('Saving floor plan...');
+          const data=exportar();
+          const res=await fetch('/api/proyecto/'+encodeURIComponent(DOC_ID)+'/sketch',{
+            method:'POST',
+            credentials:'same-origin',
+            headers:headersAuth(),
+            body:JSON.stringify(data)
+          });
+          const json=await res.json().catch(function(){ return {}; });
+          if(!res.ok) throw new Error(json.error||'Could not save the floor plan.');
+          setStatus('Floor plan saved. It will appear on the contract PDF.','ok');
+        }catch(err){
+          setStatus(err.message||'Could not save the floor plan.','error');
+        }finally{
+          if(saveBtn && !INMUTABLE) saveBtn.disabled=false;
+        }
+      }
+      saveBtn?.addEventListener('click', guardar);
+
+      function cargarInicial(){
+        let bruto=null;
+        try{ bruto=JSON.parse(document.getElementById('plano-inicial').textContent||'null'); }catch(_){ bruto=null; }
+        if(!bruto) return;
+        canvas.loadFromJSON(bruto, function(){
+          aplicarTool(tool);
+          canvas.requestRenderAll();
+        });
+      }
+
+      sizeCanvas();
+      window.addEventListener('resize', sizeCanvas);
+      cargarInicial();
+      aplicarTool('select');
+    })();
+  </script>
+  {% include "base.html" %}
+</body>
+</html>

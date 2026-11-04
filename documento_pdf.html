@@ -36,6 +36,7 @@
     .firmas td { width: 50%; vertical-align: top; padding-right: 16px; }
     .firma-box { min-height: 70px; border-bottom: 1px solid #94a3b8; padding: 4px 0; }
     .firma-box img { max-width: 240px; max-height: 72px; }
+    img.plano { display: block; max-width: 100%; max-height: 420px; margin: 8px 0 12px; border: 1px solid #dbe3ee; }
   </style>
 </head>
 <body>
@@ -115,6 +116,11 @@
     {% endfor %}
   {% else %}
     <p>No line items were saved with this document.</p>
+  {% endif %}
+
+  {% if d.plano_imagen %}
+  <h2>Floor plan</h2>
+  <img class="plano" src="{{ d.plano_imagen }}" alt="Floor plan">
   {% endif %}
 
   {% if d.terminos %}

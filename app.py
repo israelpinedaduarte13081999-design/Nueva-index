@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 ssl._create_default_https_context = ssl._create_unverified_context
-from flask import Flask, Response, redirect, request, jsonify, send_file, send_from_directory, render_template
+from flask import Flask, Response, abort, redirect, request, jsonify, send_file, send_from_directory, render_template
 from xml.sax.saxutils import escape as xml_escape
 from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -282,7 +282,7 @@ def _exigir_login_panel():
         return None
     path = request.path.rstrip("/") or "/"
     protegidas = _RUTAS_PLANES | _RUTAS_PAGO | _RUTAS_PAYWALL | _RUTAS_PANEL
-    if path not in protegidas:
+    if path not in protegidas and not path.startswith("/proyecto/"):
         return None
     if not _token_contratista_solicitud():
         return None if _misma_ruta("/login") else redirect("/login")
@@ -402,6 +402,7 @@ def robots_txt():
         "Disallow: /activar\n"
         "Disallow: /restablecer\n"
         "Disallow: /aceptar/\n"
+        "Disallow: /proyecto/\n"
         "Disallow: /api/\n"
         "Disallow: /auth/\n"
         f"Sitemap: {origin}/sitemap.xml\n"
@@ -3641,6 +3642,29 @@ def _formatear_direccion_cliente(cliente, payload=None, snapshot=None):
     return ", ".join(p for p in (street, localidad) if p)
 
 
+def _plano_desde_row(row):
+    if not isinstance(row, dict):
+        return {}
+    snapshot = _json_campo(row.get("snapshot"), {}) or {}
+    payload = _json_campo(row.get("payload"), {}) or {}
+    plano = {}
+    if isinstance(snapshot, dict) and isinstance(snapshot.get("plano"), dict):
+        plano.update(snapshot.get("plano") or {})
+    if isinstance(payload, dict) and isinstance(payload.get("plano"), dict):
+        extra = payload.get("plano") or {}
+        if extra.get("json") and not plano.get("json"):
+            plano["json"] = extra.get("json")
+        if extra.get("imagen"):
+            plano["imagen"] = extra.get("imagen")
+        if extra.get("updated_at") and not plano.get("updated_at"):
+            plano["updated_at"] = extra.get("updated_at")
+    if not plano.get("json") and row.get("plano_json") is not None:
+        plano["json"] = _json_campo(row.get("plano_json"), row.get("plano_json"))
+    if not plano.get("imagen") and row.get("plano_imagen"):
+        plano["imagen"] = row.get("plano_imagen")
+    return plano if isinstance(plano, dict) else {}
+
+
 def documento_desde_fila_historial(row):
     if not isinstance(row, dict):
         return {}
@@ -3695,6 +3719,7 @@ def documento_desde_fila_historial(row):
         "terms": terminos or "",
         "terminos": terminos or "",
         "payload": payload,
+        "plano": _plano_desde_row(row),
         "contratista_id": row.get("contratista_id"),
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
@@ -5840,6 +5865,85 @@ def _completar_alta_contratista(sb, row, uid):
     return row
 
 
+_MAX_PLANO_JSON = 1_500_000
+_MAX_PLANO_IMAGEN = 1_800_000
+
+
+def _url_documento_panel(tipo, ident):
+    modo = _tipo_documento_clave(tipo)
+    base = {"estimate": "/estimado", "contract": "/contrato", "invoice": "/factura"}.get(modo, "/estimado")
+    ident = str(ident or "").strip()
+    if not ident:
+        return base
+    return f"{base}?id={ident}"
+
+
+def _imagen_plano_valida(valor):
+    texto = str(valor or "").strip()
+    if not texto.startswith("data:image/") or "," not in texto:
+        return ""
+    if len(texto) > _MAX_PLANO_IMAGEN:
+        return ""
+    return texto
+
+
+def _json_plano_valido(valor):
+    if valor is None or valor == "":
+        return None
+    if isinstance(valor, str):
+        try:
+            valor = json.loads(valor)
+        except Exception:
+            return None
+    if not isinstance(valor, (dict, list)):
+        return None
+    serial = json.dumps(valor, ensure_ascii=False)
+    if len(serial) > _MAX_PLANO_JSON:
+        return None
+    return valor
+
+
+def _guardar_plano_documento(contratista, ident, plano_json, plano_imagen):
+    row = obtener_historial_tenant(contratista, ident)
+    if not row:
+        return None
+    if _documento_inmutable(row):
+        raise ValueError("This document is signed or paid and cannot be edited.")
+    snapshot = _json_campo(row.get("snapshot"), {}) or {}
+    if not isinstance(snapshot, dict):
+        snapshot = {}
+    snapshot = dict(snapshot)
+    ahora = datetime.now(timezone.utc).isoformat()
+    snapshot["plano"] = {"json": plano_json, "updated_at": ahora}
+    payload = _json_campo(row.get("payload"), {}) or {}
+    if isinstance(payload, dict):
+        payload = dict(payload)
+        payload["plano"] = {"json": plano_json, "imagen": plano_imagen, "updated_at": ahora}
+    extra = {
+        "snapshot": snapshot,
+        "payload": payload if isinstance(payload, dict) else row.get("payload"),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "plano_json": plano_json,
+        "plano_imagen": plano_imagen,
+    }
+    sb = _supabase_client()
+    if sb is None:
+        raise RuntimeError("Supabase no configurado")
+    cid = contratista["id"]
+    try:
+        sb.table(TABLA_HISTORIAL).update(extra).eq("id", ident).eq("contratista_id", cid).execute()
+    except Exception as err:
+        detalle = str(err)
+        if "plano_json" in detalle or "plano_imagen" in detalle or "42703" in detalle:
+            extra.pop("plano_json", None)
+            extra.pop("plano_imagen", None)
+            sb.table(TABLA_HISTORIAL).update(extra).eq("id", ident).eq("contratista_id", cid).execute()
+        else:
+            raise
+    fresco = obtener_historial_tenant(contratista, ident) or {**row, "snapshot": snapshot}
+    return fresco
+
+
 def obtener_historial_tenant(contratista, ident):
     sb = _supabase_client()
     if sb is None:
@@ -6145,6 +6249,12 @@ def _vista_contrato_publico(datos):
     snapshot = datos.get("snapshot") if isinstance(datos.get("snapshot"), dict) else {}
     company = snapshot.get("company") if isinstance(snapshot.get("company"), dict) else {}
     firmas = datos.get("firmas") if isinstance(datos.get("firmas"), dict) else {}
+    plano = datos.get("plano") if isinstance(datos.get("plano"), dict) else {}
+    if not plano and isinstance(snapshot.get("plano"), dict):
+        plano = snapshot.get("plano")
+    plano_imagen = str((plano or {}).get("imagen") or "").strip()
+    if not plano_imagen.startswith("data:image/"):
+        plano_imagen = ""
     def _img_firma(valor):
         texto = str(valor or "").strip()
         return texto if texto.startswith("data:image/") else ""
@@ -6174,6 +6284,7 @@ def _vista_contrato_publico(datos):
         "firma_contratista": _img_firma(firmas.get("contratista") or firmas.get("contractor")),
         "firma_cliente_fecha": str(datos.get("firma_fecha") or firmas.get("clienteFecha") or "")[:19],
         "firma_contratista_fecha": str(firmas.get("contratistaFecha") or firmas.get("contractorFecha") or "")[:19],
+        "plano_imagen": plano_imagen,
     }
 
 
@@ -7800,6 +7911,83 @@ def api_historial_documento(doc_id):
     if not row:
         return jsonify({"error": "not found"}), 404
     return jsonify(documento_desde_fila_historial(row))
+
+
+@app.route("/proyecto/<doc_id>/sketch")
+def vista_sketch_proyecto(doc_id):
+    ident = str(doc_id or "").strip()
+    if not _es_uuid(ident):
+        abort(404)
+    contratista, error = _exigir_contratista()
+    if error:
+        return redirect("/login")
+    try:
+        row = obtener_historial_tenant(contratista, ident)
+    except Exception as err:
+        print(f"--> sketch: {err}")
+        abort(503)
+    if not row:
+        abort(404)
+    vista = documento_desde_fila_historial(row)
+    plano = vista.get("plano") if isinstance(vista.get("plano"), dict) else {}
+    return render_template(
+        "sketch.html",
+        doc_id=ident,
+        folio=vista.get("folio") or "",
+        tipo=vista.get("tipo") or "estimate",
+        cliente=vista.get("clienteNombre") or vista.get("client") or "",
+        plano_json=plano.get("json") if isinstance(plano, dict) else None,
+        inmutable=_documento_inmutable(row),
+        volver=_url_documento_panel(vista.get("tipo"), ident),
+    )
+
+
+@app.route("/api/proyecto/<doc_id>/sketch", methods=["GET", "POST"])
+def api_sketch_proyecto(doc_id):
+    ident = str(doc_id or "").strip()
+    if not _es_uuid(ident):
+        return jsonify({"error": "Document not found."}), 404
+    contratista, error = _exigir_contratista()
+    if error:
+        return error
+    try:
+        row = obtener_historial_tenant(contratista, ident)
+    except Exception as err:
+        print(f"--> sketch api: {err}")
+        return _respuesta_tenant(err)
+    if not row:
+        return jsonify({"error": "Document not found."}), 404
+    if request.method == "GET":
+        plano = _plano_desde_row(row)
+        return jsonify({
+            "ok": True,
+            "id": ident,
+            "json": plano.get("json"),
+            "imagen": plano.get("imagen") or "",
+        })
+    if _documento_inmutable(row):
+        return jsonify({"error": "This document is signed or paid and cannot be edited."}), 409
+    body = request.get_json(silent=True) or {}
+    plano_json = _json_plano_valido(body.get("json") if "json" in body else body.get("plano_json"))
+    if plano_json is None and (body.get("json") not in (None, "", {})):
+        return jsonify({"error": "The floor plan JSON is too large or invalid."}), 400
+    plano_imagen = _imagen_plano_valida(body.get("imagen") or body.get("image") or body.get("plano_imagen"))
+    if (body.get("imagen") or body.get("image") or body.get("plano_imagen")) and not plano_imagen:
+        return jsonify({"error": "The floor plan image is too large or invalid."}), 400
+    try:
+        guardado = _guardar_plano_documento(contratista, ident, plano_json, plano_imagen)
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 409
+    except Exception as err:
+        print(f"--> sketch save: {type(err).__name__}")
+        return jsonify({"error": "Could not save the floor plan."}), 503
+    plano = _plano_desde_row(guardado or row)
+    return jsonify({
+        "ok": True,
+        "id": ident,
+        "json": plano.get("json"),
+        "imagen": bool(plano.get("imagen")),
+    })
 
 
 PROMPT_SISTEMA_TRADUCCION = (
