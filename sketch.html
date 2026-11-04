@@ -6,99 +6,236 @@
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex,nofollow">
-  <title>Floor plan{% if folio %} {{ folio }}{% endif %} | QuantixBuilds</title>
+  <title>Plano{% if folio %} {{ folio }}{% endif %} | QuantixBuilds</title>
   <script src="https://cdn.jsdelivr.net/npm/fabric@5.3.1/dist/fabric.min.js"></script>
   <style>
-    :root { --navy:#0d47a1; --ink:#0f172a; --muted:#64748b; --line:#dbe3ee; --bg:#e8eef6; }
-    * { box-sizing:border-box; }
-    html, body { height:100%; margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
-    body { display:flex; flex-direction:column; min-height:100%; }
-    header { display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; padding:10px 16px; background:#fff; border-bottom:1px solid var(--line); z-index:4; }
-    .brand { font-weight:800; color:var(--navy); text-decoration:none; }
-    .meta { color:var(--muted); font-size:.88rem; }
-    .tools { display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; }
-    .tools button { min-height:42px; padding:8px 12px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; color:var(--ink); font-weight:700; font-size:.88rem; cursor:pointer; }
-    .tools button:hover { border-color:#94a3b8; background:#f8fafc; }
-    .tools button.is-active { background:#e3f2fd; border-color:#90caf9; color:var(--navy); }
-    .tools .save { background:var(--navy); border-color:var(--navy); color:#fff; }
-    .tools .save:hover { background:#1565c0; }
-    .tools .save:disabled { opacity:.6; cursor:wait; }
-    .back { color:var(--navy); font-weight:700; text-decoration:none; }
-    main { flex:1; display:flex; align-items:center; justify-content:center; padding:16px; min-height:0; }
-    #sketch-board {
-      position:relative; width:min(1100px,100%); height:min(720px,calc(100vh - 120px));
-      background:#fff; border:1px solid var(--line); border-radius:16px; overflow:hidden;
-      box-shadow:0 18px 40px rgba(15,23,42,.12);
-      background-image:
-        linear-gradient(to right, rgba(148,163,184,.28) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(148,163,184,.28) 1px, transparent 1px);
-      background-size:24px 24px;
+    :root {
+      --navy:#19385f; --navy-deep:#0b1f3a; --blue:#0d47a1; --blue-mid:#2d70ad;
+      --gold:#dba72b; --ink:#1d2b3b; --muted:#627083; --line:#d7e0e8;
+      --paper:#fff; --canvas:#eef2f6; --soft:#edf5fb;
     }
-    #sketch-board.is-wall, #sketch-board.is-room { cursor:crosshair; }
-    #sketch-board.is-measure { cursor:text; }
-    #sketch-board.is-select { cursor:default; }
+    * { box-sizing:border-box; }
+    html, body { height:100%; margin:0; background:var(--canvas); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+    body { display:flex; min-height:100%; }
+    .qb-rail {
+      width:84px; flex:0 0 84px; background:var(--navy-deep); color:#dbe7f3;
+      display:flex; flex-direction:column; align-items:center; padding:12px 8px 16px; z-index:6;
+    }
+    .qb-rail a.logo { color:#fff; font-weight:800; font-size:.72rem; letter-spacing:.04em; text-decoration:none; text-align:center; margin-bottom:14px; line-height:1.2; }
+    .qb-rail .grp { width:100%; display:flex; flex-direction:column; gap:4px; margin:8px 0; }
+    .qb-rail .grp small { display:block; text-align:center; font-size:.58rem; letter-spacing:.08em; text-transform:uppercase; color:#8aa0b8; margin:2px 0 4px; }
+    .qb-rail button {
+      width:100%; border:0; background:transparent; color:#dbe7f3; border-radius:12px;
+      padding:8px 4px 7px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px;
+      font-size:.62rem; font-weight:700; line-height:1.15;
+    }
+    .qb-rail button svg { width:22px; height:22px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    .qb-rail button:hover { background:rgba(255,255,255,.08); }
+    .qb-rail button.is-on { background:var(--blue); color:#fff; }
+    .qb-shell { flex:1; min-width:0; display:flex; flex-direction:column; }
+    .qb-top {
+      height:56px; background:var(--paper); border-bottom:1px solid var(--line);
+      display:flex; align-items:center; gap:14px; padding:0 16px; z-index:5;
+    }
+    .qb-top strong { color:var(--navy); }
+    .qb-top .meta { color:var(--muted); font-size:.88rem; }
+    .qb-top .grow { flex:1; }
+    .qb-top .status { font-size:.82rem; color:var(--muted); }
+    .qb-top .status.ok { color:#27834e; }
+    .qb-top .status.err { color:#b91c1c; }
+    .qb-top .btn {
+      min-height:36px; border:1px solid var(--line); background:#fff; color:var(--navy);
+      border-radius:10px; padding:0 12px; font-weight:700; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center;
+    }
+    .qb-top .btn-primary { background:var(--blue); border-color:var(--blue); color:#fff; }
+    .qb-top .btn-primary:disabled { opacity:.6; cursor:wait; }
+    .qb-stage { flex:1; position:relative; min-height:0; }
+    #sketch-board { position:absolute; inset:0; background:var(--canvas); }
+    #sketch-board.is-draw { cursor:crosshair; }
+    #sketch-board.is-note { cursor:text; }
     #sketch-board.is-delete { cursor:not-allowed; }
     #planoCanvas { display:block; width:100%; height:100%; touch-action:none; }
-    #sketch-status { min-height:1.2em; padding:0 18px 12px; color:var(--muted); font-size:.88rem; }
-    #sketch-status.is-ok { color:#15803d; }
-    #sketch-status.is-error { color:#b91c1c; }
+    .qb-float {
+      display:none; position:absolute; left:16px; top:16px; z-index:8; width:min(360px,calc(100vw - 120px));
+      background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:0 18px 40px rgba(15,35,64,.18); padding:12px;
+    }
+    .qb-float.is-open { display:block; }
+    .qb-float header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+    .qb-float h2 { margin:0; font-size:.92rem; color:var(--navy); }
+    .qb-float .close { border:0; background:transparent; font-size:1.2rem; cursor:pointer; color:var(--muted); }
+    .qb-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .qb-card {
+      border:1px solid var(--line); background:var(--soft); border-radius:12px; padding:8px;
+      cursor:pointer; text-align:center; color:var(--navy); font-weight:700; font-size:.75rem;
+    }
+    .qb-card:hover { border-color:#90caf9; background:#e3f2fd; }
+    .qb-card svg { display:block; width:72px; height:44px; margin:0 auto 6px; }
+    .qb-inspector {
+      display:none; position:absolute; right:16px; top:16px; z-index:8; width:min(280px,calc(100vw - 110px));
+      background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:0 18px 40px rgba(15,35,64,.16); padding:14px;
+    }
+    .qb-inspector.is-open { display:block; }
+    .qb-inspector h2 { margin:0 0 10px; font-size:.92rem; color:var(--navy); }
+    .qb-inspector label { display:block; font-size:.72rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin:8px 0 4px; }
+    .qb-inspector input, .qb-inspector select {
+      width:100%; min-height:38px; border:1px solid var(--line); border-radius:10px; padding:0 10px; font:inherit;
+    }
+    .qb-inspector .row { display:flex; gap:8px; }
+    .qb-inspector .row > * { flex:1; }
+    .qb-inspector .actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+    .qb-inspector button { border:1px solid var(--line); background:#fff; color:var(--navy); border-radius:10px; min-height:36px; padding:0 10px; font-weight:700; cursor:pointer; }
+    .qb-inspector .danger { color:#b91c1c; border-color:#fecaca; }
     @media (max-width:720px) {
-      .tools { width:100%; margin-left:0; }
-      #sketch-board { height:min(620px,calc(100vh - 170px)); border-radius:10px; }
+      .qb-rail { width:68px; flex-basis:68px; }
+      .qb-inspector, .qb-float { left:8px; right:8px; width:auto; }
     }
   </style>
 </head>
 <body>
-  <header>
-    <a class="brand" href="{{ volver or '/estimado' }}">QuantixBuilds</a>
-    <div class="meta">
-      <strong>Floor plan</strong>
-      {% if folio %}<span> · {{ folio }}</span>{% endif %}
-      {% if cliente %}<span> · {{ cliente }}</span>{% endif %}
+  <aside class="qb-rail" aria-label="Herramientas del plano">
+    <a class="logo" href="{{ volver or '/estimado' }}">QB<br>Plano</a>
+    <div class="grp">
+      <button type="button" data-tool="select" class="is-on" title="Seleccionar">
+        <svg viewBox="0 0 24 24"><path d="M4 4l7 16 2-7 7-2z"/></svg>
+        Mover
+      </button>
     </div>
-    <nav class="tools" role="toolbar" aria-label="Herramientas de plano">
-      <button type="button" data-tool="wall">Dibujar Pared</button>
-      <button type="button" data-tool="room">Agregar Cuarto</button>
-      <button type="button" data-tool="measure">Agregar Medida</button>
-      <button type="button" data-tool="select" class="is-active">Mover/Seleccionar</button>
-      <button type="button" data-tool="delete">Borrar</button>
-      <button type="button" class="save" id="guardarPlano"{% if inmutable %} disabled{% endif %}>Guardar Plano</button>
-      <a class="back" href="{{ volver or '/estimado' }}">Back to document</a>
-    </nav>
-  </header>
-  <main>
-    <div id="sketch-board" class="is-select">
-      <canvas id="planoCanvas"></canvas>
+    <div class="grp">
+      <small>Arquitectura</small>
+      <button type="button" data-tool="wall" title="Trazar muro">
+        <svg viewBox="0 0 24 24"><path d="M4 8h16M4 16h16M8 4v16M16 4v16"/></svg>
+        Muro
+      </button>
+      <button type="button" data-tool="space" title="Trazar espacio">
+        <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/></svg>
+        Espacio
+      </button>
+      <button type="button" data-tool="opening" title="Apertura de pared">
+        <svg viewBox="0 0 24 24"><path d="M4 12h6M14 12h6"/><path d="M10 8v8M14 8v8" stroke-dasharray="2 2"/></svg>
+        Apertura
+      </button>
     </div>
-  </main>
-  <p id="sketch-status" role="status">{% if inmutable %}This document is signed or paid. The floor plan is read-only.{% else %}Select a tool, then draw on the board.{% endif %}</p>
+    <div class="grp">
+      <small>Inserción</small>
+      <button type="button" data-palette="accesos" title="Accesos">
+        <svg viewBox="0 0 24 24"><path d="M5 20V6a2 2 0 0 1 2-2h7l5 5v11"/><path d="M14 4v5h5"/></svg>
+        Accesos
+      </button>
+      <button type="button" data-palette="estructuras" title="Estructuras">
+        <svg viewBox="0 0 24 24"><path d="M3 19h18M5 19V10l7-6 7 6v9"/></svg>
+        Estructuras
+      </button>
+      <button type="button" data-palette="anotaciones" title="Anotaciones">
+        <svg viewBox="0 0 24 24"><path d="M4 20h16M7 16l10-10 3 3-10 10H7z"/></svg>
+        Notas
+      </button>
+    </div>
+    <div class="grp" style="margin-top:auto">
+      <button type="button" data-tool="delete" title="Quitar elemento">
+        <svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M8 7l1 12h6l1-12"/></svg>
+        Quitar
+      </button>
+    </div>
+  </aside>
+
+  <div class="qb-shell">
+    <header class="qb-top">
+      <strong>Plano de obra</strong>
+      <span class="meta">
+        {% if folio %}{{ folio }}{% endif %}
+        {% if cliente %} · {{ cliente }}{% endif %}
+      </span>
+      <span class="grow"></span>
+      <span class="status" id="sketch-status">{% if inmutable %}Documento bloqueado.{% else %}Traza muros; las cotas se calculan en pies y pulgadas.{% endif %}</span>
+      <button class="btn btn-primary" type="button" id="guardarPlano"{% if inmutable %} disabled{% endif %}>Guardar plano</button>
+      <a class="btn" href="{{ volver or '/estimado' }}">Volver</a>
+    </header>
+    <div class="qb-stage">
+      <div id="sketch-board" class="is-select">
+        <canvas id="planoCanvas"></canvas>
+      </div>
+      <div class="qb-float" id="paletaFlotante" hidden>
+        <header>
+          <h2 id="paletaTitulo">Accesos</h2>
+          <button type="button" class="close" id="paletaCerrar" aria-label="Cerrar">×</button>
+        </header>
+        <div class="qb-cards" id="paletaCards"></div>
+      </div>
+      <aside class="qb-inspector" id="inspector" hidden>
+        <h2>Propiedades</h2>
+        <label for="propTipo">Elemento</label>
+        <input id="propTipo" readonly>
+        <div class="row">
+          <div>
+            <label for="propLargo">Largo</label>
+            <input id="propLargo" placeholder="8'-0&quot;">
+          </div>
+          <div>
+            <label for="propAncho">Ancho</label>
+            <input id="propAncho" placeholder="3'-0&quot;">
+          </div>
+        </div>
+        <label for="propRot">Rotación</label>
+        <input id="propRot" type="number" step="1" value="0">
+        <div class="actions">
+          <button type="button" id="propFlipH">Voltear H</button>
+          <button type="button" id="propFlipV">Voltear V</button>
+          <button type="button" class="danger" id="propBorrar">Quitar</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+
   <script type="application/json" id="plano-inicial">{{ plano_json|tojson }}</script>
   <script>
     (function(){
       const DOC_ID={{ doc_id|tojson }};
       const INMUTABLE={{ inmutable|tojson }};
+      const GRID=12;
+      const SNAP=16;
+      const PX_IN=1;
+      const JSON_PROPS=['selectable','evented','qbTipo','qbSnap','qbLabel'];
+      const NAVY='#19385f';
+      const BLUE='#0d47a1';
+      const GOLD='#dba72b';
+      const NOMBRES={
+        wall:'Muro',
+        opening:'Apertura de pared',
+        space:'Espacio',
+        'space-square':'Espacio rectangular',
+        'space-l':'Espacio en L',
+        'door-hinged':'Puerta abatible',
+        'door-folding':'Puerta plegable',
+        'door-sliding':'Puerta corrediza',
+        'door-double':'Puerta doble',
+        'window-operable':'Ventana practicable',
+        'window-fixed':'Ventana fija',
+        'window-sliding':'Ventana corredera',
+        'roof-gable':'Cubierta a dos aguas',
+        'stair-run':'Tramo de escalera',
+        note:'Nota',
+        cota:'Cota'
+      };
       const board=document.getElementById('sketch-board');
       const status=document.getElementById('sketch-status');
       const saveBtn=document.getElementById('guardarPlano');
+      const inspector=document.getElementById('inspector');
+      const paleta=document.getElementById('paletaFlotante');
+      const paletaCards=document.getElementById('paletaCards');
       const el=document.getElementById('planoCanvas');
       if(typeof fabric==='undefined' || !el){
-        if(status){ status.textContent='Could not load the drawing library.'; status.className='is-error'; }
+        if(status){ status.textContent='No se pudo cargar el lienzo.'; status.className='status err'; }
         return;
       }
-      const canvas=new fabric.Canvas('planoCanvas',{
-        selection:true,
-        preserveObjectStacking:true,
-        stopContextMenu:true,
-        fireRightClick:true
-      });
+      const canvas=new fabric.Canvas('planoCanvas',{ selection:true, preserveObjectStacking:true, stopContextMenu:true });
       let tool='select';
       let drawing=false;
       let origin=null;
       let temp=null;
-      const cursores={wall:'crosshair',room:'crosshair',measure:'text',select:'default',delete:'not-allowed'};
+      let cotaViva=null;
 
       function tokenContratista(){
-        try{ return localStorage.getItem('contratista_sesion')||sessionStorage.getItem('contratista_sesion')||localStorage.getItem('contratista_token')||''; }catch(_){ return ''; }
+        try{ return localStorage.getItem('contratista_sesion')||sessionStorage.getItem('contratista_sesion')||''; }catch(_){ return ''; }
       }
       function headersAuth(){
         const headers={'Content-Type':'application/json','Accept':'application/json'};
@@ -109,145 +246,517 @@
       function setStatus(msg, kind){
         if(!status) return;
         status.textContent=msg||'';
-        status.className=kind?('is-'+kind):'';
+        status.className='status'+(kind?' '+kind:'');
       }
       function sizeCanvas(){
-        const w=Math.max(320, board.clientWidth);
-        const h=Math.max(320, board.clientHeight);
-        canvas.setWidth(w);
-        canvas.setHeight(h);
+        canvas.setWidth(Math.max(320, board.clientWidth));
+        canvas.setHeight(Math.max(320, board.clientHeight));
         canvas.calcOffset();
         canvas.requestRenderAll();
       }
+      function fmtPies(px){
+        const total=Math.max(0, Math.round(Math.abs(px)/PX_IN));
+        const ft=Math.floor(total/12);
+        const inn=total%12;
+        return ft+"'-"+inn+'"';
+      }
+      function parsePies(texto){
+        const t=String(texto||'').trim();
+        const m=t.match(/(-?\d+)\s*'\s*-?\s*(\d+)?/);
+        if(m) return (parseInt(m[1],10)*12 + parseInt(m[2]||'0',10))*PX_IN;
+        const n=parseFloat(t);
+        return isFinite(n)? n*12*PX_IN : null;
+      }
+
+      function dibujarPuntos(ctx){
+        const w=canvas.getWidth(), h=canvas.getHeight();
+        ctx.save();
+        ctx.fillStyle='#eef2f6';
+        ctx.fillRect(0,0,w,h);
+        for(let x=0;x<=w;x+=GRID){
+          for(let y=0;y<=h;y+=GRID){
+            const mayor=(x%(GRID*5)===0)&&(y%(GRID*5)===0);
+            ctx.fillStyle=mayor?'rgba(25,56,95,0.38)':'rgba(25,56,95,0.22)';
+            ctx.beginPath();
+            ctx.arc(x,y, mayor?1.35:0.9, 0, Math.PI*2);
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+      canvas.on('before:render', function(){ dibujarPuntos(canvas.contextContainer); });
+
+      function snapPunto(p){
+        let x=Math.round(p.x/GRID)*GRID;
+        let y=Math.round(p.y/GRID)*GRID;
+        let mejor=null;
+        paredesDelPlano().forEach(function(seg){
+          const hit=masCercano({x:x,y:y}, seg.a, seg.b);
+          if(!mejor || hit.dist<mejor.dist) mejor=hit;
+        });
+        if(mejor && mejor.dist<=SNAP){
+          x=mejor.x; y=mejor.y;
+        }
+        return {x:x,y:y};
+      }
+
+      function estiloSimbolo(obj, tipo, snap){
+        obj.set({
+          qbTipo:tipo, qbSnap:snap||'', qbLabel:NOMBRES[tipo]||tipo,
+          selectable:true, evented:true, hasControls:true, hasBorders:true,
+          lockScalingFlip:false, transparentCorners:false,
+          cornerColor:BLUE, cornerStyle:'circle', borderColor:'#90caf9',
+          padding:4, originX:'center', originY:'center'
+        });
+        return obj;
+      }
+      function grupo(shapes, tipo, snap){
+        return estiloSimbolo(new fabric.Group(shapes,{ subTargetCheck:false, objectCaching:false }), tipo, snap);
+      }
+      function linea(x1,y1,x2,y2, extra){
+        return new fabric.Line([x1,y1,x2,y2], Object.assign({
+          stroke:NAVY, strokeWidth:3, strokeLineCap:'round', selectable:false, evented:false
+        }, extra||{}));
+      }
+
+      function simboloPuertaAbatible(){
+        const W=56;
+        return grupo([
+          linea(-4,0,W+4,0,{strokeWidth:5}),
+          linea(0,0,0,W,{strokeWidth:3, stroke:BLUE}),
+          new fabric.Path('M '+W+' 0 A '+W+' '+W+' 0 0 0 0 '+W,{ fill:'rgba(13,71,161,0.08)', stroke:BLUE, strokeWidth:1.5, selectable:false, evented:false }),
+          new fabric.Circle({ left:0, top:0, radius:3, fill:BLUE, originX:'center', originY:'center', selectable:false, evented:false })
+        ], 'door-hinged', 'wall');
+      }
+      function simboloPuertaPlegable(){
+        return grupo([
+          linea(0,0,80,0,{strokeWidth:5}),
+          linea(8,0,20,-18,{stroke:BLUE}), linea(20,-18,32,0,{stroke:BLUE}),
+          linea(32,0,44,-18,{stroke:BLUE}), linea(44,-18,56,0,{stroke:BLUE}),
+          linea(56,0,68,-18,{stroke:BLUE}), linea(68,-18,76,0,{stroke:BLUE})
+        ], 'door-folding', 'wall');
+      }
+      function simboloPuertaCorrediza(){
+        return grupo([
+          linea(0,0,84,0,{strokeWidth:5}),
+          new fabric.Rect({ left:4, top:-11, width:44, height:8, fill:'#edf5fb', stroke:BLUE, strokeWidth:1.5, rx:1, selectable:false, evented:false }),
+          new fabric.Rect({ left:36, top:3, width:44, height:8, fill:'#fff', stroke:BLUE, strokeWidth:1.5, rx:1, selectable:false, evented:false })
+        ], 'door-sliding', 'wall');
+      }
+      function simboloPuertaDoble(){
+        const W=104, R=48;
+        return grupo([
+          linea(-4,0,W+4,0,{strokeWidth:5}),
+          linea(0,0,0,R,{strokeWidth:3, stroke:BLUE}),
+          linea(W,0,W,R,{strokeWidth:3, stroke:BLUE}),
+          new fabric.Path('M '+R+' 0 A '+R+' '+R+' 0 0 0 0 '+R,{ fill:'rgba(13,71,161,0.07)', stroke:BLUE, strokeWidth:1.5, selectable:false, evented:false }),
+          new fabric.Path('M '+(W-R)+' 0 A '+R+' '+R+' 0 0 1 '+W+' '+R,{ fill:'rgba(13,71,161,0.07)', stroke:BLUE, strokeWidth:1.5, selectable:false, evented:false })
+        ], 'door-double', 'wall');
+      }
+      function marcoVano(extra){
+        return [
+          linea(0,-7,72,-7,{strokeWidth:4}),
+          linea(0,0,72,0,{strokeWidth:1.6, stroke:BLUE}),
+          linea(0,7,72,7,{strokeWidth:4}),
+          linea(0,-7,0,7,{strokeWidth:3}),
+          linea(72,-7,72,7,{strokeWidth:3})
+        ].concat(extra||[]);
+      }
+      function simboloVentanaPracticable(){ return grupo(marcoVano(), 'window-operable', 'wall'); }
+      function simboloVentanaFija(){
+        return grupo(marcoVano([
+          linea(8,-7,64,7,{strokeWidth:1.3, stroke:'#627083'}),
+          linea(64,-7,8,7,{strokeWidth:1.3, stroke:'#627083'})
+        ]), 'window-fixed', 'wall');
+      }
+      function simboloVentanaCorredera(){
+        return grupo(marcoVano([
+          new fabric.Rect({ left:4, top:-5, width:32, height:10, fill:'rgba(13,71,161,0.08)', stroke:BLUE, strokeWidth:1.2, selectable:false, evented:false }),
+          new fabric.Rect({ left:36, top:-5, width:32, height:10, fill:'#fff', stroke:BLUE, strokeWidth:1.2, selectable:false, evented:false })
+        ]), 'window-sliding', 'wall');
+      }
+      function simboloEspacioRect(){
+        return estiloSimbolo(new fabric.Rect({
+          width:168, height:144, fill:'rgba(13,71,161,0.05)', stroke:NAVY, strokeWidth:5
+        }), 'space-square', '');
+      }
+      function simboloEspacioL(){
+        return estiloSimbolo(new fabric.Polygon([
+          {x:0,y:0},{x:180,y:0},{x:180,y:90},{x:90,y:90},{x:90,y:180},{x:0,y:180}
+        ], { fill:'rgba(13,71,161,0.05)', stroke:NAVY, strokeWidth:5, objectCaching:false }), 'space-l', '');
+      }
+      function simboloCubierta(){
+        return grupo([
+          linea(0,48,60,0,{strokeWidth:3}),
+          linea(60,0,120,48,{strokeWidth:3}),
+          linea(0,48,120,48,{strokeWidth:2, stroke:GOLD}),
+          linea(60,0,60,48,{strokeWidth:1.4, strokeDashArray:[4,3], stroke:BLUE})
+        ], 'roof-gable', '');
+      }
+      function simboloEscalera(){
+        const treads=[];
+        for(let i=0;i<7;i++) treads.push(linea(0, i*10, 56, i*10,{strokeWidth:2}));
+        treads.push(linea(28,0,28,70,{strokeWidth:2, stroke:BLUE}));
+        treads.push(linea(20,58,28,70,{stroke:BLUE}));
+        treads.push(linea(36,58,28,70,{stroke:BLUE}));
+        return grupo(treads, 'stair-run', '');
+      }
+
+      const FABRICAS={
+        'door-hinged':simboloPuertaAbatible,
+        'door-folding':simboloPuertaPlegable,
+        'door-sliding':simboloPuertaCorrediza,
+        'door-double':simboloPuertaDoble,
+        'window-operable':simboloVentanaPracticable,
+        'window-fixed':simboloVentanaFija,
+        'window-sliding':simboloVentanaCorredera,
+        'space-square':simboloEspacioRect,
+        'space-l':simboloEspacioL,
+        'roof-gable':simboloCubierta,
+        'stair-run':simboloEscalera
+      };
+
+      const PALETAS={
+        accesos:{
+          titulo:'Accesos',
+          items:[
+            {id:'door-hinged', label:'Puerta abatible', svg:'<path d="M4 20V8h12" stroke="#19385f" fill="none"/><path d="M16 8 A12 12 0 0 1 4 20" stroke="#0d47a1" fill="rgba(13,71,161,.12)"/>'},
+            {id:'door-folding', label:'Puerta plegable', svg:'<path d="M4 18h20" stroke="#19385f"/><path d="M6 18l4-8 4 8 4-8 4 8" stroke="#0d47a1" fill="none"/>'},
+            {id:'door-sliding', label:'Puerta corrediza', svg:'<path d="M4 18h22" stroke="#19385f"/><rect x="6" y="10" width="10" height="5" fill="#edf5fb" stroke="#0d47a1"/><rect x="12" y="16" width="10" height="5" fill="#fff" stroke="#0d47a1"/>'},
+            {id:'door-double', label:'Puerta doble', svg:'<path d="M4 20h24" stroke="#19385f"/><path d="M8 20v-10M24 20v-10" stroke="#0d47a1"/><path d="M16 20 A8 8 0 0 1 8 12" fill="rgba(13,71,161,.1)" stroke="#0d47a1"/><path d="M16 20 A8 8 0 0 0 24 12" fill="rgba(13,71,161,.1)" stroke="#0d47a1"/>'},
+            {id:'window-operable', label:'Ventana practicable', svg:'<rect x="4" y="10" width="24" height="8" fill="none" stroke="#19385f"/><path d="M4 14h24" stroke="#0d47a1"/>'},
+            {id:'window-fixed', label:'Ventana fija', svg:'<rect x="4" y="10" width="24" height="8" fill="none" stroke="#19385f"/><path d="M6 11l20 6M26 11L6 17" stroke="#627083"/>'},
+            {id:'window-sliding', label:'Ventana corredera', svg:'<rect x="4" y="10" width="24" height="8" fill="none" stroke="#19385f"/><rect x="5" y="11" width="10" height="6" fill="rgba(13,71,161,.12)" stroke="#0d47a1"/><rect x="16" y="11" width="11" height="6" fill="#fff" stroke="#0d47a1"/>'}
+          ]
+        },
+        estructuras:{
+          titulo:'Estructuras',
+          items:[
+            {id:'roof-gable', label:'Cubierta a dos aguas', svg:'<path d="M4 20h24M6 20l10-12 10 12" stroke="#19385f" fill="none"/><path d="M16 8v12" stroke="#0d47a1" stroke-dasharray="2 2"/>'},
+            {id:'stair-run', label:'Tramo de escalera', svg:'<path d="M6 8h16M6 12h16M6 16h16M6 20h16M14 8v12" stroke="#19385f" fill="none"/>'}
+          ]
+        },
+        anotaciones:{
+          titulo:'Anotaciones',
+          items:[
+            {id:'__tool:note', label:'Nota de texto', svg:'<path d="M7 8h18M7 13h14M7 18h10" stroke="#0d47a1"/>'},
+            {id:'__tool:cota', label:'Cota manual', svg:'<path d="M6 16h20M8 13v6M24 13v6" stroke="#0d47a1"/>'}
+          ]
+        }
+      };
+
+      function abrirPaleta(clave){
+        const def=PALETAS[clave];
+        if(!def) return;
+        document.getElementById('paletaTitulo').textContent=def.titulo;
+        paletaCards.innerHTML=def.items.map(function(it){
+          return '<button type="button" class="qb-card" data-insert="'+it.id+'"><svg viewBox="0 0 32 28">'+it.svg+'</svg>'+it.label+'</button>';
+        }).join('');
+        paleta.hidden=false;
+        paleta.classList.add('is-open');
+      }
+      function cerrarPaleta(){
+        paleta.classList.remove('is-open');
+        paleta.hidden=true;
+      }
+
+      function insertarSimbolo(tipo){
+        if(INMUTABLE){ setStatus('Este documento no se puede editar.','err'); return; }
+        if(tipo==='__tool:note'){ aplicarTool('note'); cerrarPaleta(); return; }
+        if(tipo==='__tool:cota'){ aplicarTool('cota'); cerrarPaleta(); return; }
+        const factory=FABRICAS[tipo];
+        if(!factory) return;
+        const obj=factory();
+        obj.set({ left:canvas.getWidth()/2, top:canvas.getHeight()/2 });
+        canvas.add(obj);
+        aplicarTool('select');
+        canvas.setActiveObject(obj);
+        canvas.requestRenderAll();
+        refrescarInspector();
+        cerrarPaleta();
+        setStatus(obj.qbSnap==='wall'?'Colócalo sobre un muro para que se alinee.':'Ajusta tamaño y rotación en el panel.');
+      }
+
       function aplicarTool(nombre){
         tool=nombre||'select';
-        drawing=false;
-        temp=null;
-        origin=null;
+        drawing=false; temp=null; origin=null;
+        if(cotaViva){ canvas.remove(cotaViva); cotaViva=null; }
         canvas.isDrawingMode=false;
         canvas.discardActiveObject();
-        const dibujando=tool==='wall'||tool==='room'||tool==='measure'||tool==='delete';
         canvas.selection=tool==='select';
-        canvas.skipTargetFind=tool==='wall'||tool==='room'||tool==='measure';
+        canvas.skipTargetFind=['wall','opening','space','cota'].indexOf(tool)>=0;
         canvas.forEachObject(function(obj){
           const editable=tool==='select'||tool==='delete';
           obj.selectable=editable;
-          obj.evented=editable || tool==='delete';
+          obj.evented=editable||tool==='delete';
         });
-        canvas.defaultCursor=cursores[tool]||'default';
-        canvas.hoverCursor=tool==='select'?'move':(cursores[tool]||'default');
-        board.className='is-'+tool;
-        document.querySelectorAll('[data-tool]').forEach(function(btn){
-          btn.classList.toggle('is-active', btn.dataset.tool===tool);
+        canvas.defaultCursor=tool==='select'?'default':(tool==='delete'?'not-allowed':(tool==='note'?'text':'crosshair'));
+        canvas.hoverCursor=tool==='select'?'move':canvas.defaultCursor;
+        board.className=tool==='select'?'is-select':(tool==='delete'?'is-delete':(tool==='note'?'is-note':'is-draw'));
+        document.querySelectorAll('.qb-rail [data-tool]').forEach(function(btn){
+          btn.classList.toggle('is-on', btn.dataset.tool===tool);
         });
         canvas.requestRenderAll();
+        refrescarInspector();
       }
-      function pointer(opt){
-        return canvas.getPointer(opt.e);
+
+      function pointer(opt){ return canvas.getPointer(opt.e); }
+
+      function esPared(obj){
+        if(!obj || obj.qbSnap==='wall') return false;
+        const t=obj.qbTipo||'';
+        if(t==='wall'||t==='opening'||t==='space'||t==='space-square'||t==='space-l') return true;
+        return obj.type==='line' && (obj.strokeWidth||0)>=4;
       }
+      function puntoCanvas(obj, pt){
+        return fabric.util.transformPoint(new fabric.Point(pt.x, pt.y), obj.calcTransformMatrix());
+      }
+      function extremosLinea(line){
+        const pts=line.calcLinePoints();
+        return { a:puntoCanvas(line,{x:pts.x1,y:pts.y1}), b:puntoCanvas(line,{x:pts.x2,y:pts.y2}) };
+      }
+      function aristasCoords(obj){
+        const c=obj.aCoords||obj.calcACoords();
+        if(!c||!c.tl) return [];
+        return [{a:c.tl,b:c.tr},{a:c.tr,b:c.br},{a:c.br,b:c.bl},{a:c.bl,b:c.tl}];
+      }
+      function aristasPoligono(obj){
+        const pts=obj.points||[];
+        if(pts.length<2) return aristasCoords(obj);
+        const off=obj.pathOffset||{x:0,y:0};
+        const segs=[];
+        for(let i=0;i<pts.length;i++){
+          const cur=pts[i], nxt=pts[(i+1)%pts.length];
+          segs.push({
+            a:puntoCanvas(obj,{x:cur.x-off.x,y:cur.y-off.y}),
+            b:puntoCanvas(obj,{x:nxt.x-off.x,y:nxt.y-off.y})
+          });
+        }
+        return segs;
+      }
+      function paredesDelPlano(ignorar){
+        const segs=[];
+        canvas.getObjects().forEach(function(obj){
+          if(!esPared(obj)||obj===ignorar||obj.qbTipo==='cota') return;
+          if(obj.type==='line') segs.push(extremosLinea(obj));
+          else if(obj.type==='polygon'||obj.qbTipo==='space-l') segs.push.apply(segs, aristasPoligono(obj));
+          else segs.push.apply(segs, aristasCoords(obj));
+        });
+        return segs;
+      }
+      function masCercano(p,a,b){
+        const dx=b.x-a.x, dy=b.y-a.y, len2=dx*dx+dy*dy;
+        if(len2<1) return {x:a.x,y:a.y,dist:Math.hypot(p.x-a.x,p.y-a.y),angle:0};
+        let t=((p.x-a.x)*dx+(p.y-a.y)*dy)/len2;
+        t=Math.max(0, Math.min(1,t));
+        const x=a.x+t*dx, y=a.y+t*dy;
+        return {x:x,y:y,dist:Math.hypot(p.x-x,p.y-y),angle:Math.atan2(dy,dx)};
+      }
+      function adherirAPared(obj){
+        if(!obj || obj.qbSnap!=='wall') return false;
+        const centro=obj.getCenterPoint();
+        let mejor=null;
+        paredesDelPlano(obj).forEach(function(seg){
+          const hit=masCercano(centro, seg.a, seg.b);
+          if(!mejor||hit.dist<mejor.dist) mejor=hit;
+        });
+        if(!mejor||mejor.dist>SNAP) return false;
+        obj.setPositionByOrigin(new fabric.Point(mejor.x, mejor.y), 'center', 'center');
+        obj.rotate(mejor.angle*180/Math.PI);
+        obj.setCoords();
+        return true;
+      }
+
+      function actualizarCotaViva(a,b){
+        const mid={x:(a.x+b.x)/2, y:(a.y+b.y)/2};
+        const txt=fmtPies(Math.hypot(b.x-a.x,b.y-a.y));
+        if(!cotaViva){
+          cotaViva=new fabric.Text(txt,{
+            left:mid.x, top:mid.y-14, fontSize:13, fill:BLUE, fontWeight:'700',
+            originX:'center', originY:'center', selectable:false, evented:false, qbTipo:'cota'
+          });
+          canvas.add(cotaViva);
+        }else{
+          cotaViva.set({ text:txt, left:mid.x, top:mid.y-14 });
+        }
+      }
+
+      canvas.on('object:moving', function(e){ if(e.target) adherirAPared(e.target); });
+      canvas.on('object:modified', function(e){ if(e.target) { adherirAPared(e.target); refrescarInspector(); } });
+      canvas.on('selection:created', refrescarInspector);
+      canvas.on('selection:updated', refrescarInspector);
+      canvas.on('selection:cleared', refrescarInspector);
 
       canvas.on('mouse:down', function(opt){
         if(INMUTABLE) return;
         if(tool==='select') return;
-        if(tool==='delete'){
-          if(opt.target) canvas.remove(opt.target);
-          return;
-        }
-        const p=pointer(opt);
-        if(tool==='measure'){
-          const texto=new fabric.IText("0'-0\"",{
-            left:p.x, top:p.y, fontSize:18, fill:'#0d47a1', fontFamily:'Arial',
-            fontWeight:'700'
+        if(tool==='delete'){ if(opt.target){ canvas.remove(opt.target); refrescarInspector(); } return; }
+        const p=snapPunto(pointer(opt));
+        if(tool==='note'||tool==='cota'){
+          const texto=new fabric.IText(tool==='cota'? "8'-0\"" : 'Nota',{
+            left:p.x, top:p.y, fontSize:14, fill:BLUE, fontFamily:'Arial', fontWeight:'700', qbTipo:tool==='cota'?'cota':'note'
           });
           canvas.add(texto);
+          aplicarTool('select');
           canvas.setActiveObject(texto);
           texto.enterEditing();
-          texto.selectAll();
           return;
         }
         drawing=true;
         origin=p;
-        if(tool==='wall'){
+        if(tool==='wall'||tool==='opening'){
           temp=new fabric.Line([p.x,p.y,p.x,p.y],{
-            stroke:'#0f172a', strokeWidth:6, strokeLineCap:'round',
-            selectable:false, evented:false
+            stroke: tool==='opening'?GOLD:NAVY,
+            strokeWidth: tool==='opening'?3:6,
+            strokeDashArray: tool==='opening'?[10,6]:null,
+            strokeLineCap:'round', selectable:false, evented:false,
+            qbTipo: tool==='opening'?'opening':'wall', qbSnap:''
           });
-        }else if(tool==='room'){
+        }else if(tool==='space'){
           temp=new fabric.Rect({
             left:p.x, top:p.y, width:1, height:1,
-            fill:'rgba(13,71,161,0.08)', stroke:'#0d47a1', strokeWidth:2,
-            selectable:false, evented:false
+            fill:'rgba(13,71,161,.06)', stroke:NAVY, strokeWidth:4,
+            selectable:false, evented:false, qbTipo:'space', qbSnap:''
           });
         }
         if(temp) canvas.add(temp);
       });
       canvas.on('mouse:move', function(opt){
-        if(!drawing || !temp || !origin) return;
-        const p=pointer(opt);
-        if(tool==='wall'){
+        if(!drawing||!temp||!origin) return;
+        const p=snapPunto(pointer(opt));
+        if(tool==='wall'||tool==='opening'){
           temp.set({ x2:p.x, y2:p.y });
-        }else if(tool==='room'){
+          actualizarCotaViva(origin, p);
+        }else if(tool==='space'){
           temp.set({
-            left:Math.min(origin.x,p.x),
-            top:Math.min(origin.y,p.y),
+            left:Math.min(origin.x,p.x), top:Math.min(origin.y,p.y),
             width:Math.max(1, Math.abs(p.x-origin.x)),
             height:Math.max(1, Math.abs(p.y-origin.y))
           });
+          actualizarCotaViva(origin, p);
         }
         canvas.requestRenderAll();
       });
       canvas.on('mouse:up', function(){
         if(temp){
-          temp.set({ selectable:tool==='select', evented:tool==='select'||tool==='delete' });
+          temp.set({ selectable:false, evented:false });
+          if(temp.type==='line'){
+            const dx=temp.x2-temp.x1, dy=temp.y2-temp.y1;
+            if(Math.hypot(dx,dy)<8){ canvas.remove(temp); if(cotaViva) canvas.remove(cotaViva); }
+            else {
+              temp.qbLabel=fmtPies(Math.hypot(dx,dy));
+              if(cotaViva){ cotaViva.set({ selectable:true, evented:true }); }
+            }
+          }else{
+            temp.set({ selectable:true, evented:true });
+            if(cotaViva) canvas.remove(cotaViva);
+          }
         }
-        drawing=false;
-        temp=null;
-        origin=null;
+        drawing=false; temp=null; origin=null; cotaViva=null;
+        if(tool==='wall'||tool==='opening'||tool==='space') aplicarTool('select');
       });
-      document.addEventListener('keydown', function(ev){
-        if(INMUTABLE) return;
-        if(ev.key!=='Delete' && ev.key!=='Backspace') return;
-        const t=ev.target;
-        if(t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable)) return;
-        const activo=canvas.getActiveObject();
-        if(activo && !activo.isEditing){
-          ev.preventDefault();
-          canvas.remove(activo);
+
+      function objetoActivo(){ return canvas.getActiveObject(); }
+      function refrescarInspector(){
+        const obj=objetoActivo();
+        if(!obj || tool!=='select'){
+          inspector.classList.remove('is-open');
+          inspector.hidden=true;
+          return;
         }
+        inspector.hidden=false;
+        inspector.classList.add('is-open');
+        document.getElementById('propTipo').value=NOMBRES[obj.qbTipo]||obj.qbLabel||obj.type;
+        const w=obj.getScaledWidth?obj.getScaledWidth():(obj.width||0);
+        const h=obj.getScaledHeight?obj.getScaledHeight():(obj.height||0);
+        if(obj.type==='line'){
+          const e=extremosLinea(obj);
+          document.getElementById('propLargo').value=fmtPies(Math.hypot(e.b.x-e.a.x,e.b.y-e.a.y));
+          document.getElementById('propAncho').value='';
+        }else{
+          document.getElementById('propLargo').value=fmtPies(w);
+          document.getElementById('propAncho').value=fmtPies(h);
+        }
+        document.getElementById('propRot').value=Math.round(obj.angle||0);
+      }
+      function aplicarMedida(){
+        const obj=objetoActivo();
+        if(!obj) return;
+        const largo=parsePies(document.getElementById('propLargo').value);
+        const ancho=parsePies(document.getElementById('propAncho').value);
+        const rot=parseFloat(document.getElementById('propRot').value);
+        if(obj.type==='line' && largo){
+          const e=extremosLinea(obj);
+          const ang=Math.atan2(e.b.y-e.a.y, e.b.x-e.a.x);
+          obj.set({ x2:obj.x1 + Math.cos(ang)*largo, y2:obj.y1 + Math.sin(ang)*largo });
+        }else{
+          if(largo && obj.getScaledWidth()) obj.scaleX=largo/Math.max(obj.width||1,1);
+          if(ancho && obj.getScaledHeight()) obj.scaleY=ancho/Math.max(obj.height||1,1);
+        }
+        if(isFinite(rot)) obj.rotate(rot);
+        obj.setCoords();
+        canvas.requestRenderAll();
+        refrescarInspector();
+      }
+      document.getElementById('propLargo').addEventListener('change', aplicarMedida);
+      document.getElementById('propAncho').addEventListener('change', aplicarMedida);
+      document.getElementById('propRot').addEventListener('change', aplicarMedida);
+      document.getElementById('propFlipH').addEventListener('click', function(){
+        const obj=objetoActivo(); if(!obj) return; obj.set('flipX', !obj.flipX); canvas.requestRenderAll();
+      });
+      document.getElementById('propFlipV').addEventListener('click', function(){
+        const obj=objetoActivo(); if(!obj) return; obj.set('flipY', !obj.flipY); canvas.requestRenderAll();
+      });
+      document.getElementById('propBorrar').addEventListener('click', function(){
+        const obj=objetoActivo(); if(!obj) return; canvas.remove(obj); refrescarInspector();
       });
 
       document.querySelectorAll('[data-tool]').forEach(function(btn){
-        btn.addEventListener('click', function(){ aplicarTool(btn.dataset.tool); });
+        btn.addEventListener('click', function(){ cerrarPaleta(); aplicarTool(btn.dataset.tool); });
+      });
+      document.querySelectorAll('[data-palette]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          aplicarTool('select');
+          document.querySelectorAll('.qb-rail [data-palette]').forEach(function(b){ b.classList.toggle('is-on', b===btn); });
+          abrirPaleta(btn.dataset.palette);
+        });
+      });
+      document.getElementById('paletaCerrar').addEventListener('click', cerrarPaleta);
+      paletaCards.addEventListener('click', function(ev){
+        const card=ev.target.closest('[data-insert]');
+        if(card) insertarSimbolo(card.dataset.insert);
+      });
+      document.addEventListener('keydown', function(ev){
+        if(ev.key==='Escape') cerrarPaleta();
+        if(INMUTABLE) return;
+        if(ev.key!=='Delete' && ev.key!=='Backspace') return;
+        const t=ev.target;
+        if(t && (t.tagName==='INPUT'||t.tagName==='SELECT'||t.tagName==='TEXTAREA'||t.isContentEditable)) return;
+        const activo=objetoActivo();
+        if(activo && !activo.isEditing){ ev.preventDefault(); canvas.remove(activo); refrescarInspector(); }
       });
 
       function exportar(){
         canvas.discardActiveObject();
         canvas.requestRenderAll();
-        const json=canvas.toJSON(['selectable','evented']);
+        const json=canvas.toJSON(JSON_PROPS);
         let imagen=canvas.toDataURL({ format:'png', multiplier:1, enableRetinaScaling:false });
-        if(imagen.length>1200000){
-          imagen=canvas.toDataURL({ format:'jpeg', quality:0.82, multiplier:1, enableRetinaScaling:false });
-        }
+        if(imagen.length>1200000) imagen=canvas.toDataURL({ format:'jpeg', quality:0.82, multiplier:1, enableRetinaScaling:false });
         return { json:json, imagen:imagen };
       }
-
       async function guardar(){
-        if(INMUTABLE){ setStatus('This document is signed or paid and cannot be edited.','error'); return; }
+        if(INMUTABLE){ setStatus('Este documento no se puede editar.','err'); return; }
         try{
           if(saveBtn) saveBtn.disabled=true;
-          setStatus('Saving floor plan...');
-          const data=exportar();
+          setStatus('Guardando plano...');
           const res=await fetch('/api/proyecto/'+encodeURIComponent(DOC_ID)+'/sketch',{
-            method:'POST',
-            credentials:'same-origin',
-            headers:headersAuth(),
-            body:JSON.stringify(data)
+            method:'POST', credentials:'same-origin', headers:headersAuth(), body:JSON.stringify(exportar())
           });
           const json=await res.json().catch(function(){ return {}; });
-          if(!res.ok) throw new Error(json.error||'Could not save the floor plan.');
-          setStatus('Floor plan saved. It will appear on the contract PDF.','ok');
+          if(!res.ok) throw new Error(json.error||'No se pudo guardar el plano.');
+          setStatus('Plano guardado. Aparecerá en el PDF.','ok');
         }catch(err){
-          setStatus(err.message||'Could not save the floor plan.','error');
+          setStatus(err.message||'No se pudo guardar el plano.','err');
         }finally{
           if(saveBtn && !INMUTABLE) saveBtn.disabled=false;
         }
@@ -258,12 +767,8 @@
         let bruto=null;
         try{ bruto=JSON.parse(document.getElementById('plano-inicial').textContent||'null'); }catch(_){ bruto=null; }
         if(!bruto) return;
-        canvas.loadFromJSON(bruto, function(){
-          aplicarTool(tool);
-          canvas.requestRenderAll();
-        });
+        canvas.loadFromJSON(bruto, function(){ aplicarTool('select'); canvas.requestRenderAll(); });
       }
-
       sizeCanvas();
       window.addEventListener('resize', sizeCanvas);
       cargarInicial();
