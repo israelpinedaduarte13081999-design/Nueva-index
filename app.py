@@ -3658,10 +3658,14 @@ def _plano_desde_row(row):
             plano["imagen"] = extra.get("imagen")
         if extra.get("updated_at") and not plano.get("updated_at"):
             plano["updated_at"] = extra.get("updated_at")
+        if extra.get("medidas") and not plano.get("medidas"):
+            plano["medidas"] = extra.get("medidas")
     if not plano.get("json") and row.get("plano_json") is not None:
         plano["json"] = _json_campo(row.get("plano_json"), row.get("plano_json"))
     if not plano.get("imagen") and row.get("plano_imagen"):
         plano["imagen"] = row.get("plano_imagen")
+    if not plano.get("medidas"):
+        plano["medidas"] = _medidas_desde_plano_json(plano.get("json"))
     return plano if isinstance(plano, dict) else {}
 
 
@@ -5903,7 +5907,104 @@ def _json_plano_valido(valor):
     return valor
 
 
-def _guardar_plano_documento(contratista, ident, plano_json, plano_imagen):
+def _num_medida(valor):
+    try:
+        return round(float(valor or 0), 2)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _medidas_desde_plano_json(plano_json):
+    if not isinstance(plano_json, dict):
+        return {"rooms": [], "totals": {}}
+    crudo = plano_json.get("medidas") if isinstance(plano_json.get("medidas"), dict) else {}
+    rooms = crudo.get("rooms") if isinstance(crudo.get("rooms"), list) else plano_json.get("rooms")
+    if not isinstance(rooms, list):
+        rooms = []
+    out = []
+    for room in rooms:
+        if not isinstance(room, dict):
+            continue
+        floor = _num_medida(room.get("floor_sf") or room.get("area_sqft"))
+        wall_net = _num_medida(room.get("wall_sf_net") or room.get("wall_sf"))
+        peri = _num_medida(room.get("perimeter_lf") or room.get("trim_lf"))
+        trim = _num_medida(room.get("trim_lf") if room.get("trim_lf") not in (None, "") else peri)
+        out.append({
+            "id": str(room.get("id") or ""),
+            "room_name": str(room.get("room_name") or room.get("name") or "Room").strip() or "Room",
+            "floor_sf": floor,
+            "ceiling_sf": _num_medida(room.get("ceiling_sf") or floor),
+            "wall_sf": wall_net,
+            "wall_and_ceiling_sf": _num_medida(room.get("wall_and_ceiling_sf") or (wall_net + floor)),
+            "trim_lf": trim,
+            "cabinets_lf": _num_medida(room.get("cabinets_lf")),
+            "perimeter_lf": peri,
+            "length_ft": _num_medida(room.get("length_ft")),
+            "width_ft": _num_medida(room.get("width_ft")),
+            "openings_sf": _num_medida(room.get("openings_sf")),
+            "openings": room.get("openings") if isinstance(room.get("openings"), list) else [],
+        })
+    totals = crudo.get("totals") if isinstance(crudo.get("totals"), dict) else plano_json.get("totals")
+    if not isinstance(totals, dict):
+        totals = {
+            "area_sqft": round(sum(r["floor_sf"] for r in out), 2),
+            "perimeter_lf": round(sum(r["perimeter_lf"] for r in out), 2),
+            "wall_sf_net": round(sum(r["wall_sf"] for r in out), 2),
+            "openings_sf": round(sum(r["openings_sf"] for r in out), 2),
+        }
+    return {"rooms": out, "totals": totals}
+
+
+def _fila_medida_plano(desc, qty, unit, clave):
+    cantidad = _num_medida(qty)
+    return {
+        "code": "",
+        "desc": desc,
+        "description": desc,
+        "descripcion": desc,
+        "descCustom": desc,
+        "qty": cantidad,
+        "price": 0,
+        "unit": unit,
+        "tax": 0,
+        "action": "install_material",
+        "meta": {"measureKey": clave, "descManual": "1", "skipMinimo": "1"},
+    }
+
+
+def _area_desde_habitacion_plano(room):
+    nombre = str((room or {}).get("room_name") or "Room")
+    return {
+        "title": nombre,
+        "titleEn": nombre,
+        "titleEs": nombre,
+        "reference": "From floor plan",
+        "qbDesdePlano": True,
+        "qbHabitacionId": str((room or {}).get("id") or nombre),
+        "rows": [
+            _fila_medida_plano(nombre + " — Floor", room.get("floor_sf"), "SF", "floor_sf"),
+            _fila_medida_plano(nombre + " — Ceiling", room.get("ceiling_sf"), "SF", "ceiling_sf"),
+            _fila_medida_plano(nombre + " — Walls (net of openings)", room.get("wall_sf"), "SF", "wall_sf"),
+            _fila_medida_plano(nombre + " — Baseboard / trim", room.get("trim_lf"), "LF", "trim_lf"),
+        ],
+    }
+
+
+def _inyectar_medidas_plano_en_areas(snapshot, medidas):
+    if not isinstance(snapshot, dict):
+        snapshot = {}
+    actuales = snapshot.get("areas") if isinstance(snapshot.get("areas"), list) else []
+    habitaciones = (medidas or {}).get("rooms") if isinstance(medidas, dict) else []
+    if not habitaciones:
+        snapshot["areas"] = [area for area in actuales if not (isinstance(area, dict) and area.get("qbDesdePlano"))]
+        return snapshot
+    conservadas = [area for area in actuales if not (isinstance(area, dict) and area.get("qbDesdePlano"))]
+    nuevas = [_area_desde_habitacion_plano(room) for room in habitaciones if _num_medida((room or {}).get("floor_sf")) or _num_medida((room or {}).get("wall_sf"))]
+    snapshot["areas"] = conservadas + nuevas
+    return snapshot
+
+
+def _guardar_plano_documento(contratista, ident, plano_json, plano_imagen, aplicar_medidas=False):
     row = obtener_historial_tenant(contratista, ident)
     if not row:
         return None
@@ -5914,11 +6015,16 @@ def _guardar_plano_documento(contratista, ident, plano_json, plano_imagen):
         snapshot = {}
     snapshot = dict(snapshot)
     ahora = datetime.now(timezone.utc).isoformat()
-    snapshot["plano"] = {"json": plano_json, "updated_at": ahora}
+    medidas = _medidas_desde_plano_json(plano_json)
+    snapshot["plano"] = {"json": plano_json, "medidas": medidas, "updated_at": ahora}
+    if aplicar_medidas:
+        snapshot = _inyectar_medidas_plano_en_areas(snapshot, medidas)
     payload = _json_campo(row.get("payload"), {}) or {}
     if isinstance(payload, dict):
         payload = dict(payload)
-        payload["plano"] = {"json": plano_json, "imagen": plano_imagen, "updated_at": ahora}
+        payload["plano"] = {"json": plano_json, "imagen": plano_imagen, "medidas": medidas, "updated_at": ahora}
+        if aplicar_medidas and isinstance(snapshot.get("areas"), list):
+            payload["areas"] = snapshot.get("areas")
     extra = {
         "snapshot": snapshot,
         "payload": payload if isinstance(payload, dict) else row.get("payload"),
@@ -5926,6 +6032,8 @@ def _guardar_plano_documento(contratista, ident, plano_json, plano_imagen):
         "plano_json": plano_json,
         "plano_imagen": plano_imagen,
     }
+    if aplicar_medidas and isinstance(snapshot.get("areas"), list):
+        extra["areas"] = snapshot.get("areas")
     sb = _supabase_client()
     if sb is None:
         raise RuntimeError("Supabase no configurado")
@@ -7964,6 +8072,7 @@ def api_sketch_proyecto(doc_id):
             "id": ident,
             "json": plano.get("json"),
             "imagen": plano.get("imagen") or "",
+            "medidas": plano.get("medidas") or _medidas_desde_plano_json(plano.get("json")),
         })
     if _documento_inmutable(row):
         return jsonify({"error": "This document is signed or paid and cannot be edited."}), 409
@@ -7974,19 +8083,22 @@ def api_sketch_proyecto(doc_id):
     plano_imagen = _imagen_plano_valida(body.get("imagen") or body.get("image") or body.get("plano_imagen"))
     if (body.get("imagen") or body.get("image") or body.get("plano_imagen")) and not plano_imagen:
         return jsonify({"error": "The floor plan image is too large or invalid."}), 400
+    aplicar = bool(body.get("aplicar_medidas") or body.get("apply_takeoff"))
     try:
-        guardado = _guardar_plano_documento(contratista, ident, plano_json, plano_imagen)
+        guardado = _guardar_plano_documento(contratista, ident, plano_json, plano_imagen, aplicar_medidas=aplicar)
     except ValueError as err:
         return jsonify({"error": str(err)}), 409
     except Exception as err:
         print(f"--> sketch save: {type(err).__name__}")
         return jsonify({"error": "Could not save the floor plan."}), 503
     plano = _plano_desde_row(guardado or row)
+    medidas = plano.get("medidas") or _medidas_desde_plano_json(plano.get("json") or plano_json)
     return jsonify({
         "ok": True,
         "id": ident,
         "json": plano.get("json"),
         "imagen": bool(plano.get("imagen")),
+        "medidas": medidas,
     })
 
 

@@ -7,7 +7,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex,nofollow">
   <title>Plano{% if folio %} {{ folio }}{% endif %} | QuantixBuilds</title>
-  <script src="{{ url_for('static', filename='fabric.min.js') }}"></script>
   <style>
     :root {
       --navy:#19385f; --navy-deep:#0b1f3a; --blue:#0d47a1; --blue-mid:#2d70ad;
@@ -57,14 +56,14 @@
     #sketch-board.is-draw { cursor:crosshair; }
     #sketch-board.is-note { cursor:text; }
     #sketch-board.is-delete { cursor:not-allowed; }
-    #sketch-board .canvas-container {
-      position:absolute !important; left:0 !important; top:0 !important;
-      margin:0 !important; transform:none !important;
-    }
-    #sketch-board .canvas-container canvas {
-      display:block; touch-action:none;
-      position:absolute !important; left:0 !important; top:0 !important;
-    }
+    #planoSvg { display:block; width:100%; height:100%; touch-action:none; }
+    .qb-room-fill { fill:rgba(13,71,161,.06); cursor:pointer; }
+    .qb-room-fill.is-on { fill:rgba(13,71,161,.12); }
+    .qb-wall { fill:none; stroke:#19385f; stroke-width:6; stroke-linecap:butt; stroke-linejoin:miter; }
+    .qb-preview { fill:none; stroke:#0d47a1; stroke-width:2; stroke-dasharray:6 4; pointer-events:none; }
+    .qb-cota { font:700 12px system-ui,Segoe UI,sans-serif; fill:#0d47a1; pointer-events:none; }
+    .qb-handle { fill:#fff; stroke:#0d47a1; stroke-width:2; cursor:move; }
+    .qb-note { font:700 13px Arial,sans-serif; fill:#0d47a1; cursor:pointer; }
     .qb-float {
       display:none; position:absolute; left:16px; top:16px; z-index:8; width:min(360px,calc(100vw - 120px));
       background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:0 18px 40px rgba(15,35,64,.18); padding:12px;
@@ -89,14 +88,13 @@
     .qb-inspector.is-open { display:block; pointer-events:auto; }
     .qb-inspector h2 { margin:0 0 10px; font-size:.92rem; color:var(--navy); }
     .qb-inspector label { display:block; font-size:.72rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin:8px 0 4px; }
-    .qb-inspector input, .qb-inspector select {
-      width:100%; min-height:38px; border:1px solid var(--line); border-radius:10px; padding:0 10px; font:inherit;
-    }
+    .qb-inspector input { width:100%; min-height:38px; border:1px solid var(--line); border-radius:10px; padding:0 10px; font:inherit; }
     .qb-inspector .row { display:flex; gap:8px; }
     .qb-inspector .row > * { flex:1; }
     .qb-inspector .actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
     .qb-inspector button { border:1px solid var(--line); background:#fff; color:var(--navy); border-radius:10px; min-height:36px; padding:0 10px; font-weight:700; cursor:pointer; }
     .qb-inspector .danger { color:#b91c1c; border-color:#fecaca; }
+    .qb-metrics { margin:8px 0 0; padding:8px 10px; background:var(--soft); border-radius:10px; font-size:.78rem; color:var(--navy); line-height:1.45; }
     @media (max-width:720px) {
       .qb-rail { width:68px; flex-basis:68px; }
       .qb-float.is-open { width:min(320px,calc(100vw - 84px)); }
@@ -115,11 +113,11 @@
     </div>
     <div class="grp">
       <small>Arquitectura</small>
-      <button type="button" data-tool="wall" title="Trazar muro">
+      <button type="button" data-tool="rect" title="Espacio rectangular">
         <svg viewBox="0 0 24 24"><path d="M4 8h16M4 16h16M8 4v16M16 4v16"/></svg>
         Muro
       </button>
-      <button type="button" data-tool="space" title="Trazar espacio">
+      <button type="button" data-tool="space" title="Trazar polígono de espacio">
         <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/></svg>
         Espacio
       </button>
@@ -159,13 +157,23 @@
         {% if cliente %} · {{ cliente }}{% endif %}
       </span>
       <span class="grow"></span>
-      <span class="status" id="sketch-status">{% if inmutable %}Documento bloqueado.{% else %}Elige Muro, Espacio o Apertura y arrastra en el lienzo.{% endif %}</span>
+      <span class="status" id="sketch-status">{% if inmutable %}Documento bloqueado.{% else %}Traza un Espacio (polígono) o un recuadro con Muro.{% endif %}</span>
       <button class="btn btn-primary" type="button" id="guardarPlano"{% if inmutable %} disabled{% endif %}>Guardar plano</button>
       <a class="btn" href="{{ volver or '/estimado' }}">Volver</a>
     </header>
     <div class="qb-stage">
       <div id="sketch-board" class="is-select">
-        <canvas id="planoCanvas"></canvas>
+        <svg id="planoSvg" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="qbGrid" width="12" height="12" patternUnits="userSpaceOnUse">
+              <circle cx="1" cy="1" r="0.8" fill="rgba(25,56,95,0.28)"/>
+            </pattern>
+          </defs>
+          <rect id="qbGridFill" fill="url(#qbGrid)" x="0" y="0" width="100%" height="100%"/>
+          <g id="qbRooms"></g>
+          <g id="qbPreview"></g>
+          <g id="qbHandles"></g>
+        </svg>
       </div>
       <div class="qb-float" id="paletaFlotante" hidden>
         <header>
@@ -178,6 +186,8 @@
         <h2>Propiedades</h2>
         <label for="propTipo">Elemento</label>
         <input id="propTipo" readonly>
+        <label for="propNombre">Nombre</label>
+        <input id="propNombre" placeholder="Espacio 1">
         <div class="row">
           <div>
             <label for="propLargo">Largo</label>
@@ -188,11 +198,8 @@
             <input id="propAncho" placeholder="3'-0&quot;">
           </div>
         </div>
-        <label for="propRot">Rotación</label>
-        <input id="propRot" type="number" step="1" value="0">
+        <div class="qb-metrics" id="propMetricas"></div>
         <div class="actions">
-          <button type="button" id="propFlipH">Voltear H</button>
-          <button type="button" id="propFlipV">Voltear V</button>
           <button type="button" class="danger" id="propBorrar">Quitar</button>
         </div>
       </aside>
@@ -205,76 +212,72 @@
       const DOC_ID={{ doc_id|tojson }};
       const INMUTABLE={{ inmutable|tojson }};
       const GRID=12;
-      const SNAP=18;
-      const PX_IN=1;
-      const MIN_TRAZO=12;
-      const JSON_PROPS=['selectable','evented','qbTipo','qbSnap','qbLabel','qbMuroId','qbMuroA','qbMuroB','qbAnchoVano','qbVanoOx','qbVanoOy','qbSobreMuro'];
-      let cortandoMuros=false;
-      const NAVY='#19385f';
-      const BLUE='#0d47a1';
-      const GOLD='#dba72b';
-      const NOMBRES={
-        wall:'Muro',
-        opening:'Apertura de pared',
-        space:'Espacio',
-        'space-square':'Espacio rectangular',
-        'space-l':'Espacio en L',
-        'door-hinged':'Puerta abatible',
-        'door-folding':'Puerta plegable',
-        'door-sliding':'Puerta corrediza',
-        'door-double':'Puerta doble',
-        'window-operable':'Ventana practicable',
-        'window-fixed':'Ventana fija',
-        'window-sliding':'Ventana corredera',
-        'roof-gable':'Cubierta a dos aguas',
-        'stair-run':'Tramo de escalera',
-        note:'Nota',
-        cota:'Cota'
+      const SNAP=16;
+      const WALL_H_FT=8;
+      const NS='http://www.w3.org/2000/svg';
+      const VANOS={
+        'door-hinged':{kind:'door', width:36, height:80, label:'Puerta abatible'},
+        'door-folding':{kind:'door', width:60, height:80, label:'Puerta plegable'},
+        'door-sliding':{kind:'door', width:72, height:80, label:'Puerta corrediza'},
+        'door-double':{kind:'door', width:72, height:80, label:'Puerta doble'},
+        'window-operable':{kind:'window', width:36, height:48, label:'Ventana practicable'},
+        'window-fixed':{kind:'window', width:36, height:48, label:'Ventana fija'},
+        'window-sliding':{kind:'window', width:48, height:48, label:'Ventana corredera'},
+        opening:{kind:'opening', width:36, height:96, label:'Apertura de pared'},
+        'roof-gable':{kind:'mark', width:120, height:48, label:'Cubierta a dos aguas'},
+        'stair-run':{kind:'mark', width:56, height:70, label:'Tramo de escalera'}
+      };
+      const PALETAS={
+        accesos:{
+          titulo:'Accesos',
+          items:[
+            {id:'door-hinged', label:'Puerta abatible'},
+            {id:'door-folding', label:'Puerta plegable'},
+            {id:'door-sliding', label:'Puerta corrediza'},
+            {id:'door-double', label:'Puerta doble'},
+            {id:'window-operable', label:'Ventana practicable'},
+            {id:'window-fixed', label:'Ventana fija'},
+            {id:'window-sliding', label:'Ventana corredera'}
+          ]
+        },
+        estructuras:{
+          titulo:'Estructuras',
+          items:[
+            {id:'roof-gable', label:'Cubierta a dos aguas'},
+            {id:'stair-run', label:'Tramo de escalera'}
+          ]
+        }
       };
 
       const board=document.getElementById('sketch-board');
+      const svg=document.getElementById('planoSvg');
+      const gRooms=document.getElementById('qbRooms');
+      const gPreview=document.getElementById('qbPreview');
+      const gHandles=document.getElementById('qbHandles');
       const status=document.getElementById('sketch-status');
       const saveBtn=document.getElementById('guardarPlano');
       const inspector=document.getElementById('inspector');
       const paleta=document.getElementById('paletaFlotante');
       const paletaCards=document.getElementById('paletaCards');
       const rail=document.querySelector('.qb-rail');
-      const el=document.getElementById('planoCanvas');
 
-      let canvas=null;
+      const model={ rooms:[], notes:[], marks:[] };
       let tool='select';
-      let drawing=false;
-      let origin=null;
+      let pendingVano=null;
+      let polyPts=[];
       let hover=null;
-      let pointerId=null;
+      let drag=null;
+      let selected=null;
+      let rectOrigin=null;
       let guardando=false;
+      let seq=1;
 
+      function uid(pref){ return pref+(seq++); }
       function setStatus(msg, kind){
         if(!status) return;
         status.textContent=msg||'';
         status.className='status'+(kind?' '+kind:'');
       }
-      function esDibujo(nombre){
-        return nombre==='wall'||nombre==='opening'||nombre==='space'||nombre==='note'||nombre==='cota';
-      }
-
-      if(typeof fabric==='undefined' || !el){
-        setStatus('No se pudo cargar el lienzo.','err');
-        console.log('[QB Sketch] Fabric.js no está disponible');
-        return;
-      }
-
-      canvas=new fabric.Canvas(el, {
-        selection:true,
-        preserveObjectStacking:true,
-        stopContextMenu:true,
-        allowTouchScrolling:false,
-        enableRetinaScaling:false,
-        fireRightClick:false,
-        skipOffscreen:false
-      });
-      canvas.interactive=true;
-
       function tokenContratista(){
         try{ return localStorage.getItem('contratista_sesion')||sessionStorage.getItem('contratista_sesion')||''; }catch(_){ return ''; }
       }
@@ -284,945 +287,645 @@
         if(token) headers.Authorization='Bearer '+token;
         return headers;
       }
-
-      function sizeCanvas(){
-        if(!canvas || !board || drawing) return;
-        const w=Math.max(320, Math.floor(board.clientWidth||0));
-        const h=Math.max(320, Math.floor(board.clientHeight||0));
-        if(canvas.getWidth()===w && canvas.getHeight()===h){
-          canvas.calcOffset();
-          return;
-        }
-        canvas.setDimensions({ width:w, height:h });
-        const px=w+'px', py=h+'px';
-        [canvas.wrapperEl, canvas.lowerCanvasEl, canvas.upperCanvasEl].forEach(function(nodo){
-          if(!nodo) return;
-          nodo.style.width=px;
-          nodo.style.height=py;
-          nodo.style.maxWidth='none';
-          nodo.style.maxHeight='none';
-          nodo.style.left='0px';
-          nodo.style.top='0px';
-        });
-        canvas.calcOffset();
-        canvas.requestRenderAll();
-      }
-
-      function fmtPies(px){
-        const total=Math.max(0, Math.round(Math.abs(px)/PX_IN));
+      function fmtPies(inches){
+        const total=Math.max(0, Math.round(Math.abs(inches)));
         return Math.floor(total/12)+"'-"+(total%12)+'"';
       }
       function parsePies(texto){
         const t=String(texto||'').trim();
         const m=t.match(/(-?\d+)\s*'\s*-?\s*(\d+)?/);
-        if(m) return (parseInt(m[1],10)*12 + parseInt(m[2]||'0',10))*PX_IN;
+        if(m) return parseInt(m[1],10)*12 + parseInt(m[2]||'0',10);
         const n=parseFloat(t);
-        return isFinite(n)? n*12*PX_IN : null;
-      }
-
-      function dibujarPuntos(ctx){
-        const w=canvas.getWidth(), h=canvas.getHeight();
-        ctx.save();
-        ctx.fillStyle='#eef2f6';
-        ctx.fillRect(0,0,w,h);
-        ctx.fillStyle='rgba(25,56,95,0.22)';
-        for(let x=0;x<=w;x+=GRID){
-          for(let y=0;y<=h;y+=GRID) ctx.fillRect(x,y,1.2,1.2);
-        }
-        ctx.fillStyle='rgba(25,56,95,0.4)';
-        for(let x=0;x<=w;x+=GRID*5){
-          for(let y=0;y<=h;y+=GRID*5) ctx.fillRect(x,y,2,2);
-        }
-        ctx.restore();
-      }
-      canvas.on('before:render', function(){
-        if(canvas.contextContainer) dibujarPuntos(canvas.contextContainer);
-      });
-      canvas.on('after:render', function(){
-        if(drawing && origin && hover) pintarPreview(origin, hover);
-      });
-
-      function puntoDesdeEvento(ev){
-        const capa=canvas.upperCanvasEl||canvas.lowerCanvasEl||el;
-        const caja=capa.getBoundingClientRect();
-        const sx=(capa.width||caja.width)/(caja.width||1);
-        const sy=(capa.height||caja.height)/(caja.height||1);
-        return {
-          x:(ev.clientX-caja.left)*sx,
-          y:(ev.clientY-caja.top)*sy
-        };
-      }
-
-      function estiloSimbolo(obj, tipo, snap){
-        obj.set({
-          qbTipo:tipo, qbSnap:snap||'', qbLabel:NOMBRES[tipo]||tipo,
-          selectable:true, evented:true, hasControls:true, hasBorders:true,
-          lockScalingFlip:false, transparentCorners:false, objectCaching:false,
-          cornerColor:BLUE, cornerStyle:'circle', borderColor:'#90caf9',
-          padding:4, originX:'center', originY:'center'
-        });
-        return obj;
-      }
-      function cajaDeFormas(shapes){
-        let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
-        shapes.forEach(function(s){
-          try{
-            s.setCoords();
-            const r=s.getBoundingRect(true);
-            minX=Math.min(minX, r.left);
-            minY=Math.min(minY, r.top);
-            maxX=Math.max(maxX, r.left+r.width);
-            maxY=Math.max(maxY, r.top+r.height);
-          }catch(_){ }
-        });
-        return {minX:minX, minY:minY, maxX:maxX, maxY:maxY};
-      }
-      function grupo(shapes, tipo, snap){
-        return estiloSimbolo(new fabric.Group(shapes,{ subTargetCheck:false, objectCaching:false }), tipo, snap);
-      }
-      function grupoVano(shapes, tipo, ancho, openX, openY){
-        const caja=cajaDeFormas(shapes);
-        const g=grupo(shapes, tipo, 'wall');
-        g.qbAnchoVano=ancho;
-        if(isFinite(caja.minX) && isFinite(caja.maxX)){
-          g.qbVanoOx=openX-((caja.minX+caja.maxX)/2);
-          g.qbVanoOy=openY-((caja.minY+caja.maxY)/2);
-        }else{
-          g.qbVanoOx=0;
-          g.qbVanoOy=0;
-        }
-        return g;
-      }
-      function linea(x1,y1,x2,y2, extra){
-        return new fabric.Line([x1,y1,x2,y2], Object.assign({
-          stroke:NAVY, strokeWidth:3, strokeLineCap:'round', selectable:false, evented:false, objectCaching:false
-        }, extra||{}));
-      }
-      function jambas(ancho){
-        const h=ancho/2;
-        return [
-          linea(-h,-8,-h,8,{strokeWidth:4}),
-          linea(h,-8,h,8,{strokeWidth:4})
-        ];
-      }
-      function simboloPuertaAbatible(){
-        const W=56, h=W/2, j=jambas(W);
-        return grupoVano([
-          j[0], j[1],
-          linea(-h,0,-h,W,{strokeWidth:3, stroke:BLUE}),
-          new fabric.Path('M '+h+' 0 A '+W+' '+W+' 0 0 0 '+(-h)+' '+W,{ fill:'rgba(13,71,161,0.08)', stroke:BLUE, strokeWidth:1.5, selectable:false, evented:false }),
-          new fabric.Circle({ left:-h, top:0, radius:3, fill:BLUE, originX:'center', originY:'center', selectable:false, evented:false })
-        ], 'door-hinged', W, 0, 0);
-      }
-      function simboloPuertaPlegable(){
-        const W=80, h=W/2, j=jambas(W);
-        return grupoVano([
-          j[0], j[1],
-          linea(-h+8,0,-h+20,-18,{stroke:BLUE}), linea(-h+20,-18,-h+32,0,{stroke:BLUE}),
-          linea(-h+32,0,-h+44,-18,{stroke:BLUE}), linea(-h+44,-18,-h+56,0,{stroke:BLUE}),
-          linea(-h+56,0,-h+68,-18,{stroke:BLUE}), linea(-h+68,-18,h-4,0,{stroke:BLUE})
-        ], 'door-folding', W, 0, 0);
-      }
-      function simboloPuertaCorrediza(){
-        const W=84, h=W/2, j=jambas(W);
-        return grupoVano([
-          j[0], j[1],
-          new fabric.Rect({ left:-h+6, top:-12, width:44, height:8, fill:'#edf5fb', stroke:BLUE, strokeWidth:1.5, rx:1, selectable:false, evented:false }),
-          new fabric.Rect({ left:-h+34, top:4, width:44, height:8, fill:'#fff', stroke:BLUE, strokeWidth:1.5, rx:1, selectable:false, evented:false })
-        ], 'door-sliding', W, 0, 0);
-      }
-      function simboloPuertaDoble(){
-        const W=104, R=48, h=W/2, j=jambas(W);
-        return grupoVano([
-          j[0], j[1],
-          linea(-h,0,-h,R,{strokeWidth:3, stroke:BLUE}),
-          linea(h,0,h,R,{strokeWidth:3, stroke:BLUE}),
-          new fabric.Path('M 0 0 A '+R+' '+R+' 0 0 0 '+(-h)+' '+R,{ fill:'rgba(13,71,161,0.07)', stroke:BLUE, strokeWidth:1.5, selectable:false, evented:false }),
-          new fabric.Path('M 0 0 A '+R+' '+R+' 0 0 1 '+h+' '+R,{ fill:'rgba(13,71,161,0.07)', stroke:BLUE, strokeWidth:1.5, selectable:false, evented:false })
-        ], 'door-double', W, 0, 0);
-      }
-      function marcoVano(extra){
-        const W=72, h=W/2;
-        return [
-          linea(-h,-7,h,-7,{strokeWidth:3}),
-          linea(-h,0,h,0,{strokeWidth:1.6, stroke:BLUE}),
-          linea(-h,7,h,7,{strokeWidth:3}),
-          linea(-h,-7,-h,7,{strokeWidth:3}),
-          linea(h,-7,h,7,{strokeWidth:3})
-        ].concat(extra||[]);
-      }
-      function simboloVentanaPracticable(){ return grupoVano(marcoVano(), 'window-operable', 72, 0, 0); }
-      function simboloVentanaFija(){
-        return grupoVano(marcoVano([
-          linea(-28,-7,28,7,{strokeWidth:1.3, stroke:'#627083'}),
-          linea(28,-7,-28,7,{strokeWidth:1.3, stroke:'#627083'})
-        ]), 'window-fixed', 72, 0, 0);
-      }
-      function simboloVentanaCorredera(){
-        return grupoVano(marcoVano([
-          new fabric.Rect({ left:-32, top:-5, width:32, height:10, fill:'rgba(13,71,161,0.08)', stroke:BLUE, strokeWidth:1.2, selectable:false, evented:false }),
-          new fabric.Rect({ left:0, top:-5, width:32, height:10, fill:'#fff', stroke:BLUE, strokeWidth:1.2, selectable:false, evented:false })
-        ]), 'window-sliding', 72, 0, 0);
-      }
-      function simboloEspacioRect(){
-        return estiloSimbolo(new fabric.Rect({
-          width:168, height:144, fill:'rgba(13,71,161,0.05)', stroke:NAVY, strokeWidth:5, objectCaching:false
-        }), 'space-square', '');
-      }
-      function simboloEspacioL(){
-        return estiloSimbolo(new fabric.Polygon([
-          {x:0,y:0},{x:180,y:0},{x:180,y:90},{x:90,y:90},{x:90,y:180},{x:0,y:180}
-        ], { fill:'rgba(13,71,161,0.05)', stroke:NAVY, strokeWidth:5, objectCaching:false }), 'space-l', '');
-      }
-      function simboloCubierta(){
-        return grupo([
-          linea(0,48,60,0,{strokeWidth:3}),
-          linea(60,0,120,48,{strokeWidth:3}),
-          linea(0,48,120,48,{strokeWidth:2, stroke:GOLD}),
-          linea(60,0,60,48,{strokeWidth:1.4, strokeDashArray:[4,3], stroke:BLUE})
-        ], 'roof-gable', '');
-      }
-      function simboloEscalera(){
-        const treads=[];
-        for(let i=0;i<7;i++) treads.push(linea(0, i*10, 56, i*10,{strokeWidth:2}));
-        treads.push(linea(28,0,28,70,{strokeWidth:2, stroke:BLUE}));
-        treads.push(linea(20,58,28,70,{stroke:BLUE}));
-        treads.push(linea(36,58,28,70,{stroke:BLUE}));
-        return grupo(treads, 'stair-run', '');
-      }
-
-      const FABRICAS={
-        'door-hinged':simboloPuertaAbatible,
-        'door-folding':simboloPuertaPlegable,
-        'door-sliding':simboloPuertaCorrediza,
-        'door-double':simboloPuertaDoble,
-        'window-operable':simboloVentanaPracticable,
-        'window-fixed':simboloVentanaFija,
-        'window-sliding':simboloVentanaCorredera,
-        'space-square':simboloEspacioRect,
-        'space-l':simboloEspacioL,
-        'roof-gable':simboloCubierta,
-        'stair-run':simboloEscalera
-      };
-      const PALETAS={
-        accesos:{
-          titulo:'Accesos',
-          items:[
-            {id:'door-hinged', label:'Puerta abatible', svg:'<path d="M4 20V8h12" stroke="#19385f" fill="none"/><path d="M16 8 A12 12 0 0 1 4 20" stroke="#0d47a1" fill="rgba(13,71,161,.12)"/>'},
-            {id:'door-folding', label:'Puerta plegable', svg:'<path d="M4 18h20" stroke="#19385f"/><path d="M6 18l4-8 4 8 4-8 4 8" stroke="#0d47a1" fill="none"/>'},
-            {id:'door-sliding', label:'Puerta corrediza', svg:'<path d="M4 18h22" stroke="#19385f"/><rect x="6" y="10" width="10" height="5" fill="#edf5fb" stroke="#0d47a1"/><rect x="12" y="16" width="10" height="5" fill="#fff" stroke="#0d47a1"/>'},
-            {id:'door-double', label:'Puerta doble', svg:'<path d="M4 20h24" stroke="#19385f"/><path d="M8 20v-10M24 20v-10" stroke="#0d47a1"/><path d="M16 20 A8 8 0 0 1 8 12" fill="rgba(13,71,161,.1)" stroke="#0d47a1"/><path d="M16 20 A8 8 0 0 0 24 12" fill="rgba(13,71,161,.1)" stroke="#0d47a1"/>'},
-            {id:'window-operable', label:'Ventana practicable', svg:'<rect x="4" y="10" width="24" height="8" fill="none" stroke="#19385f"/><path d="M4 14h24" stroke="#0d47a1"/>'},
-            {id:'window-fixed', label:'Ventana fija', svg:'<rect x="4" y="10" width="24" height="8" fill="none" stroke="#19385f"/><path d="M6 11l20 6M26 11L6 17" stroke="#627083"/>'},
-            {id:'window-sliding', label:'Ventana corredera', svg:'<rect x="4" y="10" width="24" height="8" fill="none" stroke="#19385f"/><rect x="5" y="11" width="10" height="6" fill="rgba(13,71,161,.12)" stroke="#0d47a1"/><rect x="16" y="11" width="11" height="6" fill="#fff" stroke="#0d47a1"/>'}
-          ]
-        },
-        estructuras:{
-          titulo:'Estructuras',
-          items:[
-            {id:'roof-gable', label:'Cubierta a dos aguas', svg:'<path d="M4 20h24M6 20l10-12 10 12" stroke="#19385f" fill="none"/><path d="M16 8v12" stroke="#0d47a1" stroke-dasharray="2 2"/>'},
-            {id:'stair-run', label:'Tramo de escalera', svg:'<path d="M6 8h16M6 12h16M6 16h16M6 20h16M14 8v12" stroke="#19385f" fill="none"/>'}
-          ]
-        }
-      };
-
-      function abrirPaleta(clave){
-        const def=PALETAS[clave];
-        if(!def) return;
-        document.getElementById('paletaTitulo').textContent=def.titulo;
-        paletaCards.innerHTML=def.items.map(function(it){
-          return '<button type="button" class="qb-card" data-insert="'+it.id+'"><svg viewBox="0 0 32 28">'+it.svg+'</svg>'+it.label+'</button>';
-        }).join('');
-        paleta.hidden=false;
-        paleta.classList.add('is-open');
-      }
-      function cerrarPaleta(){
-        paleta.classList.remove('is-open');
-        paleta.hidden=true;
-      }
-
-      function insertarSimbolo(tipo){
-        if(INMUTABLE){ setStatus('Este documento no se puede editar.','err'); return; }
-        const factory=FABRICAS[tipo];
-        if(!factory) return;
-        const obj=factory();
-        obj.set({ left:canvas.getWidth()/2, top:canvas.getHeight()/2 });
-        canvas.add(obj);
-        aplicarTool('select');
-        canvas.setActiveObject(obj);
-        canvas.requestRenderAll();
-        refrescarInspector();
-        cerrarPaleta();
-        aplicarCorteVano(obj);
-        setStatus(obj.qbSnap==='wall'?'Arrástrala sobre un muro: se alinea y abre el hueco.':'Ajusta tamaño y rotación en el panel.');
-      }
-
-      function limpiarPreview(){
-        if(canvas.contextTop) canvas.clearContext(canvas.contextTop);
-      }
-      function pintarPreview(a, b){
-        const ctx=canvas.contextTop;
-        if(!ctx || !a || !b) return;
-        canvas.clearContext(ctx);
-        ctx.save();
-        ctx.lineCap='round';
-        ctx.lineJoin='round';
-        if(tool==='space'){
-          const x=Math.min(a.x,b.x), y=Math.min(a.y,b.y);
-          const w=Math.max(1, Math.abs(b.x-a.x)), h=Math.max(1, Math.abs(b.y-a.y));
-          ctx.fillStyle='rgba(13,71,161,0.08)';
-          ctx.strokeStyle=NAVY;
-          ctx.lineWidth=4;
-          ctx.fillRect(x,y,w,h);
-          ctx.strokeRect(x,y,w,h);
-        }else{
-          ctx.strokeStyle=tool==='opening'?GOLD:NAVY;
-          ctx.lineWidth=tool==='opening'?3:6;
-          if(tool==='opening') ctx.setLineDash([10,6]);
-          ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(b.x, b.y);
-          ctx.stroke();
-        }
-        ctx.setLineDash([]);
-        ctx.fillStyle=BLUE;
-        ctx.font='700 13px system-ui,Segoe UI,sans-serif';
-        ctx.textAlign='center';
-        ctx.textBaseline='bottom';
-        ctx.fillText(fmtPies(Math.hypot(b.x-a.x, b.y-a.y)), (a.x+b.x)/2, (a.y+b.y)/2 - 10);
-        ctx.restore();
-      }
-
-      function masCercano(p,a,b){
-        const dx=b.x-a.x, dy=b.y-a.y, len2=dx*dx+dy*dy;
-        if(len2<1) return {x:a.x,y:a.y,dist:Math.hypot(p.x-a.x,p.y-a.y),angle:0};
-        let t=((p.x-a.x)*dx+(p.y-a.y)*dy)/len2;
-        t=Math.max(0, Math.min(1,t));
-        const x=a.x+t*dx, y=a.y+t*dy;
-        return {x:x,y:y,dist:Math.hypot(p.x-x,p.y-y),angle:Math.atan2(dy,dx)};
-      }
-      function puntoCanvas(obj, pt){
-        return fabric.util.transformPoint(new fabric.Point(pt.x, pt.y), obj.calcTransformMatrix());
-      }
-      function extremosAbsolutos(obj){
-        if(!obj) return [];
-        if(obj.type==='line'){
-          try{
-            const pts=obj.calcLinePoints();
-            return [{ a:puntoCanvas(obj,{x:pts.x1,y:pts.y1}), b:puntoCanvas(obj,{x:pts.x2,y:pts.y2}) }];
-          }catch(_){ return []; }
-        }
-        if(obj.type==='polygon' || obj.qbTipo==='space-l'){
-          const pts=obj.points||[];
-          const off=obj.pathOffset||{x:0,y:0};
-          const segs=[];
-          for(let i=0;i<pts.length;i++){
-            const cur=pts[i], nxt=pts[(i+1)%pts.length];
-            segs.push({
-              a:puntoCanvas(obj,{x:cur.x-off.x,y:cur.y-off.y}),
-              b:puntoCanvas(obj,{x:nxt.x-off.x,y:nxt.y-off.y})
-            });
-          }
-          return segs;
-        }
-        const c=obj.aCoords||obj.calcACoords();
-        if(!c||!c.tl) return [];
-        return [{a:c.tl,b:c.tr},{a:c.tr,b:c.br},{a:c.br,b:c.bl},{a:c.bl,b:c.tl}];
-      }
-      function esPared(obj){
-        if(!obj || obj.qbSnap==='wall' || obj.qbTipo==='cota' || obj.qbTipo==='note') return false;
-        const t=obj.qbTipo||'';
-        return t==='wall'||t==='opening'||t==='space'||t==='space-square'||t==='space-l'||obj.type==='line';
-      }
-      function paredesDelPlano(){
-        const segs=[];
-        try{
-          canvas.getObjects().forEach(function(obj){
-            if(!esPared(obj)) return;
-            extremosAbsolutos(obj).forEach(function(seg){ if(seg && seg.a && seg.b) segs.push(seg); });
-          });
-        }catch(err){
-          console.log('[QB Sketch] paredes', err);
-        }
-        return segs;
+        return isFinite(n)? n*12 : null;
       }
       function snapPunto(p, ancla){
         let x=Math.round(p.x/GRID)*GRID;
         let y=Math.round(p.y/GRID)*GRID;
         if(ancla){
-          const dx=Math.abs(x-ancla.x), dy=Math.abs(y-ancla.y);
-          if(dx>=dy) y=ancla.y;
+          if(Math.abs(x-ancla.x)>=Math.abs(y-ancla.y)) y=ancla.y;
           else x=ancla.x;
         }
-        try{
-          let mejor=null;
-          paredesDelPlano().forEach(function(seg){
-            const hit=masCercano({x:x,y:y}, seg.a, seg.b);
-            if(!mejor || hit.dist<mejor.dist) mejor=hit;
-            [{p:seg.a},{p:seg.b}].forEach(function(nodo){
-              const d=Math.hypot(x-nodo.p.x, y-nodo.p.y);
-              if(!mejor || d<mejor.dist) mejor={x:nodo.p.x,y:nodo.p.y,dist:d,angle:mejor?mejor.angle:0};
-            });
+        model.rooms.forEach(function(room){
+          room.points.forEach(function(pt){
+            if(Math.hypot(x-pt.x,y-pt.y)<=SNAP){ x=pt.x; y=pt.y; }
           });
-          if(mejor && mejor.dist<=SNAP){ x=mejor.x; y=mejor.y; }
-        }catch(_){ }
+        });
         return {x:x,y:y};
       }
-      function nuevoIdMuro(){
-        return 'm'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+      function puntoEvento(ev){
+        const caja=svg.getBoundingClientRect();
+        return { x:ev.clientX-caja.left, y:ev.clientY-caja.top };
       }
-      function copiarPunto(p){ return {x:p.x, y:p.y}; }
-      function anchoVano(obj){
-        const base=obj.qbAnchoVano || Math.max(obj.width||0, 36);
-        return Math.max(20, base*(obj.scaleX||1));
+      function distPuntoSeg(p,a,b){
+        const dx=b.x-a.x, dy=b.y-a.y, len2=dx*dx+dy*dy;
+        if(len2<1) return {x:a.x,y:a.y,t:0,dist:Math.hypot(p.x-a.x,p.y-a.y),len:0,a:a,b:b};
+        let t=((p.x-a.x)*dx+(p.y-a.y)*dy)/len2;
+        t=Math.max(0, Math.min(1,t));
+        const x=a.x+t*dx, y=a.y+t*dy;
+        return {x:x,y:y,t:t,dist:Math.hypot(p.x-x,p.y-y),len:Math.sqrt(len2),a:a,b:b};
       }
-      function puntoVano(obj){
-        const ang=fabric.util.degreesToRadians(obj.angle||0);
-        const ox=(obj.qbVanoOx||0)*(obj.scaleX||1);
-        const oy=(obj.qbVanoOy||0)*(obj.scaleY||1);
-        const c=obj.getCenterPoint();
+      function aristas(room){
+        const pts=room.points||[];
+        const segs=[];
+        for(let i=0;i<pts.length;i++) segs.push({ i:i, a:pts[i], b:pts[(i+1)%pts.length] });
+        return segs;
+      }
+      function shoelace(pts){
+        let s=0;
+        for(let i=0;i<pts.length;i++){
+          const a=pts[i], b=pts[(i+1)%pts.length];
+          s+=a.x*b.y-b.x*a.y;
+        }
+        return Math.abs(s)/2;
+      }
+      function bbox(pts){
+        let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+        pts.forEach(function(p){ minX=Math.min(minX,p.x); minY=Math.min(minY,p.y); maxX=Math.max(maxX,p.x); maxY=Math.max(maxY,p.y); });
+        return {minX:minX,minY:minY,maxX:maxX,maxY:maxY,w:maxX-minX,h:maxY-minY};
+      }
+      function centro(pts){
+        const b=bbox(pts);
+        return {x:(b.minX+b.maxX)/2, y:(b.minY+b.maxY)/2};
+      }
+      function medidasHabitacion(room){
+        const pts=room.points||[];
+        const areaIn=shoelace(pts);
+        let periIn=0;
+        aristas(room).forEach(function(s){ periIn+=Math.hypot(s.b.x-s.a.x,s.b.y-s.a.y); });
+        let openingsSf=0, doorLf=0;
+        (room.openings||[]).forEach(function(op){
+          const def=VANOS[op.tipo]||VANOS.opening;
+          const wIn=op.width||def.width;
+          const hIn=op.height||def.height;
+          openingsSf += (wIn/12)*(hIn/12);
+          if(def.kind==='door' || def.kind==='opening') doorLf += wIn/12;
+        });
+        const floor=areaIn/144;
+        const peri=periIn/12;
+        const wall=peri*WALL_H_FT;
+        const wallNet=Math.max(0, wall-openingsSf);
+        const box=bbox(pts);
         return {
-          x:c.x+ox*Math.cos(ang)-oy*Math.sin(ang),
-          y:c.y+ox*Math.sin(ang)+oy*Math.cos(ang)
+          id:room.id,
+          room_name:room.name,
+          name:room.name,
+          points:pts,
+          length_in:box.w,
+          width_in:box.h,
+          length_ft:box.w/12,
+          width_ft:box.h/12,
+          area_sqft:round2(floor),
+          floor_sf:round2(floor),
+          ceiling_sf:round2(floor),
+          perimeter_lf:round2(peri),
+          wall_sf:round2(wall),
+          wall_sf_net:round2(wallNet),
+          wall_and_ceiling_sf:round2(wallNet+floor),
+          trim_lf:round2(Math.max(0, peri-doorLf)),
+          cabinets_lf:0,
+          openings_sf:round2(openingsSf),
+          openings:(room.openings||[]).map(function(op){
+            const def=VANOS[op.tipo]||VANOS.opening;
+            return {
+              id:op.id, tipo:op.tipo, kind:def.kind,
+              wall_index:op.wall, t:op.t, width_in:op.width||def.width,
+              height_in:op.height||def.height,
+              area_sf:round2(((op.width||def.width)/12)*((op.height||def.height)/12))
+            };
+          })
         };
       }
-      function puntoEnCaja(p, r){
-        return p.x>=r.left && p.x<=r.left+r.width && p.y>=r.top && p.y<=r.top+r.height;
+      function round2(n){ return Math.round((Number(n)||0)*100)/100; }
+      function medidasModelo(){
+        const rooms=model.rooms.map(medidasHabitacion);
+        const totals=rooms.reduce(function(acc,r){
+          acc.area_sqft+=r.area_sqft; acc.perimeter_lf+=r.perimeter_lf;
+          acc.wall_sf+=r.wall_sf; acc.wall_sf_net+=r.wall_sf_net; acc.openings_sf+=r.openings_sf;
+          return acc;
+        },{area_sqft:0,perimeter_lf:0,wall_sf:0,wall_sf_net:0,openings_sf:0});
+        Object.keys(totals).forEach(function(k){ totals[k]=round2(totals[k]); });
+        return { rooms:rooms, totals:totals };
       }
-      function lineaCruzaCaja(a, b, r){
-        if(puntoEnCaja(a,r) || puntoEnCaja(b,r)) return true;
-        const hit=masCercano({x:r.left+r.width/2, y:r.top+r.height/2}, a, b);
-        return hit.dist <= Math.max(12, Math.min(r.width, r.height)/2 + 10);
+
+      function svgEl(name, attrs){
+        const n=document.createElementNS(NS, name);
+        Object.keys(attrs||{}).forEach(function(k){ n.setAttribute(k, attrs[k]); });
+        return n;
       }
-      function asegurarIdMuro(wall){
-        if(!wall || wall.qbTipo!=='wall') return wall;
-        if(!wall.qbMuroId){
-          const segs=extremosAbsolutos(wall)[0];
-          wall.qbMuroId=nuevoIdMuro();
-          wall.qbMuroA=segs?copiarPunto(segs.a):{x:0,y:0};
-          wall.qbMuroB=segs?copiarPunto(segs.b):{x:1,y:0};
-        }
-        if(!wall.qbMuroA || !wall.qbMuroB){
-          const segs=extremosAbsolutos(wall)[0];
-          if(segs){ wall.qbMuroA=copiarPunto(segs.a); wall.qbMuroB=copiarPunto(segs.b); }
-        }
-        return wall;
+      function huecosEnArista(room, wallIndex, len){
+        return (room.openings||[]).filter(function(op){ return op.wall===wallIndex && (VANOS[op.tipo]||{}).kind!=='mark'; })
+          .map(function(op){
+            const w=op.width||(VANOS[op.tipo]||VANOS.opening).width;
+            const mid=op.t*len;
+            return { t0:Math.max(0,(mid-w/2)/len), t1:Math.min(1,(mid+w/2)/len) };
+          })
+          .sort(function(a,b){ return a.t0-b.t0; });
       }
-      function murosLogicos(){
-        const mapa={};
-        canvas.getObjects().forEach(function(obj){
-          if(obj.qbTipo!=='wall' || obj.type!=='line') return;
-          asegurarIdMuro(obj);
-          const id=obj.qbMuroId;
-          if(!mapa[id]) mapa[id]={ id:id, a:obj.qbMuroA, b:obj.qbMuroB, segs:[] };
-          mapa[id].segs.push(obj);
-          if(obj.qbMuroA) mapa[id].a=obj.qbMuroA;
-          if(obj.qbMuroB) mapa[id].b=obj.qbMuroB;
+      function puntoEn(a,b,t){ return {x:a.x+(b.x-a.x)*t, y:a.y+(b.y-a.y)*t}; }
+      function trozosMuro(a,b,huecos){
+        const out=[];
+        let cursor=0;
+        huecos.forEach(function(h){
+          if(h.t0>cursor+0.004) out.push([puntoEn(a,b,cursor), puntoEn(a,b,h.t0)]);
+          cursor=Math.max(cursor, h.t1);
         });
-        return Object.keys(mapa).map(function(k){ return mapa[k]; });
+        if(cursor<0.996) out.push([puntoEn(a,b,cursor), puntoEn(a,b,1)]);
+        return out;
       }
-      function muroLogicoCercano(obj){
-        const vano=puntoVano(obj);
-        const caja=obj.getBoundingRect(true, true);
-        const pad=10;
-        const cajaAncha={ left:caja.left-pad, top:caja.top-pad, width:caja.width+pad*2, height:caja.height+pad*2 };
+      function simboloVano(op, hit){
+        const def=VANOS[op.tipo]||VANOS.opening;
+        const g=svgEl('g', { class:'qb-vano', 'data-kind':'opening', 'data-id':op.id, transform:'translate('+hit.x+','+hit.y+') rotate('+(hit.angle*180/Math.PI)+')' });
+        const h=(op.width||def.width)/2;
+        if(def.kind==='window'){
+          g.appendChild(svgEl('line', {x1:-h,y1:-6,x2:h,y2:-6,stroke:'#19385f','stroke-width':3}));
+          g.appendChild(svgEl('line', {x1:-h,y1:0,x2:h,y2:0,stroke:'#0d47a1','stroke-width':1.6}));
+          g.appendChild(svgEl('line', {x1:-h,y1:6,x2:h,y2:6,stroke:'#19385f','stroke-width':3}));
+          g.appendChild(svgEl('line', {x1:-h,y1:-6,x2:-h,y2:6,stroke:'#19385f','stroke-width':3}));
+          g.appendChild(svgEl('line', {x1:h,y1:-6,x2:h,y2:6,stroke:'#19385f','stroke-width':3}));
+        }else if(def.kind==='opening'){
+          g.appendChild(svgEl('line', {x1:-h,y1:-8,x2:-h,y2:8,stroke:'#dba72b','stroke-width':3,'stroke-dasharray':'4 3'}));
+          g.appendChild(svgEl('line', {x1:h,y1:-8,x2:h,y2:8,stroke:'#dba72b','stroke-width':3,'stroke-dasharray':'4 3'}));
+        }else{
+          g.appendChild(svgEl('line', {x1:-h,y1:-8,x2:-h,y2:8,stroke:'#19385f','stroke-width':4}));
+          g.appendChild(svgEl('line', {x1:h,y1:-8,x2:h,y2:8,stroke:'#19385f','stroke-width':4}));
+          if(op.tipo==='door-double'){
+            g.appendChild(svgEl('path', {d:'M 0 0 A '+h+' '+h+' 0 0 0 '+(-h)+' '+h, fill:'rgba(13,71,161,.08)', stroke:'#0d47a1','stroke-width':1.5}));
+            g.appendChild(svgEl('path', {d:'M 0 0 A '+h+' '+h+' 0 0 1 '+h+' '+h, fill:'rgba(13,71,161,.08)', stroke:'#0d47a1','stroke-width':1.5}));
+          }else if(op.tipo==='door-sliding'){
+            g.appendChild(svgEl('rect', {x:-h+4,y:-12,width:h,height:8,fill:'#edf5fb',stroke:'#0d47a1'}));
+            g.appendChild(svgEl('rect', {x:0,y:4,width:h-4,height:8,fill:'#fff',stroke:'#0d47a1'}));
+          }else if(op.tipo==='door-folding'){
+            g.appendChild(svgEl('path', {d:'M '+(-h+6)+' 0 l 10 -16 l 10 16 l 10 -16 l 10 16 l 10 -16', fill:'none', stroke:'#0d47a1','stroke-width':1.6}));
+          }else{
+            g.appendChild(svgEl('line', {x1:-h,y1:0,x2:-h,y2:Math.min(56,op.width||36),stroke:'#0d47a1','stroke-width':2.5}));
+            g.appendChild(svgEl('path', {d:'M '+h+' 0 A '+(op.width||36)+' '+(op.width||36)+' 0 0 0 '+(-h)+' '+(op.width||36), fill:'rgba(13,71,161,.08)', stroke:'#0d47a1','stroke-width':1.5}));
+          }
+        }
+        return g;
+      }
+      function hitArista(room, wallIndex){
+        const s=aristas(room)[wallIndex];
+        if(!s) return null;
+        const len=Math.hypot(s.b.x-s.a.x,s.b.y-s.a.y);
+        return { a:s.a, b:s.b, len:len, angle:Math.atan2(s.b.y-s.a.y,s.b.x-s.a.x) };
+      }
+      function pintar(){
+        gRooms.innerHTML='';
+        gHandles.innerHTML='';
+        model.rooms.forEach(function(room){
+          const d=room.points.map(function(p,i){ return (i?'L':'M')+p.x+' '+p.y; }).join(' ')+' Z';
+          const fill=svgEl('path', { d:d, class:'qb-room-fill'+(selected&&selected.room===room&&!selected.opening&&!selected.note?' is-on':''), 'data-kind':'room', 'data-id':room.id });
+          gRooms.appendChild(fill);
+          aristas(room).forEach(function(seg){
+            const len=Math.hypot(seg.b.x-seg.a.x, seg.b.y-seg.a.y);
+            trozosMuro(seg.a, seg.b, huecosEnArista(room, seg.i, len)).forEach(function(tr){
+              gRooms.appendChild(svgEl('line', { x1:tr[0].x, y1:tr[0].y, x2:tr[1].x, y2:tr[1].y, class:'qb-wall' }));
+            });
+            const mid={x:(seg.a.x+seg.b.x)/2, y:(seg.a.y+seg.b.y)/2};
+            const cota=svgEl('text', { x:mid.x, y:mid.y-10, class:'qb-cota', 'text-anchor':'middle' });
+            cota.textContent=fmtPies(len);
+            gRooms.appendChild(cota);
+          });
+          const c=centro(room.points);
+          const label=svgEl('text', { x:c.x, y:c.y, class:'qb-cota', 'text-anchor':'middle' });
+          const m=medidasHabitacion(room);
+          label.textContent=room.name+' · '+m.area_sqft+' SF';
+          gRooms.appendChild(label);
+          (room.openings||[]).forEach(function(op){
+            const info=hitArista(room, op.wall);
+            if(!info) return;
+            const p=puntoEn(info.a, info.b, op.t);
+            gRooms.appendChild(simboloVano(op, {x:p.x,y:p.y,angle:info.angle}));
+          });
+        });
+        model.notes.forEach(function(n){
+          const t=svgEl('text', { x:n.x, y:n.y, class:'qb-note', 'data-kind':'note', 'data-id':n.id });
+          t.textContent=n.text||'Nota';
+          gRooms.appendChild(t);
+        });
+        model.marks.forEach(function(mk){
+          const g=svgEl('g', { transform:'translate('+mk.x+','+mk.y+') rotate('+(mk.rot||0)+')', 'data-kind':'mark', 'data-id':mk.id });
+          g.appendChild(svgEl('rect', {x:-28,y:-16,width:56,height:32,fill:'#edf5fb',stroke:'#19385f'}));
+          const tx=svgEl('text', {x:0,y:4,class:'qb-cota','text-anchor':'middle'});
+          tx.textContent=(VANOS[mk.tipo]||{}).label||mk.tipo;
+          g.appendChild(tx);
+          gRooms.appendChild(g);
+        });
+        if(selected && selected.room && !selected.opening){
+          selected.room.points.forEach(function(p,i){
+            const h=svgEl('circle', { cx:p.x, cy:p.y, r:6, class:'qb-handle', 'data-kind':'vertex', 'data-id':selected.room.id, 'data-index':String(i) });
+            gHandles.appendChild(h);
+          });
+        }
+      }
+
+      function muroCercano(p){
         let mejor=null;
-        murosLogicos().forEach(function(muro){
-          if(!muro.a || !muro.b) return;
-          const hit=masCercano(vano, muro.a, muro.b);
-          const solapa=lineaCruzaCaja(muro.a, muro.b, cajaAncha);
-          if(hit.dist>SNAP+14 && !solapa) return;
-          const dist=solapa?Math.min(hit.dist, 8):hit.dist;
-          if(!mejor || dist<mejor.dist) mejor={ muro:muro, hit:hit, dist:dist };
+        model.rooms.forEach(function(room){
+          aristas(room).forEach(function(seg){
+            const hit=distPuntoSeg(p, seg.a, seg.b);
+            if(hit.dist<=SNAP+10 && (!mejor || hit.dist<mejor.dist)){
+              mejor={ room:room, wall:seg.i, hit:hit, angle:Math.atan2(seg.b.y-seg.a.y, seg.b.x-seg.a.x) };
+            }
+          });
         });
         return mejor;
       }
-      function adherirAPared(obj){
-        if(!obj || obj.qbSnap!=='wall') return false;
-        const hallado=muroLogicoCercano(obj);
-        if(!hallado) return false;
-        const hit=hallado.hit;
-        obj.rotate(hit.angle*180/Math.PI);
-        obj.setCoords();
-        const ahora=puntoVano(obj);
-        const c=obj.getCenterPoint();
-        obj.setPositionByOrigin(new fabric.Point(c.x+(hit.x-ahora.x), c.y+(hit.y-ahora.y)), 'center', 'center');
-        obj.setCoords();
-        return true;
-      }
-      function fusionarHuecos(lista){
-        if(!lista.length) return [];
-        const ord=lista.slice().sort(function(a,b){ return a.t0-b.t0; });
-        const out=[ord[0]];
-        for(let i=1;i<ord.length;i++){
-          const prev=out[out.length-1], cur=ord[i];
-          if(cur.t0<=prev.t1+2) prev.t1=Math.max(prev.t1, cur.t1);
-          else out.push(cur);
+      function espacioEn(p){
+        for(let i=model.rooms.length-1;i>=0;i--){
+          if(puntoEnPoligono(p, model.rooms[i].points)) return model.rooms[i];
         }
-        return out;
+        return null;
       }
-      function huecosDelMuro(muro){
-        const a=muro.a, b=muro.b;
-        const len=Math.hypot(b.x-a.x, b.y-a.y);
-        if(len<1) return [];
-        const ux=(b.x-a.x)/len, uy=(b.y-a.y)/len;
-        const huecos=[];
-        canvas.getObjects().forEach(function(obj){
-          if(obj.qbSnap!=='wall') return;
-          const vano=puntoVano(obj);
-          const hit=masCercano(vano, a, b);
-          if(hit.dist>SNAP+16) return;
-          const along=(hit.x-a.x)*ux+(hit.y-a.y)*uy;
-          const medio=anchoVano(obj)/2;
-          huecos.push({ t0:along-medio, t1:along+medio, obj:obj });
-          obj.qbSobreMuro=muro.id;
-        });
-        return fusionarHuecos(huecos.map(function(h){
-          return { t0:Math.max(0,h.t0), t1:Math.min(len,h.t1) };
-        }).filter(function(h){ return h.t1-h.t0>=6; }));
-      }
-      function reconstruirMuro(muroId){
-        if(!muroId || cortandoMuros) return;
-        cortandoMuros=true;
-        try{
-          const todos=murosLogicos();
-          const muro=todos.filter(function(m){ return m.id===muroId; })[0];
-          if(!muro || !muro.a || !muro.b) return;
-          muro.segs.forEach(function(seg){ canvas.remove(seg); });
-          canvas.getObjects().slice().forEach(function(obj){
-            if(obj.qbTipo!=='cota') return;
-            if(obj.qbMuroId===muroId){ canvas.remove(obj); return; }
-            const hit=masCercano({x:obj.left||0, y:obj.top||0}, muro.a, muro.b);
-            if(hit.dist<20) canvas.remove(obj);
-          });
-          const a=muro.a, b=muro.b;
-          const len=Math.hypot(b.x-a.x, b.y-a.y);
-          if(len<MIN_TRAZO) return;
-          const ux=(b.x-a.x)/len, uy=(b.y-a.y)/len;
-          const huecos=huecosDelMuro(muro);
-          let cursor=0;
-          function trozo(t0, t1){
-            if(t1-t0<4) return;
-            const p1={x:a.x+ux*t0, y:a.y+uy*t0};
-            const p2={x:a.x+ux*t1, y:a.y+uy*t1};
-            const lineaNueva=crearLineaAbsoluta(p1, p2, 'wall', { qbMuroId:muroId, qbMuroA:copiarPunto(a), qbMuroB:copiarPunto(b) });
-            lineaNueva.set({ strokeLineCap:'butt' });
-            canvas.add(lineaNueva);
-            canvas.sendToBack(lineaNueva);
-            const cota=crearCota(p1, p2);
-            cota.qbMuroId=muroId;
-            canvas.add(cota);
-          }
-          huecos.forEach(function(h){
-            trozo(cursor, h.t0);
-            cursor=Math.max(cursor, h.t1);
-          });
-          trozo(cursor, len);
-          canvas.getObjects().forEach(function(obj){
-            if(obj.qbSobreMuro===muroId) canvas.bringToFront(obj);
-          });
-        }finally{
-          cortandoMuros=false;
-          canvas.requestRenderAll();
+      function puntoEnPoligono(p, pts){
+        let inPoly=false;
+        for(let i=0,j=pts.length-1;i<pts.length;j=i++){
+          const a=pts[i], b=pts[j];
+          const inter=((a.y>p.y)!==(b.y>p.y)) && (p.x < (b.x-a.x)*(p.y-a.y)/((b.y-a.y)||1)+a.x);
+          if(inter) inPoly=!inPoly;
         }
+        return inPoly;
       }
-      function aplicarCorteVano(obj){
-        if(!obj || obj.qbSnap!=='wall' || cortandoMuros) return;
-        const anterior=obj.qbSobreMuro||'';
-        const hallado=muroLogicoCercano(obj);
-        if(!hallado){
-          obj.qbSobreMuro='';
-          if(anterior) reconstruirMuro(anterior);
-          return;
+      function nuevaHabitacion(pts, nombre){
+        const room={ id:uid('r'), name:nombre||('Espacio '+ (model.rooms.length+1)), points:pts, openings:[] };
+        model.rooms.push(room);
+        selected={ room:room };
+        return room;
+      }
+      function colocarVano(tipo, p){
+        const def=VANOS[tipo];
+        if(!def) return;
+        if(def.kind==='mark'){
+          model.marks.push({ id:uid('k'), tipo:tipo, x:p.x, y:p.y, rot:0 });
+          pintar(); return;
         }
-        adherirAPared(obj);
-        const id=hallado.muro.id;
-        obj.qbSobreMuro=id;
-        if(anterior && anterior!==id) reconstruirMuro(anterior);
-        reconstruirMuro(id);
-        adherirAPared(obj);
-        canvas.bringToFront(obj);
-        setStatus('Hueco abierto en el muro. La cota queda a cada lado.','ok');
-      }
-      function quitarObjeto(obj){
-        if(!obj) return;
-        const muroId=obj.qbSobreMuro || (obj.qbTipo==='wall'?obj.qbMuroId:'');
-        canvas.remove(obj);
-        if(muroId && obj.qbSnap==='wall') reconstruirMuro(muroId);
+        const hallado=muroCercano(p);
+        if(!hallado){ setStatus('Suéltalo sobre un muro del espacio.','err'); return; }
+        const op={ id:uid('o'), tipo:tipo, wall:hallado.wall, t:hallado.hit.t, width:def.width, height:def.height };
+        hallado.room.openings=hallado.room.openings||[];
+        hallado.room.openings.push(op);
+        selected={ room:hallado.room, opening:op };
+        pintar();
         refrescarInspector();
-        canvas.requestRenderAll();
-      }
-
-      function estiloTrazo(obj, tipo){
-        obj.set({
-          qbTipo:tipo,
-          qbSnap:'',
-          qbLabel:NOMBRES[tipo]||tipo,
-          selectable:true,
-          evented:true,
-          objectCaching:false,
-          hasControls:true,
-          hasBorders:true,
-          cornerColor:BLUE,
-          cornerStyle:'circle',
-          borderColor:'#90caf9'
-        });
-        return obj;
-      }
-      function crearLineaAbsoluta(a, b, tipo, extra){
-        extra=extra||{};
-        const lineaNueva=new fabric.Line([a.x, a.y, b.x, b.y], {
-          stroke: tipo==='opening'?GOLD:NAVY,
-          strokeWidth: tipo==='opening'?3:6,
-          strokeDashArray: tipo==='opening'?[10,6]:null,
-          strokeLineCap: tipo==='wall'?'butt':'round',
-          originX:'center',
-          originY:'center',
-          objectCaching:false
-        });
-        estiloTrazo(lineaNueva, tipo);
-        lineaNueva.qbLabel=fmtPies(Math.hypot(b.x-a.x, b.y-a.y));
-        if(tipo==='wall'){
-          lineaNueva.qbMuroId=extra.qbMuroId||nuevoIdMuro();
-          lineaNueva.qbMuroA=extra.qbMuroA?copiarPunto(extra.qbMuroA):copiarPunto(a);
-          lineaNueva.qbMuroB=extra.qbMuroB?copiarPunto(extra.qbMuroB):copiarPunto(b);
-        }
-        return lineaNueva;
-      }
-      function crearEspacio(a, b){
-        const rect=new fabric.Rect({
-          left:Math.min(a.x,b.x),
-          top:Math.min(a.y,b.y),
-          width:Math.max(1, Math.abs(b.x-a.x)),
-          height:Math.max(1, Math.abs(b.y-a.y)),
-          fill:'rgba(13,71,161,0.06)',
-          stroke:NAVY,
-          strokeWidth:4,
-          originX:'left',
-          originY:'top',
-          objectCaching:false
-        });
-        estiloTrazo(rect, 'space');
-        rect.qbLabel=fmtPies(rect.width)+' × '+fmtPies(rect.height);
-        return rect;
-      }
-      function crearCota(a, b){
-        return new fabric.Text(fmtPies(Math.hypot(b.x-a.x, b.y-a.y)), {
-          left:(a.x+b.x)/2,
-          top:(a.y+b.y)/2-16,
-          fontSize:13,
-          fill:BLUE,
-          fontWeight:'700',
-          originX:'center',
-          originY:'center',
-          selectable:true,
-          evented:true,
-          objectCaching:false,
-          qbTipo:'cota',
-          qbLabel:'Cota'
-        });
-      }
-
-      function cancelarTrazo(){
-        drawing=false;
-        origin=null;
-        hover=null;
-        pointerId=null;
-        limpiarPreview();
-      }
-      function commitTrazo(destino){
-        if(!origin || !destino){ cancelarTrazo(); return; }
-        const dx=destino.x-origin.x, dy=destino.y-origin.y;
-        if(tool==='space'){
-          if(Math.abs(dx)<MIN_TRAZO || Math.abs(dy)<MIN_TRAZO){
-            setStatus('Arrastra un recuadro más grande para el espacio.');
-            cancelarTrazo();
-            return;
-          }
-          const espacio=crearEspacio(origin, destino);
-          canvas.add(espacio);
-          canvas.setActiveObject(espacio);
-        }else if(tool==='wall' || tool==='opening'){
-          if(Math.hypot(dx,dy)<MIN_TRAZO){
-            setStatus('Arrastra al menos 1 pie para confirmar el trazo.');
-            cancelarTrazo();
-            return;
-          }
-          const muro=crearLineaAbsoluta(origin, destino, tool);
-          canvas.add(muro);
-          const cota=crearCota(origin, destino);
-          if(muro.qbMuroId) cota.qbMuroId=muro.qbMuroId;
-          canvas.add(cota);
-          canvas.setActiveObject(muro);
-        }
-        cancelarTrazo();
-        canvas.requestRenderAll();
-        refrescarInspector();
-        setStatus('Elemento añadido. Sigue trazando o pulsa Mover.','ok');
+        setStatus(def.label+' encajada. El muro queda abierto en el vano.','ok');
       }
 
       function aplicarTool(nombre){
         tool=nombre||'select';
-        cancelarTrazo();
-        canvas.isDrawingMode=false;
-        canvas.interactive=true;
-        canvas.discardActiveObject();
-        canvas.selection=!esDibujo(tool) && tool!=='delete';
-        canvas.skipTargetFind=esDibujo(tool);
-        canvas.forEachObject(function(obj){
-          const editable=tool==='select';
-          obj.selectable=editable;
-          obj.evented=editable || tool==='delete';
-        });
-        canvas.defaultCursor=tool==='select'?'default':(tool==='delete'?'not-allowed':(tool==='note'||tool==='cota'?'text':'crosshair'));
-        canvas.hoverCursor=tool==='select'?'move':canvas.defaultCursor;
-        if(board){
-          board.className=esDibujo(tool) && tool!=='note' && tool!=='cota' ? 'is-draw'
-            : (tool==='delete'?'is-delete':(tool==='note'||tool==='cota'?'is-note':'is-select'));
-        }
-        document.querySelectorAll('.qb-rail [data-tool]').forEach(function(btn){
-          btn.classList.toggle('is-on', btn.dataset.tool===tool);
-        });
+        if(nombre!=='opening') pendingVano=null;
+        polyPts=[]; hover=null; rectOrigin=null;
+        gPreview.innerHTML='';
+        board.className=tool==='select'?'is-select':(tool==='delete'?'is-delete':(tool==='note'?'is-note':'is-draw'));
+        document.querySelectorAll('.qb-rail [data-tool]').forEach(function(btn){ btn.classList.toggle('is-on', btn.dataset.tool===tool); });
         document.querySelectorAll('.qb-rail [data-palette]').forEach(function(btn){ btn.classList.remove('is-on'); });
-        canvas.calcOffset();
-        canvas.requestRenderAll();
-        refrescarInspector();
         const ayudas={
-          wall:'Muro listo: pulsa y arrastra. La cota aparece en pies y pulgadas.',
-          space:'Espacio listo: arrastra el rectángulo del área.',
-          opening:'Apertura lista: traza el vano sobre el muro.',
-          note:'Nota lista: toca el lienzo para escribir.',
-          delete:'Toca un elemento para quitarlo.',
-          select:'Selecciona un elemento o una herramienta de trazo.'
+          select:'Selecciona un espacio, un vértice o un vano.',
+          space:'Espacio: pulsa vértices. Cierra en el primero o con Enter.',
+          rect:'Muro: arrastra un recuadro; se crea el espacio de 4 muros.',
+          opening:'Apertura: toca un muro para abrir el vano.',
+          note:'Nota: toca el plano para escribir.',
+          delete:'Toca un espacio, vano o nota para quitarlo.'
         };
         setStatus(ayudas[tool]||ayudas.select);
-        console.log('[QB Sketch] herramienta', tool);
       }
-      window.qbSketchHerramienta=function(nombre){
-        try{ cerrarPaleta(); aplicarTool(nombre); }
-        catch(err){ console.log('[QB Sketch] error herramienta', err); setStatus(String(err.message||err),'err'); }
-      };
+      window.qbSketchHerramienta=aplicarTool;
 
-      function enPaletaOInspector(nodo){
-        return !!(nodo && (nodo.closest && (nodo.closest('.qb-float') || nodo.closest('.qb-inspector') || nodo.closest('.qb-rail') || nodo.closest('.qb-top') || nodo.closest('#qb-soporte'))));
+      function refrescarInspector(){
+        if(!selected){ inspector.hidden=true; inspector.classList.remove('is-open'); return; }
+        inspector.hidden=false; inspector.classList.add('is-open');
+        const nombre=document.getElementById('propNombre');
+        const tipo=document.getElementById('propTipo');
+        const largo=document.getElementById('propLargo');
+        const ancho=document.getElementById('propAncho');
+        const met=document.getElementById('propMetricas');
+        if(selected.opening){
+          const def=VANOS[selected.opening.tipo]||VANOS.opening;
+          tipo.value=def.label;
+          nombre.value=selected.room.name;
+          largo.value=fmtPies(selected.opening.width||def.width);
+          ancho.value=fmtPies(selected.opening.height||def.height);
+          met.textContent='El vano recorta el muro. Área descontada: '+round2(((selected.opening.width||def.width)/12)*((selected.opening.height||def.height)/12))+' SF.';
+        }else if(selected.note){
+          tipo.value='Nota';
+          nombre.value=selected.note.text||'Nota';
+          largo.value=''; ancho.value='';
+          met.textContent='';
+        }else if(selected.room){
+          const m=medidasHabitacion(selected.room);
+          tipo.value='Espacio';
+          nombre.value=selected.room.name;
+          largo.value=fmtPies(m.length_in);
+          ancho.value=fmtPies(m.width_in);
+          met.textContent='Área '+m.area_sqft+' SF · Perímetro '+m.perimeter_lf+' LF · Muros '+m.wall_sf_net+' SF (neto, altura 8\')';
+        }
+      }
+      function aplicarMedida(){
+        if(!selected) return;
+        if(selected.opening){
+          const w=parsePies(document.getElementById('propLargo').value);
+          const h=parsePies(document.getElementById('propAncho').value);
+          if(w) selected.opening.width=w;
+          if(h) selected.opening.height=h;
+        }else if(selected.note){
+          selected.note.text=document.getElementById('propNombre').value||'Nota';
+        }else if(selected.room){
+          selected.room.name=document.getElementById('propNombre').value||selected.room.name;
+          const w=parsePies(document.getElementById('propLargo').value);
+          const h=parsePies(document.getElementById('propAncho').value);
+          if(w && h && selected.room.points.length===4){
+            const b=bbox(selected.room.points);
+            const ox=b.minX, oy=b.minY;
+            selected.room.points=[{x:ox,y:oy},{x:ox+w,y:oy},{x:ox+w,y:oy+h},{x:ox,y:oy+h}];
+          }
+        }
+        pintar();
+        refrescarInspector();
+      }
+      function quitarSeleccionado(){
+        if(!selected) return;
+        if(selected.opening && selected.room){
+          selected.room.openings=(selected.room.openings||[]).filter(function(o){ return o.id!==selected.opening.id; });
+        }else if(selected.note){
+          model.notes=model.notes.filter(function(n){ return n.id!==selected.note.id; });
+        }else if(selected.mark){
+          model.marks=model.marks.filter(function(n){ return n.id!==selected.mark.id; });
+        }else if(selected.room){
+          model.rooms=model.rooms.filter(function(r){ return r.id!==selected.room.id; });
+        }
+        selected=null;
+        pintar();
+        refrescarInspector();
+      }
+
+      function cerrarPoligono(){
+        if(polyPts.length<3){ setStatus('Haz al menos 3 vértices para cerrar el espacio.'); return; }
+        nuevaHabitacion(polyPts.slice());
+        polyPts=[]; hover=null; gPreview.innerHTML='';
+        pintar(); refrescarInspector();
+        setStatus('Espacio cerrado. Área y perímetro listos para el estimado.','ok');
+        aplicarTool('select');
+      }
+      function pintarPreview(){
+        gPreview.innerHTML='';
+        if(tool==='space' && polyPts.length){
+          const pts=polyPts.concat(hover?[hover]:[]);
+          const d=pts.map(function(p,i){ return (i?'L':'M')+p.x+' '+p.y; }).join(' ');
+          gPreview.appendChild(svgEl('path', { d:d, class:'qb-preview' }));
+          if(pts.length>1){
+            const a=pts[pts.length-2], b=pts[pts.length-1];
+            const t=svgEl('text', { x:(a.x+b.x)/2, y:(a.y+b.y)/2-8, class:'qb-cota', 'text-anchor':'middle' });
+            t.textContent=fmtPies(Math.hypot(b.x-a.x,b.y-a.y));
+            gPreview.appendChild(t);
+          }
+        }else if(tool==='rect' && rectOrigin && hover){
+          const x=Math.min(rectOrigin.x,hover.x), y=Math.min(rectOrigin.y,hover.y);
+          const w=Math.abs(hover.x-rectOrigin.x), h=Math.abs(hover.y-rectOrigin.y);
+          gPreview.appendChild(svgEl('rect', { x:x, y:y, width:Math.max(1,w), height:Math.max(1,h), class:'qb-preview' }));
+          const t=svgEl('text', { x:x+w/2, y:y-8, class:'qb-cota', 'text-anchor':'middle' });
+          t.textContent=fmtPies(w)+' × '+fmtPies(h);
+          gPreview.appendChild(t);
+        }
       }
 
       function alPunteroAbajo(ev){
-        if(INMUTABLE || !esDibujo(tool)) return;
-        if(enPaletaOInspector(ev.target)) return;
+        if(INMUTABLE) return;
+        if(ev.target.closest && (ev.target.closest('.qb-float')||ev.target.closest('.qb-inspector')||ev.target.closest('.qb-rail')||ev.target.closest('.qb-top')||ev.target.closest('#qb-soporte'))) return;
         if(ev.pointerType==='mouse' && ev.button!==0) return;
-        ev.preventDefault();
-        ev.stopPropagation();
-        const crudo=puntoDesdeEvento(ev);
-        const p=snapPunto(crudo);
-        if(tool==='note' || tool==='cota'){
-          const texto=new fabric.IText(tool==='cota'? "8'-0\"" : 'Nota',{
-            left:p.x, top:p.y, fontSize:14, fill:BLUE, fontFamily:'Arial', fontWeight:'700',
-            objectCaching:false, qbTipo:tool==='cota'?'cota':'note'
-          });
-          canvas.add(texto);
-          aplicarTool('select');
-          canvas.setActiveObject(texto);
-          texto.enterEditing();
-          canvas.requestRenderAll();
+        const crudo=puntoEvento(ev);
+        const p=snapPunto(crudo, tool==='rect' && rectOrigin ? rectOrigin : null);
+        if(tool==='space'){
+          ev.preventDefault();
+          if(polyPts.length>=3 && Math.hypot(p.x-polyPts[0].x,p.y-polyPts[0].y)<=SNAP){ cerrarPoligono(); return; }
+          polyPts.push(p); hover=p; pintarPreview();
+          setStatus('Vértice '+(polyPts.length)+'. Cierra en el primero o pulsa Enter.');
           return;
         }
-        drawing=true;
-        origin=p;
-        hover=p;
-        pointerId=ev.pointerId;
-        try{ board.setPointerCapture(ev.pointerId); }catch(_){ }
-        pintarPreview(origin, hover);
-        setStatus('Trazando… 0\'-0"');
-        console.log('[QB Sketch] pointerdown', tool, p);
+        if(tool==='rect'){
+          ev.preventDefault();
+          rectOrigin=p; hover=p; drag={kind:'rect'};
+          try{ board.setPointerCapture(ev.pointerId); }catch(_){}
+          return;
+        }
+        if(tool==='opening' || pendingVano){
+          ev.preventDefault();
+          colocarVano(pendingVano||'opening', p);
+          pendingVano=null;
+          aplicarTool('select');
+          return;
+        }
+        if(tool==='note'){
+          model.notes.push({ id:uid('n'), x:p.x, y:p.y, text:'Nota' });
+          selected={ note:model.notes[model.notes.length-1] };
+          pintar(); refrescarInspector(); aplicarTool('select');
+          return;
+        }
+        if(tool==='delete'){
+          const hit=hitSeleccion(crudo);
+          if(hit){ selected=hit; quitarSeleccionado(); }
+          return;
+        }
+        const h=ev.target.closest && ev.target.closest('.qb-handle');
+        if(h){
+          const room=model.rooms.filter(function(r){ return r.id===h.getAttribute('data-id'); })[0];
+          drag={ kind:'vertex', room:room, index:parseInt(h.getAttribute('data-index'),10) };
+          try{ board.setPointerCapture(ev.pointerId); }catch(_){}
+          return;
+        }
+        const hit=hitSeleccion(crudo);
+        selected=hit;
+        if(hit && hit.opening){
+          drag={ kind:'opening', room:hit.room, opening:hit.opening };
+          try{ board.setPointerCapture(ev.pointerId); }catch(_){}
+        }else if(hit && hit.room){
+          drag={ kind:'room', room:hit.room, ox:crudo.x, oy:crudo.y, pts:hit.room.points.map(function(pt){ return {x:pt.x,y:pt.y}; }) };
+          try{ board.setPointerCapture(ev.pointerId); }catch(_){}
+        }else if(hit && hit.note){
+          drag={ kind:'note', note:hit.note, ox:crudo.x-hit.note.x, oy:crudo.y-hit.note.y };
+          try{ board.setPointerCapture(ev.pointerId); }catch(_){}
+        }
+        pintar(); refrescarInspector();
+      }
+      function hitSeleccion(p){
+        for(let i=model.notes.length-1;i>=0;i--){
+          if(Math.hypot(p.x-model.notes[i].x,p.y-model.notes[i].y)<16) return { note:model.notes[i] };
+        }
+        for(let r=model.rooms.length-1;r>=0;r--){
+          const room=model.rooms[r];
+          for(let o=0;o<(room.openings||[]).length;o++){
+            const op=room.openings[o];
+            const info=hitArista(room, op.wall);
+            if(!info) continue;
+            const q=puntoEn(info.a, info.b, op.t);
+            if(Math.hypot(p.x-q.x,p.y-q.y)<(op.width||24)/2+8) return { room:room, opening:op };
+          }
+          if(puntoEnPoligono(p, room.points)) return { room:room };
+        }
+        return null;
       }
       function alPunteroMueve(ev){
-        if(!drawing || !origin) return;
+        const crudo=puntoEvento(ev);
+        if(tool==='space' && polyPts.length){
+          hover=snapPunto(crudo);
+          pintarPreview(); return;
+        }
+        if(tool==='rect' && rectOrigin){
+          hover=snapPunto(crudo, rectOrigin);
+          pintarPreview(); return;
+        }
+        if(!drag) return;
         ev.preventDefault();
-        hover=snapPunto(puntoDesdeEvento(ev), (tool==='wall'||tool==='opening')?origin:null);
-        pintarPreview(origin, hover);
-        setStatus('Trazando… '+fmtPies(Math.hypot(hover.x-origin.x, hover.y-origin.y)));
+        if(drag.kind==='vertex' && drag.room){
+          drag.room.points[drag.index]=snapPunto(crudo);
+        }else if(drag.kind==='room' && drag.room){
+          const dx=crudo.x-drag.ox, dy=crudo.y-drag.oy;
+          drag.room.points=drag.pts.map(function(pt){ return {x:pt.x+dx, y:pt.y+dy}; });
+        }else if(drag.kind==='opening' && drag.opening){
+          const hallado=muroCercano(crudo);
+          if(hallado && hallado.room===drag.room){
+            drag.opening.wall=hallado.wall;
+            drag.opening.t=hallado.hit.t;
+          }
+        }else if(drag.kind==='note' && drag.note){
+          drag.note.x=crudo.x-drag.ox; drag.note.y=crudo.y-drag.oy;
+        }
+        pintar(); refrescarInspector();
       }
       function alPunteroArriba(ev){
-        if(!drawing) return;
-        ev.preventDefault();
-        const destino=snapPunto(puntoDesdeEvento(ev), (tool==='wall'||tool==='opening')?origin:null);
-        try{ if(pointerId!=null) board.releasePointerCapture(pointerId); }catch(_){ }
-        console.log('[QB Sketch] pointerup', tool, origin, destino);
-        commitTrazo(destino);
+        if(tool==='rect' && rectOrigin){
+          const p=snapPunto(puntoEvento(ev), rectOrigin);
+          const x=Math.min(rectOrigin.x,p.x), y=Math.min(rectOrigin.y,p.y);
+          const w=Math.abs(p.x-rectOrigin.x), h=Math.abs(p.y-rectOrigin.y);
+          rectOrigin=null; hover=null; drag=null; gPreview.innerHTML='';
+          if(w>=GRID && h>=GRID){
+            nuevaHabitacion([{x:x,y:y},{x:x+w,y:y},{x:x+w,y:y+h},{x:x,y:y+h}]);
+            pintar(); refrescarInspector();
+            setStatus('Espacio rectangular creado. Área y perímetro listos.','ok');
+            aplicarTool('select');
+          }
+          return;
+        }
+        drag=null;
       }
 
       board.addEventListener('pointerdown', alPunteroAbajo, true);
       board.addEventListener('pointermove', alPunteroMueve, true);
       board.addEventListener('pointerup', alPunteroArriba, true);
-      board.addEventListener('pointercancel', function(){ cancelarTrazo(); }, true);
-      board.addEventListener('contextmenu', function(ev){ if(esDibujo(tool)) ev.preventDefault(); });
-
-      canvas.on('object:moving', function(e){
-        const obj=e.target;
-        if(!obj || obj.qbSnap!=='wall') return;
-        if(obj.qbSobreMuro && !obj.qbCortando){
-          const id=obj.qbSobreMuro;
-          obj.qbSobreMuro='';
-          obj.qbCortando=true;
-          reconstruirMuro(id);
-        }
-        adherirAPared(obj);
-      });
-      canvas.on('object:modified', function(e){
-        const obj=e.target;
-        if(obj) obj.qbCortando=false;
-        if(obj && obj.qbSnap==='wall') aplicarCorteVano(obj);
-        else if(obj) adherirAPared(obj);
-        refrescarInspector();
-      });
-      canvas.on('selection:created', refrescarInspector);
-      canvas.on('selection:updated', refrescarInspector);
-      canvas.on('selection:cleared', refrescarInspector);
-      canvas.on('mouse:down', function(opt){
-        if(INMUTABLE || tool!=='delete' || !opt.target) return;
-        quitarObjeto(opt.target);
-      });
-      canvas.on('mouse:up', function(opt){
-        if(opt && opt.target && opt.target.qbSnap==='wall' && !cortandoMuros){
-          aplicarCorteVano(opt.target);
-        }
-      });
-
-      function objetoActivo(){ return canvas.getActiveObject(); }
-      function refrescarInspector(){
-        const obj=objetoActivo();
-        if(!obj || tool!=='select'){
-          inspector.classList.remove('is-open');
-          inspector.hidden=true;
-          return;
-        }
-        inspector.hidden=false;
-        inspector.classList.add('is-open');
-        document.getElementById('propTipo').value=NOMBRES[obj.qbTipo]||obj.qbLabel||obj.type;
-        const w=obj.getScaledWidth?obj.getScaledWidth():(obj.width||0);
-        const h=obj.getScaledHeight?obj.getScaledHeight():(obj.height||0);
-        if(obj.type==='line'){
-          try{
-            const segs=extremosAbsolutos(obj)[0];
-            document.getElementById('propLargo').value=segs?fmtPies(Math.hypot(segs.b.x-segs.a.x, segs.b.y-segs.a.y)):'';
-          }catch(_){
-            document.getElementById('propLargo').value='';
-          }
-          document.getElementById('propAncho').value='';
-        }else{
-          document.getElementById('propLargo').value=fmtPies(w);
-          document.getElementById('propAncho').value=fmtPies(h);
-        }
-        document.getElementById('propRot').value=Math.round(obj.angle||0);
-      }
-      function aplicarMedida(){
-        const obj=objetoActivo();
-        if(!obj) return;
-        const largo=parsePies(document.getElementById('propLargo').value);
-        const ancho=parsePies(document.getElementById('propAncho').value);
-        const rot=parseFloat(document.getElementById('propRot').value);
-        if(obj.type==='line' && largo){
-          const segs=extremosAbsolutos(obj)[0];
-          if(segs){
-            const ang=Math.atan2(segs.b.y-segs.a.y, segs.b.x-segs.a.x);
-            const recambio=crearLineaAbsoluta(segs.a, {
-              x:segs.a.x+Math.cos(ang)*largo,
-              y:segs.a.y+Math.sin(ang)*largo
-            }, obj.qbTipo||'wall');
-            canvas.remove(obj);
-            canvas.add(recambio);
-            canvas.setActiveObject(recambio);
-          }
-        }else{
-          if(largo && obj.width) obj.scaleX=largo/Math.max(obj.width,1);
-          if(ancho && obj.height) obj.scaleY=ancho/Math.max(obj.height,1);
-        }
-        if(isFinite(rot)) obj.rotate(rot);
-        obj.setCoords();
-        if(obj.qbSnap==='wall') aplicarCorteVano(obj);
-        canvas.requestRenderAll();
-        refrescarInspector();
-      }
-      document.getElementById('propLargo').addEventListener('change', aplicarMedida);
-      document.getElementById('propAncho').addEventListener('change', aplicarMedida);
-      document.getElementById('propRot').addEventListener('change', aplicarMedida);
-      document.getElementById('propFlipH').addEventListener('click', function(){
-        const obj=objetoActivo(); if(!obj) return; obj.set('flipX', !obj.flipX); canvas.requestRenderAll();
-      });
-      document.getElementById('propFlipV').addEventListener('click', function(){
-        const obj=objetoActivo(); if(!obj) return; obj.set('flipY', !obj.flipY); canvas.requestRenderAll();
-      });
-      document.getElementById('propBorrar').addEventListener('click', function(){
-        quitarObjeto(objetoActivo());
+      board.addEventListener('pointercancel', function(){ drag=null; rectOrigin=null; });
+      board.addEventListener('dblclick', function(ev){
+        if(tool==='space' && polyPts.length>=3){ ev.preventDefault(); cerrarPoligono(); }
       });
 
       if(rail){
         rail.addEventListener('click', function(ev){
           const btn=ev.target.closest('[data-tool],[data-palette]');
-          if(!btn || !rail.contains(btn)) return;
+          if(!btn) return;
           ev.preventDefault();
           if(btn.dataset.palette){
             aplicarTool('select');
             rail.querySelectorAll('[data-palette]').forEach(function(b){ b.classList.toggle('is-on', b===btn); });
-            abrirPaleta(btn.dataset.palette);
+            const def=PALETAS[btn.dataset.palette];
+            if(!def) return;
+            document.getElementById('paletaTitulo').textContent=def.titulo;
+            paletaCards.innerHTML=def.items.map(function(it){
+              return '<button type="button" class="qb-card" data-insert="'+it.id+'">'+it.label+'</button>';
+            }).join('');
+            paleta.hidden=false; paleta.classList.add('is-open');
             return;
           }
-          if(btn.dataset.tool) window.qbSketchHerramienta(btn.dataset.tool);
+          aplicarTool(btn.dataset.tool);
         });
       }
-      document.getElementById('paletaCerrar').addEventListener('click', cerrarPaleta);
+      document.getElementById('paletaCerrar').addEventListener('click', function(){ paleta.classList.remove('is-open'); paleta.hidden=true; });
       paletaCards.addEventListener('click', function(ev){
         const card=ev.target.closest('[data-insert]');
-        if(card) insertarSimbolo(card.dataset.insert);
+        if(!card) return;
+        pendingVano=card.dataset.insert;
+        paleta.classList.remove('is-open'); paleta.hidden=true;
+        if((VANOS[pendingVano]||{}).kind==='mark'){
+          const caja=svg.getBoundingClientRect();
+          colocarVano(pendingVano, {x:caja.width/2, y:caja.height/2});
+          pendingVano=null;
+          aplicarTool('select');
+        }else{
+          aplicarTool('opening');
+          setStatus('Toca el muro donde va '+((VANOS[pendingVano]||{}).label||'el vano')+'.');
+        }
       });
+      document.getElementById('propNombre').addEventListener('change', aplicarMedida);
+      document.getElementById('propLargo').addEventListener('change', aplicarMedida);
+      document.getElementById('propAncho').addEventListener('change', aplicarMedida);
+      document.getElementById('propBorrar').addEventListener('click', quitarSeleccionado);
       document.addEventListener('keydown', function(ev){
+        if(ev.key==='Enter' && tool==='space'){ ev.preventDefault(); cerrarPoligono(); }
         if(ev.key==='Escape'){
-          if(drawing) cancelarTrazo();
-          cerrarPaleta();
-          if(esDibujo(tool)) aplicarTool('select');
+          polyPts=[]; rectOrigin=null; hover=null; gPreview.innerHTML='';
+          if(tool!=='select') aplicarTool('select');
         }
         if(INMUTABLE) return;
-        if(ev.key!=='Delete' && ev.key!=='Backspace') return;
-        const t=ev.target;
-        if(t && (t.tagName==='INPUT'||t.tagName==='SELECT'||t.tagName==='TEXTAREA'||t.isContentEditable)) return;
-        const activo=objetoActivo();
-        if(activo && !activo.isEditing){ ev.preventDefault(); quitarObjeto(activo); }
+        if((ev.key==='Delete'||ev.key==='Backspace') && selected){
+          const t=ev.target;
+          if(t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA')) return;
+          ev.preventDefault(); quitarSeleccionado();
+        }
       });
 
-      function exportar(){
-        if(!canvas) throw new Error('El lienzo no está listo.');
-        canvas.discardActiveObject();
-        limpiarPreview();
-        canvas.requestRenderAll();
-        const json=canvas.toJSON(JSON_PROPS);
-        let imagen='';
-        try{ imagen=canvas.toDataURL({ format:'png', multiplier:1, enableRetinaScaling:false }); }
-        catch(_){ imagen=canvas.toDataURL('png'); }
-        if(imagen && imagen.length>1200000){
-          imagen=canvas.toDataURL({ format:'jpeg', quality:0.82, multiplier:1 });
-        }
-        canvas.requestRenderAll();
-        return { json:json, imagen:imagen };
+      function exportarJson(){
+        const med=medidasModelo();
+        return {
+          version:2,
+          engine:'qb-room-first',
+          scale:{ px_per_inch:1, wall_height_ft:WALL_H_FT },
+          rooms:med.rooms,
+          notes:model.notes,
+          marks:model.marks,
+          medidas:med,
+          totals:med.totals
+        };
+      }
+      function exportarImagen(){
+        const w=Math.max(320, svg.clientWidth||0);
+        const h=Math.max(320, svg.clientHeight||0);
+        const clone=svg.cloneNode(true);
+        clone.setAttribute('width', String(w));
+        clone.setAttribute('height', String(h));
+        clone.setAttribute('viewBox', '0 0 '+w+' '+h);
+        const xml=new XMLSerializer().serializeToString(clone);
+        const img=new Image();
+        const canvas=document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        const ctx=canvas.getContext('2d');
+        return new Promise(function(resolve){
+          img.onload=function(){
+            ctx.fillStyle='#eef2f6';
+            ctx.fillRect(0,0,w,h);
+            ctx.drawImage(img,0,0);
+            let out=canvas.toDataURL('image/png');
+            if(out.length>1200000) out=canvas.toDataURL('image/jpeg',0.82);
+            resolve(out);
+          };
+          img.onerror=function(){ resolve(''); };
+          img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(xml);
+        });
       }
       async function guardar(){
         if(guardando) return;
-        console.log('[QB Sketch] guardar', { id:DOC_ID, objetos:canvas.getObjects().length });
         if(INMUTABLE){ setStatus('Este documento no se puede editar.','err'); return; }
-        if(!DOC_ID){ setStatus('Falta el documento para guardar el plano.','err'); return; }
+        if(!DOC_ID){ setStatus('Falta el documento.','err'); return; }
         guardando=true;
         try{
           if(saveBtn) saveBtn.disabled=true;
-          setStatus('Guardando plano...');
-          const payload=exportar();
+          setStatus('Guardando plano y medidas...');
+          const json=exportarJson();
+          const imagen=await exportarImagen();
           const res=await fetch('/api/proyecto/'+encodeURIComponent(DOC_ID)+'/sketch',{
-            method:'POST', credentials:'same-origin', headers:headersAuth(), body:JSON.stringify(payload)
+            method:'POST', credentials:'same-origin', headers:headersAuth(),
+            body:JSON.stringify({ json:json, imagen:imagen, aplicar_medidas:true })
           });
-          const json=await res.json().catch(function(){ return {}; });
-          if(!res.ok) throw new Error(json.error||'No se pudo guardar el plano.');
-          setStatus('Plano guardado. Aparecerá en el PDF.','ok');
+          const body=await res.json().catch(function(){ return {}; });
+          if(!res.ok) throw new Error(body.error||'No se pudo guardar el plano.');
+          const n=(body.medidas&&body.medidas.rooms||json.rooms||[]).length;
+          setStatus('Plano guardado. '+n+' espacio(s) listos para el estimado.','ok');
         }catch(err){
-          console.log('[QB Sketch] error guardar', err);
           setStatus(err.message||'No se pudo guardar el plano.','err');
         }finally{
           guardando=false;
@@ -1235,30 +938,41 @@
       function cargarInicial(){
         let bruto=null;
         try{ bruto=JSON.parse(document.getElementById('plano-inicial').textContent||'null'); }catch(_){ bruto=null; }
-        if(!bruto) return;
-        canvas.loadFromJSON(bruto, function(){
-          canvas.getObjects().forEach(function(obj){
-            obj.objectCaching=false;
-            obj.setCoords();
-            if(obj.qbTipo==='wall' && obj.type==='line') asegurarIdMuro(obj);
+        if(!bruto || typeof bruto!=='object' || Array.isArray(bruto)) return;
+        if(bruto.engine!=='qb-room-first' && Array.isArray(bruto.objects)){
+          setStatus('El plano anterior era de líneas. Trázalo de nuevo como espacios.');
+          return;
+        }
+        const rooms=bruto.rooms||[];
+        rooms.forEach(function(r){
+          if(!r || !Array.isArray(r.points) || r.points.length<3) return;
+          model.rooms.push({
+            id:r.id||uid('r'),
+            name:r.name||r.room_name||('Espacio '+(model.rooms.length+1)),
+            points:r.points.map(function(p){ return {x:Number(p.x)||0, y:Number(p.y)||0}; }),
+            openings:(r.openings||[]).map(function(op){
+              return { id:op.id||uid('o'), tipo:op.tipo, wall:op.wall_index!=null?op.wall_index:op.wall, t:Number(op.t)||0.5, width:op.width_in||op.width, height:op.height_in||op.height };
+            })
           });
-          aplicarTool('select');
-          canvas.requestRenderAll();
         });
+        model.notes=Array.isArray(bruto.notes)?bruto.notes:[];
+        model.marks=Array.isArray(bruto.marks)?bruto.marks:[];
       }
-      function arrancarLienzo(){
-        sizeCanvas();
-        cargarInicial();
-        aplicarTool('select');
-        canvas.calcOffset();
-        window.qbSketchCanvas=canvas;
-        console.log('[QB Sketch] listo', canvas.getWidth(), canvas.getHeight());
-      }
-      requestAnimationFrame(function(){ requestAnimationFrame(arrancarLienzo); });
-      window.addEventListener('resize', sizeCanvas);
-      if(window.ResizeObserver && board){
-        new ResizeObserver(function(){ sizeCanvas(); }).observe(board);
-      }
+
+      cargarInicial();
+      aplicarTool('select');
+      pintar();
+      window.addEventListener('resize', pintar);
+      window.qbSketchModelo=function(){ return exportarJson(); };
+      window.qbSketchCrearEspacio=function(pts, nombre){
+        const room=nuevaHabitacion((pts||[]).map(function(p){ return {x:p.x,y:p.y}; }), nombre);
+        pintar(); refrescarInspector();
+        return medidasHabitacion(room);
+      };
+      window.qbSketchColocarVano=function(tipo, x, y){
+        colocarVano(tipo, {x:x, y:y});
+        return exportarJson();
+      };
     })();
   </script>
   {% include "base.html" %}
