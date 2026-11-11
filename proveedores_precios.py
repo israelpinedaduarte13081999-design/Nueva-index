@@ -70,6 +70,11 @@ def clave_consulta(texto):
     return re.sub(r"\s+", " ", str(texto or "").strip().lower())[:90]
 
 
+def like_seguro(texto):
+    limpio = re.sub(r"[%_*,()\"'\\]", " ", str(texto or ""))
+    return re.sub(r"\s+", " ", limpio).strip()[:80]
+
+
 def clave_lock(proveedor, zip5, terminos):
     cuerpo = "|".join([str(proveedor or "").lower(), zip5, *sorted(clave_consulta(t) for t in terminos if t)])
     return hashlib.sha256(cuerpo.encode("utf-8")).hexdigest()[:48]
@@ -160,6 +165,69 @@ class TiendaPrecios:
     def ultimo(self, proveedor, zip5, consulta="", producto_id=""):
         filas = self.buscar(proveedor, zip5, consulta, producto_id)
         return filas[0] if filas else None
+
+    def buscar_texto(self, proveedor, q, zip5="", limite=12):
+        if not self._ok():
+            return []
+        patron = like_seguro(q)
+        if len(patron) < 3:
+            return []
+        like = f"%{patron}%"
+        tope = max(1, min(int(limite or 12), 24))
+        filtro = f"nombre.ilike.{like},consulta_clave.ilike.{like},producto_id.ilike.{like}"
+
+        def _leer(con_zip=False):
+            consulta = (
+                self.client.table(TABLA_PRECIOS)
+                .select("*")
+                .eq("proveedor", proveedor)
+                .or_(filtro)
+            )
+            if con_zip and zip5:
+                consulta = consulta.eq("zip_code", zip5)
+            data = consulta.order("last_updated", desc=True).limit(tope).execute().data or []
+            return [row for row in data if isinstance(row, dict)]
+
+        try:
+            if zip5:
+                hits = _leer(True)
+                if hits:
+                    return hits
+            return _leer(False)
+        except Exception as err:
+            if not self._fallo_esquema(err):
+                print(f"--> proveedor precios buscar texto: {err}")
+            return []
+
+    def listar_materiales(self, proveedor, page_size=400):
+        if not self._ok():
+            return []
+        filas = []
+        offset = 0
+        tope = max(50, min(int(page_size or 400), 800))
+        try:
+            while offset < 20000:
+                data = (
+                    self.client.table(TABLA_PRECIOS)
+                    .select(
+                        "id,proveedor,producto_id,product_url,consulta_clave,nombre,"
+                        "zip_code,tienda_id,unidad_normalizada,unidad_original,presentacion,"
+                        "precio_normalizado,precio_original,last_updated"
+                    )
+                    .eq("proveedor", proveedor)
+                    .range(offset, offset + tope - 1)
+                    .execute()
+                    .data
+                    or []
+                )
+                filas.extend(row for row in data if isinstance(row, dict))
+                if len(data) < tope:
+                    break
+                offset += tope
+        except Exception as err:
+            if not self._fallo_esquema(err):
+                print(f"--> proveedor precios listar: {err}")
+        return filas
 
     def imagen_producto(self, proveedor, producto_id):
         if not self._ok() or not producto_id:

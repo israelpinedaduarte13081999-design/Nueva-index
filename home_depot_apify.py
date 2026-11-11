@@ -14,6 +14,8 @@ ACTOR_DEFAULT = "1mp/home-depot-prices"
 DIAS_FRESCURA = 15
 LIMITE_SKUS = 4
 TIMEOUT_APIFY = 90
+TIMEOUT_LOTE = 120
+LOTE_PRODUCTOS = 20
 MAX_RESULTADOS = 5
 
 _LABOR = re.compile(
@@ -198,10 +200,24 @@ def url_producto_home_depot(item):
         url = sanitizar_url(item.get(key), imagen=False)
         if url:
             return url
-    pid = str(item.get("productId") or item.get("parentId") or "").strip()
-    if pid.isdigit():
+    pid = extraer_id_producto(item.get("productId") or item.get("parentId") or "")
+    if pid:
         return "https://www.homedepot.com/p/" + pid
     return ""
+
+
+def extraer_id_producto(valor):
+    texto = str(valor or "").strip()
+    if re.fullmatch(r"\d{6,}", texto):
+        return texto
+    m = re.search(r"homedepot\.com/p/[^/?#]+/(\d{6,})", texto, re.I)
+    if m:
+        return m.group(1)
+    m = re.search(r"/p/[^/?#]+/(\d{6,})", texto, re.I)
+    if m:
+        return m.group(1)
+    m = re.search(r"(?:productId|itemId)=(\d{6,})", texto, re.I)
+    return m.group(1) if m else ""
 
 
 def descripcion_material(row):
@@ -623,40 +639,24 @@ def _actor_path(actor):
     return str(actor or ACTOR_DEFAULT).strip().replace("/", "~")
 
 
-def scrapear_home_depot(terminos, zip_code):
-    busquedas = []
-    vistos = set()
-    for termino in terminos or []:
-        texto = str(termino or "").strip()
-        clave = texto.lower()
-        if not texto or clave in vistos:
-            continue
-        vistos.add(clave)
-        busquedas.append(texto)
-    if not busquedas:
-        return []
-    zip5 = zip_consulta(zip_code)
-    if len(zip5) != 5:
-        raise RuntimeError("Falta el ZIP del contratista para consultar la tienda de Home Depot")
+def _llamar_actor(cuerpo, zip5, etiqueta="", timeout=TIMEOUT_APIFY):
     token = token_apify()
     if not token:
         print("--> apify home-depot: sin APIFY_API_TOKEN en el entorno")
         raise RuntimeError("Falta APIFY_API_TOKEN en .env")
-    cuerpo = {
-        "searchTerms": busquedas,
-        "zipCode": zip5,
-        "maxResults": MAX_RESULTADOS,
-        "inStockOnly": False,
-    }
+    zip5 = zip_consulta(zip5)
+    if len(zip5) != 5:
+        raise RuntimeError("Falta el ZIP del contratista para consultar la tienda de Home Depot")
+    timeout = int(timeout or TIMEOUT_APIFY)
     url = (
         "https://api.apify.com/v2/acts/"
         + _actor_path(actor_home_depot())
         + "/run-sync-get-dataset-items?timeout="
-        + str(TIMEOUT_APIFY)
+        + str(timeout)
     )
     print(
         f"--> apify home-depot: llamando actor={actor_home_depot()} "
-        f"zip={zip5} terminos={busquedas} token=si"
+        f"zip={zip5} modo={etiqueta or 'search'} token=si"
     )
     req = urllib.request.Request(
         url,
@@ -670,7 +670,7 @@ def scrapear_home_depot(terminos, zip_code):
     )
     ctx = ssl._create_unverified_context()
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT_APIFY + 15, context=ctx) as resp:
+        with urllib.request.urlopen(req, timeout=timeout + 20, context=ctx) as resp:
             data = json.loads(resp.read().decode("utf-8") or "[]")
             status = getattr(resp, "status", 200)
     except urllib.error.HTTPError as err:
@@ -687,10 +687,64 @@ def scrapear_home_depot(terminos, zip_code):
             con_foto += 1
     filtrados = [item for item in productos if verificar_tienda(item, zip5)] if productos else []
     print(
-        f"--> apify home-depot: ok status={status} zip={zip5} "
+        f"--> apify home-depot: ok status={status} zip={zip5} modo={etiqueta or 'search'} "
         f"recibidos={len(productos)} con_foto={con_foto} tienda_ok={len(filtrados)}"
     )
     return filtrados
+
+
+def scrapear_home_depot(terminos, zip_code):
+    busquedas = []
+    vistos = set()
+    for termino in terminos or []:
+        texto = str(termino or "").strip()
+        clave = texto.lower()
+        if not texto or clave in vistos:
+            continue
+        vistos.add(clave)
+        busquedas.append(texto)
+    if not busquedas:
+        return []
+    zip5 = zip_consulta(zip_code)
+    cuerpo = {
+        "searchTerms": busquedas,
+        "zipCode": zip5,
+        "maxResults": MAX_RESULTADOS,
+        "inStockOnly": False,
+    }
+    return _llamar_actor(cuerpo, zip5, "search", TIMEOUT_APIFY)
+
+
+def scrapear_ids_home_depot(product_ids, zip_code, start_urls=None):
+    ids = []
+    vistos = set()
+    for raw in product_ids or []:
+        pid = extraer_id_producto(raw)
+        if not pid or pid in vistos:
+            continue
+        vistos.add(pid)
+        ids.append(pid)
+    urls = []
+    for raw in start_urls or []:
+        url = sanitizar_url(raw, imagen=False)
+        if not url or "homedepot.com" not in url.lower():
+            continue
+        if url in urls:
+            continue
+        urls.append(url)
+        pid = extraer_id_producto(url)
+        if pid and pid not in vistos:
+            vistos.add(pid)
+            ids.append(pid)
+    if not ids and not urls:
+        return []
+    zip5 = zip_consulta(zip_code)
+    cuerpo = {"zipCode": zip5, "inStockOnly": False}
+    if ids:
+        cuerpo["productIds"] = ids
+    elif urls:
+        cuerpo["startUrls"] = urls
+    return _llamar_actor(cuerpo, zip5, "ids", TIMEOUT_LOTE)
 
 
 try:

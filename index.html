@@ -642,6 +642,9 @@
     .task-dropdown-item .item-meta { font-size:11px; color:#627d98; background:#e2e8f0; padding:2px 6px; border-radius:4px; margin-left:auto; white-space:nowrap; flex:0 0 auto; }
     .task-dropdown-item.is-pick { padding-left:22px; background:#f8fafc; }
     .task-dropdown-item.is-pick .task-dropdown-label { font-size:12px; color:#334155; }
+    .task-dropdown-live { display:flex; align-items:center; gap:10px; text-transform:none; letter-spacing:0; font-weight:600; }
+    .task-dropdown-spinner { width:16px; height:16px; border-radius:50%; border:2px solid #dbe3ee; border-top-color:#c2410c; animation:catalog-live-spin .7s linear infinite; flex:0 0 16px; }
+    @keyframes catalog-live-spin { to { transform:rotate(360deg); } }
     @media (max-width:720px) {
       .task-dropdown-item { padding:8px 8px; gap:8px; font-size:12px; }
       .task-dropdown-thumb { flex-basis:40px; width:40px; height:40px; }
@@ -4675,51 +4678,73 @@
       const zip5=String(zip||zipConsultaContratista()||'').replace(/\D/g,'').slice(0,5);
       return base+'/api/catalogo/home-depot?q='+encodeURIComponent(q||'')+'&zip='+encodeURIComponent(zip5);
     }
-    function refrescarSugerenciasHomeDepot(input, texto, zip, seq){
-      if(!puedeCatalogo())return;
-      if((texto||'').trim().length<3)return;
+    function pintarCargaCatalogoVivo(input, mensaje){
+      const menu=menuSugerenciasCatalogo();
+      menu.innerHTML='';
+      const fila=document.createElement('div');
+      fila.className='task-dropdown-group task-dropdown-live';
+      const spin=document.createElement('span');
+      spin.className='task-dropdown-spinner';
+      spin.setAttribute('aria-hidden','true');
+      const txt=document.createElement('span');
+      txt.textContent=mensaje||'Buscando en catálogo en vivo…';
+      fila.appendChild(spin);
+      fila.appendChild(txt);
+      menu.appendChild(fila);
+      posicionarMenuTareas(input,menu);
+    }
+    async function buscarCatalogoVivoHomeDepot(input, texto, zip, seq){
+      if(!puedeCatalogo())return [];
+      if((texto||'').trim().length<3){
+        pintarSugerenciasCatalogo(input, []);
+        return [];
+      }
       const zip5=String(zip||zipConsultaContratista()||'').replace(/\D/g,'').slice(0,5);
-      if(zip5.length!==5)return;
+      pintarCargaCatalogoVivo(input);
+      if(zip5.length!==5){
+        const menu=menuSugerenciasCatalogo();
+        menu.innerHTML='';
+        const empty=document.createElement('div');
+        empty.className='task-dropdown-group';
+        empty.textContent='Enter the job ZIP to search the live Home Depot catalog.';
+        menu.appendChild(empty);
+        posicionarMenuTareas(input,menu);
+        return [];
+      }
       const ctrl=new AbortController();
       const corte=setTimeout(()=>ctrl.abort(),95000);
-      fetch(urlApiHomeDepot(texto,zip5),{signal:ctrl.signal,headers:headersContratista(),credentials:'same-origin'})
-        .then(res=>res.json().catch(()=>({})))
-        .then(data=>{
-          if(seq!==buscarYMostrarCatalogo._seq||buscarYMostrarCatalogo._input!==input)return;
-          const hd=extraerItemsBusquedaCatalogo(data);
-          if(!hd.length)return;
-          const extras=buscarYMostrarCatalogo._ultimos||[];
-          const porCodigo=new Map();
-          extras.forEach(item=>porCodigo.set(String(item.codigo||item.code||'').toUpperCase(),item));
-          hd.forEach(item=>{
-            const clave=String(item.codigo||item.code||'').toUpperCase();
-            const actual=porCodigo.get(clave);
-            if(!actual){
-              porCodigo.set(clave,item);
-              return;
-            }
-            if(item.image_url||item.imageUrl){
-              actual.image_url=item.image_url||item.imageUrl;
-              actual.imageUrl=actual.image_url;
-            }
-            if(item.product_url||item.productUrl)actual.product_url=item.product_url||item.productUrl;
-            if(item.proveedor)actual.proveedor=item.proveedor;
-            if(item.last_updated)actual.last_updated=item.last_updated;
-            if(Number(item.precio_material||item.priceMaterial||0)>0){
-              actual.precio_material=item.precio_material||item.priceMaterial;
-              actual.priceMaterial=actual.precio_material;
-            }
-            actual.candidatos=item.candidatos||actual.candidatos||[];
-            actual.match_status=item.match_status||actual.match_status||'';
-            actual.consulta_material=item.consulta_material||actual.consulta_material||'';
-          });
-          const hdCodigos=new Set(hd.map(item=>String(item.codigo||item.code||'').toUpperCase()));
-          const resto=extras.filter(item=>!hdCodigos.has(String(item.codigo||item.code||'').toUpperCase()));
-          buscarYMostrarCatalogo._ultimos=hd.concat(resto);
-          pintarSugerenciasCatalogo(input, buscarYMostrarCatalogo._ultimos);
-        })
-        .catch(()=>{})
-        .finally(()=>clearTimeout(corte));
+      try{
+        const res=await fetch(urlApiHomeDepot(texto,zip5),{signal:ctrl.signal,headers:headersContratista(),credentials:'same-origin'});
+        const data=await res.json().catch(()=>({}));
+        if(seq!==buscarYMostrarCatalogo._seq||buscarYMostrarCatalogo._input!==input)return [];
+        const hd=extraerItemsBusquedaCatalogo(data);
+        if(hd.length){
+          buscarYMostrarCatalogo._ultimoTexto=texto;
+          buscarYMostrarCatalogo._ultimos=hd;
+          pintarSugerenciasCatalogo(input, hd);
+          return hd;
+        }
+        const menu=menuSugerenciasCatalogo();
+        menu.innerHTML='';
+        const empty=document.createElement('div');
+        empty.className='task-dropdown-group';
+        empty.textContent=String(data.error||'No catalog matches found');
+        menu.appendChild(empty);
+        posicionarMenuTareas(input,menu);
+        return [];
+      }catch(err){
+        if(seq!==buscarYMostrarCatalogo._seq||buscarYMostrarCatalogo._input!==input)return [];
+        const menu=menuSugerenciasCatalogo();
+        menu.innerHTML='';
+        const empty=document.createElement('div');
+        empty.className='task-dropdown-group';
+        empty.textContent=(err&&err.name==='AbortError')?'Live catalog search timed out. Try again.':'Could not reach the live catalog.';
+        menu.appendChild(empty);
+        posicionarMenuTareas(input,menu);
+        return [];
+      }finally{
+        clearTimeout(corte);
+      }
     }
     function extraerItemsBusquedaCatalogo(data){
       if(Array.isArray(data))return data;
@@ -5176,8 +5201,8 @@
       if(resultados.length){
         buscarYMostrarCatalogo._ultimoTexto=texto;
         buscarYMostrarCatalogo._ultimos=resultados;
-      }
-      if(errorMsg&&!resultados.length){
+        pintarSugerenciasCatalogo(input, resultados);
+      }else if(errorMsg){
         const menuErr=menuSugerenciasCatalogo();
         menuErr.innerHTML='';
         const empty=document.createElement('div');
@@ -5186,8 +5211,8 @@
         menuErr.appendChild(empty);
         posicionarMenuTareas(input,menuErr);
       }else{
-        pintarSugerenciasCatalogo(input, resultados);
-        refrescarSugerenciasHomeDepot(input, texto, zipActivo, seq);
+        resultados=await buscarCatalogoVivoHomeDepot(input, texto, zipActivo, seq);
+        if(seq!==buscarYMostrarCatalogo._seq||buscarYMostrarCatalogo._input!==input)return;
       }
       clearTimeout(buscarYMostrarCatalogo._faltanteTimer);
       if(!resultados.length && !errorMsg && texto.length>=5){
