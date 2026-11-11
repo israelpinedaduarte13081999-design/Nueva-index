@@ -10314,6 +10314,14 @@
         // Sin if (value): '' también actualiza banner/estado.
         syncCompanyName();
       });
+      companyField.addEventListener('keydown',event=>{
+        if(event.key!=='Enter') return;
+        // Evita submit/recarga accidental; no limpia companyName.
+        event.preventDefault();
+        event.stopPropagation();
+        syncCompanyName();
+        event.target.blur(); // dispara onBlur → guardado en Supabase
+      });
       companyField.addEventListener('blur',()=>{
         const crudo=companyNameActual().trim();
         // Vacío permitido: no rellenar el input; solo proteger el banner.
