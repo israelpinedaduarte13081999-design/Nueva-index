@@ -374,6 +374,7 @@
           width_in:box.h,
           length_ft:box.w/12,
           width_ft:box.h/12,
+          level:room.level||'Main level',
           area_sqft:round2(floor),
           floor_sf:round2(floor),
           ceiling_sf:round2(floor),
@@ -547,7 +548,7 @@
         return inPoly;
       }
       function nuevaHabitacion(pts, nombre){
-        const room={ id:uid('r'), name:nombre||('Espacio '+ (model.rooms.length+1)), points:pts, openings:[] };
+        const room={ id:uid('r'), name:nombre||('Espacio '+ (model.rooms.length+1)), points:pts, openings:[], level:'Main level' };
         model.rooms.push(room);
         selected={ room:room };
         return room;
@@ -949,6 +950,7 @@
           model.rooms.push({
             id:r.id||uid('r'),
             name:r.name||r.room_name||('Espacio '+(model.rooms.length+1)),
+            level:r.level||r.nivel||'Main level',
             points:r.points.map(function(p){ return {x:Number(p.x)||0, y:Number(p.y)||0}; }),
             openings:(r.openings||[]).map(function(op){
               return { id:op.id||uid('o'), tipo:op.tipo, wall:op.wall_index!=null?op.wall_index:op.wall, t:Number(op.t)||0.5, width:op.width_in||op.width, height:op.height_in||op.height };

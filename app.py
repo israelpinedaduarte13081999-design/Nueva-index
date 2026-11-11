@@ -281,6 +281,8 @@ def _exigir_login_panel():
     if request.method not in ("GET", "HEAD"):
         return None
     path = request.path.rstrip("/") or "/"
+    if path.startswith("/aceptar/"):
+        return None
     protegidas = _RUTAS_PLANES | _RUTAS_PAGO | _RUTAS_PAYWALL | _RUTAS_PANEL
     if path not in protegidas and not path.startswith("/proyecto/"):
         return None
@@ -5932,6 +5934,7 @@ def _medidas_desde_plano_json(plano_json):
         out.append({
             "id": str(room.get("id") or ""),
             "room_name": str(room.get("room_name") or room.get("name") or "Room").strip() or "Room",
+            "level": str(room.get("level") or room.get("nivel") or room.get("level_name") or "Main level").strip() or "Main level",
             "floor_sf": floor,
             "ceiling_sf": _num_medida(room.get("ceiling_sf") or floor),
             "wall_sf": wall_net,
@@ -5981,6 +5984,8 @@ def _area_desde_habitacion_plano(room):
         "reference": "From floor plan",
         "qbDesdePlano": True,
         "qbHabitacionId": str((room or {}).get("id") or nombre),
+        "roomId": str((room or {}).get("id") or nombre),
+        "level": str((room or {}).get("level") or "Main level"),
         "rows": [
             _fila_medida_plano(nombre + " — Floor", room.get("floor_sf"), "SF", "floor_sf"),
             _fila_medida_plano(nombre + " — Ceiling", room.get("ceiling_sf"), "SF", "ceiling_sf"),
@@ -6189,10 +6194,10 @@ def _ip_solicitud():
 
 
 def _firma_base64_valida(valor):
-    texto = str(valor or "").strip()
+    texto = re.sub(r"\s+", "", str(valor or "").strip())
     if not _RE_FIRMA_PNG.match(texto):
         return ""
-    if len(texto) < 800 or len(texto) > 400000:
+    if len(texto) < 400 or len(texto) > 1_200_000:
         return ""
     try:
         raw = base64.b64decode(texto.split(",", 1)[1], validate=False)
@@ -13289,7 +13294,33 @@ def _enlace_aceptacion_documento(contratista, doc_id, tipo):
     return url
 
 
-def _notificar_aceptacion_contratista(datos):
+def _fila_historial_por_id(doc_id):
+    ident = str(doc_id or "").strip()
+    if not _es_uuid(ident):
+        return None
+    sb = _supabase_client()
+    if sb is None:
+        return None
+    res = (
+        sb.table(TABLA_HISTORIAL)
+        .select("*")
+        .eq("id", ident)
+        .limit(1)
+        .execute()
+    )
+    rows = list(res.data or [])
+    return rows[0] if rows else None
+
+
+def _pdf_contrato_firmado(datos):
+    fila = _fila_historial_por_id((datos or {}).get("id"))
+    if not fila:
+        return None
+    html = _html_documento_pdf(fila)
+    return _html_a_pdf(html)
+
+
+def _notificar_aceptacion_contratista(datos, pdf_bytes=None):
     destino = str((datos or {}).get("contratista_email") or "").strip()
     if not _correo_valido(destino):
         raise RuntimeError("The contractor does not have a valid email in the database.")
@@ -13315,14 +13346,27 @@ def _notificar_aceptacion_contratista(datos):
         "</body></html>"
     )
     reply_cliente = (datos or {}).get("cliente_email")
-    _enviar_correo_html(
-        destino,
-        asunto,
-        html_body,
-        texto,
-        sender_name=empresa,
-        reply_to=reply_cliente,
-    )
+    filename = _nombre_pdf_adjunto("contract", (datos or {}).get("folio"))
+    if pdf_bytes:
+        _enviar_correo_pdf(
+            destino,
+            asunto,
+            html_body,
+            pdf_bytes,
+            filename,
+            sender_name=empresa,
+            reply_to=reply_cliente,
+            texto=texto,
+        )
+    else:
+        _enviar_correo_html(
+            destino,
+            asunto,
+            html_body,
+            texto,
+            sender_name=empresa,
+            reply_to=reply_cliente,
+        )
     return destino
 
 
@@ -13539,8 +13583,13 @@ def aceptar_contrato_publico(token_aceptacion):
     if not datos:
         return _respuesta_pagina_firma(None, "Contract not found", "This link does not match a pending contract.", status=404, as_json=quiere_json)
     if not datos.get("already"):
+        pdf_bytes = None
         try:
-            _notificar_aceptacion_contratista(datos)
+            pdf_bytes = _pdf_contrato_firmado(datos)
+        except Exception as err:
+            print(f"--> pdf firma remoto: {type(err).__name__}")
+        try:
+            _notificar_aceptacion_contratista(datos, pdf_bytes=pdf_bytes)
         except Exception as err:
             print(f"--> notificar firma: {err}")
     return _respuesta_pagina_firma(datos, "Contract signed", "Thank you. The contractor has been notified.", boton=False, as_json=quiere_json)

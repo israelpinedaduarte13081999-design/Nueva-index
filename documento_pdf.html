@@ -144,8 +144,8 @@
     {% endif %}
   </div>
 
-  {% if d.firma_contratista or d.firma_cliente %}
-  <table class="firmas">
+  {% if d.tipo == "contract" or d.firma_contratista or d.firma_cliente %}
+  <table class="firmas pie-firmas">
     <tr>
       <td>
         <span class="label">Contractor signature</span>

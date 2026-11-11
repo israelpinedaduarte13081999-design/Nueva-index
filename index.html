@@ -489,6 +489,58 @@
     .brand-folio input:hover,.brand-folio input:focus { background:#fff; color:var(--navy); }
     .section-title { display:flex; align-items:center; gap:8px; margin:22px 0 8px; color:var(--navy); font-size:15px; text-transform:uppercase; }
     .section-title::before { content:""; width:5px; height:22px; background:var(--gold); }
+    .items-split { display:flex; align-items:stretch; min-height:560px; margin:12px -42px 18px; border:1px solid #e5e7eb; border-left:0; border-right:0; background:#fff; }
+    .items-split-nav { width:25%; min-width:220px; max-width:340px; background:#f9fafb; border-right:1px solid #e5e7eb; display:flex; flex-direction:column; }
+    .items-split-nav-head { padding:18px 16px 12px; border-bottom:1px solid #eef2f6; }
+    .items-split-nav-head h3 { margin:0; color:#0f172a; font-size:13px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
+    .items-split-nav-head p { margin:4px 0 0; color:#64748b; font-size:12px; font-weight:600; }
+    .items-room-tree { flex:1; overflow:auto; padding:8px 8px 16px; }
+    .items-tree-all, .items-tree-level, .items-tree-room { width:100%; border:0; background:transparent; text-align:left; cursor:pointer; font:inherit; color:#0f172a; }
+    .items-tree-all { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 0 6px; padding:9px 10px; border-radius:10px; color:#334155; font-size:12px; font-weight:700; }
+    .items-tree-all:hover, .items-tree-room:hover { background:#eef2f7; }
+    .items-tree-all.is-active { background:#e0edf8; color:#19385f; box-shadow:inset 3px 0 0 #2d70ad; }
+    .items-tree-level { display:flex; align-items:center; gap:8px; padding:8px 8px; border-radius:8px; color:#475569; font-size:12px; font-weight:800; letter-spacing:.02em; }
+    .items-tree-level:hover { background:#eef2f7; }
+    .items-tree-chevron { display:inline-flex; width:16px; height:16px; color:#64748b; transition:transform .16s ease; flex:0 0 auto; }
+    .items-tree-level.is-collapsed .items-tree-chevron { transform:rotate(-90deg); }
+    .items-tree-group { margin:2px 0 10px; }
+    .items-tree-children { display:flex; flex-direction:column; gap:2px; padding:0 0 0 8px; }
+    .items-tree-group.is-collapsed .items-tree-children { display:none; }
+    .items-tree-room { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; padding:9px 10px 9px 14px; border-radius:10px; }
+    .items-tree-room.is-active { background:#e0edf8; box-shadow:inset 3px 0 0 #2d70ad; }
+    .items-tree-room-name { display:block; font-size:13px; font-weight:700; color:#0f172a; }
+    .items-tree-room-meta { display:block; margin-top:2px; color:#64748b; font-size:11px; font-weight:600; }
+    .items-tree-room-qty { color:#19385f; font-size:11px; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap; padding-top:2px; }
+    .items-tree-empty { margin:16px 8px; padding:16px; border:1px dashed #cbd5e1; border-radius:12px; background:#fff; color:#64748b; font-size:12px; line-height:1.45; }
+    .items-tree-empty strong { display:block; margin-bottom:4px; color:#0f172a; }
+    .items-split-nav-foot { padding:12px 12px 14px; border-top:1px solid #eef2f6; }
+    .items-split-nav-foot .btn { width:100%; border-radius:8px; }
+    .items-split-work { flex:1; min-width:0; width:75%; display:flex; flex-direction:column; gap:14px; padding:16px 18px 18px; background:#f8fafc; }
+    .items-catalog-card, .items-table-card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; box-shadow:0 8px 24px rgba(15,23,42,.04); }
+    .items-catalog-card { padding:14px 16px 12px; }
+    .items-catalog-label { display:block; margin:0 0 8px; color:#19385f; font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+    .items-catalog-search-wrap { position:relative; }
+    .items-catalog-search-wrap svg { position:absolute; left:12px; top:50%; width:18px; height:18px; transform:translateY(-50%); color:#64748b; pointer-events:none; }
+    #items-catalog-search { width:100%; padding:12px 14px 12px 40px; border:1px solid #d7e0e8; border-radius:10px; background:#fff; color:#0f172a; font-size:14px; font-weight:600; }
+    #items-catalog-search:focus { outline:0; border-color:#2d70ad; box-shadow:0 0 0 3px rgba(45,112,173,.16); }
+    .items-formula-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; min-height:28px; }
+    .items-formula-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border-radius:999px; background:#f1f5f9; color:#334155; font-size:11px; font-weight:700; }
+    .items-formula-chip strong { color:#19385f; font-variant-numeric:tabular-nums; }
+    .items-formula-chip.is-used { background:#e0edf8; color:#19385f; box-shadow:inset 0 0 0 1px #bfd4e8; }
+    .items-formula-hint { margin:8px 2px 0; color:#64748b; font-size:12px; font-weight:600; }
+    .items-formula-hint.is-warn { color:#9a3412; }
+    .items-table-card { padding:6px 10px 14px; min-height:280px; }
+    .items-table-card #areas { margin:0; }
+    .items-table-card .area { margin-top:12px; border:1px solid #e8eef4; border-radius:12px; overflow:hidden; }
+    .items-table-card .area:first-child { margin-top:8px; }
+    .items-split #areas .area.is-room-hidden { display:none; }
+    .items-room-empty { margin:28px 12px; padding:28px 20px; border:1px dashed #d7e0e8; border-radius:12px; color:#64748b; text-align:center; font-size:13px; font-weight:600; line-height:1.5; }
+    .items-room-empty[hidden] { display:none !important; }
+    @media (max-width:900px){
+      .items-split { flex-direction:column; margin:12px 0 18px; border:1px solid #e5e7eb; border-radius:14px; }
+      .items-split-nav { width:100%; max-width:none; min-width:0; border-right:0; border-bottom:1px solid #e5e7eb; max-height:280px; }
+      .items-split-work { width:100%; }
+    }
     .tech-grid { display:grid; grid-template-columns:minmax(280px,1.15fr) minmax(240px,1fr); gap:24px; margin-bottom:10px; align-items:stretch; }
     .solo-interno { display:block; }
     .tech-card { border:1px solid var(--line); border-radius:5px; background:#fbfcfd; padding:16px 18px; min-height:100%; overflow:visible; min-width:0; }
@@ -659,7 +711,8 @@
     .signature-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
     .signature-box-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
     .signature-box-head h3 { margin:0; color:var(--muted); font-size:11px; text-transform:uppercase; }
-    .signature-canvas { display:block; width:100%; height:140px; border:1px dashed #94a3b8; border-radius:6px; background:#fff; touch-action:none; cursor:crosshair; }
+    html.firma-activa, body.firma-activa { overflow:hidden; touch-action:none; overscroll-behavior:none; }
+    .signature-canvas { display:block; width:100%; height:140px; border:1px dashed #94a3b8; border-radius:6px; background:#fff; touch-action:none; cursor:crosshair; overscroll-behavior:none; -ms-touch-action:none; }
     .signature-clear { background:#fff; color:#334155; border:1px solid #cbd5e1; padding:4px 10px; border-radius:6px; font-size:.75rem; font-weight:700; }
     .signature-clear:hover { background:#f8fafc; border-color:#94a3b8; }
     .signature-mode-toggle { display:flex; gap:4px; margin-left:auto; }
@@ -895,6 +948,18 @@
         page-break-before: auto !important;
         break-before: auto !important;
       }
+      .items-split, .items-split-work, .items-table-card {
+        display:block !important;
+        width:100% !important;
+        margin:0 !important;
+        padding:0 !important;
+        border:0 !important;
+        background:transparent !important;
+        box-shadow:none !important;
+        min-height:0 !important;
+      }
+      .items-split-nav, .items-catalog-card, .items-room-empty, .items-split-nav-foot { display:none !important; }
+      .items-split #areas .area.is-room-hidden { display:block !important; }
       .tech-grid { grid-template-columns:1fr 1fr; gap:16px; break-inside:auto; page-break-inside:auto; }
       .tech-card { padding:10px 12px; background:#fff; min-height:0 !important; }
       .tech-card h3 { font-size:10pt; }
@@ -1027,6 +1092,23 @@
       page-break-before: auto !important;
       break-before: auto !important;
     }
+    html.print-document .items-split,
+    html.print-document .items-split-work,
+    html.print-document .items-table-card {
+      display:block !important;
+      width:100% !important;
+      margin:0 !important;
+      padding:0 !important;
+      border:0 !important;
+      background:transparent !important;
+      box-shadow:none !important;
+      min-height:0 !important;
+    }
+    html.print-document .items-split-nav,
+    html.print-document .items-catalog-card,
+    html.print-document .items-room-empty,
+    html.print-document .items-split-nav-foot { display:none !important; }
+    html.print-document .items-split #areas .area.is-room-hidden { display:block !important; }
     html.print-document textarea,
     html.print-document input {
       overflow: visible !important;
@@ -1997,7 +2079,33 @@
         <div id="plans-notes" class="plans-notes" hidden></div>
         <div id="plans-tables" hidden></div>
       </section>
-      <div id="areas" class="table-container"></div>
+      <div class="items-split" id="items-split">
+        <aside class="items-split-nav no-print" id="items-room-nav" aria-label="Rooms">
+          <div class="items-split-nav-head">
+            <h3>Rooms</h3>
+            <p id="items-room-nav-meta">From the floor plan</p>
+          </div>
+          <div class="items-room-tree" id="items-room-tree"></div>
+          <div class="items-split-nav-foot">
+            <button class="btn" type="button" id="items-open-sketch">Open floor plan</button>
+          </div>
+        </aside>
+        <div class="items-split-work">
+          <div class="items-catalog-card no-print feat-catalog">
+            <label class="items-catalog-label" for="items-catalog-search">Catalog</label>
+            <div class="items-catalog-search-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <input id="items-catalog-search" type="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search catalog (Paint, Drywall, Flooring…)" aria-label="Search catalog">
+            </div>
+            <div class="items-formula-row" id="items-formula-row"></div>
+            <p class="items-formula-hint" id="items-formula-hint">Select a room, then add a catalog item. Quantity comes from that room.</p>
+          </div>
+          <div class="items-table-card">
+            <div id="areas" class="table-container"></div>
+            <p class="items-room-empty" id="items-room-empty" hidden>This room has no line items yet. Search the catalog above to add one.</p>
+          </div>
+        </div>
+      </div>
       <section class="terms mode-block" id="legalTerms" hidden>
         <h3 id="termsHeading" data-i18n="terms">TERMS AND EXCLUSIONS</h3>
         <textarea id="terms">• Hidden damage, permits, and work outside this scope are quoted separately.
@@ -2294,6 +2402,12 @@
     <option value="Cambio de deck (precio cerrado)"></option>
     <option value="Paquete de reparación menor (precio cerrado / lump sum)"></option>
   </datalist>
+  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
+  <script>
+    if(typeof SignaturePad!=='function'){
+      document.write('<script src="{{ url_for("static", filename="signature_pad.umd.min.js") }}"><\/script>');
+    }
+  </script>
   <script>
     window.__NOMBRE_EMPRESA__=String(document.body?.getAttribute('data-nombre-empresa')||'').trim();
     const QB_TRADE_KEY='qb_preferred_trade';
@@ -4637,7 +4751,7 @@
       return 'descripcion';
     }
     function esCampoCatalogoVivo(el){
-      return !!(el&&el.matches&&el.matches('.fila-trabajo .item-desc, .fila-trabajo .description, .fila-trabajo .code, tr .item-desc, tr .description, tr .code'));
+      return !!(el&&el.matches&&el.matches('#items-catalog-search, .fila-trabajo .item-desc, .fila-trabajo .description, .fila-trabajo .code, tr .item-desc, tr .description, tr .code'));
     }
     function enriquecerItemSugerencia(item){
       if(!item)return null;
@@ -5092,6 +5206,10 @@
     function aplicarItemCatalogoTrabajos(inputElement, item){
       if(isLoadingEstimate)return;
       if(!item)return;
+      if(inputElement&&inputElement.id==='items-catalog-search'){
+        if(typeof agregarCatalogoAHabitacionActiva==='function')agregarCatalogoAHabitacionActiva(item);
+        return;
+      }
       const filaBloqueo=inputElement&&inputElement.closest?inputElement.closest('tr')||inputElement.closest('.fila-trabajo'):null;
       if(presupuestoAprobado()&&filaBloqueo&&filaPrecioFijo(filaBloqueo))return;
       item=enriquecerItemSugerencia(item)||item;
@@ -5329,7 +5447,367 @@
     });
 
     function addRow(area, data=['','',1,0,'SF',0]) { const fragment=rowTemplate.content.cloneNode(true); area.querySelector('tbody').appendChild(fragment); const row=area.querySelector('tbody').lastElementChild; row.querySelector('.code').value=data[0]; (row.querySelector('.item-desc')||row.querySelector('.description')).value=data[1]; row.querySelector('.input-cantidad').value=data[2]; row.querySelector('.price').value=data[3]; const unitValue=normalizarUnidad(data[4]||'SF'); row.querySelector('.select-unidad').value=['SQ','SF','LF','EA','HR','CY','LS','BAG','PC'].includes(unitValue)?unitValue:'SF'; const actionSelect=row.querySelector('.item-action'); const accionInicial=accionInicialItem(data[1],data[6]); if(actionSelect)actionSelect.value=accionInicial; if(row.querySelector('.select-alcance'))row.querySelector('.select-alcance').value=['full','labor','replace','demo'].includes(data[6])?data[6]:detectarAlcance(data[1]); row.querySelector('.tax').value=data[5]??0; if(data[1])row.dataset.nucleoDesc=nucleoDescripcion(data[1]); const descInput=row.querySelector('.item-desc')||row.querySelector('.description'); const codeInput=row.querySelector('.code'); habilitarSelectorRamas(descInput); habilitarSelectorRamas(codeInput); if(typeof autoAjustarAlturaDescripcion==='function')autoAjustarAlturaDescripcion(descInput); if(descInput&&descInput.tagName!=='TEXTAREA'){ descInput.addEventListener('mousedown',e=>{ if(e.button===0)descInput.dataset.clickX=String(e.clientX); }); descInput.addEventListener('mouseup',e=>{ if(e.button!==0||e.detail!==1)return; if(Math.abs(e.clientX-Number(descInput.dataset.clickX||e.clientX))>3)return; const val=descInput.value; if(!val||descInput.selectionStart!==0||descInput.selectionEnd!==val.length)return; colocarCursorEnClic(descInput,e.clientX); }); } const procesarCambioPartida=()=>{ if(descInput)preservarContextoMaterialEnEdicion(row,descInput.value); update(); }; ['input','change'].forEach(evt=>{ if(descInput)descInput.addEventListener(evt,procesarCambioPartida); if(codeInput)codeInput.addEventListener(evt,procesarCambioPartida); }); actionSelect?.addEventListener('change',()=>{ actualizarDescripcionPorAccion(row); if(typeof recalcularPrecioPorAccion==='function')recalcularPrecioPorAccion(row); else { aplicarPrecioAutomaticoFila(row,false); update(); } }); row.querySelector('.select-unidad')?.addEventListener('change',()=>{ row.dataset.unidadManual='1'; if(row.querySelector('.select-unidad').value==='LS')aplicarUnidadLS(row); if(!filaPrecioFijo(row))aplicarPrecioAutomaticoFila(row,false); update(); }); ['.input-cantidad','.quantity','.price','.tax'].forEach(sel=>{ row.querySelector(sel)?.addEventListener('input',()=>{ recalcularSubtotalFila(row); update(); }); }); row.querySelector('.remove-row').addEventListener('click',()=>{ row.remove(); update(); }); row.querySelector('.remove-row').title=translations[language].removeRow; row.querySelector('.remove-row').setAttribute('aria-label',translations[language].removeRow); if(typeof sincronizarBotonIaPrecio==='function')sincronizarBotonIaPrecio(row); if(typeof recalcularSubtotalFila==='function'){ const qty=Number(row.querySelector('.input-cantidad')?.value||row.querySelector('.quantity')?.value)||0; const unitPrice=Number(row.querySelector('.price')?.value||row.querySelector('.input-precio')?.value)||0; const celdaSubtotal=row.querySelector('.row-total')||row.querySelector('.span-subtotal')||row.querySelector('.input-subtotal'); if(celdaSubtotal){ if(celdaSubtotal.tagName==='INPUT')celdaSubtotal.value=(qty*unitPrice).toFixed(2); else celdaSubtotal.textContent='$'+(qty*unitPrice).toFixed(2); } recalcularSubtotalFila(row); } }
-    function addArea(data={title:'New area',titleEn:'New area',reference:'',rows:[['','',1,0,'unit']]}) { areaCount++; const fragment=areaTemplate.content.cloneNode(true); areas.appendChild(fragment); const area=areas.lastElementChild; area.dataset.titleEs=data.title; area.dataset.titleEn=data.titleEn||data.title; area.querySelector('.area-index').textContent=areaCount+'.'; area.querySelector('.area-title').value=data.titleEn||data.title; area.querySelector('.area-reference').value=data.reference; area.querySelector('.add-row-btn').addEventListener('click',()=>addRow(area)); area.querySelector('.add-row').addEventListener('click',()=>addRow(area)); area.querySelector('.remove-area-btn').addEventListener('click',()=>{area.remove();renumber();update();}); area.querySelectorAll('.area-title,.area-reference').forEach(input=>input.addEventListener('input',update)); data.rows.forEach(row=>addRow(area,row)); update(); }
+    function addArea(data={title:'New area',titleEn:'New area',reference:'',rows:[['','',1,0,'unit']]}) { areaCount++; const fragment=areaTemplate.content.cloneNode(true); areas.appendChild(fragment); const area=areas.lastElementChild; area.dataset.titleEs=data.title; area.dataset.titleEn=data.titleEn||data.title; area.querySelector('.area-index').textContent=areaCount+'.'; area.querySelector('.area-title').value=data.titleEn||data.title; area.querySelector('.area-reference').value=data.reference||''; if(data.roomId||data.qbHabitacionId)area.dataset.roomId=String(data.roomId||data.qbHabitacionId); if(data.level)area.dataset.roomLevel=String(data.level); if(data.qbDesdePlano)area.dataset.qbDesdePlano='1'; area.querySelector('.add-row-btn').addEventListener('click',()=>addRow(area)); area.querySelector('.add-row').addEventListener('click',()=>addRow(area)); area.querySelector('.remove-area-btn').addEventListener('click',()=>{area.remove();renumber();update();if(typeof sincronizarArbolPartidas==='function')sincronizarArbolPartidas();}); area.querySelectorAll('.area-title,.area-reference').forEach(input=>input.addEventListener('input',()=>{update();if(typeof sincronizarArbolPartidas==='function')sincronizarArbolPartidas();})); (data.rows||[]).forEach(row=>addRow(area,row)); update(); if(typeof sincronizarArbolPartidas==='function')sincronizarArbolPartidas(); }
+    let QB_PLANO=null;
+    let QB_ROOM_ACTIVA='__all__';
+    const QB_NIVELES_ABIERTOS={};
+    function claveHabitacionPartida(nombre){
+      return String(nombre||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'');
+    }
+    function metricasHabitacionPartida(room){
+      const src=room||{};
+      const floor=Number(src.floor_sf||src.area_sqft||0)||0;
+      const peri=Number(src.perimeter_lf||0)||0;
+      const wallNet=Number(src.wall_sf_net||src.wall_sf||0)||0;
+      const ceiling=Number(src.ceiling_sf||floor)||0;
+      return {
+        area_sqft:Number(src.area_sqft||floor)||0,
+        floor_sf:floor,
+        ceiling_sf:ceiling,
+        perimeter_lf:peri,
+        wall_sf:Number(src.wall_sf||wallNet)||0,
+        wall_sf_net:wallNet,
+        wall_and_ceiling_sf:Number(src.wall_and_ceiling_sf||(wallNet+ceiling))||0,
+        trim_lf:Number(src.trim_lf||peri)||0,
+        openings_sf:Number(src.openings_sf||0)||0
+      };
+    }
+    function parsearPlanoDocumento(plano){
+      if(!plano)return null;
+      if(typeof plano==='string'){
+        try{ plano=JSON.parse(plano); }catch(_){ return null; }
+      }
+      return (plano&&typeof plano==='object')?plano:null;
+    }
+    function habitacionesDesdePlano(plano){
+      const data=parsearPlanoDocumento(plano)||{};
+      const json=parsearPlanoDocumento(data.json)||data;
+      const medidas=parsearPlanoDocumento(data.medidas)||parsearPlanoDocumento(json.medidas)||{};
+      const crudo=Array.isArray(medidas.rooms)?medidas.rooms:(Array.isArray(json.rooms)?json.rooms:[]);
+      return crudo.filter(r=>r&&typeof r==='object').map((room,i)=>{
+        const name=String(room.room_name||room.name||('Room '+(i+1))).trim()||('Room '+(i+1));
+        const id=String(room.id||('sketch-'+claveHabitacionPartida(name)+'-'+i));
+        return {
+          id,
+          name,
+          level:String(room.level||room.nivel||room.level_name||'Main level').trim()||'Main level',
+          fromSketch:true,
+          metrics:metricasHabitacionPartida(room)
+        };
+      });
+    }
+    function tituloAreaPartida(area){
+      return String((area&&(area.querySelector('.area-title')?.value||area.dataset.titleEn||area.dataset.titleEs))||'').trim();
+    }
+    function areaCoincideHabitacion(area, room){
+      if(!area||!room)return false;
+      const rid=String(area.dataset.roomId||'').trim();
+      if(rid&&rid===String(room.id))return true;
+      const a=claveHabitacionPartida(tituloAreaPartida(area));
+      const b=claveHabitacionPartida(room.name);
+      return !!(a&&b&&a===b);
+    }
+    function nodosHabitacionesPartidas(){
+      const fromSketch=habitacionesDesdePlano(QB_PLANO);
+      const areasDom=[...document.querySelectorAll('#areas .area')];
+      const used=new Set();
+      const rooms=fromSketch.map(room=>{
+        const area=areasDom.find(a=>areaCoincideHabitacion(a,room));
+        if(area){
+          used.add(area);
+          area.dataset.roomId=room.id;
+          if(!area.dataset.roomLevel)area.dataset.roomLevel=room.level;
+        }
+        return Object.assign({},room,{area:area||null});
+      });
+      areasDom.forEach((area,i)=>{
+        if(used.has(area))return;
+        const name=tituloAreaPartida(area)||('Area '+(i+1));
+        const id=String(area.dataset.roomId||('area-'+claveHabitacionPartida(name)+'-'+i));
+        area.dataset.roomId=id;
+        const level=fromSketch.length?'Other areas':(String(area.dataset.roomLevel||'').trim()||'Main level');
+        area.dataset.roomLevel=level;
+        rooms.push({id,name,level,fromSketch:false,metrics:metricasHabitacionPartida({}),area});
+      });
+      return rooms;
+    }
+    function habitacionActivaPartida(){
+      if(QB_ROOM_ACTIVA==='__all__')return null;
+      return nodosHabitacionesPartidas().find(r=>r.id===QB_ROOM_ACTIVA)||null;
+    }
+    function formulaPartida(item, room){
+      const desc=String((item&&(item.desc||item.descripcion||item.descripcion_en||item.nombre||item.codigo))||'').toLowerCase();
+      const unit=String((item&&(item.unit||item.unidad||item.unidadBase))||'').toUpperCase();
+      const m=(room&&room.metrics)||{};
+      const pick=(key,label,u)=>{
+        let qty=Number(m[key])||0;
+        if(u==='SQ'&&key==='floor_sf')qty=qty/100;
+        return {key,label,qty:Math.round(qty*100)/100,unit:u};
+      };
+      if(/paint|pintura|drywall|sheetrock|gypsum|yeso|texture|textura|wallpaper/.test(desc)){
+        if(/ceiling|cielo|techo/.test(desc)&&!/wall|pared/.test(desc))return pick('ceiling_sf','Ceiling','SF');
+        if(/paint|pintura/.test(desc)&&/ceiling|cielo/.test(desc))return pick('wall_and_ceiling_sf','Walls + ceiling','SF');
+        return pick('wall_sf_net','Walls net','SF');
+      }
+      if(/floor|piso|lvt|lvp|vinyl plank|laminate|hardwood|carpet|alfombra|tile|azulejo|porcel/.test(desc)&&!/wall|pared|backsplash/.test(desc)){
+        return pick('floor_sf','Floor',unit==='SQ'?'SQ':'SF');
+      }
+      if(/ceiling|cielo raso|techo interior/.test(desc))return pick('ceiling_sf','Ceiling','SF');
+      if(/baseboard|rodapi|zoclo|quarter round|shoe mold/.test(desc))return pick('trim_lf','Baseboard / trim','LF');
+      if(/crown|molding|moulding|trim|cornisa/.test(desc))return pick('trim_lf','Trim','LF');
+      if(unit==='LF'||/perimeter|perimetro/.test(desc))return pick('perimeter_lf','Perimeter','LF');
+      if(/wall|pared|muro/.test(desc))return pick('wall_sf_net','Walls net','SF');
+      if(unit==='SF')return pick('floor_sf','Floor','SF');
+      if(unit==='LF')return pick('perimeter_lf','Perimeter','LF');
+      return {key:'ea',label:'Each',qty:1,unit:unit||'EA'};
+    }
+    function pintarFormulasPartida(){
+      const row=document.getElementById('items-formula-row');
+      const hint=document.getElementById('items-formula-hint');
+      if(!row||!hint)return;
+      const room=habitacionActivaPartida();
+      const search=document.getElementById('items-catalog-search');
+      const q=(search&&search.value)||'';
+      row.replaceChildren();
+      if(!room||!room.fromSketch){
+        hint.className='items-formula-hint'+(QB_ROOM_ACTIVA==='__all__'?' is-warn':'');
+        hint.textContent=QB_ROOM_ACTIVA==='__all__'
+          ?'Select a room on the left so catalog items get a calculated quantity.'
+          :(room?'This area has no floor-plan measurements. Quantity stays as entered.':'Select a room, then add a catalog item. Quantity comes from that room.');
+        return;
+      }
+      const m=room.metrics||{};
+      const used=q.trim()?formulaPartida({desc:q},room):null;
+      [
+        ['floor_sf','Floor','SF'],
+        ['wall_sf_net','Walls net','SF'],
+        ['wall_and_ceiling_sf','Walls + ceiling','SF'],
+        ['perimeter_lf','Perimeter','LF'],
+        ['trim_lf','Trim','LF']
+      ].forEach(([key,label,unit])=>{
+        const chip=document.createElement('span');
+        chip.className='items-formula-chip'+(used&&used.key===key?' is-used':'');
+        chip.innerHTML=label+' <strong>'+(Number(m[key])||0).toFixed(2)+' '+unit+'</strong>';
+        row.appendChild(chip);
+      });
+      if(used&&used.qty>0){
+        hint.className='items-formula-hint';
+        hint.textContent=used.label+' from '+room.name+' · '+used.qty+' '+used.unit;
+      }else{
+        hint.className='items-formula-hint';
+        hint.textContent='Add a catalog item to '+room.name+'. Quantity is taken from these room measurements.';
+      }
+    }
+    function actualizarVacioPartidas(){
+      const empty=document.getElementById('items-room-empty');
+      if(!empty)return;
+      const visibles=[...document.querySelectorAll('#areas .area')].filter(a=>!a.classList.contains('is-room-hidden'));
+      const conFilas=visibles.some(a=>[...a.querySelectorAll('tbody tr.fila-trabajo')].some(tr=>{
+        const desc=((tr.querySelector('.item-desc')||tr.querySelector('.description'))?.value||'').trim();
+        const code=(tr.querySelector('.code')?.value||'').trim();
+        return !!(desc||code);
+      }));
+      empty.hidden=conFilas||!visibles.length&&QB_ROOM_ACTIVA==='__all__'&&!document.querySelector('#areas .area');
+      if(!visibles.length&&QB_ROOM_ACTIVA!=='__all__'){
+        empty.hidden=false;
+        empty.textContent='This room has no line items yet. Search the catalog above to add one.';
+      }else if(!conFilas&&visibles.length){
+        empty.hidden=false;
+        empty.textContent='No line items in this room yet. Search the catalog to add one.';
+      }
+    }
+    function filtrarAreasPorHabitacion(){
+      const rooms=nodosHabitacionesPartidas();
+      document.querySelectorAll('#areas .area').forEach(area=>{
+        if(QB_ROOM_ACTIVA==='__all__'){
+          area.classList.remove('is-room-hidden');
+          return;
+        }
+        const room=rooms.find(r=>r.id===QB_ROOM_ACTIVA);
+        area.classList.toggle('is-room-hidden', !(room&&areaCoincideHabitacion(area,room)));
+      });
+      actualizarVacioPartidas();
+      pintarFormulasPartida();
+    }
+    function svgChevronPartida(){
+      return '<svg class="items-tree-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8l4 4 4-4"/></svg>';
+    }
+    function pintarArbolPartidas(){
+      const tree=document.getElementById('items-room-tree');
+      const meta=document.getElementById('items-room-nav-meta');
+      if(!tree)return;
+      const rooms=nodosHabitacionesPartidas();
+      const sketchCount=rooms.filter(r=>r.fromSketch).length;
+      if(meta)meta.textContent=sketchCount? (sketchCount+' room'+(sketchCount===1?'':'s')+' from the floor plan'):'Rooms on this estimate';
+      if(!rooms.length){
+        tree.innerHTML='<div class="items-tree-empty"><strong>No rooms yet</strong>Draw a floor plan or add an area to start grouping line items.</div>';
+        filtrarAreasPorHabitacion();
+        return;
+      }
+      const levels=[];
+      rooms.forEach(room=>{
+        const key=room.level||'Main level';
+        let group=levels.find(g=>g.name===key);
+        if(!group){ group={name:key,rooms:[]}; levels.push(group); }
+        group.rooms.push(room);
+      });
+      const frag=document.createDocumentFragment();
+      const allBtn=document.createElement('button');
+      allBtn.type='button';
+      allBtn.className='items-tree-all'+(QB_ROOM_ACTIVA==='__all__'?' is-active':'');
+      allBtn.innerHTML='<span>All rooms</span><span>'+rooms.length+'</span>';
+      allBtn.addEventListener('click',()=>activarHabitacionPartida('__all__'));
+      frag.appendChild(allBtn);
+      levels.forEach(group=>{
+        if(!(group.name in QB_NIVELES_ABIERTOS))QB_NIVELES_ABIERTOS[group.name]=true;
+        const wrap=document.createElement('div');
+        wrap.className='items-tree-group'+(QB_NIVELES_ABIERTOS[group.name]?'':' is-collapsed');
+        const head=document.createElement('button');
+        head.type='button';
+        head.className='items-tree-level'+(QB_NIVELES_ABIERTOS[group.name]?'':' is-collapsed');
+        head.innerHTML=svgChevronPartida()+'<span>'+group.name+'</span>';
+        head.addEventListener('click',()=>{
+          QB_NIVELES_ABIERTOS[group.name]=!QB_NIVELES_ABIERTOS[group.name];
+          pintarArbolPartidas();
+        });
+        const kids=document.createElement('div');
+        kids.className='items-tree-children';
+        group.rooms.forEach(room=>{
+          const btn=document.createElement('button');
+          btn.type='button';
+          btn.className='items-tree-room'+(QB_ROOM_ACTIVA===room.id?' is-active':'');
+          const floor=Number((room.metrics&&room.metrics.floor_sf)||0);
+          btn.innerHTML='<span><span class="items-tree-room-name"></span><span class="items-tree-room-meta"></span></span><span class="items-tree-room-qty"></span>';
+          btn.querySelector('.items-tree-room-name').textContent=room.name;
+          btn.querySelector('.items-tree-room-meta').textContent=room.fromSketch?'From floor plan':'Estimate area';
+          btn.querySelector('.items-tree-room-qty').textContent=floor>0?(floor.toFixed(1)+' SF'):'';
+          btn.addEventListener('click',()=>activarHabitacionPartida(room.id));
+          kids.appendChild(btn);
+        });
+        wrap.appendChild(head);
+        wrap.appendChild(kids);
+        frag.appendChild(wrap);
+      });
+      tree.replaceChildren(frag);
+      filtrarAreasPorHabitacion();
+    }
+    function activarHabitacionPartida(id){
+      QB_ROOM_ACTIVA=id||'__all__';
+      pintarArbolPartidas();
+      const search=document.getElementById('items-catalog-search');
+      if(search&&QB_ROOM_ACTIVA!=='__all__')search.focus();
+    }
+    function sincronizarArbolPartidas(){
+      const rooms=nodosHabitacionesPartidas();
+      if(QB_ROOM_ACTIVA!=='__all__'&&!rooms.some(r=>r.id===QB_ROOM_ACTIVA)){
+        QB_ROOM_ACTIVA=rooms.length===1?rooms[0].id:'__all__';
+      }
+      pintarArbolPartidas();
+    }
+    function asignarPlanoDocumento(plano){
+      const parsed=parsearPlanoDocumento(plano);
+      if(parsed)QB_PLANO=parsed;
+      else if(plano==null)QB_PLANO=null;
+      sincronizarArbolPartidas();
+    }
+    async function cargarPlanoDocumento(id){
+      const ident=String(id||(typeof documentoHistorialId!=='undefined'?documentoHistorialId:'')||'').trim();
+      if(!ident)return;
+      try{
+        const headers=typeof headersContratista==='function'?headersContratista():{};
+        const res=await fetch('/api/proyecto/'+encodeURIComponent(ident)+'/sketch',{headers:headers,credentials:'same-origin'});
+        if(!res.ok)return;
+        const data=await res.json();
+        if(data&&(data.json||data.medidas))asignarPlanoDocumento({json:data.json,medidas:data.medidas});
+      }catch(_){}
+    }
+    function asegurarAreaHabitacion(room){
+      if(!room)return null;
+      if(room.area&&room.area.isConnected)return room.area;
+      const existente=[...document.querySelectorAll('#areas .area')].find(a=>areaCoincideHabitacion(a,room));
+      if(existente){
+        existente.dataset.roomId=room.id;
+        existente.dataset.roomLevel=room.level||'Main level';
+        room.area=existente;
+        return existente;
+      }
+      addArea({
+        title:room.name,
+        titleEn:room.name,
+        reference:'From floor plan',
+        roomId:room.id,
+        level:room.level||'Main level',
+        qbDesdePlano:!!room.fromSketch,
+        rows:[]
+      });
+      const area=document.querySelector('#areas .area:last-of-type');
+      const tabla=area&&area.querySelector('tbody');
+      if(tabla)tabla.replaceChildren();
+      if(area){
+        area.dataset.roomId=room.id;
+        area.dataset.roomLevel=room.level||'Main level';
+      }
+      room.area=area;
+      return area;
+    }
+    function agregarCatalogoAHabitacionActiva(item){
+      let room=habitacionActivaPartida();
+      if(!room){
+        const rooms=nodosHabitacionesPartidas();
+        if(rooms.length===1){
+          room=rooms[0];
+          QB_ROOM_ACTIVA=room.id;
+        }
+      }
+      if(!room){
+        const hint=document.getElementById('items-formula-hint');
+        if(hint){ hint.className='items-formula-hint is-warn'; hint.textContent='Select a room on the left before adding a catalog item.'; }
+        return;
+      }
+      const area=asegurarAreaHabitacion(room);
+      if(!area)return;
+      addRow(area);
+      const fila=area.querySelector('tbody tr.fila-trabajo:last-child');
+      const input=fila&&(fila.querySelector('.item-desc')||fila.querySelector('.description'));
+      if(!input)return;
+      aplicarItemCatalogoTrabajos(input,item);
+      const formula=formulaPartida(item,room);
+      const qtyInput=fila.querySelector('.input-cantidad, .quantity');
+      if(qtyInput&&formula&&formula.qty>0){
+        qtyInput.value=String(formula.qty);
+        if(typeof asegurarOpcionUnidad==='function'&&formula.unit)asegurarOpcionUnidad(fila.querySelector('.select-unidad'),formula.unit);
+        fila.dataset.measureKey=formula.key;
+      }
+      if(typeof recalcularSubtotalFila==='function')recalcularSubtotalFila(fila);
+      if(typeof update==='function')update();
+      const search=document.getElementById('items-catalog-search');
+      if(search)search.value='';
+      if(typeof cerrarMenusTareas==='function')cerrarMenusTareas();
+      pintarArbolPartidas();
+      pintarFormulasPartida();
+    }
+    function iniciarPanelPartidas(){
+      const search=document.getElementById('items-catalog-search');
+      if(search){
+        search.addEventListener('input',()=>pintarFormulasPartida());
+        if(typeof habilitarSelectorRamas==='function')habilitarSelectorRamas(search);
+      }
+      const open=document.getElementById('items-open-sketch');
+      if(open){
+        open.addEventListener('click',()=>{
+          const btn=document.getElementById('openSketchButton');
+          if(btn)btn.click();
+        });
+      }
+      sincronizarArbolPartidas();
+    }
+    document.addEventListener('click',e=>{
+      if(e.target&&e.target.closest&&e.target.closest('#areas .remove-row')){
+        setTimeout(()=>{ if(typeof actualizarVacioPartidas==='function')actualizarVacioPartidas(); },0);
+      }
+    });
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',iniciarPanelPartidas);
+    else iniciarPanelPartidas();
     function renumber(){ areaCount=0; document.querySelectorAll('.area').forEach(area=>area.querySelector('.area-index').textContent=(++areaCount)+'.'); }
     function parsePaymentAmount(value,total){ const raw=String(value||'').trim(); if(!raw)return 0; if(raw.endsWith('%'))return total*(Number(raw.slice(0,-1).replace(',','.'))||0)/100; return Math.max(Number(raw.replace(/[$,\s]/g,''))||0,0); }
     function htmlBotonesDeposito(){
@@ -5359,19 +5837,46 @@
     }
     function canvasFirmaVacio(canvas){
       if(!canvas)return true;
-      const ctx=canvas.getContext('2d');
-      const data=ctx.getImageData(0,0,canvas.width,canvas.height).data;
-      for(let i=3;i<data.length;i+=4){ if(data[i]>8)return false; }
+      if(canvas._signaturePad) return canvas._signaturePad.isEmpty();
+      try{
+        const ctx=canvas.getContext('2d');
+        const data=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+        for(let i=3;i<data.length;i+=4){ if(data[i]>8)return false; }
+      }catch(_){ return true; }
       return true;
+    }
+    function ajustarCanvasFirma(canvas){
+      if(!canvas)return;
+      const ratio=Math.max(window.devicePixelRatio||1,1);
+      const rect=canvas.getBoundingClientRect();
+      if(!rect.width||!rect.height)return;
+      const pad=canvas._signaturePad;
+      const data=(pad&&!pad.isEmpty())?pad.toData():null;
+      canvas.width=Math.floor(rect.width*ratio);
+      canvas.height=Math.floor(rect.height*ratio);
+      const ctx=canvas.getContext('2d');
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.scale(ratio, ratio);
+      if(pad){
+        pad.clear();
+        if(data&&data.length) pad.fromData(data);
+      }
     }
     function limpiarFirmaCanvas(canvas){
       if(!canvas)return;
-      const ctx=canvas.getContext('2d');
-      ctx.clearRect(0,0,canvas.width,canvas.height);
+      if(canvas._signaturePad) canvas._signaturePad.clear();
+      else{
+        const ctx=canvas.getContext('2d');
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+      }
       canvas.dataset.hasInk='0';
     }
     function firmaCanvasABase64(canvas){
       if(!canvas)return '';
+      const pad=canvas._signaturePad;
+      if(pad&&!pad.isEmpty()){
+        try{ return pad.toDataURL('image/png'); }catch(_){}
+      }
       if(canvas.dataset.hasInk!=='1'&&canvasFirmaVacio(canvas))return '';
       return canvas.toDataURL('image/png');
     }
@@ -5405,12 +5910,21 @@
       const p=panelFirma(role);
       if(!p)return;
       const next=modo==='type'?'type':'draw';
+      const prev=p.box.dataset.signMode||'draw';
       p.box.dataset.signMode=next;
       p.box.querySelectorAll('[data-sign-mode-btn]').forEach(btn=>btn.classList.toggle('is-active',btn.dataset.signModeBtn===next));
+      if(p.canvas&&p.canvas._signaturePad){
+        if(next==='type') p.canvas._signaturePad.off();
+        else {
+          p.canvas._signaturePad.on();
+          if(prev!=='draw') ajustarCanvasFirma(p.canvas);
+        }
+      }
       actualizarVistaFirmaTipografica(role);
     }
     function pintarFirmaTipografica(canvas,nombre){
       if(!canvas||!nombre)return false;
+      if(canvas._signaturePad) canvas._signaturePad.clear();
       const ctx=canvas.getContext('2d');
       ctx.clearRect(0,0,canvas.width,canvas.height);
       ctx.fillStyle='#19385f';
@@ -5484,6 +5998,13 @@
     function restaurarFirmaTipograficaCliente(firmas){ restaurarFirmasDocumento(firmas); }
     function restaurarFirmaCanvas(canvas,dataUrl){
       if(!canvas||!dataUrl){ if(canvas)limpiarFirmaCanvas(canvas); return; }
+      canvas.dataset.hasInk='1';
+      if(canvas._signaturePad){
+        canvas._signaturePad.clear();
+        const done=canvas._signaturePad.fromDataURL(dataUrl);
+        if(done&&typeof done.then==='function') done.catch(function(){});
+        return;
+      }
       const img=new Image();
       img.onload=()=>{
         const ctx=canvas.getContext('2d');
@@ -5589,51 +6110,40 @@
     }
     function setupSignature(canvas){
       if(!canvas||canvas.dataset.padReady==='1')return;
+      if(typeof SignaturePad!=='function'){
+        console.error('SignaturePad library missing');
+        return;
+      }
       canvas.dataset.padReady='1';
       canvas.dataset.hasInk='0';
-      const context=canvas.getContext('2d');
-      let drawing=false;
-      const start=event=>{
-        event.preventDefault();
-        drawing=true;
-        if(canvas.closest('.signature-box')?.dataset.signRole)setSignMode(canvas.closest('.signature-box').dataset.signRole,'draw');
-        try{ if(event.pointerId!=null)canvas.setPointerCapture(event.pointerId); }catch(_){}
-        const startPt=puntoFirma(canvas,event);
-        context.beginPath();
-        context.moveTo(startPt.x,startPt.y);
-      };
-      const move=event=>{
-        if(!drawing)return;
-        event.preventDefault();
-        const next=puntoFirma(canvas,event);
-        context.lineTo(next.x,next.y);
-        context.strokeStyle='#19385f';
-        context.lineWidth=2.4;
-        context.lineCap='round';
-        context.lineJoin='round';
-        context.stroke();
+      canvas.style.touchAction='none';
+      canvas.style.msTouchAction='none';
+      ajustarCanvasFirma(canvas);
+      const pad=new SignaturePad(canvas,{
+        backgroundColor:'rgba(255,255,255,0)',
+        penColor:'#19385f',
+        minWidth:0.6,
+        maxWidth:2.6,
+        throttle:8,
+        minDistance:1
+      });
+      canvas._signaturePad=pad;
+      pad.addEventListener('beginStroke',function(ev){
+        if(ev&&ev.preventDefault) ev.preventDefault();
         canvas.dataset.hasInk='1';
-      };
-      const end=event=>{
-        if(!drawing)return;
-        drawing=false;
-        try{ if(event&&event.pointerId!=null)canvas.releasePointerCapture(event.pointerId); }catch(_){}
-      };
-      const usarPointer=typeof window.PointerEvent==='function';
-      if(usarPointer){
-        canvas.addEventListener('pointerdown',start);
-        canvas.addEventListener('pointermove',move);
-        canvas.addEventListener('pointerup',end);
-        canvas.addEventListener('pointercancel',end);
-      }else{
-        canvas.addEventListener('mousedown',start);
-        canvas.addEventListener('mousemove',move);
-        window.addEventListener('mouseup',end);
-        canvas.addEventListener('touchstart',start,{passive:false});
-        canvas.addEventListener('touchmove',move,{passive:false});
-        canvas.addEventListener('touchend',end,{passive:false});
-        canvas.addEventListener('touchcancel',end,{passive:false});
-      }
+        const role=canvas.closest('.signature-box')?.dataset.signRole;
+        if(role)setSignMode(role,'draw');
+        document.documentElement.classList.add('firma-activa');
+        document.body.classList.add('firma-activa');
+      });
+      pad.addEventListener('endStroke',function(){
+        document.documentElement.classList.remove('firma-activa');
+        document.body.classList.remove('firma-activa');
+      });
+      canvas.addEventListener('touchmove',function(ev){ ev.preventDefault(); },{passive:false});
+      window.addEventListener('resize',function(){
+        if(canvas.offsetParent!==null) ajustarCanvasFirma(canvas);
+      });
     }
     function setLanguage(){
       language='en';
@@ -5918,6 +6428,10 @@
         titleEn:area.dataset.titleEn||area.querySelector('.area-title')?.value||'',
         titleEs:area.dataset.titleEs||area.querySelector('.area-title')?.value||'',
         reference:area.querySelector('.area-reference')?.value||'',
+        roomId:area.dataset.roomId||'',
+        qbHabitacionId:area.dataset.roomId||'',
+        level:area.dataset.roomLevel||'',
+        qbDesdePlano:area.dataset.qbDesdePlano==='1',
         rows:[...area.querySelectorAll('tbody tr.fila-trabajo')].map(serializarFilaEstimado)
       }));
       return {
@@ -6067,6 +6581,9 @@
           title:areaData.titleEs||areaData.title||'Área',
           titleEn:areaData.titleEn||areaData.title||'Area',
           reference:areaData.reference||'',
+          roomId:areaData.roomId||areaData.qbHabitacionId||'',
+          level:areaData.level||'',
+          qbDesdePlano:!!areaData.qbDesdePlano,
           rows: rows.length?rows:[['','',1,0,'SF',0]]
         });
         const area=areas.lastElementChild;
@@ -6091,6 +6608,8 @@
       if(typeof update==='function')update();
       reinyectarDescripcionesEstimado(data);
       reinyectarPreciosEstimado(data);
+      if(typeof asignarPlanoDocumento==='function')asignarPlanoDocumento(data.plano||(data.snapshot&&data.snapshot.plano)||null);
+      if(typeof sincronizarArbolPartidas==='function')sincronizarArbolPartidas();
       if(data.firmas) restaurarFirmasDocumento(data.firmas);
       }finally{
         if(startedHere)isLoadingEstimate=false;
@@ -6659,6 +7178,7 @@
         status:pago.status||'open',
         client:cliente,
         areas,
+        plano:base.plano||snap.plano||null,
         projectNotes:base.projectNotes||base.notas||snap.projectNotes||'',
         terms:base.terms||base.terminos||snap.terms||'',
         firmas:base.firmas||snap.firmas||{
@@ -6695,6 +7215,9 @@
       if(typeof update==='function')update();
       reinyectarDescripcionesEstimado(data);
       reinyectarPreciosEstimado(data);
+      if(typeof asignarPlanoDocumento==='function')asignarPlanoDocumento(data.plano||(reg&&reg.plano)||null);
+      if(typeof sincronizarArbolPartidas==='function')sincronizarArbolPartidas();
+      if(typeof cargarPlanoDocumento==='function')cargarPlanoDocumento(documentoHistorialId);
       return data;
       }finally{
         if(startedHere)isLoadingEstimate=false;
