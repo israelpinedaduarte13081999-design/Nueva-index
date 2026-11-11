@@ -1183,7 +1183,7 @@ def home():
     return render_template(
         "index.html",
         nombre_empresa=nombre,
-        nombre_empresa_visible=nombre or "Company Name (Edit in settings)",
+        nombre_empresa_visible=nombre or "Your company",
         vista=vista,
         industrias_seo=industrias_seo,
         video_ld=video_ld,

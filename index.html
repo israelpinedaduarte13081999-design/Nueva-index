@@ -2068,7 +2068,7 @@
       <div class="tech-grid">
         <section class="tech-card contractor-info">
           <h3 id="contractorHeading" data-i18n="contractor">Contractor</h3>
-          <div class="field-row"><label for="company" id="companyLabel" data-i18n="company">Company</label><input id="company" value="{{ nombre_empresa or '' }}" placeholder="Company Name (Edit in settings)" size="48" autocomplete="organization"></div>
+          <div class="field-row"><label for="company" id="companyLabel" data-i18n="company">Company</label><input id="company" value="{{ nombre_empresa or '' }}" placeholder="Escribe el nombre de tu empresa" size="48" autocomplete="organization"></div>
           <div class="field-row"><label for="representative" id="representativeLabel" data-i18n="representative">Representative</label><input id="representative" value="Israel Pineda"></div>
           <div class="field-row"><label for="email" id="contactLabel" data-i18n="contact">Contact</label><input id="email" value="israelpinedaurte13081999@gmail.com"></div>
           <div class="field-row"><label for="companyPhone" data-i18n="phone">Phone</label><input id="companyPhone"></div>
@@ -2806,24 +2806,31 @@
       sessionStorage.removeItem(contratistaIdKey);
       sessionStorage.removeItem(authUserIdKey);
     }
-    const COMPANY_NAME_PLACEHOLDER='Company Name (Edit in settings)';
+    const COMPANY_BANNER_FALLBACK='Your company';
+    const COMPANY_INPUT_PLACEHOLDER='Escribe el nombre de tu empresa';
     function esPlaceholderEmpresa(v){
       const t=String(v||'').trim();
       if(!t) return true;
       return /^your company$/i.test(t)
         || /^nombre de su empresa/i.test(t)
         || /^company name \(edit in settings\)$/i.test(t)
+        || /^escribe el nombre de tu empresa$/i.test(t)
         || /^solid remodeling(?:\s*(?:&|&amp;)\s*reconstruction\s*llc)?$/i.test(t);
     }
     function nombreEmpresaPerfil(){
       return String((sesionActual&&sesionActual.nombre_empresa)||window.__NOMBRE_EMPRESA__||'').trim();
     }
     function nombreEmpresaActiva(){
+      // Solo nombre real; vacío permitido. El fallback visual es exclusivo del banner.
       const campo=String(document.getElementById('company')?.value||'').trim();
       if(campo&&!esPlaceholderEmpresa(campo)) return campo;
       const perfil=nombreEmpresaPerfil();
       if(perfil&&!esPlaceholderEmpresa(perfil)) return perfil;
-      return COMPANY_NAME_PLACEHOLDER;
+      return '';
+    }
+    function textoBannerEmpresa(nombre){
+      const n=String(nombre==null?'':nombre).trim();
+      return n&&!esPlaceholderEmpresa(n)?n:COMPANY_BANNER_FALLBACK;
     }
     function companyStorageKeyScoped(){
       const uid=leerUserIdAuthLocal()||localStorage.getItem(contratistaIdKey)||sessionStorage.getItem(contratistaIdKey)||'';
@@ -2831,9 +2838,13 @@
     }
     function guardarCompanyNameLocal(nombre){
       const valor=String(nombre||'').trim();
-      if(!valor||esPlaceholderEmpresa(valor)) return;
       const key=companyStorageKeyScoped();
-      if(key) localStorage.setItem(key,valor);
+      if(!key) return;
+      if(!valor||esPlaceholderEmpresa(valor)){
+        localStorage.removeItem(key);
+        return;
+      }
+      localStorage.setItem(key,valor);
     }
     function leerCompanyNameLocal(){
       const key=companyStorageKeyScoped();
@@ -2841,7 +2852,8 @@
       return String(localStorage.getItem(key)||'').trim();
     }
     function pintarBannerEmpresa(nombre){
-      const n=String(nombre||'').trim()||COMPANY_NAME_PLACEHOLDER;
+      // Fallback SOLO visual: el banner no puede colapsar si el input está vacío.
+      const n=textoBannerEmpresa(nombre);
       const banner=document.getElementById('companyBanner');
       const subtitle=document.getElementById('documentSubtitle');
       if(banner) banner.textContent=n;
@@ -2859,7 +2871,6 @@
       const forzar=opts==null||opts.forceInput!==false;
       const crudo=String(nombre==null?'':nombre).trim();
       const real=crudo&&!esPlaceholderEmpresa(crudo)?crudo:'';
-      const display=real||COMPANY_NAME_PLACEHOLDER;
       if(real){
         window.__NOMBRE_EMPRESA__=real;
         if(sesionActual) sesionActual.nombre_empresa=real;
@@ -2868,19 +2879,20 @@
         window.__NOMBRE_EMPRESA__='';
         if(sesionActual) sesionActual.nombre_empresa='';
       }
-      pintarBannerEmpresa(display);
+      pintarBannerEmpresa(real);
       const company=document.getElementById('company');
-      if(company&&(forzar||document.activeElement!==company)){
-        if(document.activeElement!==company) company.value=real||COMPANY_NAME_PLACEHOLDER;
+      // Nunca inyectar fallback en el value: '' es estado válido (el HTML placeholder guía).
+      if(company&&forzar&&document.activeElement!==company){
+        company.value=real;
       }
       const payee=document.getElementById('checkPayee');
       if(payee&&document.activeElement!==payee){
         const actualPayee=String(payee.value||'').trim();
         if(!actualPayee||esPlaceholderEmpresa(actualPayee)||/zipnova/i.test(actualPayee)){
-          payee.value=real||'';
+          payee.value=real;
         }
       }
-      return display;
+      return textoBannerEmpresa(real);
     }
     function aplicarMarcaBlanca(nombre,opts){
       const forzar=!!(opts&&opts.forceInput);
@@ -6340,23 +6352,26 @@
     }
     function loadSpecialty(key){ const template=serviceTemplates[key]||serviceTemplates.blank; areas.innerHTML=''; areaCount=0; template.areas.forEach(area=>addArea({title:area.title,titleEn:area.titleEn,reference:area.reference,rows:area.rows.map(row=>row.slice())})); document.querySelector('#terms').value=template.termsEn; update(); }
     function companyNameActual(){
-      return String(document.getElementById('company')?.value||'').trim();
+      // Sin trim destructivo al value: '' es válido y debe fluir al estado/banner.
+      return String(document.getElementById('company')?.value??'');
     }
     function syncCompanyName(opts){
-      // Actualiza banner en vivo SIN reescribir el value del input (evita el reset al teclear).
+      // onChange sin condiciones: acepta '' y NUNCA reescribe el value del input.
       const companyName=companyNameActual();
-      const real=companyName&&!esPlaceholderEmpresa(companyName)?companyName:'';
-      const displayName=real||COMPANY_NAME_PLACEHOLDER;
+      const real=companyName.trim()&&!esPlaceholderEmpresa(companyName)?companyName.trim():'';
       window.__NOMBRE_EMPRESA__=real;
-      pintarBannerEmpresa(displayName);
-      if(real) guardarCompanyNameLocal(real);
-      if(opts&&opts.persist===false) return displayName;
-      return displayName;
+      pintarBannerEmpresa(real); // banner: real || 'Your company'
+      guardarCompanyNameLocal(real);
+      if(opts&&opts.persist===false) return real;
+      return real;
     }
     async function guardarNombreEmpresaEnServidor(nombre){
       const crudo=String(nombre==null?companyNameActual():nombre).trim();
       if(!crudo||esPlaceholderEmpresa(crudo)){
-        pintarBannerEmpresa(COMPANY_NAME_PLACEHOLDER);
+        window.__NOMBRE_EMPRESA__='';
+        if(sesionActual) sesionActual.nombre_empresa='';
+        guardarCompanyNameLocal('');
+        pintarBannerEmpresa('');
         return false;
       }
       const valor=crudo;
@@ -6399,7 +6414,7 @@
         const desdePerfilSesion=nombreEmpresaPerfil();
         if(desdePerfilSesion&&!esPlaceholderEmpresa(desdePerfilSesion)) companyEl.value=desdePerfilSesion;
         else if(profile.name&&!esPlaceholderEmpresa(profile.name)) companyEl.value=profile.name;
-        else companyEl.value=COMPANY_NAME_PLACEHOLDER;
+        else companyEl.value='';
       }
       document.querySelector('#representative').value=profile.representative||'';
       document.querySelector('#email').value=profile.email||'';
@@ -10288,18 +10303,22 @@
     updatePaymentMethods();
     const companyField=document.querySelector('#company');
     if(companyField){
-      // Estado inicial multi-tenant: servidor (sesión) > cache scoped del usuario > placeholder.
-      // Nunca hardcodear un tenant concreto ni reutilizar localStorage global de otro contratista.
+      // value estricto: nombre real o ''. Nunca companyName || fallback en el input.
+      companyField.placeholder=COMPANY_INPUT_PLACEHOLDER;
       const desdeServidor=String(window.__NOMBRE_EMPRESA__||companyField.value||'').trim();
       const desdeCache=leerCompanyNameLocal();
       if(desdeServidor&&!esPlaceholderEmpresa(desdeServidor)) companyField.value=desdeServidor;
       else if(desdeCache&&!esPlaceholderEmpresa(desdeCache)) companyField.value=desdeCache;
-      else companyField.value=COMPANY_NAME_PLACEHOLDER;
-      companyField.addEventListener('input',()=>syncCompanyName());
+      else if(esPlaceholderEmpresa(companyField.value)) companyField.value='';
+      companyField.addEventListener('input',()=>{
+        // Sin if (value): '' también actualiza banner/estado.
+        syncCompanyName();
+      });
       companyField.addEventListener('blur',()=>{
-        const crudo=companyNameActual();
+        const crudo=companyNameActual().trim();
+        // Vacío permitido: no rellenar el input; solo proteger el banner.
         if(!crudo||esPlaceholderEmpresa(crudo)){
-          companyField.value=COMPANY_NAME_PLACEHOLDER;
+          if(esPlaceholderEmpresa(companyField.value)&&companyField.value!=='') companyField.value='';
           syncCompanyName();
           return;
         }
