@@ -5957,15 +5957,21 @@
     function capturarFirmasDocumento(){
       const cliente=capturarPanelFirma('client');
       const contratista=capturarPanelFirma('contractor');
+      let clienteImg=cliente.imagen||'';
+      const contratistaImg=contratista.imagen||'';
+      // Nunca guardar la misma imagen en ambas columnas.
+      if(clienteImg&&contratistaImg&&clienteImg===contratistaImg) clienteImg='';
       return {
-        cliente:cliente.imagen,
-        contratista:contratista.imagen,
-        clienteModo:cliente.modo,
-        clienteNombre:cliente.nombre,
-        clienteFuente:cliente.fuente,
-        contratistaModo:contratista.modo,
-        contratistaNombre:contratista.nombre,
-        contratistaFuente:contratista.fuente
+        cliente:clienteImg,
+        client_signature:clienteImg,
+        contratista:contratistaImg,
+        contractor_signature:contratistaImg,
+        clienteModo:clienteImg?cliente.modo:'',
+        clienteNombre:clienteImg?cliente.nombre:'',
+        clienteFuente:clienteImg?cliente.fuente:'',
+        contratistaModo:contratistaImg?contratista.modo:'',
+        contratistaNombre:contratistaImg?contratista.nombre:'',
+        contratistaFuente:contratistaImg?contratista.fuente:''
       };
     }
     function limpiarPanelFirma(role){
@@ -8010,17 +8016,42 @@
     }
     function materializarDocumentoImpresion(origen){
       const clone=origen.cloneNode(true);
-      clone.querySelectorAll('canvas').forEach((canvas,idx)=>{
-        const original=origen.querySelectorAll('canvas')[idx];
-        if(!original)return;
+      const firmas=typeof capturarFirmasDocumento==='function'?capturarFirmasDocumento():{};
+      const contractorSig=String((firmas&&(firmas.contractor_signature||firmas.contratista))||'').trim();
+      const clientSig=String((firmas&&(firmas.client_signature||firmas.cliente))||'').trim();
+      const clientOk=!!(clientSig&&clientSig.startsWith('data:image/')&&clientSig!==contractorSig);
+      const contractorOk=!!(contractorSig&&contractorSig.startsWith('data:image/'));
+      clone.querySelectorAll('.signature-box').forEach(box=>{
+        const role=String(box.getAttribute('data-sign-role')||'').toLowerCase();
+        const canvas=box.querySelector('canvas.signature-canvas, canvas');
+        const preview=box.querySelector('.typed-signature-preview');
+        const dataUrl=role==='client'?(clientOk?clientSig:''):(role==='contractor'?(contractorOk?contractorSig:''):'');
+        if(canvas){
+          if(dataUrl){
+            const img=document.createElement('img');
+            img.src=dataUrl;
+            img.alt=role==='client'?'Client signature':'Contractor signature';
+            img.style.width='100%';
+            img.style.height='auto';
+            img.style.maxHeight='72px';
+            img.style.objectFit='contain';
+            canvas.replaceWith(img);
+          }else{
+            canvas.remove();
+          }
+        }
+        if(preview) preview.remove();
+      });
+      clone.querySelectorAll('canvas').forEach(canvas=>{
+        // Cualquier canvas restante (QR, etc.) se rasteriza; no firmar aquí.
         try{
           const img=document.createElement('img');
-          img.src=original.toDataURL('image/png');
-          img.alt='Signature';
+          img.src=canvas.toDataURL('image/png');
+          img.alt='';
           img.style.width='100%';
           img.style.height='auto';
           canvas.replaceWith(img);
-        }catch(_){}
+        }catch(_){ canvas.remove(); }
       });
       clone.querySelectorAll('input,textarea,select').forEach(el=>{
         if(el.type==='hidden'||el.classList.contains('payment-method-toggle')){ el.remove(); return; }
@@ -8030,7 +8061,7 @@
         span.textContent=valorCampoImpresion(el);
         el.replaceWith(span);
       });
-      clone.querySelectorAll('.no-print,.area-actions,.add-row,.remove-row,.payment-method-controls,.payment-quick-actions,.payment-tracking,.task-dropdown-menu,.address-autocomplete-menu,.btn-ia-precio,.ia-precio-menu,.signature-mode-toggle,.signature-clear,.sign-type-field,.solo-interno,.btn,.icon-btn').forEach(el=>el.remove());
+      clone.querySelectorAll('.no-print,.area-actions,.add-row,.remove-row,.payment-method-controls,.payment-quick-actions,.payment-tracking,.task-dropdown-menu,.address-autocomplete-menu,.btn-ia-precio,.ia-precio-menu,.signature-mode-toggle,.signature-clear,.sign-type-field,.typed-signature-preview,.solo-interno,.btn,.icon-btn').forEach(el=>el.remove());
       clone.querySelectorAll('[hidden]').forEach(el=>el.remove());
       return clone;
     }

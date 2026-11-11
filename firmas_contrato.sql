@@ -5,3 +5,8 @@
 alter table public.historial_estimados
   add column if not exists firma_ip text,
   add column if not exists firma_fecha timestamptz;
+
+-- Canonical keys inside firmas jsonb:
+--   cliente / client_signature     = client PNG only
+--   contratista / contractor_signature = contractor PNG only
+-- Never copy contractor_signature onto the client line.

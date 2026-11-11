@@ -3685,6 +3685,13 @@ def documento_desde_fila_historial(row):
         snapshot = dict(snapshot)
         snapshot["areas"] = _preservar_descripciones_areas(snapshot.get("areas") or [])
     firmas = _json_campo(row.get("firmas")) or payload.get("firmas") or {}
+    if not isinstance(firmas, dict):
+        firmas = {}
+    snap_firmas = snapshot.get("firmas") if isinstance(snapshot, dict) and isinstance(snapshot.get("firmas"), dict) else {}
+    if snap_firmas:
+        mezcladas = dict(snap_firmas)
+        mezcladas.update({k: v for k, v in firmas.items() if v})
+        firmas = mezcladas
     tipo = str(row.get("tipo") or payload.get("tipo") or payload.get("type") or payload.get("docMode") or "estimate")
     folio = row.get("folio") or payload.get("folio") or payload.get("number") or payload.get("quote") or payload.get("invoice")
     notas = row.get("notas") or payload.get("notas") or payload.get("projectNotes") or (snapshot.get("projectNotes") if isinstance(snapshot, dict) else "")
@@ -5777,6 +5784,20 @@ def _guardar_historial_tabla(sb, contratista, fila):
         elif firmas_prev or firmas_nuevas:
             mezcladas = dict(firmas_prev)
             mezcladas.update(firmas_nuevas)
+            # Separar columnas: no dejar la firma del contratista en client_signature.
+            cli = mezcladas.get("cliente") or mezcladas.get("client_signature") or ""
+            con = mezcladas.get("contratista") or mezcladas.get("contractor_signature") or ""
+            if cli and con and cli == con and not (
+                mezcladas.get("clienteFecha") or mezcladas.get("clienteIp") or mezcladas.get("clienteMetodo")
+            ):
+                mezcladas["cliente"] = ""
+                mezcladas["client_signature"] = ""
+            else:
+                mezcladas["cliente"] = cli
+                mezcladas["client_signature"] = cli
+                mezcladas["contratista"] = con
+                mezcladas["contractor_signature"] = con
+            mezcladas.pop("client", None)
             fila["firmas"] = mezcladas
 
     def _escribir(metodo, payload, ident=None):
@@ -6471,6 +6492,100 @@ def _areas_contrato_publico(datos):
     return bloques
 
 
+def _img_firma(valor):
+    if isinstance(valor, dict):
+        valor = (
+            valor.get("imagen")
+            or valor.get("image")
+            or valor.get("dataUrl")
+            or valor.get("data_url")
+            or valor.get("png")
+            or ""
+        )
+    texto = str(valor or "").strip()
+    return texto if texto.startswith("data:image/") else ""
+
+
+def _extraer_firmas_documento(datos):
+    """Separa estrictamente contractor_signature y client_signature.
+
+    Nunca rellena la firma del cliente con la del contratista.
+    """
+    datos = datos if isinstance(datos, dict) else {}
+    snapshot = datos.get("snapshot") if isinstance(datos.get("snapshot"), dict) else {}
+    payload = datos.get("payload") if isinstance(datos.get("payload"), dict) else {}
+    fuentes = []
+    for origen in (snapshot.get("firmas"), payload.get("firmas"), datos.get("firmas")):
+        if isinstance(origen, dict):
+            fuentes.append(origen)
+    merged = {}
+    for origen in fuentes:
+        merged.update(origen)
+
+    def _tomar(claves, fuentes_extra=None):
+        pools = [merged]
+        if isinstance(fuentes_extra, (list, tuple)):
+            pools.extend(fuentes_extra)
+        else:
+            pools.extend([datos, payload if isinstance(payload, dict) else {}])
+        for pool in pools:
+            if not isinstance(pool, dict):
+                continue
+            for clave in claves:
+                imagen = _img_firma(pool.get(clave))
+                if imagen:
+                    return imagen
+        return ""
+
+    # Solo claves explícitas del contratista (nunca "client").
+    contratista = _tomar((
+        "contractor_signature",
+        "firma_contratista",
+        "firmaContratista",
+        "contratista",
+        "contractor",
+    ))
+    # Solo claves explícitas del cliente (nunca contractor_*).
+    cliente = _tomar((
+        "client_signature",
+        "firma_cliente",
+        "firmaCliente",
+        "cliente",
+    ))
+    # "client" solo si es una imagen PNG, no el objeto de datos del cliente.
+    if not cliente:
+        candidato = merged.get("client")
+        if isinstance(candidato, str) and candidato.startswith("data:image/"):
+            cliente = _img_firma(candidato)
+    cliente_confirmado = bool(
+        merged.get("clienteFecha")
+        or merged.get("clienteIp")
+        or merged.get("clienteMetodo")
+        or datos.get("firma_fecha")
+        or datos.get("firma_ip")
+    )
+    # Si ambas columnas tienen el mismo PNG y el cliente no firmó de verdad,
+    # vaciar client_signature para no duplicar la firma del contratista.
+    if cliente and contratista and cliente == contratista and not cliente_confirmado:
+        cliente = ""
+    if cliente and contratista and cliente == contratista and cliente_confirmado:
+        # Firma remota válida: conservar cliente; no tocar contratista.
+        pass
+    return {
+        "cliente": cliente or "",
+        "contratista": contratista or "",
+        "client_signature": cliente or "",
+        "contractor_signature": contratista or "",
+        "clienteFecha": str(
+            merged.get("clienteFecha") or datos.get("firma_fecha") or ""
+        )[:19] if cliente else "",
+        "contratistaFecha": str(
+            merged.get("contratistaFecha") or merged.get("contractorFecha") or ""
+        )[:19] if contratista else "",
+        "raw": merged,
+    }
+
+
 def _vista_contrato_publico(datos):
     datos = datos or {}
     bloques = _areas_contrato_publico(datos)
@@ -6501,16 +6616,13 @@ def _vista_contrato_publico(datos):
         totales.append({"label": total_label, "valor": _dinero_publico(total_num), "destacado": True})
     snapshot = datos.get("snapshot") if isinstance(datos.get("snapshot"), dict) else {}
     company = snapshot.get("company") if isinstance(snapshot.get("company"), dict) else {}
-    firmas = datos.get("firmas") if isinstance(datos.get("firmas"), dict) else {}
+    firmas = _extraer_firmas_documento(datos)
     plano = datos.get("plano") if isinstance(datos.get("plano"), dict) else {}
     if not plano and isinstance(snapshot.get("plano"), dict):
         plano = snapshot.get("plano")
     plano_imagen = str((plano or {}).get("imagen") or "").strip()
     if not plano_imagen.startswith("data:image/"):
         plano_imagen = ""
-    def _img_firma(valor):
-        texto = str(valor or "").strip()
-        return texto if texto.startswith("data:image/") else ""
     return {
         "tipo": tipo_clave,
         "tipo_label": tipo_label,
@@ -6533,10 +6645,12 @@ def _vista_contrato_publico(datos):
         "subtotal_txt": _dinero_publico(subtotal) if bloques else "",
         "total_txt": _dinero_publico(total_num) if total_num or bloques else "",
         "tiene_alcance": bool(bloques),
-        "firma_cliente": _img_firma(firmas.get("cliente") or firmas.get("client")),
-        "firma_contratista": _img_firma(firmas.get("contratista") or firmas.get("contractor")),
-        "firma_cliente_fecha": str(datos.get("firma_fecha") or firmas.get("clienteFecha") or "")[:19],
-        "firma_contratista_fecha": str(firmas.get("contratistaFecha") or firmas.get("contractorFecha") or "")[:19],
+        "firma_cliente": firmas.get("cliente") or "",
+        "client_signature": firmas.get("cliente") or "",
+        "firma_contratista": firmas.get("contratista") or "",
+        "contractor_signature": firmas.get("contratista") or "",
+        "firma_cliente_fecha": firmas.get("clienteFecha") or "",
+        "firma_contratista_fecha": firmas.get("contratistaFecha") or "",
         "plano_imagen": plano_imagen,
     }
 
@@ -6601,10 +6715,16 @@ def marcar_contrato_firmado(token_aceptacion, firma_b64, ip="", metodo="remoto")
     firmas = dict(actual.get("firmas") or {}) if isinstance(actual.get("firmas"), dict) else {}
     firmas.update({
         "cliente": firma,
+        "client_signature": firma,
         "clienteFecha": ahora_txt,
         "clienteIp": str(ip or "")[:64],
         "clienteMetodo": str(metodo or "remoto")[:32],
     })
+    # No mezclar columnas: quitar aliases ambiguos y no tocar contractor_signature.
+    firmas.pop("client", None)
+    if firmas.get("contratista") and firmas.get("cliente") == firmas.get("contratista"):
+        # Mantener la firma remota del cliente; el contratista ya estaba guardado.
+        pass
     payload = {
         "estado": "Firmado",
         "firmas": firmas,
@@ -13697,10 +13817,12 @@ def _firmar_contrato_guardado(row, firma_b64, ip="", metodo="en_persona"):
     firmas = dict(row.get("firmas") or {}) if isinstance(row.get("firmas"), dict) else {}
     firmas.update({
         "cliente": firma,
+        "client_signature": firma,
         "clienteFecha": ahora,
         "clienteIp": str(ip or "")[:64],
         "clienteMetodo": str(metodo or "en_persona")[:32],
     })
+    firmas.pop("client", None)
     payload = {"estado": "Firmado", "firmas": firmas, "updated_at": ahora}
     extra = dict(payload)
     extra["firma_ip"] = str(ip or "")[:64]
@@ -13736,7 +13858,7 @@ def _respuesta_pagina_firma(datos, titulo, mensaje, boton=False, aviso="", statu
             monto = f"${float(total):,.2f}"
         except (TypeError, ValueError):
             monto = str(total)
-    firmas = (datos or {}).get("firmas") if isinstance((datos or {}).get("firmas"), dict) else {}
+    firmas = _extraer_firmas_documento(datos)
     contrato = _vista_contrato_publico(datos)
     if not contrato.get("total_txt") and monto:
         contrato["total_txt"] = monto
@@ -13753,7 +13875,7 @@ def _respuesta_pagina_firma(datos, titulo, mensaje, boton=False, aviso="", statu
         aviso=aviso,
         firmado=_contrato_esta_firmado((datos or {}).get("estado")),
         firma_imagen=firmas.get("cliente") or "",
-        firma_fecha=(datos or {}).get("firma_fecha") or firmas.get("clienteFecha") or "",
+        firma_fecha=firmas.get("clienteFecha") or (datos or {}).get("firma_fecha") or "",
     )
     return Response(pagina, status=status, mimetype="text/html", headers={"Cache-Control": "no-store"})
 

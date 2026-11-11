@@ -43,8 +43,12 @@
     .totales .fila.grand { border-bottom:0; margin-top:4px; padding-top:12px; border-top:2px solid #19385f; font-size:1.08rem; font-weight:800; }
     .firma-zona { margin-top:36px; padding-top:22px; border-top:2px solid #19385f; }
     .pad-preview { display:block; width:100%; min-height:168px; border:1.5px dashed #94a3b8; border-radius:12px; background:#fff; cursor:pointer; padding:0; text-align:center; color:#64748b; font-weight:700; }
-    .pad-preview img { display:block; width:100%; height:168px; object-fit:contain; }
+    .pad-preview img { display:none; width:100%; height:168px; object-fit:contain; }
+    .pad-preview img.has-ink { display:block; }
+    .pad-preview img[hidden] { display:none !important; }
     .pad-preview span { display:block; padding:68px 16px; }
+    .pad-preview.has-preview span { display:none; }
+    .pad-preview.has-preview img.has-ink { display:block; }
     .acciones { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
     button { min-height:46px; padding:10px 16px; border-radius:10px; font-weight:700; font-size:1rem; cursor:pointer; }
     .btn { background:#fff; border:1px solid #cbd5e1; color:#0f172a; }
@@ -195,7 +199,6 @@
           <h2>Client signature</h2>
           <p>Read the full contract above. Tap the box to enlarge the signature pad, then sign with your finger or mouse.</p>
           <button type="button" class="pad-preview" id="firmaAbrir" aria-haspopup="dialog">
-            <img id="firmaPreview" hidden alt="Your signature">
             <span id="firmaHint">Tap to sign</span>
           </button>
         </div>
@@ -235,14 +238,18 @@
       const status=document.getElementById('firmaStatus');
       const submit=document.getElementById('firmaSubmit');
       const modal=document.getElementById('firmaModal');
-      const preview=document.getElementById('firmaPreview');
+      const abrirBtn=document.getElementById('firmaAbrir');
       const hint=document.getElementById('firmaHint');
+      const zona=document.getElementById('firmaZona');
       if(!canvas)return;
       let pad=null;
       let firmaLista='';
       let scrollY=0;
+      let enviando=false;
       canvas.style.touchAction='none';
       canvas.style.msTouchAction='none';
+      canvas.style.webkitUserSelect='none';
+      canvas.style.userSelect='none';
 
       function setStatus(texto, ok){
         if(!status)return;
@@ -271,15 +278,25 @@
       }
       function mostrarPreview(dataUrl){
         firmaLista=dataUrl||'';
-        if(!preview)return;
+        if(!abrirBtn)return;
+        const prev=abrirBtn.querySelector('img.firma-preview-img');
         if(firmaLista){
-          preview.src=firmaLista;
-          preview.hidden=false;
+          let img=prev;
+          if(!img){
+            img=document.createElement('img');
+            img.className='firma-preview-img has-ink';
+            img.alt='Your signature';
+            abrirBtn.insertBefore(img, abrirBtn.firstChild);
+          }
+          img.src=firmaLista;
+          img.classList.add('has-ink');
+          img.hidden=false;
+          abrirBtn.classList.add('has-preview');
           if(hint) hint.hidden=true;
         }else{
-          preview.removeAttribute('src');
-          preview.hidden=true;
-          if(hint) hint.hidden=false;
+          if(prev) prev.remove();
+          abrirBtn.classList.remove('has-preview');
+          if(hint){ hint.hidden=false; hint.textContent='Tap to sign'; }
         }
       }
       function vacio(){
@@ -300,6 +317,7 @@
         canvas.height=Math.floor(h*ratio);
         canvas.style.width=w+'px';
         canvas.style.height=h+'px';
+        canvas.style.touchAction='none';
         const ctx=canvas.getContext('2d');
         ctx.setTransform(1,0,0,1,0,0);
         ctx.scale(ratio, ratio);
@@ -327,7 +345,7 @@
         return true;
       }
       function abrirModal(){
-        if(!modal)return;
+        if(!modal||enviando)return;
         if(!crearPad())return;
         modal.hidden=false;
         modal.classList.add('is-open');
@@ -346,9 +364,32 @@
         liberarScroll();
       }
       function limpiar(){
+        if(enviando)return;
         if(pad) pad.clear();
         mostrarPreview('');
         setStatus('');
+      }
+      function mostrarExitoFirmado(firma){
+        if(!zona)return;
+        const form=document.getElementById('firmaForm');
+        if(form) form.remove();
+        let box=zona.querySelector('.firma-guardada');
+        if(!box){
+          box=document.createElement('div');
+          box.className='firma-guardada';
+          zona.insertBefore(box, zona.firstChild);
+        }
+        box.innerHTML='<p><strong>Signed</strong></p>';
+        if(firma){
+          const img=document.createElement('img');
+          img.src=firma;
+          img.alt='Client signature';
+          box.appendChild(img);
+        }
+        const meta=document.createElement('p');
+        meta.className='meta';
+        meta.textContent='Date: '+(new Date().toISOString().slice(0,19).replace('T',' '));
+        box.appendChild(meta);
       }
       function bloquearGesto(ev){
         if(!modal||!modal.classList.contains('is-open'))return;
@@ -363,7 +404,7 @@
       window.addEventListener('resize',function(){
         if(modal.classList.contains('is-open')) ajustarPad(true);
       });
-      document.getElementById('firmaAbrir')?.addEventListener('click',abrirModal);
+      abrirBtn?.addEventListener('click',abrirModal);
       document.getElementById('firmaModalCancel')?.addEventListener('click',cerrarModal);
       document.getElementById('firmaModalClear')?.addEventListener('click',function(){
         if(pad) pad.clear();
@@ -380,6 +421,7 @@
       document.getElementById('firmaClear')?.addEventListener('click',limpiar);
       document.getElementById('firmaForm')?.addEventListener('submit', async function(ev){
         ev.preventDefault();
+        if(enviando)return;
         if(!firmaLista && vacio()){
           setStatus('Draw your signature first.', false);
           abrirModal();
@@ -391,6 +433,8 @@
           abrirModal();
           return;
         }
+        let ok=false;
+        enviando=true;
         try{
           if(submit){ submit.disabled=true; submit.textContent='Saving...'; }
           setStatus('');
@@ -398,18 +442,31 @@
             method:'POST',
             credentials:'omit',
             headers:{'Content-Type':'application/json','Accept':'application/json'},
-            body:JSON.stringify({firma:firma})
+            body:JSON.stringify({firma:firma,client_signature:firma})
           });
           const json=await res.json().catch(function(){ return {}; });
           if(res.status===401||res.status===403){
             throw new Error('This signature link does not require an account. Reload the page and try again.');
           }
           if(!res.ok) throw new Error(json.error||'Could not save the signature.');
+          ok=true;
           setStatus('Signature saved. This contract is now signed.', true);
-          setTimeout(function(){ location.reload(); }, 900);
+          mostrarExitoFirmado(firma);
         }catch(err){
           setStatus(err.message||'Could not save the signature.', false);
-          if(submit){ submit.disabled=false; submit.textContent='Accept signature'; }
+        }finally{
+          cerrarModal();
+          liberarScroll();
+          enviando=false;
+          if(submit){
+            if(ok){
+              submit.disabled=true;
+              submit.textContent='Signed';
+            }else{
+              submit.disabled=false;
+              submit.textContent='Accept signature';
+            }
+          }
         }
       });
     })();

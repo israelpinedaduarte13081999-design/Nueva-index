@@ -144,18 +144,23 @@
     {% endif %}
   </div>
 
-  {% if d.tipo == "contract" or d.firma_contratista or d.firma_cliente %}
+  {% set contractor_sig = d.contractor_signature or d.firma_contratista or "" %}
+  {% set client_sig = d.client_signature or d.firma_cliente or "" %}
+  {% if client_sig and contractor_sig and client_sig == contractor_sig %}
+    {% set client_sig = "" %}
+  {% endif %}
+  {% if d.tipo == "contract" or contractor_sig or client_sig %}
   <table class="firmas pie-firmas">
     <tr>
       <td>
         <span class="label">Contractor signature</span>
-        <div class="firma-box">{% if d.firma_contratista %}<img src="{{ d.firma_contratista }}" alt="Contractor signature">{% endif %}</div>
-        {% if d.firma_contratista_fecha %}<p class="muted">{{ d.firma_contratista_fecha }}</p>{% endif %}
+        <div class="firma-box">{% if contractor_sig %}<img src="{{ contractor_sig }}" alt="Contractor signature">{% endif %}</div>
+        {% if contractor_sig and d.firma_contratista_fecha %}<p class="muted">{{ d.firma_contratista_fecha }}</p>{% endif %}
       </td>
       <td>
         <span class="label">Client signature</span>
-        <div class="firma-box">{% if d.firma_cliente %}<img src="{{ d.firma_cliente }}" alt="Client signature">{% endif %}</div>
-        {% if d.firma_cliente_fecha %}<p class="muted">{{ d.firma_cliente_fecha }}</p>{% endif %}
+        <div class="firma-box">{% if client_sig %}<img src="{{ client_sig }}" alt="Client signature">{% endif %}</div>
+        {% if client_sig and d.firma_cliente_fecha %}<p class="muted">{{ d.firma_cliente_fecha }}</p>{% endif %}
       </td>
     </tr>
   </table>
