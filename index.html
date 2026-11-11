@@ -427,9 +427,11 @@
     .business-dialog input { border-color:var(--line); background:#fff; }
     .business-dialog-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
     .export-modal[hidden] { display:none; }
-    .export-modal { position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:18px; background:rgba(15,23,42,.48); }
-    .export-dialog { width:min(440px,100%); background:#fff; border:1px solid #e2e8f0; border-radius:18px; box-shadow:0 24px 60px rgba(15,23,42,.28); padding:26px 24px 20px; }
-    .export-dialog h2 { margin:0 0 6px; color:#0f172a; font-size:22px; letter-spacing:-.02em; }
+    .export-modal { position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:18px; background:rgba(15,23,42,.48); cursor:pointer; }
+    .export-dialog { position:relative; width:min(440px,100%); max-height:min(92vh,760px); overflow:auto; background:#fff; border:1px solid #e2e8f0; border-radius:18px; box-shadow:0 24px 60px rgba(15,23,42,.28); padding:26px 48px 20px 24px; cursor:default; }
+    .export-dialog-dismiss { position:absolute; top:10px; right:10px; width:36px; height:36px; border:0; border-radius:8px; background:transparent; color:#94a3b8; font-size:22px; line-height:1; cursor:pointer; }
+    .export-dialog-dismiss:hover, .export-dialog-dismiss:focus-visible { color:#0f172a; background:#f1f5f9; }
+    .export-dialog h2 { margin:0 0 6px; color:#0f172a; font-size:22px; letter-spacing:-.02em; padding-right:8px; }
     .export-dialog-lead { margin:0 0 18px; color:#64748b; font-size:13px; line-height:1.45; }
     .export-options { display:flex; flex-direction:column; gap:10px; }
     .estimate-lang-control { display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:var(--navy); }
@@ -445,7 +447,8 @@
     .export-action-preview { background:#0f766e; border-color:#0f766e; color:#fff; }
     .export-action-preview:hover { background:#0d5e58; border-color:#0d5e58; color:#fff; }
     .export-action:disabled { opacity:.65; cursor:wait; transform:none; }
-    .export-dialog-close { display:block; width:100%; margin:14px 0 0; border-radius:12px; }
+    .export-dialog-close { display:block; width:100%; margin:14px 0 0; border-radius:12px; background:#fff; border:1px solid #cbd5e1; color:#334155; font-weight:700; }
+    .export-dialog-close:hover { background:#f8fafc; border-color:#94a3b8; color:#0f172a; }
     .draft-modal[hidden] { display:none; }
     .draft-modal { position:fixed; inset:0; z-index:30; display:grid; place-items:center; padding:18px; background:rgba(25,56,95,.42); }
     .draft-dialog { width:min(440px,100%); background:#fff; border:1px solid var(--line); border-radius:6px; box-shadow:0 18px 50px rgba(24,55,86,.28); padding:22px; }
@@ -1907,7 +1910,7 @@
             <option value="es">Spanish</option>
           </select>
         </label>
-        <button class="btn" id="exportButton" type="button" data-i18n="export">📤 Share</button>
+        <button class="btn" id="exportButton" type="button" data-i18n="export" onclick="abrirModalExportacion()">📤 Share</button>
         <button class="btn feat-ai feat-ai-quota" id="importReportButton" type="button" data-i18n="importPdf">Import measurements from PDF</button>
         <input class="sr-only feat-ai feat-ai-quota" id="input-pdf-upload" type="file" accept="application/pdf" onchange="procesarPDFImportado(this)">
         <button class="btn feat-ai feat-ai-quota" type="button" id="importLineItemsButton" onclick="if(typeof exigirCuotaIaPdf==='function'&&!exigirCuotaIaPdf())return; document.getElementById('input-pdf-upload').click()" data-i18n="importItems">📄 Import line items from PDF</button>
@@ -1937,8 +1940,9 @@
         <div class="business-dialog-actions"><button class="btn" id="cancelBusinessButton" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save business profile</button></div>
       </form>
     </div>
-    <div class="export-modal" id="exportModal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle" hidden>
+    <div class="export-modal" id="exportModal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle" hidden onclick="if(event.target===this)cerrarModalExportacion()">
       <div class="export-dialog">
+        <button class="export-dialog-dismiss" id="dismissExportButton" type="button" aria-label="Close" onclick="cerrarModalExportacion()">×</button>
         <h2 id="exportModalTitle">Share</h2>
         <p class="export-dialog-lead">Preview, save, or send this document.</p>
         <div class="export-options">
@@ -1977,9 +1981,24 @@
             Send for signature
           </button>
         </div>
-        <button class="btn export-dialog-close" id="closeExportButton" type="button">Close</button>
+        <button class="btn export-dialog-close" id="closeExportButton" type="button" onclick="cerrarModalExportacion()">Close</button>
       </div>
     </div>
+    <script>
+      function cerrarModalExportacion(){
+        const modal=document.getElementById('exportModal');
+        if(modal) modal.hidden=true;
+      }
+      function abrirModalExportacion(){
+        const modal=document.getElementById('exportModal');
+        if(modal) modal.hidden=false;
+      }
+      document.addEventListener('keydown',function(event){
+        if(event.key!=='Escape') return;
+        const modal=document.getElementById('exportModal');
+        if(modal&&!modal.hidden) cerrarModalExportacion();
+      });
+    </script>
     <div class="draft-modal no-print" id="draftModal" role="dialog" aria-modal="true" aria-labelledby="draftModalTitle" hidden>
       <div class="draft-dialog">
         <h2 id="draftModalTitle">Unsaved estimate</h2>
@@ -9798,8 +9817,25 @@
       const status=document.getElementById('plans-status');
       if(status){ status.textContent=n?('Added '+n+' item(s) to the estimate.'):'Nothing to add.'; status.className='plans-status'+(n?' is-ok':''); }
     });
-    document.querySelector('#exportButton').addEventListener('click',()=>document.querySelector('#exportModal').hidden=false);
-    document.querySelector('#closeExportButton').addEventListener('click',()=>document.querySelector('#exportModal').hidden=true);
+    function cerrarModalExportacion(){
+      const modal=document.getElementById('exportModal');
+      if(modal) modal.hidden=true;
+    }
+    function abrirModalExportacion(){
+      const modal=document.getElementById('exportModal');
+      if(modal) modal.hidden=false;
+    }
+    document.querySelector('#exportButton')?.addEventListener('click',abrirModalExportacion);
+    document.querySelector('#closeExportButton')?.addEventListener('click',cerrarModalExportacion);
+    document.querySelector('#dismissExportButton')?.addEventListener('click',cerrarModalExportacion);
+    document.querySelector('#exportModal')?.addEventListener('click',event=>{
+      if(event.target===event.currentTarget) cerrarModalExportacion();
+    });
+    document.addEventListener('keydown',event=>{
+      if(event.key!=='Escape') return;
+      const modal=document.getElementById('exportModal');
+      if(modal&&!modal.hidden) cerrarModalExportacion();
+    });
     document.querySelector('#downloadImageButton').addEventListener('click',downloadInvoiceImage);
     document.querySelector('#shareImageButton').addEventListener('click',shareInvoiceImage);
     const IDIOMAS_ESTIMADO=[
