@@ -6820,7 +6820,13 @@ def api_contratistas():
     if error:
         return error
     email = str(body.get("email") or body.get("contact") or "").strip().lower()
-    nombre = str(body.get("nombre_empresa") or body.get("company") or "").strip()
+    nombre = str(
+        body.get("nombre_empresa")
+        or body.get("company")
+        or body.get("companyName")
+        or body.get("company_name")
+        or ""
+    ).strip()
     if email and not _correo_valido(email):
         return jsonify({"error": "Contractor email is not valid."}), 400
     try:
@@ -13459,15 +13465,30 @@ def _html_marca_blanca(html, nombre_empresa=""):
     texto = str(html or "")
     texto = re.sub(r"Zipnova", "", texto, flags=re.I)
     marca = re.sub(r"[\r\n]+", " ", str(nombre_empresa or "")).strip()
+    placeholders = (
+        r"Company Name \(Edit in settings\)",
+        r"Enter your company name",
+        r"Escribe el nombre de tu empresa",
+        r"Your company",
+        r"Solid Remodeling(?:\s*(?:&amp;|&)\s*Reconstruction\s*LLC)?",
+    )
     if marca:
-        texto = re.sub(r"Solid Remodeling(?:\s*(?:&amp;|&)\s*Reconstruction\s*LLC)?", marca, texto, flags=re.I)
+        for patron in placeholders:
+            texto = re.sub(patron, marca, texto, flags=re.I)
+    else:
+        texto = re.sub(r"Company Name \(Edit in settings\)", "Your company", texto, flags=re.I)
     return texto
 
 
 def _pdf_desde_solicitud(data):
     html = str((data or {}).get("html") or "").strip()
     if html:
-        nombre = str((data or {}).get("nombre_empresa") or (data or {}).get("company") or "").strip()
+        nombre = str(
+            (data or {}).get("companyName")
+            or (data or {}).get("nombre_empresa")
+            or (data or {}).get("company")
+            or ""
+        ).strip()
         html = _html_marca_blanca(_traducir_servicio_en_html_pdf(html), nombre)
         return _html_a_pdf(html)
     imagen = _bytes_imagen_pdf((data or {}).get("image") or (data or {}).get("png") or (data or {}).get("dataUrl") or "")
@@ -14226,8 +14247,11 @@ def aceptar_contrato_publico(token_aceptacion):
     if not datos:
         return _respuesta_pagina_firma(None, "Contract not found", "This link does not match a pending contract.", status=404, as_json=quiere_json)
     if request.method == "GET":
-        if _contrato_esta_firmado(datos.get("estado")) and (datos.get("firmas") or {}).get("cliente"):
+        firmas = _extraer_firmas_documento(datos)
+        cliente_firma = str((firmas or {}).get("cliente") or "").strip()
+        if _contrato_esta_firmado(datos.get("estado")) and cliente_firma.startswith("data:image/"):
             return _respuesta_pagina_firma(datos, "Contract signed", "This contract has already been signed.", boton=False)
+        # Sin firma de cliente válida: siempre ofrecer el canvas (sin loading gate).
         return _respuesta_pagina_firma(
             datos,
             "Sign contract",

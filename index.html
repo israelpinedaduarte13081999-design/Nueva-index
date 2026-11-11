@@ -2068,11 +2068,13 @@
       <div class="tech-grid">
         <section class="tech-card contractor-info">
           <h3 id="contractorHeading" data-i18n="contractor">Contractor</h3>
-          <div class="field-row"><label for="company" id="companyLabel" data-i18n="company">Company</label><input id="company" value="{{ nombre_empresa or '' }}" placeholder="Escribe el nombre de tu empresa" size="48" autocomplete="organization"></div>
+          <form id="contractorInfoForm" action="#" method="post" autocomplete="organization">
+          <div class="field-row"><label for="company" id="companyLabel" data-i18n="company">Company Name</label><input id="company" name="company" value="{{ nombre_empresa or '' }}" placeholder="Enter your company name" size="48" autocomplete="organization"></div>
           <div class="field-row"><label for="representative" id="representativeLabel" data-i18n="representative">Representative</label><input id="representative" value="Israel Pineda"></div>
           <div class="field-row"><label for="email" id="contactLabel" data-i18n="contact">Contact</label><input id="email" value="israelpinedaurte13081999@gmail.com"></div>
           <div class="field-row"><label for="companyPhone" data-i18n="phone">Phone</label><input id="companyPhone"></div>
           <div class="field-row"><label for="service" id="serviceLabel" data-i18n="service">Service</label><input id="service" value="Cabinet installation"></div>
+          </form>
         </section>
         <section class="tech-card client-details-card" id="clientDetailsCard">
           <h3 id="clientDetailsHeading">Client details</h3>
@@ -2807,13 +2809,14 @@
       sessionStorage.removeItem(authUserIdKey);
     }
     const COMPANY_BANNER_FALLBACK='Your company';
-    const COMPANY_INPUT_PLACEHOLDER='Escribe el nombre de tu empresa';
+    const COMPANY_INPUT_PLACEHOLDER='Enter your company name';
     function esPlaceholderEmpresa(v){
       const t=String(v||'').trim();
       if(!t) return true;
       return /^your company$/i.test(t)
         || /^nombre de su empresa/i.test(t)
         || /^company name \(edit in settings\)$/i.test(t)
+        || /^enter your company name$/i.test(t)
         || /^escribe el nombre de tu empresa$/i.test(t)
         || /^solid remodeling(?:\s*(?:&|&amp;)\s*reconstruction\s*llc)?$/i.test(t);
     }
@@ -2870,19 +2873,25 @@
     function aplicarCompanyNameDesdePerfil(nombre,opts){
       const forzar=opts==null||opts.forceInput!==false;
       const crudo=String(nombre==null?'':nombre).trim();
-      const real=crudo&&!esPlaceholderEmpresa(crudo)?crudo:'';
+      let real=crudo&&!esPlaceholderEmpresa(crudo)?crudo:'';
+      const company=document.getElementById('company');
+      const editando=!!(company&&document.activeElement===company);
+      const escrito=String(company?.value||'').trim();
+      // No pisar lo que el usuario acaba de teclear si el perfil aún viene vacío (carrera tras Enter/blur).
+      if(!real&&escrito&&!esPlaceholderEmpresa(escrito)&&(editando||opts&&opts.preserveLocal)){
+        real=escrito;
+      }
       if(real){
         window.__NOMBRE_EMPRESA__=real;
         if(sesionActual) sesionActual.nombre_empresa=real;
         guardarCompanyNameLocal(real);
-      }else{
+      }else if(!editando){
         window.__NOMBRE_EMPRESA__='';
         if(sesionActual) sesionActual.nombre_empresa='';
       }
-      pintarBannerEmpresa(real);
-      const company=document.getElementById('company');
+      pintarBannerEmpresa(real||escrito);
       // Nunca inyectar fallback en el value: '' es estado válido (el HTML placeholder guía).
-      if(company&&forzar&&document.activeElement!==company){
+      if(company&&forzar&&!editando){
         company.value=real;
       }
       const payee=document.getElementById('checkPayee');
@@ -2892,7 +2901,7 @@
           payee.value=real;
         }
       }
-      return textoBannerEmpresa(real);
+      return textoBannerEmpresa(real||escrito);
     }
     function aplicarMarcaBlanca(nombre,opts){
       const forzar=!!(opts&&opts.forceInput);
@@ -6355,6 +6364,15 @@
       // Sin trim destructivo al value: '' es válido y debe fluir al estado/banner.
       return String(document.getElementById('company')?.value??'');
     }
+    function companyNameParaDocumento(){
+      const campo=companyNameActual().trim();
+      if(campo&&!esPlaceholderEmpresa(campo)) return campo;
+      const perfil=nombreEmpresaPerfil();
+      if(perfil&&!esPlaceholderEmpresa(perfil)) return perfil;
+      const cache=leerCompanyNameLocal();
+      if(cache&&!esPlaceholderEmpresa(cache)) return cache;
+      return '';
+    }
     function syncCompanyName(opts){
       // onChange sin condiciones: acepta '' y NUNCA reescribe el value del input.
       const companyName=companyNameActual();
@@ -6368,10 +6386,8 @@
     async function guardarNombreEmpresaEnServidor(nombre){
       const crudo=String(nombre==null?companyNameActual():nombre).trim();
       if(!crudo||esPlaceholderEmpresa(crudo)){
-        window.__NOMBRE_EMPRESA__='';
-        if(sesionActual) sesionActual.nombre_empresa='';
-        guardarCompanyNameLocal('');
-        pintarBannerEmpresa('');
+        // No borrar el perfil remoto solo porque el campo quedó vacío en este documento.
+        pintarBannerEmpresa(companyNameActual());
         return false;
       }
       const valor=crudo;
@@ -6393,13 +6409,23 @@
           method:'PATCH',
           credentials:'same-origin',
           headers:headersContratista({'Content-Type':'application/json'}),
-          body:JSON.stringify({nombre_empresa:valor,company:valor})
+          body:JSON.stringify({
+            nombre_empresa:valor,
+            company:valor,
+            companyName:valor,
+            company_name:valor
+          })
         });
         if(!res.ok) return false;
         const json=await res.json().catch(()=>null);
         if(json&&json.nombre_empresa){
           window.__NOMBRE_EMPRESA__=json.nombre_empresa;
           if(sesionActual) sesionActual.nombre_empresa=json.nombre_empresa;
+          const companyEl=document.getElementById('company');
+          if(companyEl&&document.activeElement!==companyEl){
+            companyEl.value=json.nombre_empresa;
+            syncCompanyName();
+          }
         }
         return true;
       }catch(_){
@@ -6688,12 +6714,14 @@
         client:typeof getClientData==='function'?getClientData():{},
         payment:paymentState,
         company:{
-          name:document.querySelector('#company')?.value||'',
+          name:(typeof companyNameParaDocumento==='function'?companyNameParaDocumento():'')||String(document.querySelector('#company')?.value||'').trim(),
           representative:document.querySelector('#representative')?.value||'',
           email:document.querySelector('#email')?.value||'',
           phone:document.querySelector('#companyPhone')?.value||'',
           service:document.querySelector('#service')?.value||''
         },
+        nombre_empresa:(typeof companyNameParaDocumento==='function'?companyNameParaDocumento():'')||String(document.querySelector('#company')?.value||'').trim(),
+        companyName:(typeof companyNameParaDocumento==='function'?companyNameParaDocumento():'')||String(document.querySelector('#company')?.value||'').trim(),
         areas:areasData,
         firmas:typeof capturarFirmasDocumento==='function'?capturarFirmasDocumento():{}
       };
@@ -8208,7 +8236,33 @@
     window.crearDocumento=crearDocumento;
     window.cambiarVista=cambiarVista;
     window.showAppView=showAppView;
-    function createNewInvoice(){ if(cargandoDocumentoHistorial)return; omitirRestaurarBorrador=true; borradorYaRestaurado=true; documentoHistorialId=null; guardarDocumentoEnHistorial(); aplicarFolioEnPantalla(siguienteFolio(tipoDocumentoActual())); document.querySelector('#date').value=new Date().toISOString().slice(0,10); ['clientName','clientEmail','clientPhone','clientStreet','clientCity','clientZip'].forEach(id=>document.querySelector('#'+id).value=''); document.querySelector('#clientState').value='GA'; document.querySelector('#dueDate').value=''; paymentState={paidAmount:'',status:'open',paidDate:''}; document.querySelector('#status').value='open'; savePaymentState(); areas.innerHTML=''; areaCount=0; addArea({title:'New work',titleEn:'New work',reference:'',rows:[['','',1,0,'unit']]}); syncClientData(); const profile=JSON.parse(localStorage.getItem(businessProfileStorageKey)||'null'); if(profile) applyBusinessProfile(profile); document.querySelector('#paidStamp').hidden=true; limpiarPanelFirma('client'); limpiarPanelFirma('contractor'); }
+    function createNewInvoice(){
+      if(cargandoDocumentoHistorial)return;
+      omitirRestaurarBorrador=true;
+      borradorYaRestaurado=true;
+      documentoHistorialId=null;
+      guardarDocumentoEnHistorial();
+      aplicarFolioEnPantalla(siguienteFolio(tipoDocumentoActual()));
+      document.querySelector('#date').value=new Date().toISOString().slice(0,10);
+      ['clientName','clientEmail','clientPhone','clientStreet','clientCity','clientZip'].forEach(id=>document.querySelector('#'+id).value='');
+      document.querySelector('#clientState').value='GA';
+      document.querySelector('#dueDate').value='';
+      paymentState={paidAmount:'',status:'open',paidDate:''};
+      document.querySelector('#status').value='open';
+      savePaymentState();
+      areas.innerHTML='';
+      areaCount=0;
+      addArea({title:'New work',titleEn:'New work',reference:'',rows:[['','',1,0,'unit']]});
+      syncClientData();
+      const profile=JSON.parse(localStorage.getItem(businessProfileStorageKey)||'null');
+      if(profile) applyBusinessProfile(profile);
+      // Nuevo documento: Company Name vuelve al perfil del contratista autenticado.
+      aplicarCompanyNameDesdePerfil(nombreEmpresaPerfil()||leerCompanyNameLocal()||'', {forceInput:true});
+      syncCompanyName();
+      document.querySelector('#paidStamp').hidden=true;
+      limpiarPanelFirma('client');
+      limpiarPanelFirma('contractor');
+    }
     function leerTextoCampo(el){
       if(!el)return '';
       const tag=String(el.tagName||'').toUpperCase();
@@ -8295,15 +8349,27 @@
       const origen=document.querySelector('.document');
       if(!origen)throw new Error('Document not found');
       if(typeof window.recalcularSubtotalesAgresivo==='function')window.recalcularSubtotalesAgresivo();
+      syncCompanyName();
+      const marca=companyNameParaDocumento()||nombreEmpresaActiva()||COMPANY_BANNER_FALLBACK;
       const clone=materializarDocumentoImpresion(origen);
-      const marca=nombreEmpresaActiva();
       clone.querySelectorAll('#companyBanner,#documentSubtitle,[data-brand-name]').forEach(el=>{ el.textContent=marca; });
+      const companyInputClone=clone.querySelector('#company');
+      if(companyInputClone){
+        if(companyInputClone.tagName==='INPUT'||companyInputClone.tagName==='TEXTAREA') companyInputClone.value=marca;
+        else companyInputClone.textContent=marca;
+      }else{
+        const firstPrint=clone.querySelector('.contractor-info .print-value');
+        if(firstPrint) firstPrint.textContent=marca;
+      }
       const estilos=[...document.querySelectorAll('style')].map(n=>n.textContent||'').join('\n');
       const contrato=document.documentElement.classList.contains('is-contract')?' is-contract':'';
       const titulo=exportFilename();
       let html=`<!DOCTYPE html><html lang="en" class="print-document${contrato}"><head><meta charset="UTF-8"><link rel="icon" type="image/svg+xml" href="/static/favicon.svg"><link rel="apple-touch-icon" href="/static/apple-touch-icon.png"><title>${titulo}</title><style>${estilos}</style></head><body>${clone.outerHTML}</body></html>`;
       html=html.replace(/Zipnova/gi,'');
       html=html.replace(/Solid Remodeling(?:\s*(?:&amp;|&)\s*Reconstruction\s*LLC)?/gi, marca);
+      html=html.replace(/Company Name \(Edit in settings\)/gi, marca);
+      html=html.replace(/Escribe el nombre de tu empresa/gi, marca);
+      html=html.replace(/Enter your company name/gi, marca);
       return html;
     }
     async function captureInvoice(){ if(typeof html2canvas!=='function') throw new Error('html2canvas no está disponible'); const invoice=document.querySelector('.document'); invoice.classList.add('export-clean'); try { return await html2canvas(invoice,{backgroundColor:'#fff',scale:2,useCORS:true,logging:false}); } finally { invoice.classList.remove('export-clean'); } }
@@ -8315,7 +8381,14 @@
       const res=await fetch('/api/generar-pdf',{
         method:'POST',
         headers:{'Content-Type':'application/json','Accept':'application/pdf'},
-        body:JSON.stringify({html,filename,preview:!!preview,nombre_empresa:nombreEmpresaActiva(),company:nombreEmpresaActiva()})
+        body:JSON.stringify({
+          html,
+          filename,
+          preview:!!preview,
+          nombre_empresa:companyNameParaDocumento()||nombreEmpresaActiva()||COMPANY_BANNER_FALLBACK,
+          company:companyNameParaDocumento()||nombreEmpresaActiva()||COMPANY_BANNER_FALLBACK,
+          companyName:companyNameParaDocumento()||nombreEmpresaActiva()||COMPANY_BANNER_FALLBACK
+        })
       });
       if(!res.ok){
         let detalle='';
@@ -10301,37 +10374,52 @@
     if(savedPaymentMethods) document.querySelectorAll('.payment-method-toggle').forEach(toggle=>{ if(savedPaymentMethods[toggle.dataset.paymentMethod]!==undefined) toggle.checked=savedPaymentMethods[toggle.dataset.paymentMethod]; });
     document.querySelectorAll('.payment-method-toggle').forEach(toggle=>toggle.addEventListener('change',updatePaymentMethods));
     updatePaymentMethods();
+    const contractorForm=document.getElementById('contractorInfoForm');
+    if(contractorForm){
+      contractorForm.addEventListener('submit',event=>{
+        event.preventDefault();
+        event.stopPropagation();
+        return false;
+      });
+    }
     const companyField=document.querySelector('#company');
     if(companyField){
       // value estricto: nombre real o ''. Nunca companyName || fallback en el input.
       companyField.placeholder=COMPANY_INPUT_PLACEHOLDER;
+      const label=document.getElementById('companyLabel');
+      if(label) label.textContent='Company Name';
       const desdeServidor=String(window.__NOMBRE_EMPRESA__||companyField.value||'').trim();
       const desdeCache=leerCompanyNameLocal();
       if(desdeServidor&&!esPlaceholderEmpresa(desdeServidor)) companyField.value=desdeServidor;
       else if(desdeCache&&!esPlaceholderEmpresa(desdeCache)) companyField.value=desdeCache;
       else if(esPlaceholderEmpresa(companyField.value)) companyField.value='';
+      const persistirCompanyName=()=>{
+        const escrito=companyNameActual();
+        const crudo=escrito.trim();
+        syncCompanyName();
+        if(!crudo||esPlaceholderEmpresa(crudo)){
+          if(esPlaceholderEmpresa(escrito)&&escrito!=='') companyField.value='';
+          syncCompanyName();
+          return;
+        }
+        guardarNombreEmpresaEnServidor(crudo);
+      };
       companyField.addEventListener('input',()=>{
         // Sin if (value): '' también actualiza banner/estado.
         syncCompanyName();
       });
       companyField.addEventListener('keydown',event=>{
-        if(event.key!=='Enter') return;
-        // Evita submit/recarga accidental; no limpia companyName.
+        if(event.key!=='Enter'&&event.keyCode!==13) return;
+        // Evita submit/recarga del <form>; no limpia companyName.
         event.preventDefault();
         event.stopPropagation();
+        if(typeof event.stopImmediatePropagation==='function') event.stopImmediatePropagation();
         syncCompanyName();
-        event.target.blur(); // dispara onBlur → guardado en Supabase
-      });
+        persistirCompanyName();
+        event.target.blur();
+      }, true);
       companyField.addEventListener('blur',()=>{
-        const crudo=companyNameActual().trim();
-        // Vacío permitido: no rellenar el input; solo proteger el banner.
-        if(!crudo||esPlaceholderEmpresa(crudo)){
-          if(esPlaceholderEmpresa(companyField.value)&&companyField.value!=='') companyField.value='';
-          syncCompanyName();
-          return;
-        }
-        syncCompanyName();
-        guardarNombreEmpresaEnServidor(crudo);
+        persistirCompanyName();
       });
     }
     // El perfil de negocio local solo rellena campos auxiliares; el Company name lo pisa /api/contratistas/yo.
@@ -10351,7 +10439,7 @@
     const TEXTOS_AUTH={
       en:{
         nav:'Log in', tabLogin:'Log in', tabReg:'Create account', loginTitle:'Log in',
-        email:'Email', password:'Password', name:'Name', company:'Company name', confirm:'Confirm password',
+        email:'Email', password:'Password', name:'Name', company:'Company Name', confirm:'Confirm password',
         submitLogin:'Log in', submitReg:'Create account', createPw:'Create password',
         noAccount:"Don't have an account? Sign up", hasAccount:'Already have an account? Log in',
         badLogin:'Email or password is incorrect.', noAccountYet:'No company uses this email yet. Sign up.',

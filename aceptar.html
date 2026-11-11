@@ -42,13 +42,6 @@
     .totales .fila { display:flex; justify-content:space-between; gap:16px; padding:8px 0; border-bottom:1px solid #edf2f7; }
     .totales .fila.grand { border-bottom:0; margin-top:4px; padding-top:12px; border-top:2px solid #19385f; font-size:1.08rem; font-weight:800; }
     .firma-zona { margin-top:36px; padding-top:22px; border-top:2px solid #19385f; }
-    .pad-preview { display:block; width:100%; min-height:168px; border:1.5px dashed #94a3b8; border-radius:12px; background:#fff; cursor:pointer; padding:0; text-align:center; color:#64748b; font-weight:700; }
-    .pad-preview img { display:none; width:100%; height:168px; object-fit:contain; }
-    .pad-preview img.has-ink { display:block; }
-    .pad-preview img[hidden] { display:none !important; }
-    .pad-preview span { display:block; padding:68px 16px; }
-    .pad-preview.has-preview span { display:none; }
-    .pad-preview.has-preview img.has-ink { display:block; }
     .acciones { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
     button { min-height:46px; padding:10px 16px; border-radius:10px; font-weight:700; font-size:1rem; cursor:pointer; }
     .btn { background:#fff; border:1px solid #cbd5e1; color:#0f172a; }
@@ -59,16 +52,26 @@
     .status.is-ok { color:#15803d; }
     .firma-guardada { margin-top:12px; padding:12px; border:1px solid #bbf7d0; background:#f0fdf4; border-radius:10px; }
     .firma-guardada img { display:block; width:100%; max-height:160px; object-fit:contain; background:#fff; border:1px solid #dcfce7; border-radius:8px; }
-    .firma-modal { position:fixed; inset:0; z-index:80; display:none; align-items:center; justify-content:center; padding:16px; background:rgba(15,23,42,.72); touch-action:none; overscroll-behavior:none; }
-    .firma-modal.is-open { display:flex !important; }
-    .firma-modal-card { width:min(96vw,760px); background:#fff; border-radius:16px; padding:16px 16px 18px; box-shadow:0 20px 50px rgba(15,23,42,.28); touch-action:none; }
-    .firma-modal-card h2 { margin-bottom:6px; }
-    .firma-modal-card p { color:var(--muted); font-size:.9rem; }
-    #firmaCanvas { display:block; width:100%; height:min(48vh,280px); border:1.5px dashed #94a3b8; border-radius:12px; background:#fff; touch-action:none; cursor:crosshair; overscroll-behavior:none; -ms-touch-action:none; }
+    .firma-pad-wrap { margin-top:12px; }
+    #firmaCanvas {
+      display:block !important;
+      width:100%;
+      height:min(48vh,280px);
+      min-height:180px;
+      border:1.5px dashed #94a3b8;
+      border-radius:12px;
+      background:#fff;
+      touch-action:none;
+      cursor:crosshair;
+      overscroll-behavior:none;
+      -ms-touch-action:none;
+      visibility:visible !important;
+      opacity:1 !important;
+    }
     @media (max-width:720px) {
       main { margin:0; border-radius:0; padding:20px 14px 32px; }
       .partes { grid-template-columns:1fr; }
-      #firmaCanvas { height:min(56vh,320px); }
+      #firmaCanvas { height:min(56vh,320px); min-height:220px; }
     }
   </style>
 </head>
@@ -193,14 +196,15 @@
         <img src="{{ firma_imagen }}" alt="Client signature">
         {% if firma_fecha %}<p class="meta">Date: {{ firma_fecha }}</p>{% endif %}
       </div>
-      {% elif boton %}
-      <form id="firmaForm">
+      {% else %}
+      {# Canvas always rendered when client_signature is empty — no loading gate / modal gate. #}
+      <form id="firmaForm" action="#" method="post">
         <div class="pad">
           <h2>Client signature</h2>
-          <p>Read the full contract above. Tap the box to enlarge the signature pad, then sign with your finger or mouse.</p>
-          <button type="button" class="pad-preview" id="firmaAbrir" aria-haspopup="dialog">
-            <span id="firmaHint">Tap to sign</span>
-          </button>
+          <p>Read the full contract above, then sign in the box with your finger or mouse.</p>
+          <div class="firma-pad-wrap">
+            <canvas id="firmaCanvas" aria-label="Signature pad" width="760" height="280"></canvas>
+          </div>
         </div>
         <div class="acciones">
           <button class="btn" type="button" id="firmaClear">Clear</button>
@@ -213,19 +217,7 @@
     </section>
   </main>
 
-  {% if boton %}
-  <div class="firma-modal" id="firmaModal" hidden>
-    <div class="firma-modal-card" role="dialog" aria-modal="true" aria-labelledby="firmaModalTitle">
-      <h2 id="firmaModalTitle">Sign this contract</h2>
-      <p>Draw your signature with your finger or mouse. The page will not scroll while you sign.</p>
-      <canvas id="firmaCanvas" aria-label="Signature pad"></canvas>
-      <div class="acciones">
-        <button class="btn" type="button" id="firmaModalClear">Clear</button>
-        <button class="btn" type="button" id="firmaModalCancel">Cancel</button>
-        <button class="btn-primary" type="button" id="firmaModalDone">Use this signature</button>
-      </div>
-    </div>
-  </div>
+  {% if not (firmado and firma_imagen) %}
   <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
   <script>
     if(typeof SignaturePad!=='function'){
@@ -237,15 +229,13 @@
       const canvas=document.getElementById('firmaCanvas');
       const status=document.getElementById('firmaStatus');
       const submit=document.getElementById('firmaSubmit');
-      const modal=document.getElementById('firmaModal');
-      const abrirBtn=document.getElementById('firmaAbrir');
-      const hint=document.getElementById('firmaHint');
       const zona=document.getElementById('firmaZona');
+      const form=document.getElementById('firmaForm');
       if(!canvas)return;
       let pad=null;
-      let firmaLista='';
-      let scrollY=0;
       let enviando=false;
+      canvas.style.display='block';
+      canvas.style.visibility='visible';
       canvas.style.touchAction='none';
       canvas.style.msTouchAction='none';
       canvas.style.webkitUserSelect='none';
@@ -256,62 +246,19 @@
         status.textContent=texto||'';
         status.className=ok===true?'status is-ok':ok===false?'status is-error':'status';
       }
-      function bloquearScroll(){
-        scrollY=window.scrollY||window.pageYOffset||0;
-        document.documentElement.classList.add('firma-activa');
-        document.body.classList.add('firma-activa');
-        document.body.style.position='fixed';
-        document.body.style.top='-'+scrollY+'px';
-        document.body.style.left='0';
-        document.body.style.right='0';
-        document.body.style.width='100%';
-      }
-      function liberarScroll(){
-        document.documentElement.classList.remove('firma-activa');
-        document.body.classList.remove('firma-activa');
-        document.body.style.position='';
-        document.body.style.top='';
-        document.body.style.left='';
-        document.body.style.right='';
-        document.body.style.width='';
-        window.scrollTo(0, scrollY||0);
-      }
-      function mostrarPreview(dataUrl){
-        firmaLista=dataUrl||'';
-        if(!abrirBtn)return;
-        const prev=abrirBtn.querySelector('img.firma-preview-img');
-        if(firmaLista){
-          let img=prev;
-          if(!img){
-            img=document.createElement('img');
-            img.className='firma-preview-img has-ink';
-            img.alt='Your signature';
-            abrirBtn.insertBefore(img, abrirBtn.firstChild);
-          }
-          img.src=firmaLista;
-          img.classList.add('has-ink');
-          img.hidden=false;
-          abrirBtn.classList.add('has-preview');
-          if(hint) hint.hidden=true;
-        }else{
-          if(prev) prev.remove();
-          abrirBtn.classList.remove('has-preview');
-          if(hint){ hint.hidden=false; hint.textContent='Tap to sign'; }
-        }
-      }
       function vacio(){
         return !pad || pad.isEmpty();
       }
       function exportarPng(){
-        if(!pad||pad.isEmpty()) return firmaLista||'';
-        try{ return pad.toDataURL('image/png'); }catch(_){ return firmaLista||''; }
+        if(!pad||pad.isEmpty()) return '';
+        try{ return pad.toDataURL('image/png'); }catch(_){ return ''; }
       }
       function ajustarPad(restaurar){
         if(!pad)return;
         const ratio=Math.max(window.devicePixelRatio||1,1);
         const rect=canvas.getBoundingClientRect();
-        const w=Math.max(280, Math.floor(rect.width||1));
-        const h=Math.max(160, Math.floor(rect.height||1));
+        const w=Math.max(280, Math.floor(rect.width||canvas.clientWidth||760));
+        const h=Math.max(160, Math.floor(rect.height||canvas.clientHeight||280));
         const data=(!pad.isEmpty()&&restaurar!==false)?pad.toData():null;
         canvas.width=Math.floor(w*ratio);
         canvas.height=Math.floor(h*ratio);
@@ -344,34 +291,13 @@
         });
         return true;
       }
-      function abrirModal(){
-        if(!modal||enviando)return;
-        if(!crearPad())return;
-        modal.hidden=false;
-        modal.classList.add('is-open');
-        bloquearScroll();
-        requestAnimationFrame(function(){
-          ajustarPad(false);
-          if(firmaLista){
-            pad.fromDataURL(firmaLista).catch(function(){});
-          }
-        });
-      }
-      function cerrarModal(){
-        if(!modal)return;
-        modal.classList.remove('is-open');
-        modal.hidden=true;
-        liberarScroll();
-      }
       function limpiar(){
         if(enviando)return;
         if(pad) pad.clear();
-        mostrarPreview('');
         setStatus('');
       }
       function mostrarExitoFirmado(firma){
         if(!zona)return;
-        const form=document.getElementById('firmaForm');
         if(form) form.remove();
         let box=zona.querySelector('.firma-guardada');
         if(!box){
@@ -392,49 +318,23 @@
         box.appendChild(meta);
       }
       function bloquearGesto(ev){
-        if(!modal||!modal.classList.contains('is-open'))return;
         if(ev.target===canvas || canvas.contains(ev.target)){
           ev.preventDefault();
         }
       }
       canvas.addEventListener('touchmove',bloquearGesto,{passive:false});
-      modal.addEventListener('touchmove',function(ev){
-        if(ev.target===canvas || canvas.contains(ev.target)) ev.preventDefault();
-      },{passive:false});
-      window.addEventListener('resize',function(){
-        if(modal.classList.contains('is-open')) ajustarPad(true);
-      });
-      abrirBtn?.addEventListener('click',abrirModal);
-      document.getElementById('firmaModalCancel')?.addEventListener('click',function(){
-        cerrarModal(); // síncrono primero
-      });
-      document.getElementById('firmaModalClear')?.addEventListener('click',function(){
-        if(pad) pad.clear();
-      });
-      document.getElementById('firmaModalDone')?.addEventListener('click',function(){
+      window.addEventListener('resize',function(){ ajustarPad(true); });
+      document.getElementById('firmaClear')?.addEventListener('click',limpiar);
+      form?.addEventListener('submit', async function(ev){
+        ev.preventDefault();
+        if(enviando)return;
         if(vacio()){
           setStatus('Draw your signature first.', false);
           return;
         }
-        const png=exportarPng();
-        cerrarModal(); // síncrono: liberar pantalla antes de tocar el DOM del preview
-        mostrarPreview(png);
-      });
-      modal.addEventListener('click',function(ev){ if(ev.target===modal) cerrarModal(); });
-      document.getElementById('firmaClear')?.addEventListener('click',limpiar);
-      document.getElementById('firmaForm')?.addEventListener('submit', async function(ev){
-        ev.preventDefault();
-        cerrarModal(); // síncrono: quitar overlay antes de cualquier fetch
-        if(enviando)return;
-        if(!firmaLista && vacio()){
-          setStatus('Draw your signature first.', false);
-          abrirModal();
-          return;
-        }
-        const firma=firmaLista || exportarPng();
+        const firma=exportarPng();
         if(!firma){
           setStatus('Draw your signature first.', false);
-          abrirModal();
           return;
         }
         let ok=false;
@@ -459,8 +359,6 @@
         }catch(err){
           setStatus(err.message||'Could not save the signature.', false);
         }finally{
-          cerrarModal();
-          liberarScroll();
           enviando=false;
           if(submit){
             if(ok){
@@ -473,6 +371,10 @@
           }
         }
       });
+      // Init immediately — no loading gate that hides the pad.
+      if(crearPad()){
+        requestAnimationFrame(function(){ ajustarPad(false); });
+      }
     })();
   </script>
   {% endif %}
