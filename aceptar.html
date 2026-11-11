@@ -405,7 +405,9 @@
         if(modal.classList.contains('is-open')) ajustarPad(true);
       });
       abrirBtn?.addEventListener('click',abrirModal);
-      document.getElementById('firmaModalCancel')?.addEventListener('click',cerrarModal);
+      document.getElementById('firmaModalCancel')?.addEventListener('click',function(){
+        cerrarModal(); // síncrono primero
+      });
       document.getElementById('firmaModalClear')?.addEventListener('click',function(){
         if(pad) pad.clear();
       });
@@ -414,13 +416,15 @@
           setStatus('Draw your signature first.', false);
           return;
         }
-        mostrarPreview(exportarPng());
-        cerrarModal();
+        const png=exportarPng();
+        cerrarModal(); // síncrono: liberar pantalla antes de tocar el DOM del preview
+        mostrarPreview(png);
       });
       modal.addEventListener('click',function(ev){ if(ev.target===modal) cerrarModal(); });
       document.getElementById('firmaClear')?.addEventListener('click',limpiar);
       document.getElementById('firmaForm')?.addEventListener('submit', async function(ev){
         ev.preventDefault();
+        cerrarModal(); // síncrono: quitar overlay antes de cualquier fetch
         if(enviando)return;
         if(!firmaLista && vacio()){
           setStatus('Draw your signature first.', false);

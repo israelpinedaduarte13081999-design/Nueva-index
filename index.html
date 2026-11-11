@@ -426,7 +426,7 @@
     .business-dialog .field-row { grid-template-columns:1fr; gap:4px; margin:10px 0; }
     .business-dialog input { border-color:var(--line); background:#fff; }
     .business-dialog-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
-    .export-modal[hidden] { display:none; }
+    .export-modal[hidden] { display:none !important; pointer-events:none !important; visibility:hidden !important; }
     .export-modal { position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:18px; background:rgba(15,23,42,.48); cursor:pointer; }
     .export-dialog { position:relative; width:min(440px,100%); max-height:min(92vh,760px); overflow:auto; background:#fff; border:1px solid #e2e8f0; border-radius:18px; box-shadow:0 24px 60px rgba(15,23,42,.28); padding:26px 48px 20px 24px; cursor:default; }
     .export-dialog-dismiss { position:absolute; top:10px; right:10px; width:36px; height:36px; border:0; border-radius:8px; background:transparent; color:#94a3b8; font-size:22px; line-height:1; cursor:pointer; }
@@ -716,7 +716,9 @@
     .signature-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
     .signature-box-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
     .signature-box-head h3 { margin:0; color:var(--muted); font-size:11px; text-transform:uppercase; }
-    html.firma-activa, body.firma-activa { overflow:hidden; touch-action:none; overscroll-behavior:none; }
+    /* Solo el canvas bloquea gestos; NUNCA touch-action:none en html/body (deja pantalla muerta). */
+    html.firma-activa, body.firma-activa { overflow:hidden; overscroll-behavior:none; }
+    html.firma-activa, body.firma-activa { touch-action:auto; }
     .signature-canvas { display:block; width:100%; height:140px; border:1px dashed #94a3b8; border-radius:6px; background:#fff; touch-action:none; cursor:crosshair; overscroll-behavior:none; -ms-touch-action:none; }
     .signature-clear { background:#fff; color:#334155; border:1px solid #cbd5e1; padding:4px 10px; border-radius:6px; font-size:.75rem; font-weight:700; }
     .signature-clear:hover { background:#f8fafc; border-color:#94a3b8; }
@@ -780,7 +782,7 @@
     .pdf-api-status.is-ok { color:#15803d; }
     body.medidas-pdf-busy { overflow:hidden; }
     #medidas-pdf-overlay { position:fixed; inset:0; z-index:2147483646; display:grid; place-items:center; padding:24px; background:rgba(15,23,42,.42); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); pointer-events:auto; }
-    #medidas-pdf-overlay[hidden] { display:none !important; }
+    #medidas-pdf-overlay[hidden] { display:none !important; pointer-events:none !important; visibility:hidden !important; }
     .medidas-pdf-card { width:min(420px,100%); padding:36px 32px 32px; text-align:center; background:rgba(255,255,255,.96); border:1px solid rgba(226,232,240,.95); border-radius:18px; box-shadow:0 24px 60px rgba(15,23,42,.22); }
     .medidas-pdf-spinner { width:56px; height:56px; margin:0 auto 22px; border-radius:50%; background:conic-gradient(from 0deg, rgba(2,132,199,0) 0%, #0284c7 68%, #38bdf8 100%); -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px)); mask:radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px)); animation:medidas-pdf-spin .85s linear infinite, medidas-pdf-pulse 1.8s ease-in-out infinite; }
     @keyframes medidas-pdf-spin { to { transform:rotate(360deg); } }
@@ -1985,19 +1987,60 @@
       </div>
     </div>
     <script>
+      function liberarInteraccionFirma(){
+        document.documentElement.classList.remove('firma-activa');
+        document.body.classList.remove('firma-activa');
+        try{
+          document.body.style.overflow='';
+          document.body.style.touchAction='';
+          document.body.style.position='';
+          document.body.style.top='';
+          document.body.style.left='';
+          document.body.style.right='';
+          document.body.style.width='';
+          document.documentElement.style.overflow='';
+          document.documentElement.style.touchAction='';
+        }catch(_){}
+      }
       function cerrarModalExportacion(){
+        liberarInteraccionFirma();
         const modal=document.getElementById('exportModal');
-        if(modal) modal.hidden=true;
+        if(modal){
+          modal.hidden=true;
+          modal.setAttribute('hidden','');
+          modal.style.pointerEvents='none';
+        }
       }
       function abrirModalExportacion(){
+        liberarInteraccionFirma();
         const modal=document.getElementById('exportModal');
-        if(modal) modal.hidden=false;
+        if(modal){
+          modal.hidden=false;
+          modal.removeAttribute('hidden');
+          modal.style.pointerEvents='';
+        }
       }
       document.addEventListener('keydown',function(event){
         if(event.key!=='Escape') return;
+        liberarInteraccionFirma();
         const modal=document.getElementById('exportModal');
         if(modal&&!modal.hidden) cerrarModalExportacion();
       });
+      document.addEventListener('visibilitychange',function(){
+        if(document.visibilityState==='visible') liberarInteraccionFirma();
+      });
+      window.addEventListener('pagehide',liberarInteraccionFirma);
+      window.addEventListener('pointerup',function(){
+        if(document.body.classList.contains('firma-activa')){
+          document.documentElement.classList.remove('firma-activa');
+          document.body.classList.remove('firma-activa');
+          document.body.style.overflow='';
+          document.body.style.touchAction='';
+          document.documentElement.style.touchAction='';
+        }
+      },true);
+      // Si la página quedó congelada de una sesión anterior, desbloquear al cargar.
+      liberarInteraccionFirma();
     </script>
     <div class="draft-modal no-print" id="draftModal" role="dialog" aria-modal="true" aria-labelledby="draftModalTitle" hidden>
       <div class="draft-dialog">
@@ -5975,6 +6018,7 @@
       };
     }
     function limpiarPanelFirma(role){
+      liberarInteraccionFirma({keepExport:true});
       const p=panelFirma(role);
       if(!p)return;
       limpiarFirmaCanvas(p.canvas);
@@ -6051,7 +6095,38 @@
       }
       return documentoHistorialId;
     }
+    function liberarInteraccionFirma(opts){
+      // Cleanup obligatorio: si falla, la página queda congelada.
+      const cerrarExport=!(opts&&opts.keepExport);
+      document.documentElement.classList.remove('firma-activa');
+      document.body.classList.remove('firma-activa');
+      try{
+        document.body.style.overflow='';
+        document.body.style.touchAction='';
+        document.body.style.position='';
+        document.body.style.top='';
+        document.body.style.left='';
+        document.body.style.right='';
+        document.body.style.width='';
+        document.documentElement.style.overflow='';
+        document.documentElement.style.touchAction='';
+      }catch(_){}
+      if(cerrarExport){
+        const exportModal=document.getElementById('exportModal');
+        if(exportModal&&!exportModal.hidden){
+          exportModal.hidden=true;
+          exportModal.setAttribute('hidden','');
+          exportModal.style.pointerEvents='none';
+        }
+      }
+      const pdfOverlay=document.getElementById('medidas-pdf-overlay');
+      if(pdfOverlay&&pdfOverlay.hasAttribute('hidden')){
+        pdfOverlay.style.pointerEvents='none';
+      }
+    }
+    window.liberarInteraccionFirma=liberarInteraccionFirma;
     async function guardarFirmaClienteEnServidor(){
+      liberarInteraccionFirma(); // síncrono: liberar pantalla antes de red/PDF
       const cliente=typeof capturarPanelFirma==='function'?capturarPanelFirma('client'):{};
       if(!cliente.imagen){
         if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Draw the client signature first','error');
@@ -6077,10 +6152,12 @@
         if(typeof mostrarToastGuardado==='function') mostrarToastGuardado(err.message||'Could not save the signature.','error');
         else alert(err.message||'Could not save the signature.');
       }finally{
+        liberarInteraccionFirma();
         if(btn) btn.disabled=false;
       }
     }
     async function enviarContratoParaFirma(){
+      liberarInteraccionFirma(); // síncrono: cerrar overlay y devolver clics al instante
       const destino=String(document.getElementById('clientEmail')?.value||'').trim();
       const company=String(document.getElementById('company')?.value||'').trim();
       const contact=String(document.getElementById('email')?.value||'').trim();
@@ -6105,12 +6182,12 @@
         });
         const json=await res.json().catch(()=>({}));
         if(!res.ok) throw new Error(json.error||'Could not send the signature link.');
-        document.querySelector('#exportModal')?.setAttribute('hidden','');
         if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Contract PDF emailed. The client can sign from the secure button.');
       }catch(err){
         if(typeof mostrarToastGuardado==='function') mostrarToastGuardado(err.message||'Could not send the signature link.','error');
         else alert(err.message||'Could not send the signature link.');
       }finally{
+        liberarInteraccionFirma();
         if(btn) btn.disabled=false;
         if(btnExport) btnExport.disabled=false;
       }
@@ -6140,13 +6217,19 @@
         canvas.dataset.hasInk='1';
         const role=canvas.closest('.signature-box')?.dataset.signRole;
         if(role)setSignMode(role,'draw');
-        document.documentElement.classList.add('firma-activa');
-        document.body.classList.add('firma-activa');
+        // No bloquear html/body: el canvas ya tiene touch-action:none.
       });
       pad.addEventListener('endStroke',function(){
-        document.documentElement.classList.remove('firma-activa');
-        document.body.classList.remove('firma-activa');
+        liberarInteraccionFirma({keepExport:true});
       });
+      function soltarTrazo(){
+        liberarInteraccionFirma({keepExport:true});
+      }
+      canvas.addEventListener('pointerup',soltarTrazo);
+      canvas.addEventListener('pointercancel',soltarTrazo);
+      canvas.addEventListener('touchend',soltarTrazo,{passive:true});
+      canvas.addEventListener('touchcancel',soltarTrazo,{passive:true});
+      canvas.addEventListener('mouseup',soltarTrazo);
       canvas.addEventListener('touchmove',function(ev){ ev.preventDefault(); },{passive:false});
       window.addEventListener('resize',function(){
         if(canvas.offsetParent!==null) ajustarCanvasFirma(canvas);
@@ -9849,21 +9932,38 @@
       if(status){ status.textContent=n?('Added '+n+' item(s) to the estimate.'):'Nothing to add.'; status.className='plans-status'+(n?' is-ok':''); }
     });
     function cerrarModalExportacion(){
+      if(typeof liberarInteraccionFirma==='function') liberarInteraccionFirma();
       const modal=document.getElementById('exportModal');
-      if(modal) modal.hidden=true;
+      if(modal){
+        modal.hidden=true;
+        modal.setAttribute('hidden','');
+        modal.style.pointerEvents='none';
+      }
     }
     function abrirModalExportacion(){
+      if(typeof liberarInteraccionFirma==='function'){
+        // Liberar scroll/touch sin depender del cierre del modal.
+        document.documentElement.classList.remove('firma-activa');
+        document.body.classList.remove('firma-activa');
+      }
       const modal=document.getElementById('exportModal');
-      if(modal) modal.hidden=false;
+      if(modal){
+        modal.hidden=false;
+        modal.removeAttribute('hidden');
+        modal.style.pointerEvents='';
+      }
     }
-    document.querySelector('#exportButton')?.addEventListener('click',abrirModalExportacion);
-    document.querySelector('#closeExportButton')?.addEventListener('click',cerrarModalExportacion);
-    document.querySelector('#dismissExportButton')?.addEventListener('click',cerrarModalExportacion);
+    window.cerrarModalExportacion=cerrarModalExportacion;
+    window.abrirModalExportacion=abrirModalExportacion;
+    document.querySelector('#exportButton')?.addEventListener('click',()=>{ abrirModalExportacion(); });
+    document.querySelector('#closeExportButton')?.addEventListener('click',()=>{ cerrarModalExportacion(); });
+    document.querySelector('#dismissExportButton')?.addEventListener('click',()=>{ cerrarModalExportacion(); });
     document.querySelector('#exportModal')?.addEventListener('click',event=>{
       if(event.target===event.currentTarget) cerrarModalExportacion();
     });
     document.addEventListener('keydown',event=>{
       if(event.key!=='Escape') return;
+      liberarInteraccionFirma();
       const modal=document.getElementById('exportModal');
       if(modal&&!modal.hidden) cerrarModalExportacion();
     });
