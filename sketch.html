@@ -48,7 +48,8 @@
     }
     .qb-top .btn-primary { background:var(--blue); border-color:var(--blue); color:#fff; }
     .qb-top .btn-primary:disabled { opacity:.6; cursor:wait; }
-    .qb-stage { flex:1; position:relative; min-height:0; isolation:isolate; }
+    .qb-stage { flex:1; display:flex; min-height:0; isolation:isolate; }
+    .qb-board-wrap { position:relative; flex:1; min-width:0; min-height:0; }
     #sketch-board {
       position:absolute; inset:0; z-index:1; background:var(--canvas);
       pointer-events:auto; touch-action:none; user-select:none; overflow:hidden;
@@ -95,6 +96,53 @@
     .qb-inspector button { border:1px solid var(--line); background:#fff; color:var(--navy); border-radius:10px; min-height:36px; padding:0 10px; font-weight:700; cursor:pointer; }
     .qb-inspector .danger { color:#b91c1c; border-color:#fecaca; }
     .qb-metrics { margin:8px 0 0; padding:8px 10px; background:var(--soft); border-radius:10px; font-size:.78rem; color:var(--navy); line-height:1.45; }
+    .qb-dock {
+      width:320px; flex:0 0 320px; background:#fff; border-left:1px solid var(--line);
+      display:flex; flex-direction:column; min-height:0; z-index:4;
+    }
+    .qb-dock-head { padding:14px 14px 10px; border-bottom:1px solid #eef2f6; }
+    .qb-dock-head h2 { margin:0; font-size:12px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--navy); }
+    .qb-dock-head p { margin:4px 0 0; color:var(--muted); font-size:12px; font-weight:600; }
+    .qb-dock-tree { flex:0 0 38%; min-height:140px; overflow:auto; padding:8px; border-bottom:1px solid #eef2f6; }
+    .qb-tree-empty { margin:12px 6px; padding:14px; border:1px dashed #cbd5e1; border-radius:12px; color:#64748b; font-size:12px; line-height:1.45; }
+    .qb-tree-empty strong { display:block; margin-bottom:4px; color:#0f172a; }
+    .qb-tree-room, .qb-tree-all { width:100%; border:0; background:transparent; text-align:left; cursor:pointer; font:inherit; border-radius:10px; }
+    .qb-tree-all { display:flex; justify-content:space-between; padding:8px 10px; font-size:12px; font-weight:700; color:#334155; }
+    .qb-tree-room { display:flex; justify-content:space-between; gap:8px; padding:8px 10px; margin-top:2px; }
+    .qb-tree-room:hover, .qb-tree-all:hover { background:#eef2f7; }
+    .qb-tree-room.is-on, .qb-tree-all.is-on { background:#e0edf8; box-shadow:inset 3px 0 0 #2d70ad; }
+    .qb-tree-name { display:block; font-size:13px; font-weight:700; color:#0f172a; }
+    .qb-tree-meta { display:block; margin-top:2px; color:#64748b; font-size:11px; font-weight:600; }
+    .qb-tree-qty { color:#19385f; font-size:11px; font-weight:800; white-space:nowrap; padding-top:2px; }
+    .qb-dock-cat { flex:1; min-height:0; display:flex; flex-direction:column; padding:12px; }
+    .qb-dock-cat label { display:block; margin:0 0 8px; color:#19385f; font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+    .qb-cat-search { position:relative; }
+    .qb-cat-search svg { position:absolute; left:10px; top:50%; width:16px; height:16px; transform:translateY(-50%); color:#64748b; pointer-events:none; }
+    #sketch-catalog-search { width:100%; padding:10px 12px 10px 34px; border:1px solid #d7e0e8; border-radius:10px; font:inherit; font-size:13px; font-weight:600; }
+    #sketch-catalog-search:focus { outline:0; border-color:#2d70ad; box-shadow:0 0 0 3px rgba(45,112,173,.16); }
+    .qb-formula { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 8px; }
+    .qb-chip { display:inline-flex; gap:6px; padding:4px 8px; border-radius:999px; background:#f1f5f9; color:#334155; font-size:11px; font-weight:700; }
+    .qb-chip.is-used { background:#e0edf8; color:#19385f; }
+    .qb-hint { margin:0 0 8px; color:#64748b; font-size:12px; font-weight:600; }
+    .qb-hint.is-warn { color:#9a3412; }
+    .qb-cat-results { flex:1; min-height:0; overflow:auto; border:1px solid #e8eef4; border-radius:12px; background:#f8fafc; }
+    .qb-cat-group { background:#f0f4f8; color:#19385f; font-weight:700; font-size:11px; padding:6px 10px; text-transform:uppercase; letter-spacing:.4px; }
+    .qb-cat-live { display:flex; align-items:center; gap:8px; text-transform:none; letter-spacing:0; }
+    .qb-cat-spin { width:14px; height:14px; border-radius:50%; border:2px solid #dbe3ee; border-top-color:#c2410c; animation:qb-spin .7s linear infinite; }
+    @keyframes qb-spin { to { transform:rotate(360deg); } }
+    .qb-cat-item { width:100%; border:0; border-bottom:1px solid #eef2f7; background:#fff; text-align:left; padding:8px 10px; cursor:pointer; display:flex; gap:8px; align-items:flex-start; font:inherit; }
+    .qb-cat-item:hover { background:#eef5fc; }
+    .qb-cat-thumb { flex:0 0 40px; width:40px; height:40px; border-radius:6px; background:#eef2f7; overflow:hidden; }
+    .qb-cat-thumb img { width:100%; height:100%; object-fit:cover; }
+    .qb-cat-copy { min-width:0; flex:1; }
+    .qb-cat-label { display:block; font-size:12px; font-weight:700; color:#0f172a; line-height:1.35; }
+    .qb-cat-meta { display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; font-size:11px; color:#627d98; }
+    .qb-vendor { background:#fff4ef; color:#c2410c; border-radius:999px; padding:0 6px; font-size:9px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+    @media (max-width:900px) {
+      .qb-stage { flex-direction:column; }
+      .qb-board-wrap { min-height:48vh; }
+      .qb-dock { width:100%; flex-basis:auto; max-height:48vh; border-left:0; border-top:1px solid var(--line); }
+    }
     @media (max-width:720px) {
       .qb-rail { width:68px; flex-basis:68px; }
       .qb-float.is-open { width:min(320px,calc(100vw - 84px)); }
@@ -162,6 +210,7 @@
       <a class="btn" href="{{ volver or '/estimado' }}">Volver</a>
     </header>
     <div class="qb-stage">
+      <div class="qb-board-wrap">
       <div id="sketch-board" class="is-select">
         <svg id="planoSvg" xmlns="http://www.w3.org/2000/svg">
           <defs>
@@ -201,6 +250,24 @@
         <div class="qb-metrics" id="propMetricas"></div>
         <div class="actions">
           <button type="button" class="danger" id="propBorrar">Quitar</button>
+        </div>
+      </aside>
+      </div>
+      <aside class="qb-dock" id="sketch-dock" aria-label="Rooms and catalog">
+        <div class="qb-dock-head">
+          <h2>Rooms</h2>
+          <p id="sketch-room-meta">Draw a room, then add catalog items</p>
+        </div>
+        <div class="qb-dock-tree" id="sketch-room-tree"></div>
+        <div class="qb-dock-cat feat-catalog">
+          <label for="sketch-catalog-search">Catalog</label>
+          <div class="qb-cat-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="sketch-catalog-search" type="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search catalog (Paint, Drywall, Flooring…)" aria-label="Search catalog">
+          </div>
+          <div class="qb-formula" id="sketch-formula-row"></div>
+          <p class="qb-hint" id="sketch-formula-hint">Select a room on the plan, then add a material.</p>
+          <div class="qb-cat-results" id="sketch-catalog-results"></div>
         </div>
       </aside>
     </div>
@@ -518,6 +585,7 @@
             gHandles.appendChild(h);
           });
         }
+        if(typeof window.qbSketchDidChange==='function') window.qbSketchDidChange(model, selected);
       }
 
       function muroCercano(p){
@@ -548,7 +616,7 @@
         return inPoly;
       }
       function nuevaHabitacion(pts, nombre){
-        const room={ id:uid('r'), name:nombre||('Espacio '+ (model.rooms.length+1)), points:pts, openings:[], level:'Main level' };
+        const room={ id:uid('r'), name:nombre||('Room '+ (model.rooms.length+1)), points:pts, openings:[], level:'Main level' };
         model.rooms.push(room);
         selected={ room:room };
         return room;
@@ -966,6 +1034,14 @@
       pintar();
       window.addEventListener('resize', pintar);
       window.qbSketchModelo=function(){ return exportarJson(); };
+      window.qbSketchHabitacion=function(){ return selected&&selected.room?selected.room:null; };
+      window.qbSketchMedidas=function(room){ return room?medidasHabitacion(room):null; };
+      window.qbSketchSeleccionar=function(id){
+        const room=model.rooms.filter(function(r){ return r.id===id; })[0];
+        selected=room?{room:room}:null;
+        pintar(); refrescarInspector();
+        return room||null;
+      };
       window.qbSketchCrearEspacio=function(pts, nombre){
         const room=nuevaHabitacion((pts||[]).map(function(p){ return {x:p.x,y:p.y}; }), nombre);
         pintar(); refrescarInspector();
@@ -975,6 +1051,283 @@
         colocarVano(tipo, {x:x, y:y});
         return exportarJson();
       };
+    })();
+  </script>
+  <script>
+    (function(){
+      const DOC_ID={{ doc_id|tojson }};
+      const INMUTABLE={{ inmutable|tojson }};
+      const tree=document.getElementById('sketch-room-tree');
+      const meta=document.getElementById('sketch-room-meta');
+      const search=document.getElementById('sketch-catalog-search');
+      const results=document.getElementById('sketch-catalog-results');
+      const hint=document.getElementById('sketch-formula-hint');
+      const chips=document.getElementById('sketch-formula-row');
+      let zip='';
+      let counts={};
+      let seq=0;
+      let abort=null;
+
+      function headers(){
+        const h={'Accept':'application/json'};
+        try{
+          const token=localStorage.getItem('contratista_sesion')||sessionStorage.getItem('contratista_sesion')||'';
+          if(token) h.Authorization='Bearer '+token;
+        }catch(_){}
+        return h;
+      }
+      function roomsNow(){
+        const modelo=typeof window.qbSketchModelo==='function'?window.qbSketchModelo():null;
+        return ((modelo&&modelo.rooms)||[]).map(function(room){
+          return Object.assign({}, room, {name:room.name||room.room_name||'Room'});
+        });
+      }
+      function roomActiva(){
+        return typeof window.qbSketchHabitacion==='function'?window.qbSketchHabitacion():null;
+      }
+      function medidasDe(room){
+        return typeof window.qbSketchMedidas==='function'?window.qbSketchMedidas(room):null;
+      }
+      function formulaDe(item, room){
+        const desc=String((item&&(item.desc||item.descripcion||item.nombre||item.codigo))||'').toLowerCase();
+        const unit=String((item&&(item.unit||item.unidad))||'').toUpperCase();
+        const m=medidasDe(room)||{};
+        const pick=function(key,label,u){
+          let qty=Number(m[key])||0;
+          if(u==='SQ'&&key==='floor_sf') qty=qty/100;
+          return {key:key,label:label,qty:Math.round(qty*100)/100,unit:u};
+        };
+        if(/paint|pintura|drywall|sheetrock|gypsum|yeso|texture|textura|wallpaper/.test(desc)){
+          if(/ceiling|cielo|techo/.test(desc)&&!/wall|pared/.test(desc)) return pick('ceiling_sf','Ceiling','SF');
+          if(/paint|pintura/.test(desc)&&/ceiling|cielo/.test(desc)) return pick('wall_and_ceiling_sf','Walls + ceiling','SF');
+          return pick('wall_sf_net','Walls net','SF');
+        }
+        if(/floor|piso|lvt|lvp|vinyl plank|laminate|hardwood|carpet|alfombra|tile|azulejo|porcel/.test(desc)&&!/wall|pared|backsplash/.test(desc)){
+          return pick('floor_sf','Floor',unit==='SQ'?'SQ':'SF');
+        }
+        if(/ceiling|cielo raso|techo interior/.test(desc)) return pick('ceiling_sf','Ceiling','SF');
+        if(/baseboard|rodapi|zoclo|quarter round|shoe mold|crown|molding|moulding|trim|cornisa/.test(desc)) return pick('trim_lf','Trim','LF');
+        if(unit==='LF'||/perimeter|perimetro/.test(desc)) return pick('perimeter_lf','Perimeter','LF');
+        if(/wall|pared|muro/.test(desc)) return pick('wall_sf_net','Walls net','SF');
+        if(unit==='SF') return pick('floor_sf','Floor','SF');
+        if(unit==='LF') return pick('perimeter_lf','Perimeter','LF');
+        return {key:'ea',label:'Each',qty:1,unit:unit||'EA'};
+      }
+      function pintarFormulas(){
+        if(!chips||!hint) return;
+        const room=roomActiva();
+        chips.replaceChildren();
+        if(!room){
+          hint.className='qb-hint is-warn';
+          hint.textContent='Draw or select a room, then search the catalog.';
+          return;
+        }
+        const m=medidasDe(room)||{};
+        const q=(search&&search.value)||'';
+        const used=q.trim()?formulaDe({desc:q},room):null;
+        [['floor_sf','Floor','SF'],['wall_sf_net','Walls net','SF'],['perimeter_lf','Perimeter','LF'],['trim_lf','Trim','LF']].forEach(function(row){
+          const chip=document.createElement('span');
+          chip.className='qb-chip'+(used&&used.key===row[0]?' is-used':'');
+          chip.innerHTML=row[1]+' <strong>'+(Number(m[row[0]])||0).toFixed(1)+' '+row[2]+'</strong>';
+          chips.appendChild(chip);
+        });
+        hint.className='qb-hint';
+        hint.textContent=used&&used.qty>0
+          ? (used.label+' from '+room.name+' · '+used.qty+' '+used.unit)
+          : ('Add a catalog item to '+room.name+'. Quantity comes from this room.');
+      }
+      function pintarArbol(){
+        if(!tree) return;
+        const rooms=roomsNow();
+        const activa=roomActiva();
+        if(meta) meta.textContent=rooms.length?(rooms.length+' room'+(rooms.length===1?'':'s')+' on this plan'):'Draw a room, then add catalog items';
+        if(!rooms.length){
+          tree.innerHTML='<div class="qb-tree-empty"><strong>No rooms yet</strong>Use Wall or Space to draw a room on the plan.</div>';
+          pintarFormulas();
+          return;
+        }
+        const frag=document.createDocumentFragment();
+        rooms.forEach(function(room){
+          const btn=document.createElement('button');
+          btn.type='button';
+          btn.className='qb-tree-room'+(activa&&activa.id===room.id?' is-on':'');
+          const m=medidasDe(room)||room;
+          const n=counts[room.id]||0;
+          btn.innerHTML='<span><span class="qb-tree-name"></span><span class="qb-tree-meta"></span></span><span class="qb-tree-qty"></span>';
+          btn.querySelector('.qb-tree-name').textContent=room.name||'Room';
+          btn.querySelector('.qb-tree-meta').textContent=n?(n+' item'+(n===1?'':'s')):'No line items yet';
+          btn.querySelector('.qb-tree-qty').textContent=(Number(m.floor_sf||m.area_sqft)||0)>0?((Number(m.floor_sf||m.area_sqft)).toFixed(1)+' SF'):'';
+          btn.addEventListener('click',function(){
+            if(typeof window.qbSketchSeleccionar==='function') window.qbSketchSeleccionar(room.id);
+            if(search) search.focus();
+          });
+          frag.appendChild(btn);
+        });
+        tree.replaceChildren(frag);
+        pintarFormulas();
+      }
+      function extraerItems(data){
+        if(Array.isArray(data)) return data;
+        if(!data||typeof data!=='object') return [];
+        return data.items||data.resultados||data.data||data.catalogo||[];
+      }
+      function mostrarCarga(msg){
+        if(!results) return;
+        results.innerHTML='<div class="qb-cat-group qb-cat-live"><span class="qb-cat-spin" aria-hidden="true"></span><span>'+(msg||'Searching live catalog…')+'</span></div>';
+      }
+      function pintarSugerencias(items){
+        if(!results) return;
+        results.innerHTML='';
+        if(!items.length){
+          results.innerHTML='<div class="qb-cat-group">No catalog matches found</div>';
+          return;
+        }
+        const head=document.createElement('div');
+        head.className='qb-cat-group';
+        head.textContent=items.length+' CATALOG MATCHES';
+        results.appendChild(head);
+        items.forEach(function(item){
+          const btn=document.createElement('button');
+          btn.type='button';
+          btn.className='qb-cat-item';
+          const thumb=document.createElement('span');
+          thumb.className='qb-cat-thumb';
+          const imgUrl=String(item.image_url||item.imageUrl||'');
+          if(/^https?:\/\//i.test(imgUrl)){
+            const img=document.createElement('img');
+            img.alt=''; img.loading='lazy'; img.src=imgUrl;
+            thumb.appendChild(img);
+          }
+          const copy=document.createElement('span');
+          copy.className='qb-cat-copy';
+          const label=document.createElement('span');
+          label.className='qb-cat-label';
+          label.textContent=(item.codigo||item.code||'—')+' / '+(item.desc||item.descripcion||item.nombre||'');
+          const metaRow=document.createElement('span');
+          metaRow.className='qb-cat-meta';
+          if(item.proveedor){
+            const vendor=document.createElement('span');
+            vendor.className='qb-vendor';
+            vendor.textContent=item.proveedor;
+            metaRow.appendChild(vendor);
+          }
+          const price=Number(item.precio_zona||item.precio_unitario||item.price||item.precio_material||0);
+          const unit=item.unit||item.unidad||'SF';
+          const priceEl=document.createElement('span');
+          priceEl.textContent=unit+' · $'+price.toFixed(2);
+          metaRow.appendChild(priceEl);
+          copy.appendChild(label);
+          copy.appendChild(metaRow);
+          btn.appendChild(thumb);
+          btn.appendChild(copy);
+          btn.addEventListener('click',function(){ agregarItem(item); });
+          results.appendChild(btn);
+        });
+      }
+      async function buscar(texto){
+        const q=String(texto||'').trim();
+        const my=++seq;
+        if(q.length<2){
+          if(results) results.innerHTML='';
+          return;
+        }
+        if(abort) abort.abort();
+        abort=new AbortController();
+        mostrarCarga('Searching catalog…');
+        let items=[];
+        try{
+          let url='/api/search-catalog?q='+encodeURIComponent(q)+'&idioma=en&flexible=1';
+          if(zip.length===5) url+='&zip='+encodeURIComponent(zip);
+          const res=await fetch(url,{signal:abort.signal,headers:headers(),credentials:'same-origin'});
+          const data=await res.json().catch(function(){ return {}; });
+          if(my!==seq) return;
+          items=extraerItems(data);
+        }catch(err){
+          if(err&&err.name==='AbortError') return;
+        }
+        if(my!==seq) return;
+        if(items.length){
+          pintarSugerencias(items);
+          return;
+        }
+        mostrarCarga('Searching live catalog…');
+        try{
+          const hd=await fetch('/api/catalogo/home-depot?q='+encodeURIComponent(q)+'&zip='+encodeURIComponent(zip),{
+            signal:abort.signal,headers:headers(),credentials:'same-origin'
+          });
+          const data=await hd.json().catch(function(){ return {}; });
+          if(my!==seq) return;
+          items=extraerItems(data);
+          if(items.length) pintarSugerencias(items);
+          else results.innerHTML='<div class="qb-cat-group">'+(data.error||'No catalog matches found')+'</div>';
+        }catch(err){
+          if(my!==seq) return;
+          if(!(err&&err.name==='AbortError')) results.innerHTML='<div class="qb-cat-group">Could not reach the live catalog.</div>';
+        }
+      }
+      async function agregarItem(item){
+        const room=roomActiva();
+        if(!room){
+          if(hint){ hint.className='qb-hint is-warn'; hint.textContent='Select or draw a room before adding a catalog item.'; }
+          return;
+        }
+        if(INMUTABLE){
+          if(hint){ hint.className='qb-hint is-warn'; hint.textContent='This document is locked.'; }
+          return;
+        }
+        const formula=formulaDe(item, room);
+        try{
+          const res=await fetch('/api/proyecto/'+encodeURIComponent(DOC_ID)+'/partidas',{
+            method:'POST', credentials:'same-origin',
+            headers:Object.assign({'Content-Type':'application/json'}, headers()),
+            body:JSON.stringify({
+              roomId:room.id,
+              roomName:room.name,
+              level:room.level||'Main level',
+              qty:formula.qty,
+              unit:formula.unit||item.unit||item.unidad||'SF',
+              measureKey:formula.key,
+              item:item
+            })
+          });
+          const data=await res.json().catch(function(){ return {}; });
+          if(!res.ok) throw new Error(data.error||'Could not add the item.');
+          counts[room.id]=(counts[room.id]||0)+1;
+          pintarArbol();
+          if(search) search.value='';
+          if(results) results.innerHTML='<div class="qb-cat-group">Added to '+room.name+'</div>';
+          if(typeof window.qbSketchGuardar==='function') window.qbSketchGuardar();
+        }catch(err){
+          if(hint){ hint.className='qb-hint is-warn'; hint.textContent=err.message||'Could not add the item.'; }
+        }
+      }
+      async function cargarPartidas(){
+        if(!DOC_ID) return;
+        try{
+          const res=await fetch('/api/proyecto/'+encodeURIComponent(DOC_ID)+'/partidas',{headers:headers(),credentials:'same-origin'});
+          const data=await res.json().catch(function(){ return {}; });
+          zip=String((data&&data.zip)||'').replace(/\D/g,'').slice(0,5);
+          counts={};
+          (data.areas||[]).forEach(function(area){
+            const id=String((area&&(area.roomId||area.qbHabitacionId))||'');
+            if(id) counts[id]=(area.rows||area.items||[]).length;
+          });
+        }catch(_){}
+        pintarArbol();
+      }
+      let tBuscar=0;
+      if(search){
+        search.addEventListener('input',function(){
+          pintarFormulas();
+          clearTimeout(tBuscar);
+          tBuscar=setTimeout(function(){ buscar(search.value); },220);
+        });
+      }
+      window.qbSketchDidChange=function(){
+        clearTimeout(pintarArbol._t);
+        pintarArbol._t=setTimeout(pintarArbol, 50);
+      };
+      cargarPartidas();
     })();
   </script>
   {% include "base.html" %}

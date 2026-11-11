@@ -5977,23 +5977,24 @@ def _fila_medida_plano(desc, qty, unit, clave):
     }
 
 
-def _area_desde_habitacion_plano(room):
-    nombre = str((room or {}).get("room_name") or "Room")
+def _area_desde_habitacion_plano(room, existente=None):
+    nombre = str((room or {}).get("room_name") or (room or {}).get("name") or "Room").strip() or "Room"
+    room_id = str((room or {}).get("id") or nombre)
+    rows = []
+    if isinstance(existente, dict):
+        prev = existente.get("rows") if isinstance(existente.get("rows"), list) else existente.get("items")
+        if isinstance(prev, list):
+            rows = list(prev)
     return {
         "title": nombre,
         "titleEn": nombre,
         "titleEs": nombre,
         "reference": "From floor plan",
         "qbDesdePlano": True,
-        "qbHabitacionId": str((room or {}).get("id") or nombre),
-        "roomId": str((room or {}).get("id") or nombre),
-        "level": str((room or {}).get("level") or "Main level"),
-        "rows": [
-            _fila_medida_plano(nombre + " — Floor", room.get("floor_sf"), "SF", "floor_sf"),
-            _fila_medida_plano(nombre + " — Ceiling", room.get("ceiling_sf"), "SF", "ceiling_sf"),
-            _fila_medida_plano(nombre + " — Walls (net of openings)", room.get("wall_sf"), "SF", "wall_sf"),
-            _fila_medida_plano(nombre + " — Baseboard / trim", room.get("trim_lf"), "LF", "trim_lf"),
-        ],
+        "qbHabitacionId": room_id,
+        "roomId": room_id,
+        "level": str((room or {}).get("level") or (existente or {}).get("level") or "Main level"),
+        "rows": rows,
     }
 
 
@@ -6005,8 +6006,20 @@ def _inyectar_medidas_plano_en_areas(snapshot, medidas):
     if not habitaciones:
         snapshot["areas"] = [area for area in actuales if not (isinstance(area, dict) and area.get("qbDesdePlano"))]
         return snapshot
+    por_id = {}
+    for area in actuales:
+        if not (isinstance(area, dict) and area.get("qbDesdePlano")):
+            continue
+        clave = str(area.get("roomId") or area.get("qbHabitacionId") or "").strip()
+        if clave:
+            por_id[clave] = area
     conservadas = [area for area in actuales if not (isinstance(area, dict) and area.get("qbDesdePlano"))]
-    nuevas = [_area_desde_habitacion_plano(room) for room in habitaciones if _num_medida((room or {}).get("floor_sf")) or _num_medida((room or {}).get("wall_sf"))]
+    nuevas = []
+    for room in habitaciones:
+        if not isinstance(room, dict):
+            continue
+        rid = str(room.get("id") or "").strip()
+        nuevas.append(_area_desde_habitacion_plano(room, por_id.get(rid)))
     snapshot["areas"] = conservadas + nuevas
     return snapshot
 
@@ -6057,6 +6070,131 @@ def _guardar_plano_documento(contratista, ident, plano_json, plano_imagen, aplic
             raise
     fresco = obtener_historial_tenant(contratista, ident) or {**row, "snapshot": snapshot}
     return fresco
+
+
+def _zip_desde_historial(row):
+    vista = documento_desde_fila_historial(row) if isinstance(row, dict) else {}
+    snapshot = vista.get("snapshot") if isinstance(vista.get("snapshot"), dict) else {}
+    cliente = vista.get("cliente") if isinstance(vista.get("cliente"), dict) else {}
+    snap_client = snapshot.get("client") if isinstance(snapshot.get("client"), dict) else {}
+    candidatos = (
+        snapshot.get("zip"),
+        snapshot.get("zip_code"),
+        cliente.get("zip"),
+        snap_client.get("zip"),
+        vista.get("zip"),
+    )
+    for valor in candidatos:
+        zip5 = re.sub(r"\D", "", str(valor or ""))[:5]
+        if len(zip5) == 5:
+            return zip5
+    return ""
+
+
+def _areas_de_historial(row):
+    snapshot = _json_campo((row or {}).get("snapshot"), {}) or {}
+    if not isinstance(snapshot, dict):
+        snapshot = {}
+    areas = snapshot.get("areas") if isinstance(snapshot.get("areas"), list) else None
+    if not areas:
+        areas = _json_campo((row or {}).get("areas"), []) or []
+    if not isinstance(areas, list):
+        areas = []
+    return snapshot, areas
+
+
+def _fila_catalogo_a_partida(item, qty=None, unit="", measure_key=""):
+    if not isinstance(item, dict):
+        return None
+    desc = str(
+        item.get("desc")
+        or item.get("descripcion")
+        or item.get("descripcion_en")
+        or item.get("descripcion_es")
+        or item.get("nombre")
+        or ""
+    ).strip()
+    if not desc:
+        return None
+    try:
+        precio = float(
+            item.get("precio_zona")
+            or item.get("precio_unitario")
+            or item.get("precio_base")
+            or item.get("price")
+            or 0
+        )
+    except (TypeError, ValueError):
+        precio = 0.0
+    try:
+        cantidad = float(qty if qty is not None else item.get("qty") or 1)
+    except (TypeError, ValueError):
+        cantidad = 1.0
+    if cantidad <= 0:
+        cantidad = 1.0
+    unidad = str(unit or item.get("unit") or item.get("unidad") or "SF").upper() or "SF"
+    accion = str(item.get("accionCatalogo") or item.get("action") or item.get("alcance") or "install_material")
+    if accion in ("completo", "full"):
+        accion = "install_material"
+    meta = {
+        "descManual": "1",
+        "descCustom": desc,
+        "origenPrecio": "supabase" if item.get("fuente") != "home_depot" else "home_depot",
+        "precioCatalogo": "1",
+        "codigoBase": str(item.get("codigo") or item.get("code") or ""),
+        "precioMaterial": str(item.get("precio_material") or item.get("priceMaterial") or ""),
+        "precioLabor": str(item.get("precio_mano_obra") or item.get("priceLabor") or ""),
+        "proveedor": str(item.get("proveedor") or ""),
+        "productUrl": str(item.get("product_url") or item.get("productUrl") or ""),
+        "imageUrl": str(item.get("image_url") or item.get("imageUrl") or ""),
+    }
+    if measure_key:
+        meta["measureKey"] = str(measure_key)
+    if item.get("ajuste_zip") is False:
+        meta["skipZipFactor"] = "1"
+    return {
+        "code": str(item.get("codigo") or item.get("code") or "").strip(),
+        "desc": desc,
+        "description": desc,
+        "descripcion": desc,
+        "descCustom": desc,
+        "qty": round(cantidad, 2),
+        "price": round(precio, 2),
+        "unit": unidad,
+        "tax": 0,
+        "action": accion,
+        "meta": meta,
+    }
+
+
+def _guardar_areas_historial(contratista, ident, snapshot, areas):
+    snapshot = dict(snapshot or {})
+    snapshot["areas"] = areas
+    row = obtener_historial_tenant(contratista, ident) or {}
+    payload = _json_campo(row.get("payload"), None)
+    extra = {
+        "snapshot": snapshot,
+        "areas": areas,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if isinstance(payload, dict):
+        payload = dict(payload)
+        payload["areas"] = areas
+        extra["payload"] = payload
+    sb = _supabase_client()
+    if sb is None:
+        raise RuntimeError("Supabase no configurado")
+    cid = contratista["id"]
+    try:
+        sb.table(TABLA_HISTORIAL).update(extra).eq("id", ident).eq("contratista_id", cid).execute()
+    except Exception as err:
+        detalle = str(err)
+        if "areas" in detalle or "42703" in detalle:
+            extra.pop("areas", None)
+            sb.table(TABLA_HISTORIAL).update(extra).eq("id", ident).eq("contratista_id", cid).execute()
+        else:
+            raise
+    return extra
 
 
 def obtener_historial_tenant(contratista, ident):
@@ -8106,6 +8244,85 @@ def api_sketch_proyecto(doc_id):
         "json": plano.get("json"),
         "imagen": bool(plano.get("imagen")),
         "medidas": medidas,
+    })
+
+
+@app.route("/api/proyecto/<doc_id>/partidas", methods=["GET", "POST"])
+def api_partidas_proyecto(doc_id):
+    ident = str(doc_id or "").strip()
+    if not _es_uuid(ident):
+        return jsonify({"error": "Document not found."}), 404
+    contratista, error = _exigir_contratista()
+    if error:
+        return error
+    try:
+        row = obtener_historial_tenant(contratista, ident)
+    except Exception as err:
+        print(f"--> partidas api: {err}")
+        return _respuesta_tenant(err)
+    if not row:
+        return jsonify({"error": "Document not found."}), 404
+    snapshot, areas = _areas_de_historial(row)
+    zip5 = _zip_desde_historial(row)
+    if request.method == "GET":
+        return jsonify({
+            "ok": True,
+            "id": ident,
+            "zip": zip5,
+            "areas": areas,
+            "count": sum(len(a.get("rows") or a.get("items") or []) for a in areas if isinstance(a, dict)),
+        })
+    if _documento_inmutable(row):
+        return jsonify({"error": "This document is signed or paid and cannot be edited."}), 409
+    body = request.get_json(silent=True) or {}
+    item = body.get("item") if isinstance(body.get("item"), dict) else body
+    room_id = str(body.get("roomId") or body.get("room_id") or "").strip()
+    room_name = str(body.get("roomName") or body.get("room_name") or "Room").strip() or "Room"
+    level = str(body.get("level") or "Main level").strip() or "Main level"
+    if not room_id:
+        return jsonify({"error": "Select a room before adding a catalog item."}), 400
+    qty = body.get("qty")
+    unit = body.get("unit") or ""
+    measure_key = str(body.get("measureKey") or body.get("measure_key") or "")
+    fila = _fila_catalogo_a_partida(item, qty, unit, measure_key)
+    if not fila:
+        return jsonify({"error": "The catalog item is missing a description."}), 400
+    hallada = None
+    for area in areas:
+        if not isinstance(area, dict):
+            continue
+        if str(area.get("roomId") or area.get("qbHabitacionId") or "").strip() == room_id:
+            hallada = area
+            break
+    if hallada is None:
+        hallada = _area_desde_habitacion_plano({
+            "id": room_id,
+            "room_name": room_name,
+            "level": level,
+        })
+        areas.append(hallada)
+    else:
+        hallada["title"] = hallada.get("title") or room_name
+        hallada["titleEn"] = hallada.get("titleEn") or room_name
+        hallada["roomId"] = room_id
+        hallada["qbHabitacionId"] = room_id
+        hallada["qbDesdePlano"] = True
+        hallada["level"] = hallada.get("level") or level
+        if not isinstance(hallada.get("rows"), list):
+            hallada["rows"] = list(hallada.get("items") or [])
+    hallada.setdefault("rows", []).append(fila)
+    try:
+        _guardar_areas_historial(contratista, ident, snapshot, areas)
+    except Exception as err:
+        print(f"--> partidas save: {type(err).__name__}")
+        return jsonify({"error": "Could not save the line item."}), 503
+    return jsonify({
+        "ok": True,
+        "id": ident,
+        "roomId": room_id,
+        "areas": areas,
+        "added": fila,
+        "count": sum(len(a.get("rows") or []) for a in areas if isinstance(a, dict)),
     })
 
 
