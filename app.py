@@ -6708,7 +6708,58 @@ def leer_contrato_publico(token_aceptacion):
     return None
 
 
+def _payload_firma_cliente(firmas, firma, ip="", metodo="remoto", ahora_txt=""):
+    """Campos canónicos que deben persistir para Realtime + PDF firmado."""
+    mezcladas = dict(firmas or {}) if isinstance(firmas, dict) else {}
+    mezcladas.update({
+        "cliente": firma,
+        "client_signature": firma,
+        "clienteFecha": ahora_txt,
+        "clienteIp": str(ip or "")[:64],
+        "clienteMetodo": str(metodo or "remoto")[:32],
+    })
+    # No mezclar columnas: quitar aliases ambiguos y no tocar contractor_signature.
+    mezcladas.pop("client", None)
+    return mezcladas
+
+
+def _ejecutar_update_contrato_firmado(sb, contract_id, payload):
+    """UPDATE obligatorio por id. Devuelve (status_http_aprox, rows)."""
+    contract_id = str(contract_id or "").strip()
+    if not _es_uuid(contract_id):
+        raise ValueError("contractId inválido para UPDATE de firma.")
+    # .select() fuerza Prefer: return=representation → confirma filas afectadas (200/204).
+    res = (
+        sb.table(TABLA_HISTORIAL)
+        .update(payload)
+        .eq("id", contract_id)
+        .select("id,estado,updated_at,firmas,token_aceptacion")
+        .execute()
+    )
+    rows = list(getattr(res, "data", None) or [])
+    status = 200 if rows else 204
+    print(
+        f"--> marcar_contrato_firmado UPDATE eq(id={contract_id}) "
+        f"status≈{status} rows={len(rows)} keys={sorted(payload.keys())}"
+    )
+    if rows:
+        row0 = rows[0] if isinstance(rows[0], dict) else {}
+        firmas_row = row0.get("firmas") if isinstance(row0.get("firmas"), dict) else {}
+        cli = str((firmas_row or {}).get("cliente") or (firmas_row or {}).get("client_signature") or "")[:48]
+        print(
+            f"--> marcar_contrato_firmado OK id={row0.get('id')} "
+            f"estado={row0.get('estado')} updated_at={row0.get('updated_at')} "
+            f"client_signature_prefix={cli!r}"
+        )
+    return status, rows
+
+
 def marcar_contrato_firmado(token_aceptacion, firma_b64, ip="", metodo="remoto"):
+    """Persiste la firma del cliente en historial_estimados (dispara Supabase Realtime).
+
+    Obligatorio: UPDATE real a la fila (estado/status, firmas.client_signature, updated_at).
+    Sin ese UPDATE el dashboard del contratista nunca recibe el evento Realtime.
+    """
     if not _es_uuid(token_aceptacion):
         return None
     firma = _firma_base64_valida(firma_b64)
@@ -6720,48 +6771,110 @@ def marcar_contrato_firmado(token_aceptacion, firma_b64, ip="", metodo="remoto")
     actual = leer_contrato_publico(token_aceptacion)
     if not actual:
         return None
-    already = _contrato_esta_firmado(actual.get("estado")) and bool((actual.get("firmas") or {}).get("cliente"))
+    contract_id = str(actual.get("id") or "").strip()
+    if not _es_uuid(contract_id):
+        raise RuntimeError("Contract row has no id; cannot UPDATE for Realtime.")
+    firmas_prev = actual.get("firmas") if isinstance(actual.get("firmas"), dict) else {}
+    already = _contrato_esta_firmado(actual.get("estado")) and bool(
+        str(firmas_prev.get("cliente") or firmas_prev.get("client_signature") or "").startswith("data:image/")
+    )
     if already:
         actual["already"] = True
+        actual["estado"] = "Signed"
+        actual["status"] = "Signed"
+        print(f"--> marcar_contrato_firmado already signed id={contract_id}")
         return actual
+
     ahora = datetime.now(timezone.utc)
     ahora_txt = ahora.isoformat()
-    firmas = dict(actual.get("firmas") or {}) if isinstance(actual.get("firmas"), dict) else {}
-    firmas.update({
-        "cliente": firma,
-        "client_signature": firma,
-        "clienteFecha": ahora_txt,
-        "clienteIp": str(ip or "")[:64],
-        "clienteMetodo": str(metodo or "remoto")[:32],
-    })
-    # No mezclar columnas: quitar aliases ambiguos y no tocar contractor_signature.
-    firmas.pop("client", None)
-    if firmas.get("contratista") and firmas.get("cliente") == firmas.get("contratista"):
-        # Mantener la firma remota del cliente; el contratista ya estaba guardado.
-        pass
-    # Canonical status for UI badge: Signed (also accepted as firmado/signed/accepted).
-    payload = {
+    firmas = _payload_firma_cliente(firmas_prev, firma, ip=ip, metodo=metodo, ahora_txt=ahora_txt)
+
+    # Payload mínimo canónico (columnas base de historial_estimados).
+    payload_core = {
         "estado": "Signed",
         "firmas": firmas,
         "updated_at": ahora_txt,
     }
-    extra = dict(payload)
-    extra["firma_ip"] = str(ip or "")[:64]
-    extra["firma_fecha"] = ahora_txt
-    query = sb.table(TABLA_HISTORIAL).update(extra).eq("id", actual["id"]).eq("token_aceptacion", str(token_aceptacion))
+    # Payload ampliado: status / client_signature top-level si el schema las tiene.
+    payload_rich = dict(payload_core)
+    payload_rich["status"] = "Signed"
+    payload_rich["client_signature"] = firma
+    payload_rich["firma_ip"] = str(ip or "")[:64]
+    payload_rich["firma_fecha"] = ahora_txt
+
+    # Mantener snapshot.firmas alineado si el documento trae snapshot.
+    snapshot = actual.get("snapshot") if isinstance(actual.get("snapshot"), dict) else None
+    if snapshot is not None:
+        snap = dict(snapshot)
+        snap_firmas = dict(snap.get("firmas") or {}) if isinstance(snap.get("firmas"), dict) else {}
+        snap_firmas.update(firmas)
+        snap["firmas"] = snap_firmas
+        payload_core["snapshot"] = snap
+        payload_rich["snapshot"] = snap
+
+    rows = []
+    ultimo_err = None
     try:
-        query.execute()
+        # 1) Intento rico → 2) core → 3) core sin snapshot.
+        for intento, payload in (
+            ("rich", payload_rich),
+            ("core", payload_core),
+            ("core_nosnap", {k: v for k, v in payload_core.items() if k != "snapshot"}),
+        ):
+            try:
+                _status, rows = _ejecutar_update_contrato_firmado(sb, contract_id, payload)
+                if rows:
+                    break
+                print(f"--> marcar_contrato_firmado {intento}: 0 rows (posible RLS); siguiente intento")
+            except Exception as err:
+                ultimo_err = err
+                msg = str(err or "")
+                print(f"--> marcar_contrato_firmado {intento} error: {type(err).__name__}: {msg[:400]}")
+                # Columnas desconocidas (status/client_signature/firma_*) → reintentar más magro.
+                if any(k in msg for k in ("status", "client_signature", "firma_ip", "firma_fecha", "snapshot", "42703", "PGRST204")):
+                    continue
+                raise
+
+        # 4) RPC security definer: salta RLS cuando el cliente no es service_role.
+        if not rows:
+            print(f"--> marcar_contrato_firmado: table UPDATE vacía; RPC marcar_contrato_firmado id={contract_id}")
+            try:
+                rpc_data = _rpc_tenant(sb, "marcar_contrato_firmado", {
+                    "p_token": str(token_aceptacion),
+                    "p_firma": firma,
+                    "p_ip": str(ip or "")[:64],
+                    "p_metodo": str(metodo or "remoto")[:32],
+                })
+                print(f"--> marcar_contrato_firmado RPC respuesta: {rpc_data!r}")
+                rpc_row = _dict_rpc(rpc_data) or {}
+                if rpc_row.get("id") or rpc_row.get("ok") or rpc_row.get("estado"):
+                    rows = [rpc_row]
+            except Exception as err:
+                ultimo_err = err
+                print(f"--> marcar_contrato_firmado RPC error: {type(err).__name__}: {err}")
+
+        if not rows:
+            detalle = str(ultimo_err or "0 rows updated")
+            raise RuntimeError(
+                "UPDATE historial_estimados no persistió la firma (Realtime no se disparará). "
+                f"id={contract_id} detalle={detalle[:300]}"
+            )
     except Exception as err:
-        if "firma_ip" in str(err) or "firma_fecha" in str(err) or "42703" in str(err):
-            sb.table(TABLA_HISTORIAL).update(payload).eq("id", actual["id"]).eq("token_aceptacion", str(token_aceptacion)).execute()
-        else:
-            raise
-    actual.update(payload)
-    actual["firma_ip"] = extra["firma_ip"]
-    actual["firma_fecha"] = ahora_txt
-    actual["already"] = False
-    actual["estado"] = "Signed"
-    actual["status"] = "Signed"
+        print(f"--> marcar_contrato_firmado FALLO FINAL: {type(err).__name__}: {err}")
+        raise
+
+    actual.update({
+        "estado": "Signed",
+        "status": "Signed",
+        "firmas": firmas,
+        "updated_at": ahora_txt,
+        "firma_ip": str(ip or "")[:64],
+        "firma_fecha": ahora_txt,
+        "already": False,
+        "client_signature": firma,
+    })
+    if "snapshot" in payload_core:
+        actual["snapshot"] = payload_core["snapshot"]
     return actual
 
 
@@ -13852,30 +13965,45 @@ def _firmar_contrato_guardado(row, firma_b64, ip="", metodo="en_persona"):
     sb = _supabase_client()
     if sb is None:
         raise RuntimeError("Supabase no configurado")
+    contract_id = str((row or {}).get("id") or "").strip()
+    if not _es_uuid(contract_id):
+        raise RuntimeError("Contract row has no id; cannot UPDATE for Realtime.")
     ahora = datetime.now(timezone.utc).isoformat()
-    firmas = dict(row.get("firmas") or {}) if isinstance(row.get("firmas"), dict) else {}
-    firmas.update({
-        "cliente": firma,
-        "client_signature": firma,
-        "clienteFecha": ahora,
-        "clienteIp": str(ip or "")[:64],
-        "clienteMetodo": str(metodo or "en_persona")[:32],
-    })
-    firmas.pop("client", None)
-    payload = {"estado": "Signed", "firmas": firmas, "updated_at": ahora}
-    extra = dict(payload)
-    extra["firma_ip"] = str(ip or "")[:64]
-    extra["firma_fecha"] = ahora
+    firmas = _payload_firma_cliente(
+        row.get("firmas") if isinstance(row.get("firmas"), dict) else {},
+        firma,
+        ip=ip,
+        metodo=metodo,
+        ahora_txt=ahora,
+    )
+    payload_core = {"estado": "Signed", "firmas": firmas, "updated_at": ahora}
+    payload_rich = dict(payload_core)
+    payload_rich["status"] = "Signed"
+    payload_rich["client_signature"] = firma
+    payload_rich["firma_ip"] = str(ip or "")[:64]
+    payload_rich["firma_fecha"] = ahora
+    rows = []
     try:
-        sb.table(TABLA_HISTORIAL).update(extra).eq("id", row["id"]).execute()
+        for payload in (payload_rich, payload_core):
+            try:
+                _status, rows = _ejecutar_update_contrato_firmado(sb, contract_id, payload)
+                if rows:
+                    break
+            except Exception as err:
+                msg = str(err or "")
+                print(f"--> firmar_contrato_guardado update error: {type(err).__name__}: {msg[:300]}")
+                if any(k in msg for k in ("status", "client_signature", "firma_ip", "firma_fecha", "42703", "PGRST204")):
+                    continue
+                raise
+        if not rows:
+            raise RuntimeError(f"UPDATE historial_estimados 0 rows for in-person sign id={contract_id}")
     except Exception as err:
-        if "firma_ip" in str(err) or "firma_fecha" in str(err) or "42703" in str(err):
-            sb.table(TABLA_HISTORIAL).update(payload).eq("id", row["id"]).execute()
-        else:
-            raise
+        print(f"--> firmar_contrato_guardado FALLO: {type(err).__name__}: {err}")
+        raise
     row = dict(row)
-    row.update(payload)
+    row.update(payload_core)
     row["status"] = "Signed"
+    row["client_signature"] = firma
     row["already"] = False
     return row
 
@@ -14368,12 +14496,22 @@ def aceptar_contrato_publico(token_aceptacion):
         or payload.get("client_signature")
         or ""
     )
+    print(
+        f"--> aceptar POST token={token} contractId={previo.get('id')} "
+        f"firma_len={len(str(firma_payload or ''))} rol_supabase={_SB_ROL}"
+    )
     try:
+        # UPDATE obligatorio a historial_estimados (client_signature + Signed + updated_at)
+        # antes de generar/enviar el PDF — es lo que dispara Realtime al contratista.
         datos = marcar_contrato_firmado(token, firma_payload, _ip_solicitud(), "remoto")
+        print(
+            f"--> aceptar UPDATE ok id={(datos or {}).get('id')} "
+            f"estado={(datos or {}).get('estado')} already={(datos or {}).get('already')}"
+        )
     except ValueError as err:
         return _respuesta_pagina_firma(previo, "Sign contract", str(err), boton=True, aviso=str(err), status=400, as_json=quiere_json, token=token)
     except Exception as err:
-        print(f"--> firmar contrato remoto: {type(err).__name__}")
+        print(f"--> firmar contrato remoto: {type(err).__name__}: {err}")
         return _respuesta_pagina_firma(previo, "Could not save the signature", "Try again in a few minutes.", boton=True, status=503, as_json=quiere_json, token=token)
     if not datos:
         return _respuesta_pagina_firma(None, "Contract not found", "This link does not match a pending contract.", status=404, as_json=quiere_json, token=token)

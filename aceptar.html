@@ -741,14 +741,19 @@
             body:JSON.stringify({
               firma:firmaLista,
               client_signature:firmaLista,
-              signature:firmaLista
+              signature:firmaLista,
+              status:'Signed'
             })
           });
           const json=await res.json().catch(function(){ return {}; });
+          console.log('--> Accept signature UPDATE response', res.status, json);
           if(res.status===401||res.status===403){
             throw new Error('This signature link does not require an account. Reload the page and try again.');
           }
           if(!res.ok) throw new Error(json.error||'Could not save the signature.');
+          if(!(json.ok||json.estado||json.status)){
+            throw new Error('Signature was not saved to the contract row.');
+          }
           ok=true;
           setStatus('Signature saved. This contract is now signed.', true);
           mostrarExito(firmaLista);
