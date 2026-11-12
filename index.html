@@ -745,7 +745,8 @@
     .signature-box[data-sign-mode="type"] .signature-canvas { display:none; }
     .signature-box[data-sign-mode="draw"] .typed-signature-preview { display:none; }
     .signature-line { margin-top:6px; border-top:1px solid var(--ink); padding-top:5px; color:var(--muted); font-size:11px; }
-    .signature-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+    .signature-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; position:relative; z-index:5; pointer-events:auto; }
+    .signature-actions .btn { pointer-events:auto; position:relative; z-index:6; }
     .signature-saved { margin:8px 0 0; color:#15803d; font-size:.82rem; font-weight:700; }
     .signature-saved[hidden] { display:none !important; }
     .badge-signed { background-color:#dcfce7; color:#166534; }
@@ -1991,7 +1992,7 @@
             <svg class="export-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg>
             Send by email
           </button>
-          <button class="export-action" id="sendForSignatureExportButton" type="button" hidden>
+          <button class="export-action" id="sendForSignatureExportButton" type="button" hidden onclick="enviarContratoParaFirma()">
             <svg class="export-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg>
             Send for signature
           </button>
@@ -2211,7 +2212,7 @@
             <div class="signature-line" data-i18n="signLine">Name and date</div>
             <div class="signature-actions no-print">
               <button class="btn btn-primary" type="button" id="saveClientSignatureButton">Save signature</button>
-              <button class="btn" type="button" id="sendForSignatureButton">Send for signature</button>
+              <button class="btn" type="button" id="sendForSignatureButton" data-action="send-for-signature" onclick="enviarContratoParaFirma()">Send for signature</button>
             </div>
             <p class="signature-saved" id="clientSignatureSaved" hidden></p>
           </div>
@@ -6369,12 +6370,29 @@
         if(btn) btn.disabled=false;
       }
     }
-    async function enviarContratoParaFirma(){
-      liberarInteraccionFirma(); // síncrono: cerrar overlay y devolver clics al instante
+    let enviandoContratoParaFirma=false;
+    async function enviarContratoParaFirma(event){
+      // Única ruta canónica: Share → Send for signature y el botón inferior de firmas.
+      if(event&&typeof event.preventDefault==='function') event.preventDefault();
+      if(event&&typeof event.stopPropagation==='function') event.stopPropagation();
+      if(enviandoContratoParaFirma) return;
+      enviandoContratoParaFirma=true;
+      liberarInteraccionFirma(); // cierra overlay + modal Share si estaba abierto
+      if(typeof cerrarModalExportacion==='function'){
+        try{ cerrarModalExportacion(); }catch(_){}
+      }else{
+        const exportModal=document.getElementById('exportModal');
+        if(exportModal){
+          exportModal.hidden=true;
+          exportModal.setAttribute('hidden','');
+          exportModal.style.pointerEvents='none';
+        }
+      }
       const destino=String(document.getElementById('clientEmail')?.value||'').trim();
       const company=String(document.getElementById('company')?.value||'').trim();
       const contact=String(document.getElementById('email')?.value||'').trim();
       if(!destino||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destino)){
+        enviandoContratoParaFirma=false;
         if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Add a valid client email first','error');
         else alert('Add a valid client email first');
         return;
@@ -6396,14 +6414,31 @@
         const json=await res.json().catch(()=>({}));
         if(!res.ok) throw new Error(json.error||'Could not send the signature link.');
         if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Contract PDF emailed. The client can sign from the secure button.');
+        // Misma preparación Realtime que tras enviar desde Share.
+        if(id&&typeof suscribirRealtimeContratoAbierto==='function'){
+          try{ suscribirRealtimeContratoAbierto(id); }catch(_){}
+        }
+        if(typeof iniciarMonitorContratosFirmados==='function'){
+          try{ iniciarMonitorContratosFirmados(); }catch(_){}
+        }
       }catch(err){
         if(typeof mostrarToastGuardado==='function') mostrarToastGuardado(err.message||'Could not send the signature link.','error');
         else alert(err.message||'Could not send the signature link.');
       }finally{
-        liberarInteraccionFirma();
+        enviandoContratoParaFirma=false;
+        liberarInteraccionFirma({keepExport:false});
         if(btn) btn.disabled=false;
         if(btnExport) btnExport.disabled=false;
       }
+    }
+    window.enviarContratoParaFirma=enviarContratoParaFirma;
+    function vincularBotonesEnviarFirma(){
+      // onclick en el HTML ya apunta a enviarContratoParaFirma; esto solo refuerza si faltara.
+      ['sendForSignatureButton','sendForSignatureExportButton'].forEach(function(id){
+        const el=document.getElementById(id);
+        if(!el) return;
+        el.setAttribute('onclick','enviarContratoParaFirma()');
+      });
     }
     function setupSignature(canvas){
       if(!canvas||canvas.dataset.padReady==='1')return;
@@ -10673,8 +10708,8 @@
     document.querySelector('#exportPdfButton').addEventListener('click',descargarPdfDocumento);
     document.querySelector('#emailInvoiceButton').addEventListener('click',emailInvoice);
     document.getElementById('saveClientSignatureButton')?.addEventListener('click',guardarFirmaClienteEnServidor);
-    document.getElementById('sendForSignatureButton')?.addEventListener('click',enviarContratoParaFirma);
-    document.getElementById('sendForSignatureExportButton')?.addEventListener('click',enviarContratoParaFirma);
+    // Ambos "Send for signature" (Share + pie de firmas) → misma función.
+    vincularBotonesEnviarFirma();
     document.querySelector('#printButton').addEventListener('click',guardarEstimadoEnHistorial);
     document.querySelector('#saveHistoryButton')?.addEventListener('click',()=>{
       document.querySelector('#exportModal').hidden=true;
