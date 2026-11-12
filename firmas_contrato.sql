@@ -21,7 +21,8 @@ create or replace function public.marcar_contrato_firmado(
   p_token text,
   p_firma text,
   p_ip text default '',
-  p_metodo text default 'remoto'
+  p_metodo text default 'remoto',
+  p_nombre text default ''
 )
 returns jsonb
 language plpgsql
@@ -33,6 +34,7 @@ declare
   v_firmas jsonb;
   v_ahora timestamptz := now();
   v_cli text;
+  v_nombre text := left(trim(coalesce(p_nombre, '')), 80);
 begin
   if coalesce(p_token, '') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
     return null;
@@ -71,7 +73,9 @@ begin
       'client_signature', p_firma,
       'clienteFecha', v_ahora,
       'clienteIp', left(coalesce(p_ip, ''), 64),
-      'clienteMetodo', left(coalesce(p_metodo, 'remoto'), 32)
+      'clienteMetodo', left(coalesce(p_metodo, 'remoto'), 32),
+      'clienteNombre', v_nombre,
+      'client_name', v_nombre
     )) - 'client';
 
   -- UPDATE obligatorio: sin esto Realtime del contratista no se dispara.
@@ -117,4 +121,5 @@ end;
 $$;
 
 revoke all on function public.marcar_contrato_firmado(text, text, text, text) from public;
-grant execute on function public.marcar_contrato_firmado(text, text, text, text) to anon, authenticated, service_role;
+revoke all on function public.marcar_contrato_firmado(text, text, text, text, text) from public;
+grant execute on function public.marcar_contrato_firmado(text, text, text, text, text) to anon, authenticated, service_role;

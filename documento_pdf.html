@@ -35,7 +35,8 @@
     .firmas { width: 100%; margin-top: 22px; }
     .firmas td { width: 50%; vertical-align: top; padding-right: 16px; }
     .firma-box { min-height: 70px; border-bottom: 1px solid #94a3b8; padding: 4px 0; }
-    .firma-box img { max-width: 240px; max-height: 72px; }
+    .firma-box img { max-width: 240px; max-height: 72px; display: block; }
+    .firma-nombre-impreso { margin: 4px 0 0; font-size: 12px; font-weight: 700; color: #0f172a; }
     img.plano { display: block; max-width: 100%; max-height: 420px; margin: 8px 0 12px; border: 1px solid #dbe3ee; }
   </style>
 </head>
@@ -155,11 +156,13 @@
       <td>
         <span class="label">Contractor signature</span>
         <div class="firma-box">{% if contractor_sig %}<img src="{{ contractor_sig }}" alt="Contractor signature">{% endif %}</div>
+        {% if d.firma_contratista_nombre %}<p class="firma-nombre-impreso">{{ d.firma_contratista_nombre }}</p>{% endif %}
         {% if contractor_sig and d.firma_contratista_fecha %}<p class="muted">{{ d.firma_contratista_fecha }}</p>{% endif %}
       </td>
       <td>
         <span class="label">Client signature</span>
         <div class="firma-box">{% if client_sig %}<img src="{{ client_sig }}" alt="Client signature">{% endif %}</div>
+        {% if d.firma_cliente_nombre %}<p class="firma-nombre-impreso">{{ d.firma_cliente_nombre }}</p>{% endif %}
         {% if client_sig and d.firma_cliente_fecha %}<p class="muted">{{ d.firma_cliente_fecha }}</p>{% endif %}
       </td>
     </tr>

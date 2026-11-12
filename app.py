@@ -6664,6 +6664,8 @@ def _vista_contrato_publico(datos):
         "firma_contratista": firmas.get("contratista") or "",
         "contractor_signature": firmas.get("contratista") or "",
         "firma_cliente_fecha": firmas.get("clienteFecha") or "",
+        "firma_cliente_nombre": firmas.get("clienteNombre") or firmas.get("client_name") or "",
+        "firma_contratista_nombre": firmas.get("contratistaNombre") or firmas.get("contractor_name") or "",
         "firma_contratista_fecha": firmas.get("contratistaFecha") or "",
         "plano_imagen": plano_imagen,
     }
@@ -6708,7 +6710,7 @@ def leer_contrato_publico(token_aceptacion):
     return None
 
 
-def _payload_firma_cliente(firmas, firma, ip="", metodo="remoto", ahora_txt=""):
+def _payload_firma_cliente(firmas, firma, ip="", metodo="remoto", ahora_txt="", nombre=""):
     """Campos canónicos que deben persistir para Realtime + PDF firmado."""
     mezcladas = dict(firmas or {}) if isinstance(firmas, dict) else {}
     mezcladas.update({
@@ -6718,6 +6720,10 @@ def _payload_firma_cliente(firmas, firma, ip="", metodo="remoto", ahora_txt=""):
         "clienteIp": str(ip or "")[:64],
         "clienteMetodo": str(metodo or "remoto")[:32],
     })
+    nombre_limpio = re.sub(r"\s+", " ", str(nombre or "")).strip()[:80]
+    if nombre_limpio:
+        mezcladas["clienteNombre"] = nombre_limpio
+        mezcladas["client_name"] = nombre_limpio
     # No mezclar columnas: quitar aliases ambiguos y no tocar contractor_signature.
     mezcladas.pop("client", None)
     return mezcladas
@@ -6754,7 +6760,7 @@ def _ejecutar_update_contrato_firmado(sb, contract_id, payload):
     return status, rows
 
 
-def marcar_contrato_firmado(token_aceptacion, firma_b64, ip="", metodo="remoto"):
+def marcar_contrato_firmado(token_aceptacion, firma_b64, ip="", metodo="remoto", nombre=""):
     """Persiste la firma del cliente en historial_estimados (dispara Supabase Realtime).
 
     Obligatorio: UPDATE real a la fila (estado/status, firmas.client_signature, updated_at).
@@ -6765,6 +6771,10 @@ def marcar_contrato_firmado(token_aceptacion, firma_b64, ip="", metodo="remoto")
     firma = _firma_base64_valida(firma_b64)
     if not firma:
         raise ValueError("Draw a valid signature before saving.")
+    nombre_limpio = re.sub(r"\s+", " ", str(nombre or "")).strip()[:80]
+    # Remoto (/aceptar): dibujo + nombre impreso son obligatorios.
+    if str(metodo or "").lower() == "remoto" and (not nombre_limpio or len(nombre_limpio) < 2):
+        raise ValueError("Type your full printed name before saving.")
     sb = _supabase_client()
     if sb is None:
         raise RuntimeError("Supabase no configurado")
@@ -6787,7 +6797,9 @@ def marcar_contrato_firmado(token_aceptacion, firma_b64, ip="", metodo="remoto")
 
     ahora = datetime.now(timezone.utc)
     ahora_txt = ahora.isoformat()
-    firmas = _payload_firma_cliente(firmas_prev, firma, ip=ip, metodo=metodo, ahora_txt=ahora_txt)
+    firmas = _payload_firma_cliente(
+        firmas_prev, firma, ip=ip, metodo=metodo, ahora_txt=ahora_txt, nombre=nombre_limpio
+    )
 
     # Payload mínimo canónico (columnas base de historial_estimados).
     payload_core = {
@@ -6844,6 +6856,7 @@ def marcar_contrato_firmado(token_aceptacion, firma_b64, ip="", metodo="remoto")
                     "p_firma": firma,
                     "p_ip": str(ip or "")[:64],
                     "p_metodo": str(metodo or "remoto")[:32],
+                    "p_nombre": nombre_limpio,
                 })
                 print(f"--> marcar_contrato_firmado RPC respuesta: {rpc_data!r}")
                 rpc_row = _dict_rpc(rpc_data) or {}
@@ -14496,14 +14509,24 @@ def aceptar_contrato_publico(token_aceptacion):
         or payload.get("client_signature")
         or ""
     )
+    nombre_payload = (
+        payload.get("clienteNombre")
+        or payload.get("client_name")
+        or payload.get("nombre")
+        or payload.get("printed_name")
+        or ""
+    )
     print(
         f"--> aceptar POST token={token} contractId={previo.get('id')} "
-        f"firma_len={len(str(firma_payload or ''))} rol_supabase={_SB_ROL}"
+        f"firma_len={len(str(firma_payload or ''))} nombre={str(nombre_payload)[:40]!r} "
+        f"rol_supabase={_SB_ROL}"
     )
     try:
         # UPDATE obligatorio a historial_estimados (client_signature + Signed + updated_at)
         # antes de generar/enviar el PDF — es lo que dispara Realtime al contratista.
-        datos = marcar_contrato_firmado(token, firma_payload, _ip_solicitud(), "remoto")
+        datos = marcar_contrato_firmado(
+            token, firma_payload, _ip_solicitud(), "remoto", nombre=nombre_payload
+        )
         print(
             f"--> aceptar UPDATE ok id={(datos or {}).get('id')} "
             f"estado={(datos or {}).get('estado')} already={(datos or {}).get('already')}"
