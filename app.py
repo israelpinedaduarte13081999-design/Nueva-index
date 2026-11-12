@@ -3706,7 +3706,9 @@ def documento_desde_fila_historial(row):
     token_aceptacion = str(row.get("token_aceptacion") or payload.get("token_aceptacion") or "").strip()
     firmado = str(estado or "").strip().lower() in _ESTADOS_FIRMADO or str(
         (firmas or {}).get("cliente") or (firmas or {}).get("client_signature") or ""
-    ).startswith("data:image/")
+    ).startswith("data:image/") or len(str(
+        (firmas or {}).get("clienteNombre") or (firmas or {}).get("client_name") or ""
+    ).strip()) >= 2
     pdf_url = ""
     if firmado and token_aceptacion:
         pdf_url = f"/aceptar/{token_aceptacion}/pdf"
@@ -6711,19 +6713,22 @@ def leer_contrato_publico(token_aceptacion):
 
 
 def _payload_firma_cliente(firmas, firma, ip="", metodo="remoto", ahora_txt="", nombre=""):
-    """Campos canónicos que deben persistir para Realtime + PDF firmado."""
+    """Campos canónicos que deben persistir para Realtime + PDF firmado.
+
+    Canvas OR printed name: empty image or empty name are allowed when the other is present.
+    """
     mezcladas = dict(firmas or {}) if isinstance(firmas, dict) else {}
+    firma_ok = str(firma or "").startswith("data:image/")
+    nombre_limpio = re.sub(r"\s+", " ", str(nombre or "")).strip()[:80]
     mezcladas.update({
-        "cliente": firma,
-        "client_signature": firma,
+        "cliente": firma if firma_ok else "",
+        "client_signature": firma if firma_ok else "",
         "clienteFecha": ahora_txt,
         "clienteIp": str(ip or "")[:64],
         "clienteMetodo": str(metodo or "remoto")[:32],
+        "clienteNombre": nombre_limpio,
+        "client_name": nombre_limpio,
     })
-    nombre_limpio = re.sub(r"\s+", " ", str(nombre or "")).strip()[:80]
-    if nombre_limpio:
-        mezcladas["clienteNombre"] = nombre_limpio
-        mezcladas["client_name"] = nombre_limpio
     # No mezclar columnas: quitar aliases ambiguos y no tocar contractor_signature.
     mezcladas.pop("client", None)
     return mezcladas
@@ -6763,18 +6768,16 @@ def _ejecutar_update_contrato_firmado(sb, contract_id, payload):
 def marcar_contrato_firmado(token_aceptacion, firma_b64, ip="", metodo="remoto", nombre=""):
     """Persiste la firma del cliente en historial_estimados (dispara Supabase Realtime).
 
-    Obligatorio: UPDATE real a la fila (estado/status, firmas.client_signature, updated_at).
-    Sin ese UPDATE el dashboard del contratista nunca recibe el evento Realtime.
+    Obligatorio: UPDATE real a la fila (estado/status, firmas, updated_at).
+    Validación OR: dibujo (PNG) y/o nombre impreso — al menos uno.
     """
     if not _es_uuid(token_aceptacion):
         return None
-    firma = _firma_base64_valida(firma_b64)
-    if not firma:
-        raise ValueError("Draw a valid signature before saving.")
+    firma = _firma_base64_valida(firma_b64) if str(firma_b64 or "").strip() else ""
     nombre_limpio = re.sub(r"\s+", " ", str(nombre or "")).strip()[:80]
-    # Remoto (/aceptar): dibujo + nombre impreso son obligatorios.
-    if str(metodo or "").lower() == "remoto" and (not nombre_limpio or len(nombre_limpio) < 2):
-        raise ValueError("Type your full printed name before saving.")
+    # OR rule: drawing and/or printed name.
+    if not firma and len(nombre_limpio) < 2:
+        raise ValueError("Draw a signature or type your full name before saving.")
     sb = _supabase_client()
     if sb is None:
         raise RuntimeError("Supabase no configurado")
@@ -6785,8 +6788,10 @@ def marcar_contrato_firmado(token_aceptacion, firma_b64, ip="", metodo="remoto",
     if not _es_uuid(contract_id):
         raise RuntimeError("Contract row has no id; cannot UPDATE for Realtime.")
     firmas_prev = actual.get("firmas") if isinstance(actual.get("firmas"), dict) else {}
-    already = _contrato_esta_firmado(actual.get("estado")) and bool(
-        str(firmas_prev.get("cliente") or firmas_prev.get("client_signature") or "").startswith("data:image/")
+    prev_img = str(firmas_prev.get("cliente") or firmas_prev.get("client_signature") or "")
+    prev_nom = str(firmas_prev.get("clienteNombre") or firmas_prev.get("client_name") or "").strip()
+    already = _contrato_esta_firmado(actual.get("estado")) and (
+        prev_img.startswith("data:image/") or len(prev_nom) >= 2
     )
     if already:
         actual["already"] = True
@@ -6810,7 +6815,7 @@ def marcar_contrato_firmado(token_aceptacion, firma_b64, ip="", metodo="remoto",
     # Payload ampliado: status / client_signature top-level si el schema las tiene.
     payload_rich = dict(payload_core)
     payload_rich["status"] = "Signed"
-    payload_rich["client_signature"] = firma
+    payload_rich["client_signature"] = firma if firma else ""
     payload_rich["firma_ip"] = str(ip or "")[:64]
     payload_rich["firma_fecha"] = ahora_txt
 
@@ -6853,7 +6858,7 @@ def marcar_contrato_firmado(token_aceptacion, firma_b64, ip="", metodo="remoto",
             try:
                 rpc_data = _rpc_tenant(sb, "marcar_contrato_firmado", {
                     "p_token": str(token_aceptacion),
-                    "p_firma": firma,
+                    "p_firma": firma or "",
                     "p_ip": str(ip or "")[:64],
                     "p_metodo": str(metodo or "remoto")[:32],
                     "p_nombre": nombre_limpio,
@@ -13967,14 +13972,16 @@ def _url_aceptacion(token):
 
 
 def _firmar_contrato_guardado(row, firma_b64, ip="", metodo="en_persona", nombre=""):
-    firma = _firma_base64_valida(firma_b64)
-    if not firma:
-        raise ValueError("Draw a valid signature before saving.")
+    firma = _firma_base64_valida(firma_b64) if str(firma_b64 or "").strip() else ""
+    nombre_limpio = re.sub(r"\s+", " ", str(nombre or "")).strip()[:80]
+    # OR rule: drawing and/or printed name.
+    if not firma and len(nombre_limpio) < 2:
+        raise ValueError("Draw a signature or type your full name before saving.")
     if str((row or {}).get("tipo") or "").lower() not in ("contract", "contrato"):
         raise ValueError("Only contracts can be signed.")
     token = row.get("token_aceptacion")
     if token:
-        return marcar_contrato_firmado(token, firma, ip, metodo, nombre=nombre)
+        return marcar_contrato_firmado(token, firma, ip, metodo, nombre=nombre_limpio)
     sb = _supabase_client()
     if sb is None:
         raise RuntimeError("Supabase no configurado")
@@ -13988,12 +13995,12 @@ def _firmar_contrato_guardado(row, firma_b64, ip="", metodo="en_persona", nombre
         ip=ip,
         metodo=metodo,
         ahora_txt=ahora,
-        nombre=nombre,
+        nombre=nombre_limpio,
     )
     payload_core = {"estado": "Signed", "firmas": firmas, "updated_at": ahora}
     payload_rich = dict(payload_core)
     payload_rich["status"] = "Signed"
-    payload_rich["client_signature"] = firma
+    payload_rich["client_signature"] = firma if firma else ""
     payload_rich["firma_ip"] = str(ip or "")[:64]
     payload_rich["firma_fecha"] = ahora
     rows = []
@@ -14046,8 +14053,9 @@ def _respuesta_pagina_firma(datos, titulo, mensaje, boton=False, aviso="", statu
     contrato = _vista_contrato_publico(datos)
     if not contrato.get("total_txt") and monto:
         contrato["total_txt"] = monto
-    firmado = _contrato_esta_firmado((datos or {}).get("estado")) and bool(
+    firmado = _contrato_esta_firmado((datos or {}).get("estado")) and (
         str(firmas.get("cliente") or "").startswith("data:image/")
+        or len(str(firmas.get("clienteNombre") or firmas.get("client_name") or "").strip()) >= 2
     )
     pagina = render_template(
         "aceptar.html",
@@ -14504,8 +14512,11 @@ def aceptar_contrato_publico(token_aceptacion):
         return _respuesta_pagina_firma(None, "Contract not found", "This link does not match a pending contract.", status=404, as_json=quiere_json, token=token)
     if request.method == "GET":
         firmas = _extraer_firmas_documento(datos)
-        cliente_firma = str((firmas or {}).get("cliente") or "").strip()
-        if _contrato_esta_firmado(datos.get("estado")) and cliente_firma.startswith("data:image/"):
+        cliente_firma = str((firmas or {}).get("cliente") or (firmas or {}).get("client_signature") or "").strip()
+        cliente_nombre = str((firmas or {}).get("clienteNombre") or (firmas or {}).get("client_name") or "").strip()
+        if _contrato_esta_firmado(datos.get("estado")) and (
+            cliente_firma.startswith("data:image/") or len(cliente_nombre) >= 2
+        ):
             return _respuesta_pagina_firma(datos, "Contract signed", "This contract has already been signed.", boton=False, token=token)
         return _respuesta_pagina_firma(
             datos,

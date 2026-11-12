@@ -407,7 +407,7 @@
       </div>
       {% else %}
       <h2>Client signature</h2>
-      <p>Review the PDF above, then tap Sign. Draw your signature and print your full name.</p>
+      <p>Review the PDF above, then tap Sign. Draw your signature or type your full name.</p>
       <div class="sign-preview" id="signPreview">
         <img id="signPreviewImg" alt="Your signature">
         <span id="signPreviewName" hidden></span>
@@ -520,30 +520,28 @@
         window.scrollTo(0, scrollY||0);
       }
       function listoParaAceptar(){
-        return !!(firmaLista && nombreLista);
+        // Canvas OR printed name — at least one is enough.
+        return !!(firmaLista || nombreLista);
       }
       function mostrarPreview(dataUrl, nombre){
         firmaLista=dataUrl||'';
         nombreLista=String(nombre||'').trim();
         if(!preview) return;
+        const hayAlgo=listoParaAceptar();
         if(firmaLista){
           preview.classList.add('has-ink');
           if(previewImg){ previewImg.src=firmaLista; previewImg.hidden=false; }
-          if(previewEmpty) previewEmpty.hidden=true;
-          if(previewName){
-            previewName.hidden=!nombreLista;
-            previewName.textContent=nombreLista||'';
-          }
-          if(clearDock) clearDock.hidden=false;
-          if(submit) submit.disabled=!listoParaAceptar();
         }else{
           preview.classList.remove('has-ink');
           if(previewImg){ previewImg.removeAttribute('src'); previewImg.hidden=true; }
-          if(previewEmpty) previewEmpty.hidden=false;
-          if(previewName){ previewName.hidden=true; previewName.textContent=''; }
-          if(clearDock) clearDock.hidden=true;
-          if(submit) submit.disabled=true;
         }
+        if(previewName){
+          previewName.hidden=!nombreLista;
+          previewName.textContent=nombreLista||'';
+        }
+        if(previewEmpty) previewEmpty.hidden=hayAlgo;
+        if(clearDock) clearDock.hidden=!hayAlgo;
+        if(submit) submit.disabled=!hayAlgo;
       }
       function pintarFondo(){
         if(!ctx) return;
@@ -681,22 +679,18 @@
         if(typedInput) typedInput.value='';
       }
       function usarFirmaModal(){
-        if(vacioPad()){
-          setStatus('Draw your signature first.', false);
-          return;
-        }
         const nombre=nombreActual();
-        if(!nombre||nombre.length<2){
-          setStatus('Type your full name.', false);
-          if(typedInput) typedInput.focus();
+        const png=vacioPad()?'':exportarPad();
+        // OR rule: drawing and/or printed name — at least one required.
+        if(!png && !nombre){
+          setStatus('Draw your signature or type your full name.', false);
           return;
         }
-        const png=exportarPad();
-        if(!png){
+        if(png==='' && !vacioPad()){
           setStatus('Could not capture the signature.', false);
           return;
         }
-        mostrarPreview(png, nombre);
+        mostrarPreview(png||'', nombre||'');
         setStatus('');
         cerrarModal();
       }
@@ -738,7 +732,7 @@
       });
 
       typedInput?.addEventListener('input', function(){
-        if(submit) submit.disabled=!(firmaLista && nombreActual());
+        if(submit) submit.disabled=!(firmaLista || nombreActual());
       });
       abrirBtn?.addEventListener('click', abrirModal);
       document.getElementById('firmaModalCancel')?.addEventListener('click', cerrarModal);
@@ -748,15 +742,16 @@
         if(enviando) return;
         limpiarCanvas();
         if(typedInput) typedInput.value='';
-        mostrarPreview('');
+        mostrarPreview('','');
         setStatus('');
       });
 
       submit?.addEventListener('click', async function(){
         if(enviando) return;
         const nombre=nombreLista||nombreActual();
-        if(!firmaLista||!nombre){
-          setStatus('Draw your signature and type your full name.', false);
+        const imagen=firmaLista||'';
+        if(!imagen && !nombre){
+          setStatus('Draw your signature or type your full name.', false);
           abrirModal();
           return;
         }
@@ -772,12 +767,12 @@
             credentials:'omit',
             headers:{'Content-Type':'application/json','Accept':'application/json'},
             body:JSON.stringify({
-              firma:firmaLista,
-              client_signature:firmaLista,
-              signature:firmaLista,
-              clienteNombre:nombre,
-              client_name:nombre,
-              nombre:nombre,
+              firma:imagen||'',
+              client_signature:imagen||'',
+              signature:imagen||'',
+              clienteNombre:nombre||'',
+              client_name:nombre||'',
+              nombre:nombre||'',
               status:'Signed'
             })
           });

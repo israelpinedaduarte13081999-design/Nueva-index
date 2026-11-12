@@ -39,7 +39,11 @@ begin
   if coalesce(p_token, '') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
     return null;
   end if;
-  if coalesce(p_firma, '') not like 'data:image/png;base64,%' then
+  -- OR rule: PNG drawing and/or printed name.
+  if coalesce(p_firma, '') <> '' and coalesce(p_firma, '') not like 'data:image/png;base64,%' then
+    raise exception 'invalid_signature';
+  end if;
+  if (coalesce(p_firma, '') not like 'data:image/png;base64,%') and length(v_nombre) < 2 then
     raise exception 'invalid_signature';
   end if;
 
@@ -55,7 +59,7 @@ begin
   v_firmas := coalesce(v_doc.firmas, '{}'::jsonb);
   v_cli := coalesce(v_firmas->>'cliente', v_firmas->>'client_signature', '');
   if lower(coalesce(v_doc.estado, '')) in ('signed', 'firmado', 'accepted')
-     and v_cli like 'data:image/%' then
+     and (v_cli like 'data:image/%' or length(trim(coalesce(v_firmas->>'clienteNombre', v_firmas->>'client_name', ''))) >= 2) then
     return jsonb_build_object(
       'ok', true,
       'already', true,
@@ -69,8 +73,8 @@ begin
 
   v_firmas := (v_firmas
     || jsonb_build_object(
-      'cliente', p_firma,
-      'client_signature', p_firma,
+      'cliente', case when coalesce(p_firma, '') like 'data:image/png;base64,%' then p_firma else '' end,
+      'client_signature', case when coalesce(p_firma, '') like 'data:image/png;base64,%' then p_firma else '' end,
       'clienteFecha', v_ahora,
       'clienteIp', left(coalesce(p_ip, ''), 64),
       'clienteMetodo', left(coalesce(p_metodo, 'remoto'), 32),

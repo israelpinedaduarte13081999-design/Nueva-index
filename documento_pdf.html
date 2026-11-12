@@ -147,23 +147,31 @@
 
   {% set contractor_sig = d.contractor_signature or d.firma_contratista or "" %}
   {% set client_sig = d.client_signature or d.firma_cliente or "" %}
+  {% set contractor_name = d.firma_contratista_nombre or "" %}
+  {% set client_name = d.firma_cliente_nombre or "" %}
   {% if client_sig and contractor_sig and client_sig == contractor_sig %}
     {% set client_sig = "" %}
   {% endif %}
-  {% if d.tipo == "contract" or contractor_sig or client_sig %}
+  {% if not (client_sig and client_sig.startswith("data:image/")) %}
+    {% set client_sig = "" %}
+  {% endif %}
+  {% if not (contractor_sig and contractor_sig.startswith("data:image/")) %}
+    {% set contractor_sig = "" %}
+  {% endif %}
+  {% if d.tipo == "contract" or contractor_sig or client_sig or contractor_name or client_name %}
   <table class="firmas pie-firmas">
     <tr>
       <td>
         <span class="label">Contractor signature</span>
         <div class="firma-box">{% if contractor_sig %}<img src="{{ contractor_sig }}" alt="Contractor signature">{% endif %}</div>
-        {% if d.firma_contratista_nombre %}<p class="firma-nombre-impreso">{{ d.firma_contratista_nombre }}</p>{% endif %}
-        {% if contractor_sig and d.firma_contratista_fecha %}<p class="muted">{{ d.firma_contratista_fecha }}</p>{% endif %}
+        {% if contractor_name %}<p class="firma-nombre-impreso">{{ contractor_name }}</p>{% endif %}
+        {% if (contractor_sig or contractor_name) and d.firma_contratista_fecha %}<p class="muted">{{ d.firma_contratista_fecha }}</p>{% endif %}
       </td>
       <td>
         <span class="label">Client signature</span>
         <div class="firma-box">{% if client_sig %}<img src="{{ client_sig }}" alt="Client signature">{% endif %}</div>
-        {% if d.firma_cliente_nombre %}<p class="firma-nombre-impreso">{{ d.firma_cliente_nombre }}</p>{% endif %}
-        {% if client_sig and d.firma_cliente_fecha %}<p class="muted">{{ d.firma_cliente_fecha }}</p>{% endif %}
+        {% if client_name %}<p class="firma-nombre-impreso">{{ client_name }}</p>{% endif %}
+        {% if (client_sig or client_name) and d.firma_cliente_fecha %}<p class="muted">{{ d.firma_cliente_fecha }}</p>{% endif %}
       </td>
     </tr>
   </table>

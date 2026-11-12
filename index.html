@@ -6185,7 +6185,9 @@
     }
     function mostrarMetaFirmaCliente(firmas){
       const fecha=(firmas&&(firmas.clienteFecha||firmas.firma_fecha))||'';
-      if(firmas&&(firmas.cliente||firmas.client||firmas.client_signature)) marcarContratoFirmadoLocal(fecha);
+      const img=String((firmas&&(firmas.cliente||firmas.client||firmas.client_signature))||'').trim();
+      const nom=String((firmas&&(firmas.clienteNombre||firmas.client_name))||'').trim();
+      if(img.startsWith('data:image/')||nom.length>=2) marcarContratoFirmadoLocal(fecha);
       else{
         documentoEstadoFirmado=false;
         const saved=document.getElementById('clientSignatureSaved');
@@ -6212,11 +6214,16 @@
       const imagen=String(
         (firmas&&(firmas.cliente||firmas.client_signature||firmas.client))||''
       ).trim();
-      if(!imagen.startsWith('data:image/')) return false;
+      const nombre=String(
+        (firmas&&(firmas.clienteNombre||firmas.client_name))||''
+      ).trim();
+      // OR rule: image and/or printed name.
+      if(!imagen.startsWith('data:image/') && nombre.length<2) return false;
       const payload=Object.assign({}, firmas||{}, {
-        cliente:imagen,
-        client_signature:imagen,
-        client:imagen
+        cliente:imagen.startsWith('data:image/')?imagen:'',
+        client_signature:imagen.startsWith('data:image/')?imagen:'',
+        clienteNombre:nombre,
+        client_name:nombre
       });
       // setState equivalent: paint CLIENT SIGNATURE box immediately.
       restaurarPanelFirma('client', payload);
@@ -6256,10 +6263,13 @@
             const firmas=row.firmas&&typeof row.firmas==='object'?row.firmas:{};
             const st=String(row.estado||row.status||'').toLowerCase();
             const cli=String(firmas.cliente||firmas.client_signature||firmas.client||'').trim();
-            const firmado=cli.startsWith('data:image/')||st==='signed'||st==='firmado'||st==='accepted';
-            if(!firmado||!cli.startsWith('data:image/')) return;
-            const yaHay=String(capturarPanelFirma('client').imagen||'').trim();
-            if(yaHay===cli){
+            const nom=String(firmas.clienteNombre||firmas.client_name||'').trim();
+            const firmado=cli.startsWith('data:image/')||nom.length>=2||st==='signed'||st==='firmado'||st==='accepted';
+            if(!firmado||(!cli.startsWith('data:image/')&&nom.length<2)) return;
+            const actual=capturarPanelFirma('client');
+            const yaHay=String(actual.imagen||'').trim();
+            const yaNom=String(actual.nombre||'').trim();
+            if((!cli||yaHay===cli) && (!nom||yaNom===nom) && (yaHay||yaNom)){
               mostrarMetaFirmaCliente(firmas);
               return;
             }
@@ -6336,14 +6346,12 @@
     async function guardarFirmaClienteEnServidor(){
       liberarInteraccionFirma(); // síncrono: liberar pantalla antes de red/PDF
       const cliente=typeof capturarPanelFirma==='function'?capturarPanelFirma('client'):{};
-      if(!cliente.imagen){
-        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Draw the client signature first','error');
-        else alert('Draw the client signature first');
-        return;
-      }
-      if(!String(cliente.nombre||'').trim()){
-        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Type the client full name','error');
-        else alert('Type the client full name');
+      const imagen=String(cliente.imagen||'').trim();
+      const nombre=String(cliente.nombre||'').trim();
+      // OR rule: drawing and/or printed name.
+      if(!imagen && !nombre){
+        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Draw a signature or type a full name','error');
+        else alert('Draw a signature or type a full name');
         return;
       }
       const btn=document.getElementById('saveClientSignatureButton');
@@ -6357,11 +6365,11 @@
           headers:headersContratista({'Content-Type':'application/json'}),
           body:JSON.stringify({
             id,
-            firma:cliente.imagen,
-            client_signature:cliente.imagen,
-            clienteNombre:cliente.nombre,
-            client_name:cliente.nombre,
-            nombre:cliente.nombre
+            firma:imagen||'',
+            client_signature:imagen||'',
+            clienteNombre:nombre||'',
+            client_name:nombre||'',
+            nombre:nombre||''
           })
         });
         const json=await res.json().catch(()=>({}));
@@ -6525,14 +6533,12 @@
     async function guardarFirmaContratistaEnServidor(){
       liberarInteraccionFirma();
       const contratista=capturarPanelFirma('contractor');
-      if(!contratista.imagen){
-        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Draw the contractor signature first','error');
-        else alert('Draw the contractor signature first');
-        return;
-      }
-      if(!String(contratista.nombre||'').trim()){
-        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Type your full name','error');
-        else alert('Type your full name');
+      const imagen=String(contratista.imagen||'').trim();
+      const nombre=String(contratista.nombre||'').trim();
+      // OR rule: drawing and/or printed name.
+      if(!imagen && !nombre){
+        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Draw a signature or type a full name','error');
+        else alert('Draw a signature or type a full name');
         return;
       }
       const btn=document.getElementById('saveContractorSignatureButton');
