@@ -204,9 +204,8 @@
       flex-direction:column;
       background:#0f172a;
       color:#fff;
-      touch-action:none;
       overscroll-behavior:none;
-      -webkit-overflow-scrolling:auto;
+      -webkit-overflow-scrolling:touch;
     }
     .firma-modal.is-open { display:flex !important; }
     .firma-modal-head {
@@ -436,12 +435,18 @@
       <button class="btn" type="button" id="firmaModalCancel">Close</button>
     </div>
     <div class="firma-modal-body">
-      <div class="canvas-shell" id="canvasShell">
-        <canvas id="firmaCanvas" aria-label="Draw your signature" width="760" height="360"></canvas>
+      <div class="canvas-shell" id="canvasShell" style="touch-action:none">
+        <canvas
+          id="firmaCanvas"
+          aria-label="Draw your signature"
+          width="760"
+          height="360"
+          style="touch-action:none;-ms-touch-action:none"
+        ></canvas>
       </div>
       <div class="nombre-impreso">
-        <label for="firmaTyped">Escribe tu nombre completo</label>
-        <input id="firmaTyped" type="text" autocomplete="name" placeholder="Escribe tu nombre completo" maxlength="80" inputmode="text">
+        <label for="firmaTyped">Type your full name</label>
+        <input id="firmaTyped" type="text" autocomplete="name" placeholder="Type your full name" maxlength="80" inputmode="text">
         <p class="hint">Required: draw above and type your printed name below.</p>
       </div>
     </div>
@@ -459,14 +464,9 @@
     {% if pdf_src %}<a href="{{ pdf_src }}" target="_blank" rel="noopener">Open contract PDF</a>{% endif %}
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
-  <script>
-    if(typeof SignaturePad!=='function'){
-      document.write('<script src="{{ url_for("static", filename="signature_pad.umd.min.js") }}"><\/script>');
-    }
-  </script>
   <script>
     (function(){
+      // Native HTML5 canvas pad (Pointer Events) — no SignaturePad / react-signature-canvas.
       const canvas=document.getElementById('firmaCanvas');
       const shell=document.getElementById('canvasShell');
       const status=document.getElementById('firmaStatus');
@@ -485,11 +485,25 @@
       const pdfFrame=document.getElementById('pdfFrame');
       if(!canvas||!modal) return;
 
-      let pad=null;
+      const ctx=canvas.getContext('2d', {alpha:false});
+      let dibujando=false;
+      let tieneTinta=false;
+      let lastX=0;
+      let lastY=0;
+      let ratio=1;
       let firmaLista='';
       let nombreLista='';
       let enviando=false;
       let scrollY=0;
+      let snapshotAntesResize=null;
+
+      // Strict: finger draws on the canvas instead of scrolling the page.
+      canvas.style.touchAction='none';
+      canvas.style.msTouchAction='none';
+      if(shell){
+        shell.style.touchAction='none';
+        shell.style.msTouchAction='none';
+      }
 
       function setStatus(texto, ok){
         if(!status) return;
@@ -537,89 +551,139 @@
           if(submit) submit.disabled=true;
         }
       }
+      function pintarFondo(){
+        if(!ctx) return;
+        ctx.save();
+        ctx.setTransform(1,0,0,1,0,0);
+        ctx.fillStyle='#ffffff';
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.restore();
+      }
+      function configurarTrazo(){
+        if(!ctx) return;
+        ctx.lineCap='round';
+        ctx.lineJoin='round';
+        ctx.strokeStyle='#19385f';
+        ctx.fillStyle='#19385f';
+        ctx.lineWidth=2.4;
+      }
+      function puntoDesdeEvento(ev){
+        const rect=canvas.getBoundingClientRect();
+        const cssW=rect.width||1;
+        const cssH=rect.height||1;
+        const scaleX=(canvas.width/ratio)/cssW;
+        const scaleY=(canvas.height/ratio)/cssH;
+        return {
+          x:(ev.clientX-rect.left)*scaleX,
+          y:(ev.clientY-rect.top)*scaleY
+        };
+      }
       function vacioPad(){
-        return !pad || pad.isEmpty();
+        return !tieneTinta;
       }
       function exportarPad(){
-        if(!pad||pad.isEmpty()) return '';
-        try{ return pad.toDataURL('image/png'); }catch(_){ return ''; }
+        if(!tieneTinta||!canvas) return '';
+        try{ return canvas.toDataURL('image/png'); }catch(_){ return ''; }
+      }
+      function limpiarCanvas(){
+        tieneTinta=false;
+        dibujando=false;
+        snapshotAntesResize=null;
+        pintarFondo();
+        configurarTrazo();
+      }
+      function restaurarImagen(dataUrl){
+        if(!dataUrl||!ctx) return;
+        const img=new Image();
+        img.onload=function(){
+          pintarFondo();
+          const w=canvas.width/ratio;
+          const h=canvas.height/ratio;
+          ctx.drawImage(img,0,0,w,h);
+          tieneTinta=true;
+          configurarTrazo();
+        };
+        img.src=dataUrl;
       }
       function ajustarPad(restaurar){
-        if(!pad||!shell) return;
-        const ratio=Math.max(window.devicePixelRatio||1, 1);
+        if(!shell||!ctx) return;
+        const prev=restaurar!==false && tieneTinta ? (exportarPad()||snapshotAntesResize) : null;
+        ratio=Math.max(window.devicePixelRatio||1, 1);
         const rect=shell.getBoundingClientRect();
         const w=Math.max(280, Math.floor(rect.width||shell.clientWidth||1));
         const h=Math.max(200, Math.floor(rect.height||shell.clientHeight||1));
-        const data=(!pad.isEmpty()&&restaurar!==false)?pad.toData():null;
         canvas.width=Math.floor(w*ratio);
         canvas.height=Math.floor(h*ratio);
         canvas.style.width=w+'px';
         canvas.style.height=h+'px';
         canvas.style.touchAction='none';
         shell.style.touchAction='none';
-        const ctx=canvas.getContext('2d');
         ctx.setTransform(1,0,0,1,0,0);
         ctx.scale(ratio, ratio);
-        pad.clear();
-        if(data&&data.length){
-          try{ pad.fromData(data); }catch(_){}
+        pintarFondo();
+        configurarTrazo();
+        if(prev){
+          snapshotAntesResize=prev;
+          restaurarImagen(prev);
+        }else{
+          tieneTinta=false;
         }
       }
-      function crearPad(){
-        if(typeof SignaturePad!=='function'){
-          setStatus('Could not load the signature pad. Check your connection and try again.', false);
-          return false;
-        }
-        if(pad) return true;
-        pad=new SignaturePad(canvas,{
-          backgroundColor:'rgb(255,255,255)',
-          penColor:'#19385f',
-          minWidth:1.2,
-          maxWidth:3.2,
-          throttle:0,
-          minDistance:0,
-          velocityFilterWeight:0.7
-        });
-        canvas._signaturePad=pad;
-        pad.addEventListener('beginStroke', function(ev){
-          if(ev&&typeof ev.preventDefault==='function') ev.preventDefault();
-        });
-        return true;
-      }
-      function enZonaDibujo(target){
-        if(!target) return false;
-        if(target===canvas||target===shell) return true;
-        if(shell&&shell.contains(target)) return true;
-        return false;
-      }
-      function bloquearScrollEnDibujo(ev){
+      function onPointerDown(ev){
         if(!modal.classList.contains('is-open')) return;
-        if(enZonaDibujo(ev.target)){
-          ev.preventDefault();
-        }
+        if(ev.pointerType==='mouse' && ev.button!==0) return;
+        ev.preventDefault();
+        try{ canvas.setPointerCapture(ev.pointerId); }catch(_){}
+        const p=puntoDesdeEvento(ev);
+        dibujando=true;
+        lastX=p.x;
+        lastY=p.y;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(ctx.lineWidth/2, 0.8), 0, Math.PI*2);
+        ctx.fill();
+        tieneTinta=true;
+      }
+      function onPointerMove(ev){
+        if(!dibujando) return;
+        ev.preventDefault();
+        const p=puntoDesdeEvento(ev);
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        lastX=p.x;
+        lastY=p.y;
+        tieneTinta=true;
+      }
+      function onPointerUp(ev){
+        if(!dibujando) return;
+        ev.preventDefault();
+        dibujando=false;
+        try{ canvas.releasePointerCapture(ev.pointerId); }catch(_){}
       }
       function abrirModal(){
         if(enviando) return;
-        if(!crearPad()) return;
         modal.classList.add('is-open');
         modal.setAttribute('aria-hidden','false');
         bloquearScroll();
         if(typedInput&&nombreLista) typedInput.value=nombreLista;
         requestAnimationFrame(function(){
-          ajustarPad(true);
-          if(firmaLista&&pad&&pad.isEmpty()){
-            try{ pad.fromDataURL(firmaLista); }catch(_){}
-          }
+          ajustarPad(false);
+          if(firmaLista) restaurarImagen(firmaLista);
         });
-        setTimeout(function(){ ajustarPad(true); }, 60);
+        setTimeout(function(){
+          ajustarPad(!!firmaLista);
+          if(firmaLista&&!tieneTinta) restaurarImagen(firmaLista);
+        }, 60);
       }
       function cerrarModal(){
+        dibujando=false;
         modal.classList.remove('is-open');
         modal.setAttribute('aria-hidden','true');
         liberarScroll();
       }
       function limpiarModal(){
-        if(pad) pad.clear();
+        limpiarCanvas();
         if(typedInput) typedInput.value='';
       }
       function usarFirmaModal(){
@@ -629,7 +693,7 @@
         }
         const nombre=nombreActual();
         if(!nombre||nombre.length<2){
-          setStatus('Escribe tu nombre completo.', false);
+          setStatus('Type your full name.', false);
           if(typedInput) typedInput.focus();
           return;
         }
@@ -657,16 +721,21 @@
         }
       }
 
-      // Touch: never let the page scroll while drawing on the pad.
-      canvas.style.touchAction='none';
-      if(shell) shell.style.touchAction='none';
-      ['touchstart','touchmove','pointerdown','pointermove'].forEach(function(tipo){
-        canvas.addEventListener(tipo, bloquearScrollEnDibujo, {passive:false});
-        if(shell) shell.addEventListener(tipo, bloquearScrollEnDibujo, {passive:false});
-      });
-      modal.addEventListener('touchmove', function(ev){
-        if(enZonaDibujo(ev.target)) ev.preventDefault();
+      canvas.addEventListener('pointerdown', onPointerDown, {passive:false});
+      canvas.addEventListener('pointermove', onPointerMove, {passive:false});
+      canvas.addEventListener('pointerup', onPointerUp, {passive:false});
+      canvas.addEventListener('pointercancel', onPointerUp, {passive:false});
+      canvas.addEventListener('pointerleave', function(ev){
+        if(dibujando) onPointerUp(ev);
       }, {passive:false});
+      // Extra guard for browsers that still emit touchmove while drawing.
+      canvas.addEventListener('touchmove', function(ev){ ev.preventDefault(); }, {passive:false});
+      if(shell){
+        shell.addEventListener('touchmove', function(ev){
+          if(ev.target===canvas||canvas.contains(ev.target)) ev.preventDefault();
+        }, {passive:false});
+      }
+
       window.addEventListener('resize', function(){
         if(modal.classList.contains('is-open')) ajustarPad(true);
       });
@@ -683,7 +752,7 @@
       document.getElementById('firmaModalDone')?.addEventListener('click', usarFirmaModal);
       clearDock?.addEventListener('click', function(){
         if(enviando) return;
-        if(pad) pad.clear();
+        limpiarCanvas();
         if(typedInput) typedInput.value='';
         mostrarPreview('');
         setStatus('');
