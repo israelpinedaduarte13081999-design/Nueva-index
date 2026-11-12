@@ -33,35 +33,45 @@
     .totales .fila strong { text-align: right; }
     .totales .grand { border-top: 2px solid #19385f; border-bottom: 0; font-size: 12pt; padding-top: 8px; }
     .firmas { width: 100%; margin-top: 22px; border-collapse: separate; border-spacing: 0; }
-    .firmas td { width: 50%; vertical-align: bottom; padding-right: 16px; }
+    .firmas td { width: 50%; vertical-align: top; padding-right: 16px; }
     .firmas td:last-child { padding-right: 0; padding-left: 16px; }
+    /* Signature rests ON TOP of the horizontal rule (border-bottom). */
+    .signature-box,
     .firma-box {
-      min-height: 78px;
-      border-bottom: 1px solid #94a3b8;
-      padding: 6px 0 4px;
-      position: relative;
-      overflow: visible;
-    }
-    .firma-box img {
       display: block;
-      max-width: 100%;
-      width: auto;
-      height: auto;
-      max-height: 84px;
-      object-fit: contain;
-      object-position: left bottom;
-      position: relative;
-      z-index: 2;
-      background: transparent;
+      min-height: 60px;
+      border-bottom: 1px solid #000;
+      text-align: center;
+      padding: 0 4px 2px;
+      margin: 4px 0 0;
+      vertical-align: bottom;
     }
-    .firma-nombre-impreso {
-      margin: 6px 0 0;
-      font-size: 11pt;
+    .signature-box img,
+    .firma-box img {
+      display: inline-block;
+      max-height: 60px;
+      width: auto;
+      max-width: 100%;
+      object-fit: contain;
+      margin: 0 auto 2px;
+      vertical-align: bottom;
+    }
+    .signature-box .firma-nombre-impreso,
+    .firma-box .firma-nombre-impreso {
+      display: block;
+      margin: 0 0 2px;
+      padding: 0;
+      font-size: 14pt;
       font-weight: 700;
       color: #0f172a;
-      line-height: 1.25;
-      position: relative;
-      z-index: 2;
+      line-height: 1.15;
+    }
+    .firma-timestamp {
+      display: block;
+      margin: 4px 0 0;
+      font-size: 8pt;
+      color: #475569;
+      text-align: center;
     }
     img.plano { display: block; max-width: 100%; max-height: 420px; margin: 8px 0 12px; border: 1px solid #dbe3ee; }
   </style>
@@ -183,23 +193,27 @@
     <tr>
       <td>
         <span class="label">Contractor signature</span>
-        <div class="firma-box">
+        <div class="signature-box firma-box">
           {% if contractor_sig %}
-          <img src="{{ contractor_sig }}" alt="Contractor signature" style="max-width:100%;height:auto;max-height:84px;object-fit:contain;display:block;">
+          <img src="{{ contractor_sig }}" alt="Contractor signature" style="max-height:60px;width:auto;object-fit:contain;margin-bottom:2px;">
           {% endif %}
+          {% if contractor_name %}<span class="firma-nombre-impreso">{{ contractor_name }}</span>{% endif %}
         </div>
-        {% if contractor_name %}<p class="firma-nombre-impreso">{{ contractor_name }}</p>{% endif %}
-        {% if (contractor_sig or contractor_name) and d.firma_contratista_fecha %}<p class="muted">{{ d.firma_contratista_fecha }}</p>{% endif %}
+        {% if (contractor_sig or contractor_name) and d.firma_contratista_fecha %}
+        <p class="firma-timestamp">{{ d.firma_contratista_fecha }}</p>
+        {% endif %}
       </td>
       <td>
         <span class="label">Client signature</span>
-        <div class="firma-box">
+        <div class="signature-box firma-box">
           {% if client_sig %}
-          <img src="{{ client_sig }}" alt="Client signature" style="max-width:100%;height:auto;max-height:84px;object-fit:contain;display:block;">
+          <img src="{{ client_sig }}" alt="Client signature" style="max-height:60px;width:auto;object-fit:contain;margin-bottom:2px;">
           {% endif %}
+          {% if client_name %}<span class="firma-nombre-impreso">{{ client_name }}</span>{% endif %}
         </div>
-        {% if client_name %}<p class="firma-nombre-impreso">{{ client_name }}</p>{% endif %}
-        {% if (client_sig or client_name) and d.firma_cliente_fecha %}<p class="muted">{{ d.firma_cliente_fecha }}</p>{% endif %}
+        {% if (client_sig or client_name) and d.firma_cliente_fecha %}
+        <p class="firma-timestamp">{{ d.firma_cliente_fecha }}</p>
+        {% endif %}
       </td>
     </tr>
   </table>
