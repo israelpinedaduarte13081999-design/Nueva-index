@@ -731,19 +731,46 @@
     /* Solo el canvas bloquea gestos; NUNCA touch-action:none en html/body (deja pantalla muerta). */
     html.firma-activa, body.firma-activa { overflow:hidden; overscroll-behavior:none; }
     html.firma-activa, body.firma-activa { touch-action:auto; }
-    .signature-canvas { display:block; width:100%; height:140px; border:1px dashed #94a3b8; border-radius:6px; background:#fff; touch-action:none; cursor:crosshair; overscroll-behavior:none; -ms-touch-action:none; }
+    .signature-canvas-shell {
+      width:100%;
+      height:148px;
+      border:1px dashed #94a3b8;
+      border-radius:6px;
+      background:#fff;
+      overflow:hidden;
+      touch-action:none !important;
+      -ms-touch-action:none !important;
+      overscroll-behavior:none;
+      position:relative;
+    }
+    .signature-canvas {
+      display:block;
+      width:100% !important;
+      height:100% !important;
+      border:0;
+      background:#fff;
+      touch-action:none !important;
+      -ms-touch-action:none !important;
+      cursor:crosshair;
+      overscroll-behavior:none;
+      user-select:none;
+      -webkit-user-select:none;
+    }
     .signature-clear { background:#fff; color:#334155; border:1px solid #cbd5e1; padding:4px 10px; border-radius:6px; font-size:.75rem; font-weight:700; }
     .signature-clear:hover { background:#f8fafc; border-color:#94a3b8; }
-    .signature-mode-toggle { display:flex; gap:4px; margin-left:auto; }
-    .signature-mode-toggle button { border:1px solid #cbd5e1; background:#fff; color:#475569; padding:4px 10px; border-radius:6px; font-size:.75rem; font-weight:700; }
-    .signature-mode-toggle button.is-active { background:#e0f2fe; color:#0369a1; border-color:#7dd3fc; }
-    .sign-type-field { margin-top:8px; }
+    .sign-type-field { margin-top:10px; }
     .sign-type-field label { display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px; }
-    .sign-type-field input { border:1px solid #cbd5e1; background:#fff; font-weight:600; }
-    .typed-signature-preview { min-height:78px; display:flex; align-items:flex-end; font-family:"Great Vibes","Caveat",cursive; font-size:42px; line-height:1.1; color:#19385f; padding:10px 6px 2px; }
-    .typed-signature-preview.is-empty { color:#94a3b8; font-size:28px; }
-    .signature-box[data-sign-mode="type"] .signature-canvas { display:none; }
-    .signature-box[data-sign-mode="draw"] .typed-signature-preview { display:none; }
+    .sign-type-field input {
+      width:100%;
+      border:0;
+      border-bottom:2px solid #94a3b8;
+      border-radius:0;
+      background:transparent;
+      font-weight:600;
+      padding:8px 2px;
+      outline:none;
+    }
+    .sign-type-field input:focus { border-bottom-color:#0d47a1; }
     .signature-line { margin-top:6px; border-top:1px solid var(--ink); padding-top:5px; color:var(--muted); font-size:11px; }
     .signature-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; position:relative; z-index:5; pointer-events:auto; }
     .signature-actions .btn { pointer-events:auto; position:relative; z-index:6; }
@@ -2180,35 +2207,32 @@
           <div class="signature-box" data-sign-role="contractor" data-sign-mode="draw">
             <div class="signature-box-head">
               <h3 data-i18n="signContractor">Contractor signature</h3>
-              <div class="signature-mode-toggle no-print" role="group" aria-label="Contractor signature method">
-                <button type="button" class="is-active" data-sign-mode-btn="draw">Draw</button>
-                <button type="button" data-sign-mode-btn="type">Type</button>
-              </div>
               <button class="signature-clear no-print" type="button" data-clear-signature="contractor">Clear</button>
             </div>
-            <canvas class="signature-canvas" id="contractorSignature" width="520" height="160" aria-label="Contractor signature pad"></canvas>
-            <div class="sign-type-field no-print">
-              <label for="contractorTypedSignature">Type your full name for signature</label>
-              <input id="contractorTypedSignature" class="typed-signature-input" type="text" autocomplete="name" placeholder="Contractor full name">
+            <div class="signature-canvas-shell" style="touch-action:none">
+              <canvas class="signature-canvas" id="contractorSignature" width="520" height="160" aria-label="Contractor signature pad" style="touch-action:none;-ms-touch-action:none"></canvas>
             </div>
-            <div class="typed-signature-preview is-empty">Signature preview</div>
+            <div class="sign-type-field no-print">
+              <label for="contractorTypedSignature">Type your full name</label>
+              <input id="contractorTypedSignature" class="typed-signature-input" type="text" autocomplete="name" placeholder="Type your full name" maxlength="80">
+            </div>
             <div class="signature-line" data-i18n="signLine">Name and date</div>
+            <div class="signature-actions no-print">
+              <button class="btn btn-primary" type="button" id="saveContractorSignatureButton">Save signature</button>
+            </div>
           </div>
           <div class="signature-box" data-sign-role="client" data-sign-mode="draw">
             <div class="signature-box-head">
               <h3 data-i18n="signClient">Client signature</h3>
-              <div class="signature-mode-toggle no-print" role="group" aria-label="Client signature method">
-                <button type="button" class="is-active" data-sign-mode-btn="draw">Draw</button>
-                <button type="button" data-sign-mode-btn="type">Type</button>
-              </div>
               <button class="signature-clear no-print" type="button" data-clear-signature="client">Clear</button>
             </div>
-            <canvas class="signature-canvas" id="clientSignature" width="520" height="160" aria-label="Client signature pad"></canvas>
-            <div class="sign-type-field no-print">
-              <label for="clientTypedSignature">Type your full name for signature</label>
-              <input id="clientTypedSignature" class="typed-signature-input" type="text" autocomplete="name" placeholder="Jane M. Client">
+            <div class="signature-canvas-shell" style="touch-action:none">
+              <canvas class="signature-canvas" id="clientSignature" width="520" height="160" aria-label="Client signature pad" style="touch-action:none;-ms-touch-action:none"></canvas>
             </div>
-            <div class="typed-signature-preview is-empty">Signature preview</div>
+            <div class="sign-type-field no-print">
+              <label for="clientTypedSignature">Type your full name</label>
+              <input id="clientTypedSignature" class="typed-signature-input" type="text" autocomplete="name" placeholder="Type your full name" maxlength="80">
+            </div>
             <div class="signature-line" data-i18n="signLine">Name and date</div>
             <div class="signature-actions no-print">
               <button class="btn btn-primary" type="button" id="saveClientSignatureButton">Save signature</button>
@@ -2460,12 +2484,7 @@
     <option value="Cambio de deck (precio cerrado)"></option>
     <option value="Paquete de reparación menor (precio cerrado / lump sum)"></option>
   </datalist>
-  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
-  <script>
-    if(typeof SignaturePad!=='function'){
-      document.write('<script src="{{ url_for("static", filename="signature_pad.umd.min.js") }}"><\/script>');
-    }
-  </script>
+  <!-- Signature pads: native HTML5 canvas + Pointer Events (no SignaturePad). -->
   <script>
     window.__NOMBRE_EMPRESA__=String(document.body?.getAttribute('data-nombre-empresa')||'').trim();
     const QB_TRADE_KEY='qb_preferred_trade';
@@ -5983,130 +6002,109 @@
     function savePaymentState(){ localStorage.setItem(paymentStorageKey,JSON.stringify(paymentState)); }
     function markPaidIfNeeded(balance,total){ if(total>0 && balance<=0 && paymentState.status!=='paid'){ paymentState.status='paid'; paymentState.paidDate=paymentState.paidDate||new Date().toISOString().slice(0,10); document.querySelector('#status').value='paid'; savePaymentState(); } }
     function update(){ const paymentWasFocused=document.activeElement?.id==='paidAmount'; let grand=0; const lines=[]; document.querySelectorAll('.area').forEach((area,index)=>{ let subtotal=0; area.querySelectorAll('tbody tr').forEach(row=>{const total=recalcularSubtotalFila(row);subtotal+=total;}); grand+=subtotal; const title=area.querySelector('.area-title').value||`Area ${index+1}`; lines.push({title,subtotal}); }); const paid=Math.max(Number(paymentState.paidAmount)||0,0); const balance=Math.max(grand-paid,0); markPaidIfNeeded(balance,grand); const isPaid=paymentState.status==='paid'||(grand>0&&balance<=0); document.querySelector('#summary').innerHTML=lines.map(line=>`<div class="summary-line"><span>${line.title.replace(/^Área de /i,'').replace(/^Area of /i,'')}</span><strong>${money.format(line.subtotal)}</strong></div>`).join('')+`<div class="payment-tracking"><div class="field-row"><label for="paidAmount">Amount paid</label><input id="paidAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="${paymentState.paidAmount}"></div>${htmlBotonesDeposito()}</div><div class="summary-line grand"><span>${translations[language].total}</span><strong>${money.format(grand)}<br>USD</strong></div><div class="summary-line"><span id="depositLabel">${translations[language].deposit}</span><strong>${money.format(paid)} USD</strong></div><div class="summary-line balance"><span id="finalPaymentLabel">${translations[language].finalPayment}</span><strong>${money.format(balance)} USD</strong></div>`; const paymentInput=document.querySelector('#paidAmount'); paymentInput.addEventListener('input',event=>{ paymentState.paidAmount=event.target.value; paymentState.status='open'; paymentState.paidDate=''; savePaymentState(); update(); }); document.querySelectorAll('[data-payment-action]').forEach(button=>button.addEventListener('click',()=>{ aplicarPagoRapido(button.dataset.paymentAction,grand); })); document.querySelector('#paidStamp').hidden=!isPaid||docMode!=='invoice'; document.querySelector('#paidDate').textContent=paymentState.paidDate?'Paid date: '+paymentState.paidDate:''; if(paymentWasFocused) paymentInput.focus(); }
-    function renderMode(nextMode){ docMode=nextMode; const isInvoice=docMode==='invoice'; const isContract=docMode==='contract'; const title=isInvoice?'INVOICE':isContract?'WORK CONTRACT':'ESTIMATE'; document.querySelector('#documentTitle').textContent=title; if(!document.body.classList.contains('auth-solo')) document.title=title+' | '+nombreEmpresaActiva(); document.querySelector('#itemsHeading').textContent=isInvoice?'INVOICE ITEMS':'SCOPE OF WORK'; document.querySelector('#legalTerms').hidden=isInvoice; const signatures=document.querySelector('#signatures'); if(signatures){ signatures.hidden=!isContract; signatures.setAttribute('aria-hidden', isContract?'false':'true'); } const sendExport=document.getElementById('sendForSignatureExportButton'); if(sendExport) sendExport.hidden=!isContract; document.documentElement.classList.toggle('is-contract', isContract); document.querySelector('#dueDateRow').hidden=!isInvoice; const billTo=document.querySelector('.bill-to'); if(billTo)billTo.hidden=!isInvoice; document.querySelector('.payments').hidden=!isInvoice; document.querySelector('.summary').classList.toggle('invoice-summary',isInvoice); document.querySelector('.invoice-thanks').hidden=!isInvoice; document.querySelector('#paidStamp').hidden=!isInvoice; document.querySelector('#termsHeading').textContent='TERMS AND EXCLUSIONS'; document.querySelector('#docMode').value=docMode; if(typeof aplicarFolioEnPantalla==='function')aplicarFolioEnPantalla(document.getElementById('quote')?.value); if(isInvoice && document.querySelector('#areas').children.length) update(); if(!isContract&&typeof removerCanalContratoAbierto==='function')removerCanalContratoAbierto(); else if(isContract&&documentoHistorialId&&typeof suscribirRealtimeContratoAbierto==='function')suscribirRealtimeContratoAbierto(documentoHistorialId); }
-    function puntoFirma(canvas,event){
-      const t=(event.touches&&event.touches[0])||(event.changedTouches&&event.changedTouches[0])||event;
-      const rect=canvas.getBoundingClientRect();
-      const w=rect.width||canvas.width;
-      const h=rect.height||canvas.height;
-      return { x:(t.clientX-rect.left)*canvas.width/w, y:(t.clientY-rect.top)*canvas.height/h };
-    }
-    function canvasFirmaVacio(canvas){
-      if(!canvas)return true;
-      if(canvas._signaturePad) return canvas._signaturePad.isEmpty();
-      try{
-        const ctx=canvas.getContext('2d');
-        const data=ctx.getImageData(0,0,canvas.width,canvas.height).data;
-        for(let i=3;i<data.length;i+=4){ if(data[i]>8)return false; }
-      }catch(_){ return true; }
-      return true;
-    }
-    function ajustarCanvasFirma(canvas){
-      if(!canvas)return;
-      const ratio=Math.max(window.devicePixelRatio||1,1);
-      const rect=canvas.getBoundingClientRect();
-      if(!rect.width||!rect.height)return;
-      const pad=canvas._signaturePad;
-      const data=(pad&&!pad.isEmpty())?pad.toData():null;
-      canvas.width=Math.floor(rect.width*ratio);
-      canvas.height=Math.floor(rect.height*ratio);
-      const ctx=canvas.getContext('2d');
-      ctx.setTransform(1,0,0,1,0,0);
-      ctx.scale(ratio, ratio);
-      if(pad){
-        pad.clear();
-        if(data&&data.length) pad.fromData(data);
-      }
-    }
-    function limpiarFirmaCanvas(canvas){
-      if(!canvas)return;
-      if(canvas._signaturePad) canvas._signaturePad.clear();
-      else{
-        const ctx=canvas.getContext('2d');
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-      }
-      canvas.dataset.hasInk='0';
-    }
-    function firmaCanvasABase64(canvas){
-      if(!canvas)return '';
-      const pad=canvas._signaturePad;
-      if(pad&&!pad.isEmpty()){
-        try{ return pad.toDataURL('image/png'); }catch(_){}
-      }
-      if(canvas.dataset.hasInk!=='1'&&canvasFirmaVacio(canvas))return '';
-      return canvas.toDataURL('image/png');
-    }
+    function renderMode(nextMode){ docMode=nextMode; const isInvoice=docMode==='invoice'; const isContract=docMode==='contract'; const title=isInvoice?'INVOICE':isContract?'WORK CONTRACT':'ESTIMATE'; document.querySelector('#documentTitle').textContent=title; if(!document.body.classList.contains('auth-solo')) document.title=title+' | '+nombreEmpresaActiva(); document.querySelector('#itemsHeading').textContent=isInvoice?'INVOICE ITEMS':'SCOPE OF WORK'; document.querySelector('#legalTerms').hidden=isInvoice; const signatures=document.querySelector('#signatures'); if(signatures){ signatures.hidden=!isContract; signatures.setAttribute('aria-hidden', isContract?'false':'true'); } const sendExport=document.getElementById('sendForSignatureExportButton'); if(sendExport) sendExport.hidden=!isContract; document.documentElement.classList.toggle('is-contract', isContract); document.querySelector('#dueDateRow').hidden=!isInvoice; const billTo=document.querySelector('.bill-to'); if(billTo)billTo.hidden=!isInvoice; document.querySelector('.payments').hidden=!isInvoice; document.querySelector('.summary').classList.toggle('invoice-summary',isInvoice); document.querySelector('.invoice-thanks').hidden=!isInvoice; document.querySelector('#paidStamp').hidden=!isInvoice; document.querySelector('#termsHeading').textContent='TERMS AND EXCLUSIONS'; document.querySelector('#docMode').value=docMode; if(typeof aplicarFolioEnPantalla==='function')aplicarFolioEnPantalla(document.getElementById('quote')?.value); if(isInvoice && document.querySelector('#areas').children.length) update(); if(!isContract&&typeof removerCanalContratoAbierto==='function')removerCanalContratoAbierto(); else if(isContract&&documentoHistorialId&&typeof suscribirRealtimeContratoAbierto==='function')suscribirRealtimeContratoAbierto(documentoHistorialId); if(isContract){ requestAnimationFrame(function(){ document.querySelectorAll('.signature-canvas').forEach(function(c){ if(typeof ajustarCanvasFirma==='function') ajustarCanvasFirma(c,true); }); }); } }
     function panelFirma(role){
       const box=document.querySelector('.signature-box[data-sign-role="'+role+'"]');
       if(!box)return null;
       return {
         role,
         box,
+        shell:box.querySelector('.signature-canvas-shell'),
         canvas:box.querySelector('.signature-canvas'),
-        input:box.querySelector('.typed-signature-input'),
-        preview:box.querySelector('.typed-signature-preview')
+        input:box.querySelector('.typed-signature-input')
       };
     }
-    function modoFirmaPanel(role){
-      return panelFirma(role)?.box.dataset.signMode==='type'?'type':'draw';
-    }
-    function actualizarVistaFirmaTipografica(role){
-      const p=panelFirma(role);
-      if(!p||!p.preview)return;
-      const nombre=String(p.input?.value||'').trim();
-      if(nombre){
-        p.preview.textContent=nombre;
-        p.preview.classList.remove('is-empty');
-      }else{
-        p.preview.textContent='Signature preview';
-        p.preview.classList.add('is-empty');
-      }
-    }
-    function setSignMode(role,modo){
+    function modoFirmaPanel(){ return 'draw'; }
+    function actualizarVistaFirmaTipografica(){ /* printed name lives in the text input */ }
+    function setSignMode(role){
       const p=panelFirma(role);
       if(!p)return;
-      const next=modo==='type'?'type':'draw';
-      const prev=p.box.dataset.signMode||'draw';
-      p.box.dataset.signMode=next;
-      p.box.querySelectorAll('[data-sign-mode-btn]').forEach(btn=>btn.classList.toggle('is-active',btn.dataset.signModeBtn===next));
-      if(p.canvas&&p.canvas._signaturePad){
-        if(next==='type') p.canvas._signaturePad.off();
-        else {
-          p.canvas._signaturePad.on();
-          if(prev!=='draw') ajustarCanvasFirma(p.canvas);
-        }
-      }
-      actualizarVistaFirmaTipografica(role);
+      p.box.dataset.signMode='draw';
     }
-    function pintarFirmaTipografica(canvas,nombre){
-      if(!canvas||!nombre)return false;
-      if(canvas._signaturePad) canvas._signaturePad.clear();
-      const ctx=canvas.getContext('2d');
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      ctx.fillStyle='#19385f';
-      ctx.textAlign='left';
-      ctx.textBaseline='middle';
-      let size=68;
-      const family='"Great Vibes","Caveat",cursive';
-      ctx.font=size+'px '+family;
-      while(size>26 && ctx.measureText(nombre).width>canvas.width-28){
-        size-=2;
-        ctx.font=size+'px '+family;
-      }
-      ctx.fillText(nombre,16,canvas.height*0.58);
-      canvas.dataset.hasInk='1';
+    function canvasFirmaVacio(canvas){
+      if(!canvas)return true;
+      if(canvas.dataset.hasInk==='1') return false;
+      try{
+        const ctx=canvas.getContext('2d');
+        const data=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+        for(let i=3;i<data.length;i+=4){ if(data[i]>8)return false; }
+      }catch(_){ return canvas.dataset.hasInk!=='1'; }
       return true;
+    }
+    function _ctxFirma(canvas){
+      if(!canvas) return null;
+      if(!canvas._firmaCtx) canvas._firmaCtx=canvas.getContext('2d',{alpha:false});
+      return canvas._firmaCtx;
+    }
+    function _configurarTrazoFirma(canvas){
+      const ctx=_ctxFirma(canvas);
+      if(!ctx) return;
+      ctx.lineCap='round';
+      ctx.lineJoin='round';
+      ctx.strokeStyle='#19385f';
+      ctx.fillStyle='#19385f';
+      ctx.lineWidth=2.2;
+    }
+    function _pintarFondoFirma(canvas){
+      const ctx=_ctxFirma(canvas);
+      if(!ctx) return;
+      const ratio=Number(canvas._firmaRatio)||1;
+      ctx.save();
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.fillStyle='#ffffff';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.restore();
+      ctx.setTransform(ratio,0,0,ratio,0,0);
+      _configurarTrazoFirma(canvas);
+    }
+    function ajustarCanvasFirma(canvas, restaurar){
+      if(!canvas)return;
+      const shell=canvas.closest('.signature-canvas-shell')||canvas.parentElement;
+      const ratio=Math.max(window.devicePixelRatio||1,1);
+      const rect=(shell||canvas).getBoundingClientRect();
+      if(!rect.width||!rect.height)return;
+      const prev=(restaurar!==false && canvas.dataset.hasInk==='1')?firmaCanvasABase64(canvas):'';
+      canvas._firmaRatio=ratio;
+      canvas.width=Math.floor(rect.width*ratio);
+      canvas.height=Math.floor(rect.height*ratio);
+      canvas.style.width=Math.floor(rect.width)+'px';
+      canvas.style.height=Math.floor(rect.height)+'px';
+      canvas.style.touchAction='none';
+      if(shell) shell.style.touchAction='none';
+      const ctx=_ctxFirma(canvas);
+      if(!ctx) return;
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.scale(ratio, ratio);
+      _pintarFondoFirma(canvas);
+      if(prev){
+        restaurarFirmaCanvas(canvas, prev);
+      }else{
+        canvas.dataset.hasInk='0';
+      }
+    }
+    function limpiarFirmaCanvas(canvas){
+      if(!canvas)return;
+      canvas._firmaDrawing=false;
+      canvas.dataset.hasInk='0';
+      if(!canvas.width||!canvas.height){
+        ajustarCanvasFirma(canvas,false);
+        return;
+      }
+      _pintarFondoFirma(canvas);
+    }
+    function firmaCanvasABase64(canvas){
+      if(!canvas)return '';
+      if(canvas.dataset.hasInk!=='1'&&canvasFirmaVacio(canvas))return '';
+      try{ return canvas.toDataURL('image/png'); }catch(_){ return ''; }
     }
     function capturarPanelFirma(role){
       const p=panelFirma(role);
       const nombre=String(p?.input?.value||'').trim();
-      const modo=modoFirmaPanel(role);
-      if(modo==='type'&&nombre)pintarFirmaTipografica(p.canvas,nombre);
       return {
         imagen:firmaCanvasABase64(p?.canvas),
-        modo:modo==='type'&&nombre?'type':'draw',
+        modo:'draw',
         nombre,
-        fuente:'Great Vibes'
+        fuente:''
       };
     }
     function capturarFirmasDocumento(){
@@ -6121,12 +6119,12 @@
         client_signature:clienteImg,
         contratista:contratistaImg,
         contractor_signature:contratistaImg,
-        clienteModo:clienteImg?cliente.modo:'',
-        clienteNombre:clienteImg?cliente.nombre:'',
-        clienteFuente:clienteImg?cliente.fuente:'',
-        contratistaModo:contratistaImg?contratista.modo:'',
-        contratistaNombre:contratistaImg?contratista.nombre:'',
-        contratistaFuente:contratistaImg?contratista.fuente:''
+        clienteModo:clienteImg?'draw':'',
+        clienteNombre:cliente.nombre||'',
+        clienteFuente:'',
+        contratistaModo:contratistaImg?'draw':'',
+        contratistaNombre:contratista.nombre||'',
+        contratistaFuente:''
       };
     }
     function limpiarPanelFirma(role){
@@ -6135,19 +6133,16 @@
       if(!p)return;
       limpiarFirmaCanvas(p.canvas);
       if(p.input)p.input.value='';
-      actualizarVistaFirmaTipografica(role);
       setSignMode(role,'draw');
     }
     function restaurarPanelFirma(role,firmas){
       if(!firmas)return;
       const p=panelFirma(role);
       const esCliente=role==='client';
-      const nombre=esCliente?(firmas.clienteNombre||''):(firmas.contratistaNombre||'');
-      const modo=esCliente?firmas.clienteModo:firmas.contratistaModo;
+      const nombre=esCliente?(firmas.clienteNombre||firmas.client_name||''):(firmas.contratistaNombre||firmas.contractor_name||'');
       const imagen=esCliente?(firmas.cliente||firmas.client_signature||firmas.client):(firmas.contratista||firmas.contractor);
-      if(p?.input)p.input.value=nombre;
-      actualizarVistaFirmaTipografica(role);
-      setSignMode(role, modo==='type'&&String(nombre).trim()?'type':'draw');
+      if(p?.input)p.input.value=nombre||'';
+      setSignMode(role,'draw');
       restaurarFirmaCanvas(p?.canvas, imagen);
     }
     function restaurarFirmasDocumento(firmas){
@@ -6155,25 +6150,24 @@
       restaurarPanelFirma('contractor', firmas);
       if(typeof mostrarMetaFirmaCliente==='function') mostrarMetaFirmaCliente(firmas);
     }
-    function modoFirmaCliente(){ return modoFirmaPanel('client'); }
-    function setClientSignMode(modo){ setSignMode('client', modo); }
+    function modoFirmaCliente(){ return 'draw'; }
+    function setClientSignMode(){ setSignMode('client','draw'); }
     function limpiarFirmaClienteCompleta(){ limpiarPanelFirma('client'); }
     function restaurarFirmaTipograficaCliente(firmas){ restaurarFirmasDocumento(firmas); }
     function restaurarFirmaCanvas(canvas,dataUrl){
       if(!canvas||!dataUrl){ if(canvas)limpiarFirmaCanvas(canvas); return; }
-      canvas.dataset.hasInk='1';
-      if(canvas._signaturePad){
-        canvas._signaturePad.clear();
-        const done=canvas._signaturePad.fromDataURL(dataUrl);
-        if(done&&typeof done.then==='function') done.catch(function(){});
-        return;
-      }
+      if(!canvas.width||!canvas.height) ajustarCanvasFirma(canvas,false);
+      const ratio=Number(canvas._firmaRatio)||Math.max(window.devicePixelRatio||1,1);
       const img=new Image();
-      img.onload=()=>{
-        const ctx=canvas.getContext('2d');
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      img.onload=function(){
+        const ctx=_ctxFirma(canvas);
+        if(!ctx) return;
+        _pintarFondoFirma(canvas);
+        const w=canvas.width/ratio;
+        const h=canvas.height/ratio;
+        ctx.drawImage(img,0,0,w,h);
         canvas.dataset.hasInk='1';
+        _configurarTrazoFirma(canvas);
       };
       img.src=dataUrl;
     }
@@ -6347,6 +6341,11 @@
         else alert('Draw the client signature first');
         return;
       }
+      if(!String(cliente.nombre||'').trim()){
+        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Type the client full name','error');
+        else alert('Type the client full name');
+        return;
+      }
       const btn=document.getElementById('saveClientSignatureButton');
       try{
         if(btn) btn.disabled=true;
@@ -6356,7 +6355,14 @@
           method:'POST',
           credentials:'same-origin',
           headers:headersContratista({'Content-Type':'application/json'}),
-          body:JSON.stringify({id,firma:cliente.imagen})
+          body:JSON.stringify({
+            id,
+            firma:cliente.imagen,
+            client_signature:cliente.imagen,
+            clienteNombre:cliente.nombre,
+            client_name:cliente.nombre,
+            nombre:cliente.nombre
+          })
         });
         const json=await res.json().catch(()=>({}));
         if(!res.ok) throw new Error(json.error||'Could not save the signature.');
@@ -6441,47 +6447,107 @@
       });
     }
     function setupSignature(canvas){
+      // Native HTML5 canvas + Pointer Events (same tech as /aceptar modal).
       if(!canvas||canvas.dataset.padReady==='1')return;
-      if(typeof SignaturePad!=='function'){
-        console.error('SignaturePad library missing');
-        return;
-      }
       canvas.dataset.padReady='1';
       canvas.dataset.hasInk='0';
       canvas.style.touchAction='none';
       canvas.style.msTouchAction='none';
-      ajustarCanvasFirma(canvas);
-      const pad=new SignaturePad(canvas,{
-        backgroundColor:'rgba(255,255,255,0)',
-        penColor:'#19385f',
-        minWidth:0.6,
-        maxWidth:2.6,
-        throttle:8,
-        minDistance:1
-      });
-      canvas._signaturePad=pad;
-      pad.addEventListener('beginStroke',function(ev){
-        if(ev&&ev.preventDefault) ev.preventDefault();
+      const shell=canvas.closest('.signature-canvas-shell');
+      if(shell){
+        shell.style.touchAction='none';
+        shell.style.msTouchAction='none';
+      }
+      ajustarCanvasFirma(canvas,false);
+
+      function puntoDesdeEvento(ev){
+        const rect=canvas.getBoundingClientRect();
+        const ratio=Number(canvas._firmaRatio)||1;
+        const cssW=rect.width||1;
+        const cssH=rect.height||1;
+        const scaleX=(canvas.width/ratio)/cssW;
+        const scaleY=(canvas.height/ratio)/cssH;
+        return {
+          x:(ev.clientX-rect.left)*scaleX,
+          y:(ev.clientY-rect.top)*scaleY
+        };
+      }
+      function onPointerDown(ev){
+        if(ev.pointerType==='mouse' && ev.button!==0) return;
+        ev.preventDefault();
+        try{ canvas.setPointerCapture(ev.pointerId); }catch(_){}
+        const ctx=_ctxFirma(canvas);
+        if(!ctx) return;
+        const p=puntoDesdeEvento(ev);
+        canvas._firmaDrawing=true;
+        canvas._firmaLastX=p.x;
+        canvas._firmaLastY=p.y;
+        _configurarTrazoFirma(canvas);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(ctx.lineWidth/2, 0.8), 0, Math.PI*2);
+        ctx.fill();
         canvas.dataset.hasInk='1';
-        const role=canvas.closest('.signature-box')?.dataset.signRole;
-        if(role)setSignMode(role,'draw');
-        // No bloquear html/body: el canvas ya tiene touch-action:none.
-      });
-      pad.addEventListener('endStroke',function(){
-        liberarInteraccionFirma({keepExport:true});
-      });
-      function soltarTrazo(){
+      }
+      function onPointerMove(ev){
+        if(!canvas._firmaDrawing) return;
+        ev.preventDefault();
+        const ctx=_ctxFirma(canvas);
+        if(!ctx) return;
+        const p=puntoDesdeEvento(ev);
+        ctx.beginPath();
+        ctx.moveTo(canvas._firmaLastX, canvas._firmaLastY);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        canvas._firmaLastX=p.x;
+        canvas._firmaLastY=p.y;
+        canvas.dataset.hasInk='1';
+      }
+      function onPointerUp(ev){
+        if(!canvas._firmaDrawing) return;
+        ev.preventDefault();
+        canvas._firmaDrawing=false;
+        try{ canvas.releasePointerCapture(ev.pointerId); }catch(_){}
         liberarInteraccionFirma({keepExport:true});
       }
-      canvas.addEventListener('pointerup',soltarTrazo);
-      canvas.addEventListener('pointercancel',soltarTrazo);
-      canvas.addEventListener('touchend',soltarTrazo,{passive:true});
-      canvas.addEventListener('touchcancel',soltarTrazo,{passive:true});
-      canvas.addEventListener('mouseup',soltarTrazo);
-      canvas.addEventListener('touchmove',function(ev){ ev.preventDefault(); },{passive:false});
-      window.addEventListener('resize',function(){
-        if(canvas.offsetParent!==null) ajustarCanvasFirma(canvas);
+
+      canvas.addEventListener('pointerdown', onPointerDown, {passive:false});
+      canvas.addEventListener('pointermove', onPointerMove, {passive:false});
+      canvas.addEventListener('pointerup', onPointerUp, {passive:false});
+      canvas.addEventListener('pointercancel', onPointerUp, {passive:false});
+      canvas.addEventListener('pointerleave', function(ev){
+        if(canvas._firmaDrawing) onPointerUp(ev);
+      }, {passive:false});
+      canvas.addEventListener('touchmove', function(ev){ ev.preventDefault(); }, {passive:false});
+      window.addEventListener('resize', function(){
+        if(canvas.offsetParent!==null) ajustarCanvasFirma(canvas, true);
       });
+    }
+    async function guardarFirmaContratistaEnServidor(){
+      liberarInteraccionFirma();
+      const contratista=capturarPanelFirma('contractor');
+      if(!contratista.imagen){
+        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Draw the contractor signature first','error');
+        else alert('Draw the contractor signature first');
+        return;
+      }
+      if(!String(contratista.nombre||'').trim()){
+        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Type your full name','error');
+        else alert('Type your full name');
+        return;
+      }
+      const btn=document.getElementById('saveContractorSignatureButton');
+      try{
+        if(btn) btn.disabled=true;
+        await asegurarContratista();
+        await asegurarContratoGuardado();
+        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('Contractor signature saved.');
+      }catch(err){
+        if(typeof mostrarToastGuardado==='function') mostrarToastGuardado(err.message||'Could not save the signature.','error');
+        else alert(err.message||'Could not save the signature.');
+      }finally{
+        liberarInteraccionFirma();
+        if(btn) btn.disabled=false;
+      }
     }
     function setLanguage(){
       language='en';
@@ -8747,7 +8813,11 @@
       clone.querySelectorAll('.signature-box').forEach(box=>{
         const role=String(box.getAttribute('data-sign-role')||'').toLowerCase();
         const canvas=box.querySelector('canvas.signature-canvas, canvas');
-        const preview=box.querySelector('.typed-signature-preview');
+        const shell=box.querySelector('.signature-canvas-shell');
+        const nameInput=box.querySelector('.typed-signature-input');
+        const printed=String(
+          role==='client'?(firmas.clienteNombre||''):(firmas.contratistaNombre||'')
+        ).trim()||String(nameInput&&nameInput.value||'').trim();
         const dataUrl=role==='client'?(clientOk?clientSig:''):(role==='contractor'?(contractorOk?contractorSig:''):'');
         if(canvas){
           if(dataUrl){
@@ -8763,7 +8833,18 @@
             canvas.remove();
           }
         }
-        if(preview) preview.remove();
+        if(shell){
+          // Keep the shell as the signature area wrapper for print layout.
+          shell.style.border='0';
+          shell.style.height='auto';
+        }
+        if(nameInput){
+          const p=document.createElement('p');
+          p.className='firma-nombre-impreso';
+          p.style.cssText='margin:4px 0 0;font-size:12px;font-weight:700;color:#0f172a';
+          p.textContent=printed;
+          nameInput.replaceWith(p);
+        }
       });
       clone.querySelectorAll('canvas').forEach(canvas=>{
         // Cualquier canvas restante (QR, etc.) se rasteriza; no firmar aquí.
@@ -10708,6 +10789,7 @@
     document.querySelector('#exportPdfButton').addEventListener('click',descargarPdfDocumento);
     document.querySelector('#emailInvoiceButton').addEventListener('click',emailInvoice);
     document.getElementById('saveClientSignatureButton')?.addEventListener('click',guardarFirmaClienteEnServidor);
+    document.getElementById('saveContractorSignatureButton')?.addEventListener('click',guardarFirmaContratistaEnServidor);
     // Ambos "Send for signature" (Share + pie de firmas) → misma función.
     vincularBotonesEnviarFirma();
     document.querySelector('#printButton').addEventListener('click',guardarEstimadoEnHistorial);
@@ -11593,24 +11675,10 @@
     document.querySelector('#docMode').addEventListener('change',event=>renderMode(event.target.value));
     document.querySelector('#qrUpload').addEventListener('change',event=>{ const file=event.target.files[0]; const preview=document.querySelector('#qrPreview'); if(!file){ preview.removeAttribute('src'); preview.style.display='none'; return; } preview.src=URL.createObjectURL(file); preview.style.display='block'; });
     document.querySelector('#signatures')?.addEventListener('click',event=>{
-      const modeBtn=event.target.closest('[data-sign-mode-btn]');
-      if(modeBtn){
-        const role=modeBtn.closest('.signature-box')?.dataset.signRole;
-        if(role)setSignMode(role, modeBtn.dataset.signModeBtn);
-        return;
-      }
       const btn=event.target.closest('[data-clear-signature]');
       if(!btn)return;
       const role=btn.dataset.clearSignature||btn.closest('.signature-box')?.dataset.signRole;
       if(role)limpiarPanelFirma(role);
-    });
-    document.querySelectorAll('.typed-signature-input').forEach(input=>{
-      input.addEventListener('input',()=>{
-        const role=input.closest('.signature-box')?.dataset.signRole;
-        if(!role)return;
-        setSignMode(role,'type');
-        actualizarVistaFirmaTipografica(role);
-      });
     });
     document.querySelectorAll('.signature-canvas').forEach(setupSignature);
     document.querySelector('#quote')?.addEventListener('blur',()=>aplicarFolioEnPantalla());

@@ -13966,7 +13966,7 @@ def _url_aceptacion(token):
     return f"{base}/aceptar/{token}"
 
 
-def _firmar_contrato_guardado(row, firma_b64, ip="", metodo="en_persona"):
+def _firmar_contrato_guardado(row, firma_b64, ip="", metodo="en_persona", nombre=""):
     firma = _firma_base64_valida(firma_b64)
     if not firma:
         raise ValueError("Draw a valid signature before saving.")
@@ -13974,7 +13974,7 @@ def _firmar_contrato_guardado(row, firma_b64, ip="", metodo="en_persona"):
         raise ValueError("Only contracts can be signed.")
     token = row.get("token_aceptacion")
     if token:
-        return marcar_contrato_firmado(token, firma, ip, metodo)
+        return marcar_contrato_firmado(token, firma, ip, metodo, nombre=nombre)
     sb = _supabase_client()
     if sb is None:
         raise RuntimeError("Supabase no configurado")
@@ -13988,6 +13988,7 @@ def _firmar_contrato_guardado(row, firma_b64, ip="", metodo="en_persona"):
         ip=ip,
         metodo=metodo,
         ahora_txt=ahora,
+        nombre=nombre,
     )
     payload_core = {"estado": "Signed", "firmas": firmas, "updated_at": ahora}
     payload_rich = dict(payload_core)
@@ -14378,7 +14379,19 @@ def api_firmar_contrato_panel():
     if not row:
         return jsonify({"error": "Contract not found for this contractor."}), 404
     try:
-        datos = _firmar_contrato_guardado(row, data.get("firma") or data.get("signature"), _ip_solicitud(), "en_persona")
+        nombre_panel = (
+            data.get("clienteNombre")
+            or data.get("client_name")
+            or data.get("nombre")
+            or ""
+        )
+        datos = _firmar_contrato_guardado(
+            row,
+            data.get("firma") or data.get("signature") or data.get("client_signature"),
+            _ip_solicitud(),
+            "en_persona",
+            nombre=nombre_panel,
+        )
     except ValueError as err:
         return jsonify({"error": str(err)}), 400
     except Exception as err:
