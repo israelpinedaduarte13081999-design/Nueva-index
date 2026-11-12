@@ -4,220 +4,469 @@
   <meta charset="UTF-8">
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow">
   <title>{{ titulo }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&display=swap" rel="stylesheet">
   <style>
-    :root { --ink:#0f172a; --muted:#64748b; --line:#dbe3ee; --navy:#0d47a1; }
+    :root {
+      --ink:#0f172a;
+      --muted:#64748b;
+      --line:#dbe3ee;
+      --navy:#0d47a1;
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-bottom:env(safe-area-inset-bottom,0px);
+    }
     * { box-sizing:border-box; }
-    body { margin:0; background:#e8eef6; color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
-    html.firma-activa, body.firma-activa { overflow:hidden; touch-action:none; overscroll-behavior:none; height:100%; }
-    main { max-width:860px; margin:20px auto 48px; background:#fff; padding:28px 22px 36px; border-radius:14px; box-shadow:0 10px 30px rgba(15,23,42,.08); }
-    .doc-head { display:flex; flex-wrap:wrap; justify-content:space-between; gap:16px; padding-bottom:18px; border-bottom:2px solid #19385f; }
-    .brand { font-size:1.35rem; font-weight:800; letter-spacing:.01em; }
-    .brand small, .meta { display:block; color:var(--muted); font-size:.88rem; font-weight:500; margin-top:4px; }
-    h1 { margin:18px 0 8px; font-size:1.45rem; }
-    h2 { margin:0 0 10px; font-size:1.05rem; color:#19385f; }
-    p { margin:0 0 10px; line-height:1.55; }
-    .intro { color:#334155; }
-    .partes { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:18px 0 8px; }
-    .card { padding:14px 16px; background:#f8fafc; border:1px solid var(--line); border-radius:10px; }
-    .card p { margin:0 0 6px; }
-    .card p:last-child { margin:0; }
-    .label { display:block; font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:700; }
-    .seccion { margin:28px 0 8px; }
-    .area-block { margin:0 0 22px; }
-    .area-head { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; margin-bottom:8px; }
-    .area-head h3 { margin:0; font-size:1rem; }
-    .ref { color:var(--muted); font-size:.88rem; }
-    .tabla-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--line); border-radius:10px; }
-    table { width:100%; border-collapse:collapse; min-width:640px; font-size:.9rem; }
-    th, td { padding:9px 10px; border-bottom:1px solid #edf2f7; text-align:left; vertical-align:top; }
-    th { background:#f1f5f9; color:#334155; font-size:.75rem; letter-spacing:.04em; text-transform:uppercase; }
-    td.num, th.num { text-align:right; white-space:nowrap; }
-    tbody tr:last-child td { border-bottom:0; }
-    .area-sub { margin:8px 0 0; text-align:right; font-size:.92rem; }
-    .texto-largo { white-space:pre-wrap; background:#f8fafc; border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
-    .totales { margin:10px 0 0 auto; max-width:360px; width:100%; }
-    .totales .fila { display:flex; justify-content:space-between; gap:16px; padding:8px 0; border-bottom:1px solid #edf2f7; }
-    .totales .fila.grand { border-bottom:0; margin-top:4px; padding-top:12px; border-top:2px solid #19385f; font-size:1.08rem; font-weight:800; }
-    .firma-zona { margin-top:36px; padding-top:22px; border-top:2px solid #19385f; }
-    .acciones { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
-    button { min-height:46px; padding:10px 16px; border-radius:10px; font-weight:700; font-size:1rem; cursor:pointer; }
-    .btn { background:#fff; border:1px solid #cbd5e1; color:#0f172a; }
-    .btn-primary { background:var(--navy); border:1px solid var(--navy); color:#fff; }
+    html, body { height:100%; }
+    body {
+      margin:0;
+      background:#d9e3ef;
+      color:var(--ink);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      overscroll-behavior:none;
+    }
+    html.firma-activa, body.firma-activa {
+      overflow:hidden !important;
+      touch-action:none !important;
+      overscroll-behavior:none !important;
+      height:100%;
+      position:fixed;
+      width:100%;
+    }
+    .shell {
+      min-height:100%;
+      display:flex;
+      flex-direction:column;
+      max-width:960px;
+      margin:0 auto;
+      background:#eef3f9;
+    }
+    .topbar {
+      flex:0 0 auto;
+      padding:calc(14px + var(--safe-top)) 16px 12px;
+      background:#0d47a1;
+      color:#fff;
+    }
+    .topbar .brand { font-size:1.05rem; font-weight:800; letter-spacing:.01em; }
+    .topbar .meta { margin-top:4px; font-size:.86rem; opacity:.9; }
+    .intro {
+      flex:0 0 auto;
+      padding:12px 16px;
+      background:#fff;
+      border-bottom:1px solid var(--line);
+      color:#334155;
+      font-size:.95rem;
+      line-height:1.45;
+    }
+    .intro h1 { margin:0 0 6px; font-size:1.2rem; color:var(--ink); }
+    .intro p { margin:0; }
+    .pdf-panel {
+      flex:1 1 auto;
+      min-height:52vh;
+      display:flex;
+      flex-direction:column;
+      background:#cbd5e1;
+      padding:10px 10px 0;
+    }
+    .pdf-frame-wrap {
+      flex:1 1 auto;
+      min-height:48vh;
+      border-radius:12px;
+      overflow:hidden;
+      border:1px solid #94a3b8;
+      background:#525659;
+      box-shadow:0 8px 24px rgba(15,23,42,.18);
+    }
+    .pdf-frame-wrap iframe,
+    .pdf-frame-wrap object,
+    .pdf-frame-wrap embed {
+      display:block;
+      width:100%;
+      height:100%;
+      min-height:52vh;
+      border:0;
+      background:#525659;
+    }
+    .pdf-fallback {
+      display:none;
+      padding:24px 16px;
+      text-align:center;
+      color:#fff;
+      background:#334155;
+      min-height:40vh;
+    }
+    .pdf-fallback a {
+      display:inline-block;
+      margin-top:12px;
+      color:#fff;
+      background:var(--navy);
+      text-decoration:none;
+      padding:12px 18px;
+      border-radius:10px;
+      font-weight:700;
+    }
+    .sign-dock {
+      flex:0 0 auto;
+      background:#fff;
+      border-top:1px solid var(--line);
+      padding:14px 16px calc(16px + var(--safe-bottom));
+      box-shadow:0 -8px 24px rgba(15,23,42,.08);
+    }
+    .sign-dock h2 { margin:0 0 6px; font-size:1.05rem; color:#19385f; }
+    .sign-dock p { margin:0 0 12px; color:var(--muted); font-size:.9rem; }
+    .sign-preview {
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-height:64px;
+      margin-bottom:12px;
+      padding:8px 12px;
+      border:1px dashed #94a3b8;
+      border-radius:10px;
+      background:#f8fafc;
+    }
+    .sign-preview img {
+      display:none;
+      max-height:56px;
+      max-width:55%;
+      object-fit:contain;
+      background:#fff;
+      border:1px solid #e2e8f0;
+      border-radius:6px;
+    }
+    .sign-preview.has-ink img { display:block; }
+    .sign-preview span { color:var(--muted); font-size:.9rem; }
+    .sign-preview.has-ink span { display:none; }
+    .acciones { display:flex; flex-wrap:wrap; gap:10px; }
+    button, .btn, .btn-primary {
+      min-height:48px;
+      padding:12px 16px;
+      border-radius:12px;
+      font-weight:700;
+      font-size:1rem;
+      cursor:pointer;
+      border:1px solid #cbd5e1;
+      background:#fff;
+      color:#0f172a;
+    }
+    .btn-primary {
+      background:var(--navy);
+      border-color:var(--navy);
+      color:#fff;
+      flex:1 1 160px;
+    }
     .btn-primary:disabled { opacity:.6; cursor:wait; }
-    .status { min-height:1.3em; margin-top:12px; color:#334155; }
+    .status { min-height:1.25em; margin-top:10px; color:#334155; font-size:.92rem; }
     .status.is-error { color:#b91c1c; }
     .status.is-ok { color:#15803d; }
-    .firma-guardada { margin-top:12px; padding:12px; border:1px solid #bbf7d0; background:#f0fdf4; border-radius:10px; }
-    .firma-guardada img { display:block; width:100%; max-height:160px; object-fit:contain; background:#fff; border:1px solid #dcfce7; border-radius:8px; }
-    .firma-pad-wrap { margin-top:12px; }
+    .firma-guardada {
+      padding:14px;
+      border:1px solid #bbf7d0;
+      background:#f0fdf4;
+      border-radius:12px;
+    }
+    .firma-guardada img {
+      display:block;
+      width:100%;
+      max-height:140px;
+      object-fit:contain;
+      background:#fff;
+      border:1px solid #dcfce7;
+      border-radius:8px;
+      margin-top:8px;
+    }
+
+    /* Fullscreen signature modal */
+    .firma-modal {
+      position:fixed;
+      inset:0;
+      z-index:100;
+      display:none;
+      flex-direction:column;
+      background:#0f172a;
+      color:#fff;
+      touch-action:none;
+      overscroll-behavior:none;
+      -webkit-overflow-scrolling:auto;
+    }
+    .firma-modal.is-open { display:flex !important; }
+    .firma-modal-head {
+      flex:0 0 auto;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:calc(12px + var(--safe-top)) 14px 10px;
+      background:#0b1220;
+      border-bottom:1px solid rgba(255,255,255,.08);
+    }
+    .firma-modal-head h2 { margin:0; font-size:1.1rem; }
+    .firma-modal-head .btn {
+      min-height:42px;
+      padding:8px 12px;
+      background:transparent;
+      color:#fff;
+      border-color:rgba(255,255,255,.25);
+    }
+    .firma-tabs {
+      flex:0 0 auto;
+      display:flex;
+      gap:8px;
+      padding:12px 14px 0;
+    }
+    .firma-tab {
+      flex:1 1 0;
+      min-height:44px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.2);
+      background:rgba(255,255,255,.06);
+      color:#fff;
+      font-weight:700;
+    }
+    .firma-tab.is-active {
+      background:#fff;
+      color:var(--navy);
+      border-color:#fff;
+    }
+    .firma-modal-body {
+      flex:1 1 auto;
+      display:flex;
+      flex-direction:column;
+      min-height:0;
+      padding:12px 14px;
+      touch-action:none;
+    }
+    .firma-panel { display:none; flex:1 1 auto; min-height:0; flex-direction:column; }
+    .firma-panel.is-active { display:flex; }
+    .canvas-shell {
+      flex:1 1 auto;
+      min-height:220px;
+      border-radius:16px;
+      overflow:hidden;
+      background:#fff;
+      border:2px dashed #94a3b8;
+      touch-action:none !important;
+      -ms-touch-action:none !important;
+      overscroll-behavior:none;
+      position:relative;
+    }
     #firmaCanvas {
       display:block !important;
-      width:100%;
-      height:min(48vh,280px);
-      min-height:180px;
-      border:1.5px dashed #94a3b8;
-      border-radius:12px;
-      background:#fff;
-      touch-action:none;
+      width:100% !important;
+      height:100% !important;
+      min-height:220px;
+      touch-action:none !important;
+      -ms-touch-action:none !important;
       cursor:crosshair;
-      overscroll-behavior:none;
-      -ms-touch-action:none;
-      visibility:visible !important;
-      opacity:1 !important;
+      background:#fff;
+      user-select:none;
+      -webkit-user-select:none;
     }
-    @media (max-width:720px) {
-      main { margin:0; border-radius:0; padding:20px 14px 32px; }
-      .partes { grid-template-columns:1fr; }
-      #firmaCanvas { height:min(56vh,320px); min-height:220px; }
+    .type-panel {
+      flex:1 1 auto;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      justify-content:center;
+      background:#fff;
+      color:var(--ink);
+      border-radius:16px;
+      padding:18px 16px;
+    }
+    .type-panel label { font-size:.85rem; font-weight:700; color:var(--muted); }
+    .type-panel input {
+      width:100%;
+      min-height:52px;
+      border:1px solid #cbd5e1;
+      border-radius:12px;
+      padding:12px 14px;
+      font-size:1.05rem;
+    }
+    .type-preview {
+      min-height:110px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border:1px dashed #94a3b8;
+      border-radius:12px;
+      background:#f8fafc;
+      padding:12px;
+      font-family:"Caveat", cursive;
+      font-size:clamp(2rem, 8vw, 3.2rem);
+      font-weight:700;
+      color:#19385f;
+      line-height:1.1;
+      word-break:break-word;
+      text-align:center;
+    }
+    .type-preview.is-empty { color:#94a3b8; font-size:1.4rem; font-weight:500; }
+    .firma-modal-actions {
+      flex:0 0 auto;
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      padding:10px 14px calc(14px + var(--safe-bottom));
+      background:#0b1220;
+      border-top:1px solid rgba(255,255,255,.08);
+      touch-action:manipulation;
+    }
+    .firma-modal-actions .btn {
+      background:rgba(255,255,255,.08);
+      color:#fff;
+      border-color:rgba(255,255,255,.2);
+      flex:1 1 110px;
+    }
+    .firma-modal-actions .btn-primary { flex:1 1 160px; }
+
+    .success-screen {
+      position:fixed;
+      inset:0;
+      z-index:120;
+      display:none;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:14px;
+      padding:24px;
+      text-align:center;
+      background:linear-gradient(160deg,#0d47a1 0%,#123a6d 55%,#0f172a 100%);
+      color:#fff;
+    }
+    .success-screen.is-open { display:flex; }
+    .success-screen .check {
+      width:72px; height:72px; border-radius:50%;
+      display:grid; place-items:center;
+      background:rgba(255,255,255,.15);
+      font-size:2rem; font-weight:800;
+    }
+    .success-screen h1 { margin:0; font-size:1.6rem; }
+    .success-screen p { margin:0; max-width:28rem; opacity:.92; line-height:1.5; }
+    .success-screen img {
+      max-width:min(90vw,360px);
+      max-height:120px;
+      object-fit:contain;
+      background:#fff;
+      border-radius:10px;
+      padding:8px;
+    }
+    .success-screen a {
+      margin-top:8px;
+      color:#fff;
+      font-weight:700;
+      text-decoration:underline;
+    }
+    @media (min-width:900px) {
+      .pdf-frame-wrap iframe { min-height:62vh; }
+      .pdf-panel { min-height:60vh; }
     }
   </style>
 </head>
 <body>
   {% set c = contrato or {} %}
-  <main>
-    <header class="doc-head">
-      <div>
-        <div class="brand">{{ c.empresa or empresa or "QuantixBuilds" }}</div>
-        {% if c.representante %}<small>{{ c.representante }}</small>{% endif %}
-        {% if c.empresa_email %}<small>{{ c.empresa_email }}</small>{% endif %}
-        {% if c.empresa_telefono %}<small>{{ c.empresa_telefono }}</small>{% endif %}
-      </div>
-      <div>
-        {% if c.folio or folio %}<strong>Contract {{ c.folio or folio }}</strong>{% endif %}
-        {% if c.fecha %}<span class="meta">Date {{ c.fecha }}</span>{% endif %}
+  {% set pdf_src = pdf_url or (('/aceptar/' ~ token ~ '/pdf') if token else '') %}
+  <div class="shell" id="appShell">
+    <header class="topbar">
+      <div class="brand">{{ c.empresa or empresa or "QuantixBuilds" }}</div>
+      <div class="meta">
+        {% if c.folio or folio %}Contract {{ c.folio or folio }}{% endif %}
+        {% if c.cliente or cliente %} · {{ c.cliente or cliente }}{% endif %}
+        {% if c.total_txt or total %} · {{ c.total_txt or total }}{% endif %}
       </div>
     </header>
-    <h1>{{ titulo }}</h1>
-    <p class="intro">{{ mensaje }}</p>
-    <section class="partes">
-      <div class="card">
-        <span class="label">Contractor</span>
-        <p><strong>{{ c.empresa or empresa or "—" }}</strong></p>
-        {% if c.empresa_email %}<p>{{ c.empresa_email }}</p>{% endif %}
-        {% if c.empresa_telefono %}<p>{{ c.empresa_telefono }}</p>{% endif %}
-      </div>
-      <div class="card">
-        <span class="label">Client</span>
-        <p><strong>{{ c.cliente or cliente or "—" }}</strong></p>
-        {% if c.cliente_email %}<p>{{ c.cliente_email }}</p>{% endif %}
-        {% if c.cliente_telefono %}<p>{{ c.cliente_telefono }}</p>{% endif %}
-        {% if c.direccion %}<p>{{ c.direccion }}</p>{% endif %}
-      </div>
-    </section>
 
-    <section class="seccion" id="alcance">
-      <h2>Scope of work</h2>
-      {% if c.tiene_alcance %}
-        {% for area in c.areas %}
-        <div class="area-block">
-          <div class="area-head">
-            <h3>{{ loop.index }}. {{ area.titulo }}</h3>
-            {% if area.referencia %}<span class="ref">{{ area.referencia }}</span>{% endif %}
-          </div>
-          <div class="tabla-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Code</th>
-                  <th>Action</th>
-                  <th>Work description</th>
-                  <th class="num">Qty</th>
-                  <th>Unit</th>
-                  <th class="num">Unit price</th>
-                  <th class="num">Tax</th>
-                  <th class="num">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for fila in area.filas %}
-                <tr>
-                  <td>{{ fila.codigo or "—" }}</td>
-                  <td>{{ fila.accion or "—" }}</td>
-                  <td>{{ fila.descripcion or "—" }}</td>
-                  <td class="num">{{ fila.cantidad_txt }}</td>
-                  <td>{{ fila.unidad or "—" }}</td>
-                  <td class="num">{{ fila.precio_txt }}</td>
-                  <td class="num">{{ fila.tax_txt }}</td>
-                  <td class="num">{{ fila.subtotal_txt }}</td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-          <p class="area-sub"><strong>Area total</strong> {{ area.subtotal_txt }}</p>
+    <div class="intro">
+      <h1>{{ titulo }}</h1>
+      <p>{{ mensaje }}</p>
+      {% if aviso %}<p class="status is-error" style="margin-top:8px">{{ aviso }}</p>{% endif %}
+    </div>
+
+    <section class="pdf-panel" aria-label="Contract PDF">
+      <div class="pdf-frame-wrap" id="pdfWrap">
+        {% if pdf_src %}
+        <iframe
+          id="pdfFrame"
+          title="Contract PDF"
+          src="{{ pdf_src }}#toolbar=1&navpanes=0&view=FitH"
+          type="application/pdf"
+        ></iframe>
+        <div class="pdf-fallback" id="pdfFallback">
+          <p>Open the official contract PDF to review every page before signing.</p>
+          <a href="{{ pdf_src }}" target="_blank" rel="noopener">Open PDF</a>
         </div>
-        {% endfor %}
-      {% else %}
-        <p class="intro">The contractor did not attach a line-item breakdown to this contract.</p>
-      {% endif %}
-    </section>
-
-    {% if c.plano_imagen %}
-    <section class="seccion" id="plano">
-      <h2>Floor plan</h2>
-      <img src="{{ c.plano_imagen }}" alt="Floor plan" style="display:block;max-width:100%;max-height:420px;border:1px solid var(--line);border-radius:10px;background:#fff;">
-    </section>
-    {% endif %}
-
-    {% if c.terminos %}
-    <section class="seccion" id="terminos">
-      <h2>Terms and conditions</h2>
-      <div class="texto-largo">{{ c.terminos }}</div>
-    </section>
-    {% endif %}
-
-    {% if c.notas %}
-    <section class="seccion" id="notas">
-      <h2>Project notes</h2>
-      <div class="texto-largo">{{ c.notas }}</div>
-    </section>
-    {% endif %}
-
-    <section class="seccion" id="totales">
-      <h2>Contract totals</h2>
-      <div class="totales">
-        {% if c.totales %}
-          {% for fila in c.totales %}
-          <div class="fila{% if fila.destacado %} grand{% endif %}"><span>{{ fila.label }}</span><strong>{{ fila.valor }}</strong></div>
-          {% endfor %}
         {% else %}
-          <div class="fila grand"><span>Contract total</span><strong>{{ c.total_txt or total or "—" }}</strong></div>
+        <div class="pdf-fallback" style="display:block">
+          <p>The contract PDF is not available for this link.</p>
+        </div>
         {% endif %}
       </div>
     </section>
 
-    <section class="firma-zona" id="firmaZona">
+    <section class="sign-dock" id="firmaZona">
       {% if firmado and firma_imagen %}
       <div class="firma-guardada">
         <p><strong>Signed</strong></p>
         <img src="{{ firma_imagen }}" alt="Client signature">
         {% if firma_fecha %}<p class="meta">Date: {{ firma_fecha }}</p>{% endif %}
+        {% if pdf_src %}<p style="margin-top:10px"><a href="{{ pdf_src }}" target="_blank" rel="noopener">View signed PDF</a></p>{% endif %}
       </div>
       {% else %}
-      {# Canvas always rendered when client_signature is empty — no loading gate / modal gate. #}
-      <form id="firmaForm" action="#" method="post">
-        <div class="pad">
-          <h2>Client signature</h2>
-          <p>Read the full contract above, then sign in the box with your finger or mouse.</p>
-          <div class="firma-pad-wrap">
-            <canvas id="firmaCanvas" aria-label="Signature pad" width="760" height="280"></canvas>
-          </div>
-        </div>
-        <div class="acciones">
-          <button class="btn" type="button" id="firmaClear">Clear</button>
-          <button class="btn-primary" type="submit" id="firmaSubmit">Accept signature</button>
-        </div>
-        <p class="status" id="firmaStatus" role="status"></p>
-      </form>
+      <h2>Client signature</h2>
+      <p>Review the PDF above, then tap Sign. You can draw with your finger or type your name.</p>
+      <div class="sign-preview" id="signPreview">
+        <img id="signPreviewImg" alt="Your signature">
+        <span>No signature yet</span>
+      </div>
+      <div class="acciones">
+        <button class="btn" type="button" id="firmaAbrir">Sign</button>
+        <button class="btn" type="button" id="firmaClearDock" hidden>Clear</button>
+        <button class="btn-primary" type="button" id="firmaSubmit" disabled>Accept signature</button>
+      </div>
+      <p class="status" id="firmaStatus" role="status"></p>
       {% endif %}
-      {% if aviso %}<p class="status is-error">{{ aviso }}</p>{% endif %}
     </section>
-  </main>
+  </div>
 
   {% if not (firmado and firma_imagen) %}
+  <div class="firma-modal" id="firmaModal" aria-hidden="true">
+    <div class="firma-modal-head">
+      <h2 id="firmaModalTitle">Sign this contract</h2>
+      <button class="btn" type="button" id="firmaModalCancel">Close</button>
+    </div>
+    <div class="firma-tabs" role="tablist" aria-label="Signature method">
+      <button class="firma-tab is-active" type="button" role="tab" aria-selected="true" data-sign-mode="draw" id="tabDraw">Draw</button>
+      <button class="firma-tab" type="button" role="tab" aria-selected="false" data-sign-mode="type" id="tabType">Type</button>
+    </div>
+    <div class="firma-modal-body">
+      <div class="firma-panel is-active" id="panelDraw" data-panel="draw">
+        <div class="canvas-shell" id="canvasShell">
+          <canvas id="firmaCanvas" aria-label="Signature pad" width="760" height="360"></canvas>
+        </div>
+      </div>
+      <div class="firma-panel" id="panelType" data-panel="type">
+        <div class="type-panel">
+          <label for="firmaTyped">Type your full name</label>
+          <input id="firmaTyped" type="text" autocomplete="name" placeholder="Jane M. Client" maxlength="80">
+          <div class="type-preview is-empty" id="typePreview">Your signature</div>
+        </div>
+      </div>
+    </div>
+    <div class="firma-modal-actions">
+      <button class="btn" type="button" id="firmaModalClear">Clear</button>
+      <button class="btn-primary" type="button" id="firmaModalDone">Use signature</button>
+    </div>
+  </div>
+
+  <div class="success-screen" id="successScreen" aria-live="polite">
+    <div class="check" aria-hidden="true">✓</div>
+    <h1>Signature saved</h1>
+    <p>Thank you. This contract is now signed and the contractor has been notified.</p>
+    <img id="successSig" alt="Saved signature" hidden>
+    {% if pdf_src %}<a href="{{ pdf_src }}" target="_blank" rel="noopener">Open contract PDF</a>{% endif %}
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
   <script>
     if(typeof SignaturePad!=='function'){
@@ -227,38 +476,94 @@
   <script>
     (function(){
       const canvas=document.getElementById('firmaCanvas');
+      const shell=document.getElementById('canvasShell');
       const status=document.getElementById('firmaStatus');
       const submit=document.getElementById('firmaSubmit');
-      const zona=document.getElementById('firmaZona');
-      const form=document.getElementById('firmaForm');
-      if(!canvas)return;
+      const abrirBtn=document.getElementById('firmaAbrir');
+      const clearDock=document.getElementById('firmaClearDock');
+      const modal=document.getElementById('firmaModal');
+      const preview=document.getElementById('signPreview');
+      const previewImg=document.getElementById('signPreviewImg');
+      const typedInput=document.getElementById('firmaTyped');
+      const typePreview=document.getElementById('typePreview');
+      const success=document.getElementById('successScreen');
+      const successSig=document.getElementById('successSig');
+      const pdfFallback=document.getElementById('pdfFallback');
+      const pdfFrame=document.getElementById('pdfFrame');
+      if(!canvas||!modal) return;
+
       let pad=null;
+      let mode='draw';
+      let firmaLista='';
       let enviando=false;
-      canvas.style.display='block';
-      canvas.style.visibility='visible';
-      canvas.style.touchAction='none';
-      canvas.style.msTouchAction='none';
-      canvas.style.webkitUserSelect='none';
-      canvas.style.userSelect='none';
+      let scrollY=0;
 
       function setStatus(texto, ok){
-        if(!status)return;
+        if(!status) return;
         status.textContent=texto||'';
         status.className=ok===true?'status is-ok':ok===false?'status is-error':'status';
       }
-      function vacio(){
+      function bloquearScroll(){
+        scrollY=window.scrollY||window.pageYOffset||0;
+        document.documentElement.classList.add('firma-activa');
+        document.body.classList.add('firma-activa');
+        document.body.style.top='-'+scrollY+'px';
+      }
+      function liberarScroll(){
+        document.documentElement.classList.remove('firma-activa');
+        document.body.classList.remove('firma-activa');
+        document.body.style.top='';
+        window.scrollTo(0, scrollY||0);
+      }
+      function mostrarPreview(dataUrl){
+        firmaLista=dataUrl||'';
+        if(!preview) return;
+        if(firmaLista){
+          preview.classList.add('has-ink');
+          if(previewImg){ previewImg.src=firmaLista; previewImg.hidden=false; }
+          if(clearDock) clearDock.hidden=false;
+          if(submit) submit.disabled=false;
+        }else{
+          preview.classList.remove('has-ink');
+          if(previewImg){ previewImg.removeAttribute('src'); previewImg.hidden=true; }
+          if(clearDock) clearDock.hidden=true;
+          if(submit) submit.disabled=true;
+        }
+      }
+      function vacioPad(){
         return !pad || pad.isEmpty();
       }
-      function exportarPng(){
+      function exportarPad(){
         if(!pad||pad.isEmpty()) return '';
         try{ return pad.toDataURL('image/png'); }catch(_){ return ''; }
       }
+      function textoAFirmaPng(texto){
+        const nombre=String(texto||'').trim();
+        if(!nombre) return '';
+        const c=document.createElement('canvas');
+        const w=900, h=260;
+        c.width=w; c.height=h;
+        const ctx=c.getContext('2d');
+        ctx.fillStyle='#ffffff';
+        ctx.fillRect(0,0,w,h);
+        ctx.fillStyle='#19385f';
+        ctx.textAlign='center';
+        ctx.textBaseline='middle';
+        let size=96;
+        ctx.font='700 '+size+'px "Caveat", cursive';
+        while(size>36 && ctx.measureText(nombre).width > w-64){
+          size-=4;
+          ctx.font='700 '+size+'px "Caveat", cursive';
+        }
+        ctx.fillText(nombre, w/2, h/2);
+        try{ return c.toDataURL('image/png'); }catch(_){ return ''; }
+      }
       function ajustarPad(restaurar){
-        if(!pad)return;
-        const ratio=Math.max(window.devicePixelRatio||1,1);
-        const rect=canvas.getBoundingClientRect();
-        const w=Math.max(280, Math.floor(rect.width||canvas.clientWidth||760));
-        const h=Math.max(160, Math.floor(rect.height||canvas.clientHeight||280));
+        if(!pad||!shell) return;
+        const ratio=Math.max(window.devicePixelRatio||1, 1);
+        const rect=shell.getBoundingClientRect();
+        const w=Math.max(280, Math.floor(rect.width||1));
+        const h=Math.max(220, Math.floor(rect.height||1));
         const data=(!pad.isEmpty()&&restaurar!==false)?pad.toData():null;
         canvas.width=Math.floor(w*ratio);
         canvas.height=Math.floor(h*ratio);
@@ -280,73 +585,164 @@
         pad=new SignaturePad(canvas,{
           backgroundColor:'rgb(255,255,255)',
           penColor:'#19385f',
-          minWidth:0.7,
+          minWidth:0.8,
           maxWidth:2.8,
           throttle:8,
           minDistance:1
         });
         canvas._signaturePad=pad;
-        pad.addEventListener('beginStroke',function(ev){
+        pad.addEventListener('beginStroke', function(ev){
           if(ev&&ev.preventDefault) ev.preventDefault();
         });
         return true;
       }
-      function limpiar(){
-        if(enviando)return;
-        if(pad) pad.clear();
-        setStatus('');
+      function setMode(next){
+        mode=next==='type'?'type':'draw';
+        document.querySelectorAll('.firma-tab').forEach(btn=>{
+          const on=btn.getAttribute('data-sign-mode')===mode;
+          btn.classList.toggle('is-active', on);
+          btn.setAttribute('aria-selected', on?'true':'false');
+        });
+        document.querySelectorAll('.firma-panel').forEach(panel=>{
+          panel.classList.toggle('is-active', panel.getAttribute('data-panel')===mode);
+        });
+        if(mode==='draw'){
+          requestAnimationFrame(function(){ ajustarPad(true); });
+        }else if(typedInput){
+          typedInput.focus();
+        }
       }
-      function mostrarExitoFirmado(firma){
-        if(!zona)return;
-        if(form) form.remove();
-        let box=zona.querySelector('.firma-guardada');
-        if(!box){
-          box=document.createElement('div');
-          box.className='firma-guardada';
-          zona.insertBefore(box, zona.firstChild);
+      function actualizarTypePreview(){
+        if(!typePreview||!typedInput) return;
+        const t=String(typedInput.value||'').trim();
+        if(!t){
+          typePreview.textContent='Your signature';
+          typePreview.classList.add('is-empty');
+        }else{
+          typePreview.textContent=t;
+          typePreview.classList.remove('is-empty');
         }
-        box.innerHTML='<p><strong>Signed</strong></p>';
-        if(firma){
-          const img=document.createElement('img');
-          img.src=firma;
-          img.alt='Client signature';
-          box.appendChild(img);
+      }
+      function abrirModal(){
+        if(enviando) return;
+        if(!crearPad()) return;
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden','false');
+        bloquearScroll();
+        setMode(mode||'draw');
+        requestAnimationFrame(function(){
+          ajustarPad(false);
+          if(firmaLista && mode==='draw' && pad){
+            pad.fromDataURL(firmaLista).catch(function(){});
+          }
+        });
+      }
+      function cerrarModal(){
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden','true');
+        liberarScroll();
+      }
+      function limpiarModal(){
+        if(mode==='draw'){
+          if(pad) pad.clear();
+        }else if(typedInput){
+          typedInput.value='';
+          actualizarTypePreview();
         }
-        const meta=document.createElement('p');
-        meta.className='meta';
-        meta.textContent='Date: '+(new Date().toISOString().slice(0,19).replace('T',' '));
-        box.appendChild(meta);
+      }
+      function usarFirmaModal(){
+        let png='';
+        if(mode==='type'){
+          png=textoAFirmaPng(typedInput&&typedInput.value);
+          if(!png){
+            setStatus('Type your full name first.', false);
+            return;
+          }
+        }else{
+          if(vacioPad()){
+            setStatus('Draw your signature first.', false);
+            return;
+          }
+          png=exportarPad();
+        }
+        if(!png){
+          setStatus('Could not capture the signature.', false);
+          return;
+        }
+        mostrarPreview(png);
+        setStatus('');
+        cerrarModal();
+      }
+      function mostrarExito(firma){
+        if(success){
+          success.classList.add('is-open');
+          if(successSig&&firma){
+            successSig.src=firma;
+            successSig.hidden=false;
+          }
+        }
+        const dock=document.getElementById('firmaZona');
+        if(dock){
+          dock.innerHTML='<div class="firma-guardada"><p><strong>Signed</strong></p>'+(firma?'<img src="'+firma+'" alt="Client signature">':'')+'</div>';
+        }
       }
       function bloquearGesto(ev){
-        if(ev.target===canvas || canvas.contains(ev.target)){
+        if(!modal.classList.contains('is-open')) return;
+        if(ev.target===canvas || (shell&&shell.contains(ev.target)) || ev.target===shell){
           ev.preventDefault();
         }
       }
-      canvas.addEventListener('touchmove',bloquearGesto,{passive:false});
-      window.addEventListener('resize',function(){ ajustarPad(true); });
-      document.getElementById('firmaClear')?.addEventListener('click',limpiar);
-      form?.addEventListener('submit', async function(ev){
-        ev.preventDefault();
-        if(enviando)return;
-        if(vacio()){
-          setStatus('Draw your signature first.', false);
+
+      canvas.style.touchAction='none';
+      if(shell) shell.style.touchAction='none';
+      canvas.addEventListener('touchmove', bloquearGesto, {passive:false});
+      modal.addEventListener('touchmove', function(ev){
+        if(mode!=='draw') return;
+        if(ev.target===canvas || (shell&&shell.contains(ev.target))) ev.preventDefault();
+      }, {passive:false});
+      window.addEventListener('resize', function(){
+        if(modal.classList.contains('is-open') && mode==='draw') ajustarPad(true);
+      });
+
+      document.querySelectorAll('.firma-tab').forEach(btn=>{
+        btn.addEventListener('click', function(){ setMode(btn.getAttribute('data-sign-mode')); });
+      });
+      typedInput?.addEventListener('input', actualizarTypePreview);
+      abrirBtn?.addEventListener('click', abrirModal);
+      document.getElementById('firmaModalCancel')?.addEventListener('click', cerrarModal);
+      document.getElementById('firmaModalClear')?.addEventListener('click', limpiarModal);
+      document.getElementById('firmaModalDone')?.addEventListener('click', usarFirmaModal);
+      clearDock?.addEventListener('click', function(){
+        if(enviando) return;
+        mostrarPreview('');
+        if(pad) pad.clear();
+        if(typedInput){ typedInput.value=''; actualizarTypePreview(); }
+        setStatus('');
+      });
+
+      submit?.addEventListener('click', async function(){
+        if(enviando) return;
+        if(!firmaLista){
+          setStatus('Add your signature first.', false);
+          abrirModal();
           return;
         }
-        const firma=exportarPng();
-        if(!firma){
-          setStatus('Draw your signature first.', false);
-          return;
-        }
-        let ok=false;
         enviando=true;
+        let ok=false;
         try{
-          if(submit){ submit.disabled=true; submit.textContent='Saving...'; }
+          submit.disabled=true;
+          submit.textContent='Saving…';
           setStatus('');
-          const res=await fetch(location.pathname,{
+          cerrarModal();
+          const res=await fetch(location.pathname, {
             method:'POST',
             credentials:'omit',
             headers:{'Content-Type':'application/json','Accept':'application/json'},
-            body:JSON.stringify({firma:firma,client_signature:firma})
+            body:JSON.stringify({
+              firma:firmaLista,
+              client_signature:firmaLista,
+              signature:firmaLista
+            })
           });
           const json=await res.json().catch(function(){ return {}; });
           if(res.status===401||res.status===403){
@@ -355,28 +751,45 @@
           if(!res.ok) throw new Error(json.error||'Could not save the signature.');
           ok=true;
           setStatus('Signature saved. This contract is now signed.', true);
-          mostrarExitoFirmado(firma);
+          mostrarExito(firmaLista);
         }catch(err){
           setStatus(err.message||'Could not save the signature.', false);
+          submit.disabled=false;
+          submit.textContent='Accept signature';
         }finally{
           enviando=false;
-          if(submit){
-            if(ok){
-              submit.disabled=true;
-              submit.textContent='Signed';
-            }else{
-              submit.disabled=false;
-              submit.textContent='Accept signature';
-            }
+          liberarScroll();
+          if(ok){
+            submit.disabled=true;
+            submit.textContent='Signed';
           }
         }
       });
-      // Init immediately — no loading gate that hides the pad.
-      if(crearPad()){
-        requestAnimationFrame(function(){ ajustarPad(false); });
+
+      // Mobile PDF iframe fallback: some browsers block inline PDF.
+      if(pdfFrame&&pdfFallback){
+        setTimeout(function(){
+          try{
+            // If iframe stayed tiny / blank on some mobile WebViews, offer Open PDF.
+            const h=pdfFrame.getBoundingClientRect().height||0;
+            if(h<80) pdfFallback.style.display='block';
+          }catch(_){ pdfFallback.style.display='block'; }
+        }, 1800);
       }
+
+      actualizarTypePreview();
     })();
   </script>
+  {% endif %}
+
+  {% if firmado and firma_imagen %}
+  <div class="success-screen is-open" id="successScreen">
+    <div class="check" aria-hidden="true">✓</div>
+    <h1>Contract signed</h1>
+    <p>{{ mensaje or 'This contract has already been signed.' }}</p>
+    <img src="{{ firma_imagen }}" alt="Client signature">
+    {% if pdf_src %}<a href="{{ pdf_src }}" target="_blank" rel="noopener">Open contract PDF</a>{% endif %}
+  </div>
   {% endif %}
 </body>
 </html>

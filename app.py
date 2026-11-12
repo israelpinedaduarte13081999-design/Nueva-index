@@ -13752,18 +13752,20 @@ def _html_documento_pdf(datos, contratista=None):
     return render_template("documento_pdf.html", documento=documento)
 
 
-def _respuesta_pdf_adjunto(pdf_bytes, filename="Documento.pdf"):
+def _respuesta_pdf_adjunto(pdf_bytes, filename="Documento.pdf", inline=False):
     nombre = re.sub(r"[^A-Za-z0-9._#-]+", "_", str(filename or "Documento.pdf"))
     if not nombre.lower().endswith(".pdf"):
         nombre += ".pdf"
     if not nombre:
         nombre = "Documento.pdf"
+    disposicion = "inline" if inline else "attachment"
     return Response(
         pdf_bytes,
         mimetype="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="{nombre}"',
+            "Content-Disposition": f'{disposicion}; filename="{nombre}"',
             "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
         },
     )
 
@@ -13861,7 +13863,8 @@ def _firmar_contrato_guardado(row, firma_b64, ip="", metodo="en_persona"):
     return row
 
 
-def _respuesta_pagina_firma(datos, titulo, mensaje, boton=False, aviso="", status=200, as_json=False):
+def _respuesta_pagina_firma(datos, titulo, mensaje, boton=False, aviso="", status=200, as_json=False, token=""):
+    token = str(token or (datos or {}).get("token_aceptacion") or "").strip()
     if as_json:
         if status >= 400:
             return jsonify({"error": mensaje or aviso or titulo}), status
@@ -13871,6 +13874,7 @@ def _respuesta_pagina_firma(datos, titulo, mensaje, boton=False, aviso="", statu
             "id": (datos or {}).get("id"),
             "folio": (datos or {}).get("folio"),
             "already": bool((datos or {}).get("already")),
+            "pdf_url": f"/aceptar/{token}/pdf" if token else "",
         }), status
     total = (datos or {}).get("total")
     monto = ""
@@ -13883,6 +13887,9 @@ def _respuesta_pagina_firma(datos, titulo, mensaje, boton=False, aviso="", statu
     contrato = _vista_contrato_publico(datos)
     if not contrato.get("total_txt") and monto:
         contrato["total_txt"] = monto
+    firmado = _contrato_esta_firmado((datos or {}).get("estado")) and bool(
+        str(firmas.get("cliente") or "").startswith("data:image/")
+    )
     pagina = render_template(
         "aceptar.html",
         titulo=titulo,
@@ -13894,9 +13901,11 @@ def _respuesta_pagina_firma(datos, titulo, mensaje, boton=False, aviso="", statu
         contrato=contrato,
         boton=boton,
         aviso=aviso,
-        firmado=_contrato_esta_firmado((datos or {}).get("estado")),
+        firmado=firmado,
         firma_imagen=firmas.get("cliente") or "",
         firma_fecha=firmas.get("clienteFecha") or (datos or {}).get("firma_fecha") or "",
+        token=token,
+        pdf_url=f"/aceptar/{token}/pdf" if token else "",
     )
     return Response(pagina, status=status, mimetype="text/html", headers={"Cache-Control": "no-store"})
 
@@ -14230,45 +14239,77 @@ def api_enviar_firma():
     })
 
 
+@app.route("/aceptar/<token_aceptacion>/pdf", methods=["GET"])
+def aceptar_contrato_pdf_publico(token_aceptacion):
+    """PDF oficial del contrato para el cliente (sin autenticación; solo con token UUID)."""
+    token = str(token_aceptacion or "").strip()
+    if not _es_uuid(token):
+        return jsonify({"error": "Contract not found"}), 404
+    try:
+        datos = leer_contrato_publico(token)
+    except Exception as err:
+        print(f"--> aceptar pdf: {err}")
+        return jsonify({"error": "Could not open the contract PDF."}), 503
+    if not datos:
+        return jsonify({"error": "Contract not found"}), 404
+    try:
+        fila = _fila_historial_por_id((datos or {}).get("id")) or dict(datos or {})
+        pdf_bytes = _pdf_contrato_carta(fila)
+    except Exception as err:
+        print(f"--> aceptar pdf render: {type(err).__name__}: {err}")
+        return jsonify({"error": "Could not generate the contract PDF."}), 500
+    if not pdf_bytes:
+        return jsonify({"error": "Could not generate the contract PDF."}), 500
+    filename = _nombre_pdf_adjunto("contract", (datos or {}).get("folio")) or "Contract.pdf"
+    # inline: el iframe del cliente puede previsualizar el PDF real.
+    return _respuesta_pdf_adjunto(pdf_bytes, filename, inline=True)
+
+
 @app.route("/aceptar/<token_aceptacion>", methods=["GET", "POST"])
 def aceptar_contrato_publico(token_aceptacion):
     token = str(token_aceptacion or "").strip()
     quiere_json = "application/json" in str(request.headers.get("Accept") or "").lower() or request.is_json
     if not _es_uuid(token):
-        return _respuesta_pagina_firma(None, "Contract not found", "This signature link is not valid.", status=404, as_json=quiere_json)
+        return _respuesta_pagina_firma(None, "Contract not found", "This signature link is not valid.", status=404, as_json=quiere_json, token=token)
     try:
         datos = leer_contrato_publico(token)
     except Exception as err:
         print(f"--> aceptar contrato: {err}")
         if _error_sin_funcion_tenant(err):
             _aviso_multitenant(err)
-            return _respuesta_pagina_firma(None, "Could not open the contract", _SQL_MULTITENANT, status=503, as_json=quiere_json)
-        return _respuesta_pagina_firma(None, "Could not open the contract", "Try again in a few minutes.", status=503, as_json=quiere_json)
+            return _respuesta_pagina_firma(None, "Could not open the contract", _SQL_MULTITENANT, status=503, as_json=quiere_json, token=token)
+        return _respuesta_pagina_firma(None, "Could not open the contract", "Try again in a few minutes.", status=503, as_json=quiere_json, token=token)
     if not datos:
-        return _respuesta_pagina_firma(None, "Contract not found", "This link does not match a pending contract.", status=404, as_json=quiere_json)
+        return _respuesta_pagina_firma(None, "Contract not found", "This link does not match a pending contract.", status=404, as_json=quiere_json, token=token)
     if request.method == "GET":
         firmas = _extraer_firmas_documento(datos)
         cliente_firma = str((firmas or {}).get("cliente") or "").strip()
         if _contrato_esta_firmado(datos.get("estado")) and cliente_firma.startswith("data:image/"):
-            return _respuesta_pagina_firma(datos, "Contract signed", "This contract has already been signed.", boton=False)
-        # Sin firma de cliente válida: siempre ofrecer el canvas (sin loading gate).
+            return _respuesta_pagina_firma(datos, "Contract signed", "This contract has already been signed.", boton=False, token=token)
         return _respuesta_pagina_firma(
             datos,
             "Sign contract",
-            "Read the full contract below, then sign at the bottom.",
+            "Review the official PDF below, then tap Sign to draw or type your signature.",
             boton=True,
+            token=token,
         )
     payload = request.get_json(silent=True) or request.form or {}
     previo = datos
+    firma_payload = (
+        payload.get("firma")
+        or payload.get("signature")
+        or payload.get("client_signature")
+        or ""
+    )
     try:
-        datos = marcar_contrato_firmado(token, payload.get("firma") or payload.get("signature"), _ip_solicitud(), "remoto")
+        datos = marcar_contrato_firmado(token, firma_payload, _ip_solicitud(), "remoto")
     except ValueError as err:
-        return _respuesta_pagina_firma(previo, "Sign contract", str(err), boton=True, aviso=str(err), status=400, as_json=quiere_json)
+        return _respuesta_pagina_firma(previo, "Sign contract", str(err), boton=True, aviso=str(err), status=400, as_json=quiere_json, token=token)
     except Exception as err:
         print(f"--> firmar contrato remoto: {type(err).__name__}")
-        return _respuesta_pagina_firma(previo, "Could not save the signature", "Try again in a few minutes.", boton=True, status=503, as_json=quiere_json)
+        return _respuesta_pagina_firma(previo, "Could not save the signature", "Try again in a few minutes.", boton=True, status=503, as_json=quiere_json, token=token)
     if not datos:
-        return _respuesta_pagina_firma(None, "Contract not found", "This link does not match a pending contract.", status=404, as_json=quiere_json)
+        return _respuesta_pagina_firma(None, "Contract not found", "This link does not match a pending contract.", status=404, as_json=quiere_json, token=token)
     if not datos.get("already"):
         pdf_bytes = None
         try:
@@ -14279,7 +14320,14 @@ def aceptar_contrato_publico(token_aceptacion):
             _notificar_aceptacion_contratista(datos, pdf_bytes=pdf_bytes)
         except Exception as err:
             print(f"--> notificar firma: {err}")
-    return _respuesta_pagina_firma(datos, "Contract signed", "Thank you. The contractor has been notified.", boton=False, as_json=quiere_json)
+    return _respuesta_pagina_firma(
+        datos,
+        "Contract signed",
+        "Thank you. The contractor has been notified.",
+        boton=False,
+        as_json=quiere_json,
+        token=token,
+    )
 
 
 def _precalentar_busquedas():
