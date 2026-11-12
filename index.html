@@ -749,6 +749,7 @@
     .signature-saved { margin:8px 0 0; color:#15803d; font-size:.82rem; font-weight:700; }
     .signature-saved[hidden] { display:none !important; }
     .badge-signed { background-color:#dcfce7; color:#166534; }
+    .history-actions { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
     .client-details-card { overflow:visible; position:relative; z-index:8; }
     .address-autocomplete { position:relative; min-width:0; }
     .address-autocomplete-menu { position:fixed; z-index:6000; width:min(100%,calc(100vw - 16px)); max-width:calc(100vw - 16px); max-height:min(260px,45vh); overflow-y:auto; margin:0; padding:4px 0; background:#fff; border:1px solid #c9d5e3; border-radius:6px; box-shadow:0 10px 24px rgba(15,23,42,.16); box-sizing:border-box; }
@@ -7600,8 +7601,13 @@
           <td>${escHtmlHistorial(clienteNombre)}</td>
           <td>${escHtmlHistorial(item.date||item.fecha||'—')}</td>
           <td>${escHtmlHistorial(total)}</td>
-          <td><span class="badge ${paid?'badge-paid':signed?'badge-signed':draft?'badge-draft':'badge-pending'}">${paid?'Paid':signed?'Signed':draft?'Draft':'Open'}</span></td>
-          <td><button class="btn-sm" type="button" data-open-id="${escHtmlHistorial(openId)}">Open</button></td>
+          <td><span class="badge ${paid?'badge-paid':signed?'badge-signed':draft?'badge-draft':'badge-pending'}">${paid?'Paid':signed?'Firmado':draft?'Draft':'Open'}</span></td>
+          <td class="history-actions">
+            ${signed&&(item.pdfUrl||item.pdf_url||openId)
+              ? `<button class="btn-sm" type="button" data-pdf-id="${escHtmlHistorial(openId)}" data-pdf-url="${escHtmlHistorial(item.pdfUrl||item.pdf_url||'')}">Ver PDF</button>`
+              : ''}
+            <button class="btn-sm" type="button" data-open-id="${escHtmlHistorial(openId)}">Open</button>
+          </td>
         </tr>`;
       }).join('');
     }
@@ -7632,8 +7638,9 @@
     }
     renderHistorial._seq=0;
 
-    // Contractor notifications: contract signed (Realtime + polling fallback).
+    // Contractor dashboard: Supabase Realtime UPDATE → toast + in-place list refresh.
     const firmadosVistosKey='qb_contratos_firmados_vistos';
+    const pdfBlobFirmadoCache=new Map();
     function leerFirmadosVistos(){
       try{
         const raw=JSON.parse(localStorage.getItem(firmadosVistosKey)||'[]');
@@ -7651,46 +7658,107 @@
       const cli=String(firmas.cliente||firmas.client_signature||firmas.client||'').trim();
       return cli.startsWith('data:image/');
     }
-    function etiquetaContratoFirmado(item){
-      const folio=String(item.folio||item.number||'').trim();
-      const cliente=String((item.cliente&&item.cliente.name)||item.clienteNombre||item.client||'').trim();
-      if(folio&&cliente) return folio+' · '+cliente;
-      return folio||cliente||String(item.id||'contract').slice(0,8);
+    function urlPdfFirmadoParaItem(item){
+      if(!item) return '';
+      const token=String(item.token_aceptacion||item.tokenAceptacion||'').trim();
+      if(token) return '/aceptar/'+encodeURIComponent(token)+'/pdf';
+      const id=String(item.id||'').trim();
+      return id?('/api/download_pdf/'+encodeURIComponent(id)):'';
     }
-    async function abrirPdfContratoFirmado(id){
+    async function abrirPdfContratoFirmado(id, pdfUrlPreferida){
       const ident=String(id||'').trim();
-      if(!ident) return;
+      const preferida=String(pdfUrlPreferida||'').trim();
+      if(preferida&&preferida.indexOf('/aceptar/')===0){
+        window.open(preferida,'_blank','noopener');
+        return;
+      }
+      if(!ident&&!preferida) return;
       try{
-        const res=await fetch('/api/download_pdf/'+encodeURIComponent(ident),{
+        if(ident&&pdfBlobFirmadoCache.has(ident)){
+          window.open(pdfBlobFirmadoCache.get(ident),'_blank','noopener');
+          return;
+        }
+        const endpoint=preferida&&preferida.indexOf('/api/')===0
+          ? preferida
+          : ('/api/download_pdf/'+encodeURIComponent(ident));
+        const res=await fetch(endpoint,{
           method:'GET',
           headers:headersContratista({Accept:'application/pdf'}),
           credentials:'same-origin'
         });
-        if(!res.ok) throw new Error('Could not open the signed PDF.');
+        if(!res.ok) throw new Error('No se pudo abrir el PDF firmado.');
         const blob=await res.blob();
         const url=URL.createObjectURL(blob);
+        if(ident) pdfBlobFirmadoCache.set(ident, url);
         window.open(url,'_blank','noopener');
-        setTimeout(()=>URL.revokeObjectURL(url), 60000);
       }catch(err){
-        mostrarToastGuardado(err.message||'Could not open the signed PDF.','error');
+        mostrarToastGuardado(err.message||'No se pudo abrir el PDF firmado.','error');
       }
     }
-    function notificarContratoFirmadoUI(item){
+    function fusionarContratoFirmadoEnLista(row){
+      if(!row||!row.id) return null;
+      const id=String(row.id);
+      const firmas=row.firmas&&typeof row.firmas==='object'?row.firmas:{};
+      const pdfUrl=urlPdfFirmadoParaItem(row);
+      let encontrado=null;
+      historialRemotoCache=historialRemotoCache.map(it=>{
+        if(!it||String(it.id)!==id) return it;
+        encontrado={
+          ...it,
+          ...row,
+          id:it.id||row.id,
+          estado:'Signed',
+          status:'Signed',
+          firmas:Object.assign({}, it.firmas||{}, firmas),
+          pdfUrl:pdfUrl||it.pdfUrl||it.pdf_url||'',
+          pdf_url:pdfUrl||it.pdf_url||it.pdfUrl||'',
+          token_aceptacion:row.token_aceptacion||it.token_aceptacion||''
+        };
+        return encontrado;
+      });
+      if(!encontrado){
+        encontrado={
+          id:row.id,
+          folio:row.folio,
+          tipo:row.tipo||'contract',
+          type:row.tipo||'contract',
+          cliente_nombre:row.cliente_nombre,
+          clienteNombre:row.cliente_nombre,
+          cliente:row.cliente,
+          estado:'Signed',
+          status:'Signed',
+          firmas:firmas,
+          pdfUrl:pdfUrl,
+          pdf_url:pdfUrl,
+          token_aceptacion:row.token_aceptacion||'',
+          total:row.total,
+          fecha:row.fecha,
+          date:row.fecha
+        };
+        historialRemotoCache=[encontrado].concat(historialRemotoCache);
+      }
+      // setState equivalent: re-paint history table without full page reload.
+      if(typeof pintarTablaHistorial==='function') pintarTablaHistorial();
+      return encontrado;
+    }
+    function notificarContratoFirmadoUI(item, opts){
       if(!item||!item.id) return;
-      const label=etiquetaContratoFirmado(item);
+      const silencioso=!!(opts&&opts.silent);
+      fusionarContratoFirmadoEnLista(item);
+      if(silencioso) return;
+      // Exact toast copy required by product.
       mostrarToastGuardado(
-        'Contract '+label+' accepted and signed!',
+        'El cliente ha aceptado y firmado tu contrato',
         'info',
         {
-          duration:10000,
-          actionLabel:'Open PDF',
-          onAction:function(){ abrirPdfContratoFirmado(item.id); }
+          duration:12000,
+          actionLabel:'Ver PDF',
+          onAction:function(){ abrirPdfContratoFirmado(item.id, item.pdfUrl||item.pdf_url||urlPdfFirmadoParaItem(item)); }
         }
       );
-      if(typeof renderHistorial==='function') renderHistorial();
       try{
         if('Notification' in window && Notification.permission==='granted'){
-          new Notification('Contract signed', { body:'Contract '+label+' was accepted and signed.' });
+          new Notification('Contrato firmado', { body:'El cliente ha aceptado y firmado tu contrato' });
         }
       }catch(_){}
     }
@@ -7700,7 +7768,15 @@
       const lista=Array.isArray(items)?items:[];
       if(!firmadosSeedHecho){
         lista.forEach(it=>{
-          if(contratoEstaFirmadoUI(it)&&it.id) firmadosVistos.add(String(it.id));
+          if(contratoEstaFirmadoUI(it)&&it.id){
+            firmadosVistos.add(String(it.id));
+            // Ensure signed rows already expose final PDF URL in the list.
+            fusionarContratoFirmadoEnLista({
+              ...it,
+              estado:it.estado||it.status||'Signed',
+              token_aceptacion:it.token_aceptacion
+            });
+          }
         });
         guardarFirmadosVistos(firmadosVistos);
         firmadosSeedHecho=true;
@@ -7710,7 +7786,10 @@
         if(!it||!it.id) return;
         const id=String(it.id);
         if(!contratoEstaFirmadoUI(it)) return;
-        if(firmadosVistos.has(id)) return;
+        if(firmadosVistos.has(id)){
+          fusionarContratoFirmadoEnLista(it);
+          return;
+        }
         firmadosVistos.add(id);
         guardarFirmadosVistos(firmadosVistos);
         notificarContratoFirmadoUI(it);
@@ -7718,58 +7797,84 @@
     }
     let canalFirmasRealtime=null;
     let pollFirmasTimer=null;
+    let realtimeFirmasActivo=false;
+    async function suscribirRealtimeContratosFirmados(){
+      const cid=localStorage.getItem(contratistaIdKey)||sessionStorage.getItem(contratistaIdKey)||(sesionActual&&sesionActual.id)||'';
+      if(!cid||typeof clienteAuthSupabase!=='function') return false;
+      const cliente=await clienteAuthSupabase();
+      if(!cliente||!cliente.channel) return false;
+      if(canalFirmasRealtime){
+        try{ await cliente.removeChannel(canalFirmasRealtime); }catch(_){}
+        canalFirmasRealtime=null;
+      }
+      // Equivalent to useEffect(() => { const channel = supabase.channel(...).on('UPDATE')... })
+      canalFirmasRealtime=cliente
+        .channel('historial-firmas-'+cid)
+        .on('postgres_changes', {
+          event:'UPDATE',
+          schema:'public',
+          table:'historial_estimados',
+          filter:'contratista_id=eq.'+cid
+        }, function(payload){
+          const row=payload&&payload.new?payload.new:null;
+          const prev=payload&&payload.old?payload.old:null;
+          if(!row) return;
+          const st=String(row.estado||row.status||'').toLowerCase();
+          const firmas=row.firmas&&typeof row.firmas==='object'?row.firmas:{};
+          const cli=String(firmas.cliente||firmas.client_signature||firmas.client||'').trim();
+          const prevFirmas=prev&&prev.firmas&&typeof prev.firmas==='object'?prev.firmas:{};
+          const prevCli=String(prevFirmas.cliente||prevFirmas.client_signature||prevFirmas.client||'').trim();
+          const firmadoAhora=st==='signed'||st==='firmado'||st==='accepted'||cli.startsWith('data:image/');
+          const firmaRecienLlegada=cli.startsWith('data:image/') && !prevCli.startsWith('data:image/');
+          const estadoRecienFirmado=/^(signed|firmado|accepted)$/i.test(String(row.estado||row.status||''))
+            && !/^(signed|firmado|accepted)$/i.test(String((prev&&(prev.estado||prev.status))||''));
+          if(!firmadoAhora) return;
+          if(!firmaRecienLlegada&&!estadoRecienFirmado&&firmadosVistos.has(String(row.id||''))){
+            fusionarContratoFirmadoEnLista(row);
+            return;
+          }
+          const id=String(row.id||'');
+          if(!id) return;
+          const yaVisto=firmadosVistos.has(id);
+          firmadosVistos.add(id);
+          guardarFirmadosVistos(firmadosVistos);
+          notificarContratoFirmadoUI({
+            id:row.id,
+            folio:row.folio,
+            tipo:row.tipo||'contract',
+            clienteNombre:row.cliente_nombre,
+            cliente_nombre:row.cliente_nombre,
+            cliente:row.cliente,
+            estado:'Signed',
+            status:'Signed',
+            firmas:firmas,
+            token_aceptacion:row.token_aceptacion,
+            total:row.total,
+            fecha:row.fecha
+          }, {silent:yaVisto&&!firmaRecienLlegada&&!estadoRecienFirmado});
+        })
+        .subscribe(function(status){
+          realtimeFirmasActivo=(status==='SUBSCRIBED');
+          if(realtimeFirmasActivo) console.log('--> realtime contratos firmados activo');
+        });
+      return true;
+    }
     async function iniciarMonitorContratosFirmados(){
-      if(pollFirmasTimer) return;
-      pollFirmasTimer=setInterval(function(){
-        if(!leerTokenContratistaLocal()) return;
-        if(document.hidden) return;
-        if(typeof renderHistorial==='function') renderHistorial();
-      }, 12000);
+      if(!pollFirmasTimer){
+        pollFirmasTimer=setInterval(function(){
+          if(!leerTokenContratistaLocal()) return;
+          if(document.hidden) return;
+          if(typeof renderHistorial==='function') renderHistorial();
+        }, 12000);
+      }
       try{
         if('Notification' in window && Notification.permission==='default'){
           Notification.requestPermission().catch(function(){});
         }
       }catch(_){}
+      if(realtimeFirmasActivo&&canalFirmasRealtime) return;
       try{
-        const cid=localStorage.getItem(contratistaIdKey)||sessionStorage.getItem(contratistaIdKey)||'';
-        if(!cid||typeof clienteAuthSupabase!=='function') return;
-        const cliente=await clienteAuthSupabase();
-        if(!cliente||!cliente.channel) return;
-        if(canalFirmasRealtime){
-          try{ await cliente.removeChannel(canalFirmasRealtime); }catch(_){}
-          canalFirmasRealtime=null;
-        }
-        canalFirmasRealtime=cliente
-          .channel('historial-firmas-'+cid)
-          .on('postgres_changes', {
-            event:'UPDATE',
-            schema:'public',
-            table:'historial_estimados',
-            filter:'contratista_id=eq.'+cid
-          }, function(payload){
-            const row=payload&&payload.new?payload.new:null;
-            if(!row) return;
-            const st=String(row.estado||row.status||'').toLowerCase();
-            const firmas=row.firmas&&typeof row.firmas==='object'?row.firmas:{};
-            const cli=String(firmas.cliente||firmas.client_signature||'').trim();
-            const firmado=st==='signed'||st==='firmado'||st==='accepted'||cli.startsWith('data:image/');
-            if(!firmado) return;
-            const id=String(row.id||'');
-            if(!id||firmadosVistos.has(id)) return;
-            firmadosVistos.add(id);
-            guardarFirmadosVistos(firmadosVistos);
-            notificarContratoFirmadoUI({
-              id:row.id,
-              folio:row.folio,
-              clienteNombre:row.cliente_nombre,
-              cliente:row.cliente,
-              estado:row.estado||'Signed',
-              firmas:firmas
-            });
-          })
-          .subscribe(function(status){
-            if(status==='SUBSCRIBED') console.log('--> realtime contratos firmados activo');
-          });
+        await suscribirRealtimeContratosFirmados();
       }catch(err){
         console.warn('Realtime firmas no disponible; usando polling.', err);
       }
@@ -7777,6 +7882,7 @@
     document.addEventListener('visibilitychange', function(){
       if(!document.hidden && typeof renderHistorial==='function' && leerTokenContratistaLocal()){
         renderHistorial();
+        if(!realtimeFirmasActivo) iniciarMonitorContratosFirmados();
       }
     });
     let sesionActual=null;
@@ -10550,6 +10656,12 @@
       crearDocumento(tipo);
     });
     document.querySelector('#historyTableBody')?.addEventListener('click',event=>{
+      const pdfBtn=event.target.closest('[data-pdf-id],[data-pdf-url]');
+      if(pdfBtn&&(pdfBtn.dataset.pdfId||pdfBtn.dataset.pdfUrl)){
+        event.preventDefault();
+        abrirPdfContratoFirmado(pdfBtn.dataset.pdfId||'', pdfBtn.dataset.pdfUrl||'');
+        return;
+      }
       const btn=event.target.closest('[data-open-id],[data-open-history]');
       if(!btn)return;
       const id=btn.dataset.openId||btn.dataset.openHistory;

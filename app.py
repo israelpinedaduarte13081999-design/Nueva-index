@@ -3702,6 +3702,16 @@ def documento_desde_fila_historial(row):
     elif isinstance(cliente, str) and not cliente_nombre:
         cliente_nombre = cliente
     direccion = _formatear_direccion_cliente(cliente if isinstance(cliente, dict) else {}, payload, snapshot if isinstance(snapshot, dict) else {})
+    estado = row.get("estado") or payload.get("status") or payload.get("estado") or "pending"
+    token_aceptacion = str(row.get("token_aceptacion") or payload.get("token_aceptacion") or "").strip()
+    firmado = str(estado or "").strip().lower() in _ESTADOS_FIRMADO or str(
+        (firmas or {}).get("cliente") or (firmas or {}).get("client_signature") or ""
+    ).startswith("data:image/")
+    pdf_url = ""
+    if firmado and token_aceptacion:
+        pdf_url = f"/aceptar/{token_aceptacion}/pdf"
+    elif firmado and row.get("id"):
+        pdf_url = f"/api/download_pdf/{row.get('id')}"
     return {
         "id": row.get("id"),
         "folio": folio,
@@ -3722,7 +3732,11 @@ def documento_desde_fila_historial(row):
         "date": row.get("fecha") or payload.get("date") or payload.get("fecha"),
         "fecha": row.get("fecha") or payload.get("fecha"),
         "total": row.get("total") if row.get("total") is not None else payload.get("total"),
-        "status": row.get("estado") or payload.get("status") or "pending",
+        "status": estado,
+        "estado": estado,
+        "token_aceptacion": token_aceptacion,
+        "pdfUrl": pdf_url,
+        "pdf_url": pdf_url,
         "items": _preservar_descripciones_items(items if isinstance(items, list) else []),
         "areas": _preservar_descripciones_areas(areas if isinstance(areas, list) else []),
         "snapshot": snapshot if isinstance(snapshot, dict) else {},
@@ -5859,7 +5873,7 @@ def listar_historial_tenant(contratista):
             raise
     res = (
         sb.table(TABLA_HISTORIAL)
-        .select("id,folio,tipo,cliente_nombre,fecha,total,estado,updated_at,cliente,snapshot,contratista_id")
+        .select("id,folio,tipo,cliente_nombre,fecha,total,estado,updated_at,cliente,snapshot,contratista_id,token_aceptacion,firmas")
         .eq("contratista_id", contratista["id"])
         .order("updated_at", desc=True)
         .limit(100)
