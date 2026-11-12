@@ -5982,7 +5982,7 @@
     function savePaymentState(){ localStorage.setItem(paymentStorageKey,JSON.stringify(paymentState)); }
     function markPaidIfNeeded(balance,total){ if(total>0 && balance<=0 && paymentState.status!=='paid'){ paymentState.status='paid'; paymentState.paidDate=paymentState.paidDate||new Date().toISOString().slice(0,10); document.querySelector('#status').value='paid'; savePaymentState(); } }
     function update(){ const paymentWasFocused=document.activeElement?.id==='paidAmount'; let grand=0; const lines=[]; document.querySelectorAll('.area').forEach((area,index)=>{ let subtotal=0; area.querySelectorAll('tbody tr').forEach(row=>{const total=recalcularSubtotalFila(row);subtotal+=total;}); grand+=subtotal; const title=area.querySelector('.area-title').value||`Area ${index+1}`; lines.push({title,subtotal}); }); const paid=Math.max(Number(paymentState.paidAmount)||0,0); const balance=Math.max(grand-paid,0); markPaidIfNeeded(balance,grand); const isPaid=paymentState.status==='paid'||(grand>0&&balance<=0); document.querySelector('#summary').innerHTML=lines.map(line=>`<div class="summary-line"><span>${line.title.replace(/^Área de /i,'').replace(/^Area of /i,'')}</span><strong>${money.format(line.subtotal)}</strong></div>`).join('')+`<div class="payment-tracking"><div class="field-row"><label for="paidAmount">Amount paid</label><input id="paidAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="${paymentState.paidAmount}"></div>${htmlBotonesDeposito()}</div><div class="summary-line grand"><span>${translations[language].total}</span><strong>${money.format(grand)}<br>USD</strong></div><div class="summary-line"><span id="depositLabel">${translations[language].deposit}</span><strong>${money.format(paid)} USD</strong></div><div class="summary-line balance"><span id="finalPaymentLabel">${translations[language].finalPayment}</span><strong>${money.format(balance)} USD</strong></div>`; const paymentInput=document.querySelector('#paidAmount'); paymentInput.addEventListener('input',event=>{ paymentState.paidAmount=event.target.value; paymentState.status='open'; paymentState.paidDate=''; savePaymentState(); update(); }); document.querySelectorAll('[data-payment-action]').forEach(button=>button.addEventListener('click',()=>{ aplicarPagoRapido(button.dataset.paymentAction,grand); })); document.querySelector('#paidStamp').hidden=!isPaid||docMode!=='invoice'; document.querySelector('#paidDate').textContent=paymentState.paidDate?'Paid date: '+paymentState.paidDate:''; if(paymentWasFocused) paymentInput.focus(); }
-    function renderMode(nextMode){ docMode=nextMode; const isInvoice=docMode==='invoice'; const isContract=docMode==='contract'; const title=isInvoice?'INVOICE':isContract?'WORK CONTRACT':'ESTIMATE'; document.querySelector('#documentTitle').textContent=title; if(!document.body.classList.contains('auth-solo')) document.title=title+' | '+nombreEmpresaActiva(); document.querySelector('#itemsHeading').textContent=isInvoice?'INVOICE ITEMS':'SCOPE OF WORK'; document.querySelector('#legalTerms').hidden=isInvoice; const signatures=document.querySelector('#signatures'); if(signatures){ signatures.hidden=!isContract; signatures.setAttribute('aria-hidden', isContract?'false':'true'); } const sendExport=document.getElementById('sendForSignatureExportButton'); if(sendExport) sendExport.hidden=!isContract; document.documentElement.classList.toggle('is-contract', isContract); document.querySelector('#dueDateRow').hidden=!isInvoice; const billTo=document.querySelector('.bill-to'); if(billTo)billTo.hidden=!isInvoice; document.querySelector('.payments').hidden=!isInvoice; document.querySelector('.summary').classList.toggle('invoice-summary',isInvoice); document.querySelector('.invoice-thanks').hidden=!isInvoice; document.querySelector('#paidStamp').hidden=!isInvoice; document.querySelector('#termsHeading').textContent='TERMS AND EXCLUSIONS'; document.querySelector('#docMode').value=docMode; if(typeof aplicarFolioEnPantalla==='function')aplicarFolioEnPantalla(document.getElementById('quote')?.value); if(isInvoice && document.querySelector('#areas').children.length) update(); }
+    function renderMode(nextMode){ docMode=nextMode; const isInvoice=docMode==='invoice'; const isContract=docMode==='contract'; const title=isInvoice?'INVOICE':isContract?'WORK CONTRACT':'ESTIMATE'; document.querySelector('#documentTitle').textContent=title; if(!document.body.classList.contains('auth-solo')) document.title=title+' | '+nombreEmpresaActiva(); document.querySelector('#itemsHeading').textContent=isInvoice?'INVOICE ITEMS':'SCOPE OF WORK'; document.querySelector('#legalTerms').hidden=isInvoice; const signatures=document.querySelector('#signatures'); if(signatures){ signatures.hidden=!isContract; signatures.setAttribute('aria-hidden', isContract?'false':'true'); } const sendExport=document.getElementById('sendForSignatureExportButton'); if(sendExport) sendExport.hidden=!isContract; document.documentElement.classList.toggle('is-contract', isContract); document.querySelector('#dueDateRow').hidden=!isInvoice; const billTo=document.querySelector('.bill-to'); if(billTo)billTo.hidden=!isInvoice; document.querySelector('.payments').hidden=!isInvoice; document.querySelector('.summary').classList.toggle('invoice-summary',isInvoice); document.querySelector('.invoice-thanks').hidden=!isInvoice; document.querySelector('#paidStamp').hidden=!isInvoice; document.querySelector('#termsHeading').textContent='TERMS AND EXCLUSIONS'; document.querySelector('#docMode').value=docMode; if(typeof aplicarFolioEnPantalla==='function')aplicarFolioEnPantalla(document.getElementById('quote')?.value); if(isInvoice && document.querySelector('#areas').children.length) update(); if(!isContract&&typeof removerCanalContratoAbierto==='function')removerCanalContratoAbierto(); else if(isContract&&documentoHistorialId&&typeof suscribirRealtimeContratoAbierto==='function')suscribirRealtimeContratoAbierto(documentoHistorialId); }
     function puntoFirma(canvas,event){
       const t=(event.touches&&event.touches[0])||(event.changedTouches&&event.changedTouches[0])||event;
       const rect=canvas.getBoundingClientRect();
@@ -6143,7 +6143,7 @@
       const esCliente=role==='client';
       const nombre=esCliente?(firmas.clienteNombre||''):(firmas.contratistaNombre||'');
       const modo=esCliente?firmas.clienteModo:firmas.contratistaModo;
-      const imagen=esCliente?(firmas.cliente||firmas.client):(firmas.contratista||firmas.contractor);
+      const imagen=esCliente?(firmas.cliente||firmas.client_signature||firmas.client):(firmas.contratista||firmas.contractor);
       if(p?.input)p.input.value=nombre;
       actualizarVistaFirmaTipografica(role);
       setSignMode(role, modo==='type'&&String(nombre).trim()?'type':'draw');
@@ -6190,11 +6190,113 @@
     }
     function mostrarMetaFirmaCliente(firmas){
       const fecha=(firmas&&(firmas.clienteFecha||firmas.firma_fecha))||'';
-      if(firmas&&(firmas.cliente||firmas.client)) marcarContratoFirmadoLocal(fecha);
+      if(firmas&&(firmas.cliente||firmas.client||firmas.client_signature)) marcarContratoFirmadoLocal(fecha);
       else{
         documentoEstadoFirmado=false;
         const saved=document.getElementById('clientSignatureSaved');
         if(saved){ saved.hidden=true; saved.textContent=''; }
+      }
+    }
+    // Live client signature on the open contract view (Realtime, contractId-scoped).
+    let canalContratoAbierto=null;
+    let contratoAbiertoRealtimeId='';
+    async function removerCanalContratoAbierto(){
+      const idPrev=contratoAbiertoRealtimeId;
+      contratoAbiertoRealtimeId='';
+      if(!canalContratoAbierto) return;
+      try{
+        if(typeof clienteAuthSupabase==='function'){
+          const cliente=await clienteAuthSupabase();
+          if(cliente&&cliente.removeChannel) await cliente.removeChannel(canalContratoAbierto);
+        }
+      }catch(_){}
+      canalContratoAbierto=null;
+      if(idPrev) console.log('--> realtime contrato abierto cleanup', idPrev);
+    }
+    function inyectarFirmaClienteEnVivo(firmas,opts){
+      const imagen=String(
+        (firmas&&(firmas.cliente||firmas.client_signature||firmas.client))||''
+      ).trim();
+      if(!imagen.startsWith('data:image/')) return false;
+      const payload=Object.assign({}, firmas||{}, {
+        cliente:imagen,
+        client_signature:imagen,
+        client:imagen
+      });
+      // setState equivalent: paint CLIENT SIGNATURE box immediately.
+      restaurarPanelFirma('client', payload);
+      mostrarMetaFirmaCliente(payload);
+      if(!(opts&&opts.silentToast)){
+        if(typeof mostrarToastGuardado==='function'){
+          mostrarToastGuardado('El cliente ha aceptado tu contrato y ya firmado','info',{duration:10000});
+        }
+      }
+      return true;
+    }
+    async function suscribirRealtimeContratoAbierto(contractId){
+      const id=String(contractId||'').trim();
+      if(!/^[0-9a-f-]{36}$/i.test(id)){
+        await removerCanalContratoAbierto();
+        return false;
+      }
+      if(contratoAbiertoRealtimeId===id&&canalContratoAbierto) return true;
+      await removerCanalContratoAbierto();
+      if(typeof clienteAuthSupabase!=='function') return false;
+      try{
+        const cliente=await clienteAuthSupabase();
+        if(!cliente||!cliente.channel) return false;
+        // useEffect-equivalent: channel filtered by eq('id', contractId)
+        canalContratoAbierto=cliente
+          .channel('contrato-abierto-'+id)
+          .on('postgres_changes', {
+            event:'UPDATE',
+            schema:'public',
+            table:'historial_estimados',
+            filter:'id=eq.'+id
+          }, function(payload){
+            const row=payload&&payload.new?payload.new:null;
+            if(!row||String(row.id)!==id) return;
+            // Ignore updates while this tab is not on the same open document.
+            if(String(documentoHistorialId||'')!==id) return;
+            const firmas=row.firmas&&typeof row.firmas==='object'?row.firmas:{};
+            const st=String(row.estado||row.status||'').toLowerCase();
+            const cli=String(firmas.cliente||firmas.client_signature||firmas.client||'').trim();
+            const firmado=cli.startsWith('data:image/')||st==='signed'||st==='firmado'||st==='accepted';
+            if(!firmado||!cli.startsWith('data:image/')) return;
+            const yaHay=String(capturarPanelFirma('client').imagen||'').trim();
+            if(yaHay===cli){
+              mostrarMetaFirmaCliente(firmas);
+              return;
+            }
+            inyectarFirmaClienteEnVivo(Object.assign({}, firmas, {
+              clienteFecha:firmas.clienteFecha||row.firma_fecha||row.updated_at||''
+            }));
+            // Keep dashboard list in sync without full reload.
+            if(typeof fusionarContratoFirmadoEnLista==='function'){
+              fusionarContratoFirmadoEnLista({
+                id:row.id,
+                folio:row.folio,
+                estado:'Signed',
+                status:'Signed',
+                firmas:firmas,
+                token_aceptacion:row.token_aceptacion,
+                total:row.total,
+                fecha:row.fecha
+              });
+            }
+          })
+          .subscribe(function(status){
+            if(status==='SUBSCRIBED'){
+              contratoAbiertoRealtimeId=id;
+              console.log('--> realtime contrato abierto', id);
+            }
+          });
+        return true;
+      }catch(err){
+        console.warn('Realtime contrato abierto no disponible', err);
+        canalContratoAbierto=null;
+        contratoAbiertoRealtimeId='';
+        return false;
       }
     }
     async function asegurarContratoGuardado(){
@@ -7522,6 +7624,12 @@
       if(typeof asignarPlanoDocumento==='function')asignarPlanoDocumento(data.plano||(reg&&reg.plano)||null);
       if(typeof sincronizarArbolPartidas==='function')sincronizarArbolPartidas();
       if(typeof cargarPlanoDocumento==='function')cargarPlanoDocumento(documentoHistorialId);
+      // Live signature channel for this open contract (cleanup previous first).
+      if(String(data.docMode||docMode||'')==='contract'&&documentoHistorialId){
+        suscribirRealtimeContratoAbierto(documentoHistorialId);
+      }else{
+        removerCanalContratoAbierto();
+      }
       return data;
       }finally{
         if(startedHere)isLoadingEstimate=false;
@@ -8396,6 +8504,7 @@
       }
       const saliendoDelGenerador=view!=='quote' && document.getElementById('view-quote')?.classList.contains('active');
       if(saliendoDelGenerador && typeof programarAutoguardado.flush==='function') programarAutoguardado.flush();
+      if(saliendoDelGenerador && typeof removerCanalContratoAbierto==='function') removerCanalContratoAbierto();
       document.body.classList.remove('auth-solo','eligiendo-plan','pagando','paywall','prueba-expirada');
       document.body.classList.add('con-sesion');
       aplicarViewportApp(false);
@@ -8429,6 +8538,7 @@
       const t=String(tipo||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
       const modo={estimado:'estimate',estimate:'estimate',contrato:'contract',contract:'contract',factura:'invoice',invoice:'invoice'}[t]||'estimate';
       documentoHistorialId=null;
+      if(typeof removerCanalContratoAbierto==='function') removerCanalContratoAbierto();
       showAppView('quote',{mode:modo,reset:true});
       const ruta=urlEdicionDocumento(modo);
       try{ history.pushState({view:'quote',mode:modo},'',ruta); }catch(_){}
@@ -8538,6 +8648,7 @@
       omitirRestaurarBorrador=true;
       borradorYaRestaurado=true;
       documentoHistorialId=null;
+      if(typeof removerCanalContratoAbierto==='function') removerCanalContratoAbierto();
       guardarDocumentoEnHistorial();
       aplicarFolioEnPantalla(siguienteFolio(tipoDocumentoActual()));
       document.querySelector('#date').value=new Date().toISOString().slice(0,10);
