@@ -32,11 +32,37 @@
     .totales .fila span, .totales .fila strong { display: table-cell; }
     .totales .fila strong { text-align: right; }
     .totales .grand { border-top: 2px solid #19385f; border-bottom: 0; font-size: 12pt; padding-top: 8px; }
-    .firmas { width: 100%; margin-top: 22px; }
-    .firmas td { width: 50%; vertical-align: top; padding-right: 16px; }
-    .firma-box { min-height: 70px; border-bottom: 1px solid #94a3b8; padding: 4px 0; }
-    .firma-box img { max-width: 240px; max-height: 72px; display: block; }
-    .firma-nombre-impreso { margin: 4px 0 0; font-size: 12px; font-weight: 700; color: #0f172a; }
+    .firmas { width: 100%; margin-top: 22px; border-collapse: separate; border-spacing: 0; }
+    .firmas td { width: 50%; vertical-align: bottom; padding-right: 16px; }
+    .firmas td:last-child { padding-right: 0; padding-left: 16px; }
+    .firma-box {
+      min-height: 78px;
+      border-bottom: 1px solid #94a3b8;
+      padding: 6px 0 4px;
+      position: relative;
+      overflow: visible;
+    }
+    .firma-box img {
+      display: block;
+      max-width: 100%;
+      width: auto;
+      height: auto;
+      max-height: 84px;
+      object-fit: contain;
+      object-position: left bottom;
+      position: relative;
+      z-index: 2;
+      background: transparent;
+    }
+    .firma-nombre-impreso {
+      margin: 6px 0 0;
+      font-size: 11pt;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.25;
+      position: relative;
+      z-index: 2;
+    }
     img.plano { display: block; max-width: 100%; max-height: 420px; margin: 8px 0 12px; border: 1px solid #dbe3ee; }
   </style>
 </head>
@@ -51,81 +77,75 @@
       {% if d.servicio %}<div class="muted">{{ d.servicio }}</div>{% endif %}
     </div>
     <div class="head-right">
-      <strong>{{ d.tipo_label or "Document" }}{% if d.folio %} {{ d.folio }}{% endif %}</strong>
-      {% if d.fecha %}<div class="muted">Date {{ d.fecha }}</div>{% endif %}
-      {% if d.vencimiento %}<div class="muted">Due {{ d.vencimiento }}</div>{% endif %}
+      <h1>{{ d.tipo_label or "Document" }}</h1>
+      {% if d.folio %}<div><strong># {{ d.folio }}</strong></div>{% endif %}
+      {% if d.fecha %}<div class="muted">Date: {{ d.fecha }}</div>{% endif %}
+      {% if d.vencimiento %}<div class="muted">Due: {{ d.vencimiento }}</div>{% endif %}
     </div>
   </div>
 
-  <h1>{{ d.tipo_label or "Document" }}</h1>
   <table class="partes">
     <tr>
       <td>
-        <span class="label">Contractor</span>
-        <p><strong>{{ d.empresa or "—" }}</strong></p>
-        {% if d.empresa_email %}<p>{{ d.empresa_email }}</p>{% endif %}
-        {% if d.empresa_telefono %}<p>{{ d.empresa_telefono }}</p>{% endif %}
+        <span class="label">Prepared for</span>
+        <strong>{{ d.cliente or "—" }}</strong>
+        {% if d.cliente_email %}<div class="muted">{{ d.cliente_email }}</div>{% endif %}
+        {% if d.cliente_telefono %}<div class="muted">{{ d.cliente_telefono }}</div>{% endif %}
+        {% if d.direccion %}<div class="muted">{{ d.direccion }}</div>{% endif %}
       </td>
       <td>
-        <span class="label">Client</span>
-        <p><strong>{{ d.cliente or "—" }}</strong></p>
-        {% if d.cliente_email %}<p>{{ d.cliente_email }}</p>{% endif %}
-        {% if d.cliente_telefono %}<p>{{ d.cliente_telefono }}</p>{% endif %}
-        {% if d.direccion %}<p>{{ d.direccion }}</p>{% endif %}
+        <span class="label">Prepared by</span>
+        <strong>{{ d.empresa or "QuantixBuilds" }}</strong>
+        {% if d.empresa_email %}<div class="muted">{{ d.empresa_email }}</div>{% endif %}
+        {% if d.empresa_telefono %}<div class="muted">{{ d.empresa_telefono }}</div>{% endif %}
       </td>
     </tr>
   </table>
 
+  {% if d.plano_imagen %}
+  <h2>Job plan</h2>
+  <img class="plano" src="{{ d.plano_imagen }}" alt="Job plan">
+  {% endif %}
+
   <h2>Scope of work</h2>
-  {% if d.tiene_alcance %}
+  {% if d.areas %}
     {% for area in d.areas %}
     <div class="area">
       <div class="area-head">
-        <h3>{{ loop.index }}. {{ area.titulo }}</h3>
-        {% if area.referencia %}<span class="ref">{{ area.referencia }}</span>{% endif %}
+        <h3>{{ area.titulo }}</h3>
+        {% if area.referencia %}<div class="ref">{{ area.referencia }}</div>{% endif %}
       </div>
       <table class="items">
         <thead>
           <tr>
-            <th>Code</th>
-            <th>Action</th>
-            <th>Work description</th>
+            <th>Description</th>
             <th class="num">Qty</th>
             <th>Unit</th>
-            <th class="num">Unit price</th>
-            <th class="num">Tax</th>
-            <th class="num">Subtotal</th>
+            <th class="num">Price</th>
+            <th class="num">Amount</th>
           </tr>
         </thead>
         <tbody>
-          {% for fila in area.filas %}
+          {% for f in area.filas %}
           <tr>
-            <td>{{ fila.codigo or "—" }}</td>
-            <td>{{ fila.accion or "—" }}</td>
-            <td>{{ fila.descripcion or "—" }}</td>
-            <td class="num">{{ fila.cantidad_txt }}</td>
-            <td>{{ fila.unidad or "—" }}</td>
-            <td class="num">{{ fila.precio_txt }}</td>
-            <td class="num">{{ fila.tax_txt }}</td>
-            <td class="num">{{ fila.subtotal_txt }}</td>
+            <td>{% if f.accion %}<strong>{{ f.accion }}</strong> — {% endif %}{{ f.descripcion }}</td>
+            <td class="num">{{ f.cantidad_txt }}</td>
+            <td>{{ f.unidad }}</td>
+            <td class="num">{{ f.precio_txt }}</td>
+            <td class="num">{{ f.subtotal_txt }}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
-      <p class="num"><strong>Area total</strong> {{ area.subtotal_txt }}</p>
+      <div class="muted">Area subtotal: {{ area.subtotal_txt }}</div>
     </div>
     {% endfor %}
   {% else %}
-    <p>No line items were saved with this document.</p>
-  {% endif %}
-
-  {% if d.plano_imagen %}
-  <h2>Floor plan</h2>
-  <img class="plano" src="{{ d.plano_imagen }}" alt="Floor plan">
+    <p class="muted">No scope lines on this document.</p>
   {% endif %}
 
   {% if d.terminos %}
-  <h2>Terms and conditions</h2>
+  <h2>Terms and exclusions</h2>
   <div class="texto">{{ d.terminos }}</div>
   {% endif %}
 
@@ -145,10 +165,10 @@
     {% endif %}
   </div>
 
-  {% set contractor_sig = d.contractor_signature or d.firma_contratista or "" %}
-  {% set client_sig = d.client_signature or d.firma_cliente or "" %}
-  {% set contractor_name = d.firma_contratista_nombre or "" %}
-  {% set client_name = d.firma_cliente_nombre or "" %}
+  {% set contractor_sig = d.contractor_signature_image or d.contractor_signature or d.firma_contratista or "" %}
+  {% set client_sig = d.client_signature_image or d.client_signature or d.firma_cliente or "" %}
+  {% set contractor_name = d.contractor_signature_name or d.firma_contratista_nombre or "" %}
+  {% set client_name = d.client_signature_name or d.firma_cliente_nombre or "" %}
   {% if client_sig and contractor_sig and client_sig == contractor_sig %}
     {% set client_sig = "" %}
   {% endif %}
@@ -163,13 +183,21 @@
     <tr>
       <td>
         <span class="label">Contractor signature</span>
-        <div class="firma-box">{% if contractor_sig %}<img src="{{ contractor_sig }}" alt="Contractor signature">{% endif %}</div>
+        <div class="firma-box">
+          {% if contractor_sig %}
+          <img src="{{ contractor_sig }}" alt="Contractor signature" style="max-width:100%;height:auto;max-height:84px;object-fit:contain;display:block;">
+          {% endif %}
+        </div>
         {% if contractor_name %}<p class="firma-nombre-impreso">{{ contractor_name }}</p>{% endif %}
         {% if (contractor_sig or contractor_name) and d.firma_contratista_fecha %}<p class="muted">{{ d.firma_contratista_fecha }}</p>{% endif %}
       </td>
       <td>
         <span class="label">Client signature</span>
-        <div class="firma-box">{% if client_sig %}<img src="{{ client_sig }}" alt="Client signature">{% endif %}</div>
+        <div class="firma-box">
+          {% if client_sig %}
+          <img src="{{ client_sig }}" alt="Client signature" style="max-width:100%;height:auto;max-height:84px;object-fit:contain;display:block;">
+          {% endif %}
+        </div>
         {% if client_name %}<p class="firma-nombre-impreso">{{ client_name }}</p>{% endif %}
         {% if (client_sig or client_name) and d.firma_cliente_fecha %}<p class="muted">{{ d.firma_cliente_fecha }}</p>{% endif %}
       </td>

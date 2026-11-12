@@ -6526,19 +6526,26 @@ def _extraer_firmas_documento(datos):
     """Separa estrictamente contractor_signature y client_signature.
 
     Nunca rellena la firma del cliente con la del contratista.
+    Incluye nombres impresos (clienteNombre / contratistaNombre) para el PDF.
     """
     datos = datos if isinstance(datos, dict) else {}
     snapshot = datos.get("snapshot") if isinstance(datos.get("snapshot"), dict) else {}
     payload = datos.get("payload") if isinstance(datos.get("payload"), dict) else {}
+    # Prefer row.firmas (latest signed payload) over older snapshot/payload copies.
     fuentes = []
-    for origen in (snapshot.get("firmas"), payload.get("firmas"), datos.get("firmas")):
-        if isinstance(origen, dict):
-            fuentes.append(origen)
+    for origen in (
+        snapshot.get("firmas"),
+        payload.get("firmas"),
+        datos.get("firmas"),
+    ):
+        parsed = _json_campo(origen, origen) if origen is not None else None
+        if isinstance(parsed, dict):
+            fuentes.append(parsed)
     merged = {}
     for origen in fuentes:
         merged.update(origen)
 
-    def _tomar(claves, fuentes_extra=None):
+    def _tomar_img(claves, fuentes_extra=None):
         pools = [merged]
         if isinstance(fuentes_extra, (list, tuple)):
             pools.extend(fuentes_extra)
@@ -6553,17 +6560,29 @@ def _extraer_firmas_documento(datos):
                     return imagen
         return ""
 
+    def _tomar_nombre(claves):
+        for pool in (merged, datos, payload if isinstance(payload, dict) else {}):
+            if not isinstance(pool, dict):
+                continue
+            for clave in claves:
+                texto = re.sub(r"\s+", " ", str(pool.get(clave) or "")).strip()
+                if len(texto) >= 2 and not texto.startswith("data:image/"):
+                    return texto[:80]
+        return ""
+
     # Solo claves explícitas del contratista (nunca "client").
-    contratista = _tomar((
+    contratista = _tomar_img((
         "contractor_signature",
+        "contractor_signature_image",
         "firma_contratista",
         "firmaContratista",
         "contratista",
         "contractor",
     ))
     # Solo claves explícitas del cliente (nunca contractor_*).
-    cliente = _tomar((
+    cliente = _tomar_img((
         "client_signature",
+        "client_signature_image",
         "firma_cliente",
         "firmaCliente",
         "cliente",
@@ -6573,10 +6592,25 @@ def _extraer_firmas_documento(datos):
         candidato = merged.get("client")
         if isinstance(candidato, str) and candidato.startswith("data:image/"):
             cliente = _img_firma(candidato)
+    cliente_nombre = _tomar_nombre((
+        "clienteNombre",
+        "client_name",
+        "client_signature_name",
+        "firma_cliente_nombre",
+        "printed_name",
+        "nombre",
+    ))
+    contratista_nombre = _tomar_nombre((
+        "contratistaNombre",
+        "contractor_name",
+        "contractor_signature_name",
+        "firma_contratista_nombre",
+    ))
     cliente_confirmado = bool(
         merged.get("clienteFecha")
         or merged.get("clienteIp")
         or merged.get("clienteMetodo")
+        or cliente_nombre
         or datos.get("firma_fecha")
         or datos.get("firma_ip")
     )
@@ -6584,20 +6618,25 @@ def _extraer_firmas_documento(datos):
     # vaciar client_signature para no duplicar la firma del contratista.
     if cliente and contratista and cliente == contratista and not cliente_confirmado:
         cliente = ""
-    if cliente and contratista and cliente == contratista and cliente_confirmado:
-        # Firma remota válida: conservar cliente; no tocar contratista.
-        pass
     return {
         "cliente": cliente or "",
         "contratista": contratista or "",
         "client_signature": cliente or "",
         "contractor_signature": contratista or "",
+        "client_signature_image": cliente or "",
+        "contractor_signature_image": contratista or "",
+        "clienteNombre": cliente_nombre,
+        "client_name": cliente_nombre,
+        "client_signature_name": cliente_nombre,
+        "contratistaNombre": contratista_nombre,
+        "contractor_name": contratista_nombre,
+        "contractor_signature_name": contratista_nombre,
         "clienteFecha": str(
             merged.get("clienteFecha") or datos.get("firma_fecha") or ""
-        )[:19] if cliente else "",
+        )[:19] if (cliente or cliente_nombre) else "",
         "contratistaFecha": str(
             merged.get("contratistaFecha") or merged.get("contractorFecha") or ""
-        )[:19] if contratista else "",
+        )[:19] if (contratista or contratista_nombre) else "",
         "raw": merged,
     }
 
@@ -6663,11 +6702,15 @@ def _vista_contrato_publico(datos):
         "tiene_alcance": bool(bloques),
         "firma_cliente": firmas.get("cliente") or "",
         "client_signature": firmas.get("cliente") or "",
+        "client_signature_image": firmas.get("cliente") or "",
         "firma_contratista": firmas.get("contratista") or "",
         "contractor_signature": firmas.get("contratista") or "",
+        "contractor_signature_image": firmas.get("contratista") or "",
         "firma_cliente_fecha": firmas.get("clienteFecha") or "",
         "firma_cliente_nombre": firmas.get("clienteNombre") or firmas.get("client_name") or "",
+        "client_signature_name": firmas.get("clienteNombre") or firmas.get("client_name") or "",
         "firma_contratista_nombre": firmas.get("contratistaNombre") or firmas.get("contractor_name") or "",
+        "contractor_signature_name": firmas.get("contratistaNombre") or firmas.get("contractor_name") or "",
         "firma_contratista_fecha": firmas.get("contratistaFecha") or "",
         "plano_imagen": plano_imagen,
     }
@@ -6788,6 +6831,19 @@ def marcar_contrato_firmado(token_aceptacion, firma_b64, ip="", metodo="remoto",
     if not _es_uuid(contract_id):
         raise RuntimeError("Contract row has no id; cannot UPDATE for Realtime.")
     firmas_prev = actual.get("firmas") if isinstance(actual.get("firmas"), dict) else {}
+    # Releer firmas desde la fila real para no borrar la firma del contratista
+    # cuando leer_contrato_publico vino por RPC (sin firmas).
+    try:
+        fila_db = _fila_historial_por_id(contract_id) or {}
+        firmas_db = _json_campo(fila_db.get("firmas"), {}) or {}
+        if isinstance(firmas_db, dict) and firmas_db:
+            mezcladas_prev = dict(firmas_db)
+            mezcladas_prev.update({k: v for k, v in firmas_prev.items() if v not in (None, "")})
+            firmas_prev = mezcladas_prev
+            if not actual.get("snapshot") and isinstance(fila_db.get("snapshot"), dict):
+                actual["snapshot"] = fila_db.get("snapshot")
+    except Exception as err:
+        print(f"--> marcar_contrato_firmado reload firmas: {err}")
     prev_img = str(firmas_prev.get("cliente") or firmas_prev.get("client_signature") or "")
     prev_nom = str(firmas_prev.get("clienteNombre") or firmas_prev.get("client_name") or "").strip()
     already = _contrato_esta_firmado(actual.get("estado")) and (
@@ -6797,6 +6853,7 @@ def marcar_contrato_firmado(token_aceptacion, firma_b64, ip="", metodo="remoto",
         actual["already"] = True
         actual["estado"] = "Signed"
         actual["status"] = "Signed"
+        actual["firmas"] = firmas_prev
         print(f"--> marcar_contrato_firmado already signed id={contract_id}")
         return actual
 
@@ -13893,9 +13950,104 @@ def enviar_correo_pdf(*args, **kwargs):
     return _enviar_correo_pdf(*args, **kwargs)
 
 
+def _fusionar_firmas_para_pdf(fila, datos_vivos=None):
+    """Asegura que el PDF use firmas frescas (imagen + nombre) del POST/UPDATE."""
+    merged = dict(fila or {}) if isinstance(fila, dict) else {}
+    vivos = datos_vivos if isinstance(datos_vivos, dict) else {}
+    firmas_fila = _json_campo(merged.get("firmas"), {}) or {}
+    if not isinstance(firmas_fila, dict):
+        firmas_fila = {}
+    firmas_vivas = vivos.get("firmas") if isinstance(vivos.get("firmas"), dict) else {}
+    if firmas_vivas:
+        firmas_fila = dict(firmas_fila)
+        firmas_fila.update({k: v for k, v in firmas_vivas.items() if v not in (None, "")})
+    # Top-level aliases from the accept POST / marcar_contrato_firmado response.
+    cli_img = _img_firma(
+        vivos.get("client_signature")
+        or vivos.get("client_signature_image")
+        or vivos.get("firma")
+        or firmas_fila.get("cliente")
+        or firmas_fila.get("client_signature")
+    )
+    ctr_img = _img_firma(
+        vivos.get("contractor_signature")
+        or vivos.get("contractor_signature_image")
+        or firmas_fila.get("contratista")
+        or firmas_fila.get("contractor_signature")
+    )
+    cli_nom = re.sub(
+        r"\s+",
+        " ",
+        str(
+            vivos.get("clienteNombre")
+            or vivos.get("client_name")
+            or vivos.get("client_signature_name")
+            or vivos.get("nombre")
+            or firmas_fila.get("clienteNombre")
+            or firmas_fila.get("client_name")
+            or ""
+        ),
+    ).strip()[:80]
+    ctr_nom = re.sub(
+        r"\s+",
+        " ",
+        str(
+            vivos.get("contratistaNombre")
+            or vivos.get("contractor_name")
+            or vivos.get("contractor_signature_name")
+            or firmas_fila.get("contratistaNombre")
+            or firmas_fila.get("contractor_name")
+            or ""
+        ),
+    ).strip()[:80]
+    if cli_img:
+        firmas_fila["cliente"] = cli_img
+        firmas_fila["client_signature"] = cli_img
+    if ctr_img:
+        firmas_fila["contratista"] = ctr_img
+        firmas_fila["contractor_signature"] = ctr_img
+    if cli_nom:
+        firmas_fila["clienteNombre"] = cli_nom
+        firmas_fila["client_name"] = cli_nom
+    if ctr_nom:
+        firmas_fila["contratistaNombre"] = ctr_nom
+        firmas_fila["contractor_name"] = ctr_nom
+    merged["firmas"] = firmas_fila
+    if vivos.get("estado"):
+        merged["estado"] = vivos.get("estado")
+    if vivos.get("snapshot") and isinstance(vivos.get("snapshot"), dict):
+        merged["snapshot"] = vivos.get("snapshot")
+    if not merged.get("id") and vivos.get("id"):
+        merged["id"] = vivos.get("id")
+    return merged
+
+
 def _html_documento_pdf(datos, contratista=None):
-    publico = _publico_desde_historial(datos or {}, contratista)
+    fila = _fusionar_firmas_para_pdf(datos or {}, datos or {})
+    publico = _publico_desde_historial(fila, contratista)
+    # Re-inject extracted signatures onto the public view (PDF template source of truth).
+    firmas = _extraer_firmas_documento(fila)
+    publico["firmas"] = dict(publico.get("firmas") or {})
+    publico["firmas"].update({
+        "cliente": firmas.get("cliente") or "",
+        "client_signature": firmas.get("cliente") or "",
+        "contratista": firmas.get("contratista") or "",
+        "contractor_signature": firmas.get("contratista") or "",
+        "clienteNombre": firmas.get("clienteNombre") or "",
+        "client_name": firmas.get("client_name") or "",
+        "contratistaNombre": firmas.get("contratistaNombre") or "",
+        "contractor_name": firmas.get("contractor_name") or "",
+        "clienteFecha": firmas.get("clienteFecha") or "",
+        "contratistaFecha": firmas.get("contratistaFecha") or "",
+    })
     documento = _vista_contrato_publico(publico)
+    print(
+        "--> pdf firmas "
+        f"client_img={bool(documento.get('client_signature'))} "
+        f"client_name={bool(documento.get('firma_cliente_nombre'))} "
+        f"contractor_img={bool(documento.get('contractor_signature'))} "
+        f"contractor_name={bool(documento.get('firma_contratista_nombre'))}"
+    )
     return render_template("documento_pdf.html", documento=documento)
 
 
@@ -14173,8 +14325,10 @@ def _fila_historial_por_id(doc_id):
 
 
 def _pdf_contrato_firmado(datos):
-    fila = _fila_historial_por_id((datos or {}).get("id"))
-    if not fila:
+    """PDF del contrato firmado: prioriza firmas del UPDATE en memoria + fila DB."""
+    fila_db = _fila_historial_por_id((datos or {}).get("id"))
+    fila = _fusionar_firmas_para_pdf(fila_db or {}, datos or {})
+    if not fila.get("id") and not (fila.get("firmas") or {}).get("cliente") and not (fila.get("firmas") or {}).get("clienteNombre"):
         return None
     html = _html_documento_pdf(fila)
     return _html_a_pdf(html)
@@ -14542,7 +14696,8 @@ def aceptar_contrato_publico(token_aceptacion):
     )
     print(
         f"--> aceptar POST token={token} contractId={previo.get('id')} "
-        f"firma_len={len(str(firma_payload or ''))} nombre={str(nombre_payload)[:40]!r} "
+        f"client_signature_image_len={len(str(firma_payload or ''))} "
+        f"client_signature_name={str(nombre_payload)[:40]!r} "
         f"rol_supabase={_SB_ROL}"
     )
     try:
