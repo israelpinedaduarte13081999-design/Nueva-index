@@ -6725,8 +6725,9 @@ def marcar_contrato_firmado(token_aceptacion, firma_b64, ip="", metodo="remoto")
     if firmas.get("contratista") and firmas.get("cliente") == firmas.get("contratista"):
         # Mantener la firma remota del cliente; el contratista ya estaba guardado.
         pass
+    # Canonical status for UI badge: Signed (also accepted as firmado/signed/accepted).
     payload = {
-        "estado": "Firmado",
+        "estado": "Signed",
         "firmas": firmas,
         "updated_at": ahora_txt,
     }
@@ -6745,7 +6746,8 @@ def marcar_contrato_firmado(token_aceptacion, firma_b64, ip="", metodo="remoto")
     actual["firma_ip"] = extra["firma_ip"]
     actual["firma_fecha"] = ahora_txt
     actual["already"] = False
-    actual["estado"] = "Firmado"
+    actual["estado"] = "Signed"
+    actual["status"] = "Signed"
     return actual
 
 
@@ -13846,7 +13848,7 @@ def _firmar_contrato_guardado(row, firma_b64, ip="", metodo="en_persona"):
         "clienteMetodo": str(metodo or "en_persona")[:32],
     })
     firmas.pop("client", None)
-    payload = {"estado": "Firmado", "firmas": firmas, "updated_at": ahora}
+    payload = {"estado": "Signed", "firmas": firmas, "updated_at": ahora}
     extra = dict(payload)
     extra["firma_ip"] = str(ip or "")[:64]
     extra["firma_fecha"] = ahora
@@ -13859,6 +13861,7 @@ def _firmar_contrato_guardado(row, firma_b64, ip="", metodo="en_persona"):
             raise
     row = dict(row)
     row.update(payload)
+    row["status"] = "Signed"
     row["already"] = False
     return row
 
@@ -14013,33 +14016,83 @@ def _pdf_contrato_firmado(datos):
     return _html_a_pdf(html)
 
 
+def _email_contratista_desde_datos(datos):
+    destino = str((datos or {}).get("contratista_email") or "").strip().lower()
+    if _correo_valido(destino):
+        return destino
+    cid = str((datos or {}).get("contratista_id") or "").strip()
+    if not cid:
+        return ""
+    sb = _supabase_client()
+    if sb is None:
+        return ""
+    try:
+        cres = (
+            sb.table(TABLA_CONTRATISTAS)
+            .select("email")
+            .eq("id", cid)
+            .limit(1)
+            .execute()
+        )
+        row = (list(cres.data or []) or [None])[0] or {}
+        return str(row.get("email") or "").strip().lower()
+    except Exception as err:
+        print(f"--> email contratista lookup: {err}")
+        return ""
+
+
 def _notificar_aceptacion_contratista(datos, pdf_bytes=None):
-    destino = str((datos or {}).get("contratista_email") or "").strip()
+    destino = _email_contratista_desde_datos(datos)
     if not _correo_valido(destino):
         raise RuntimeError("The contractor does not have a valid email in the database.")
     import html as html_lib
     empresa = _sanear_nombre_remitente((datos or {}).get("nombre_empresa")) or "Contratista"
-    cliente = str((datos or {}).get("cliente_nombre") or "tu cliente").strip() or "tu cliente"
-    folio = str((datos or {}).get("folio") or "").strip() or "sin folio"
+    cliente = str((datos or {}).get("cliente_nombre") or (datos or {}).get("client") or "your client").strip() or "your client"
+    folio = str((datos or {}).get("folio") or "").strip() or str((datos or {}).get("id") or "document")[:8]
+    doc_id = str((datos or {}).get("id") or "").strip()
+    ref = folio or doc_id or "document"
     empresa_html = html_lib.escape(empresa)
     cliente_html = html_lib.escape(cliente)
     folio_html = html_lib.escape(folio)
-    asunto = _sanear_asunto(f"Contrato aceptado — {empresa}")
+    asunto = _sanear_asunto(f"Nuevo Contrato Firmado - {ref}")
+    base = (os.getenv("APP_BASE_URL") or "").strip().rstrip("/")
+    token = str((datos or {}).get("token_aceptacion") or "").strip()
+    enlace_pdf = f"{base}/aceptar/{token}/pdf" if base and token else ""
+    enlace_html = ""
+    if enlace_pdf:
+        url_esc = html_lib.escape(enlace_pdf, quote=True)
+        enlace_html = (
+            "<p style=\"margin:18px 0;\">"
+            f"<a href=\"{url_esc}\" style=\"display:inline-block;background:#0d47a1;color:#ffffff;"
+            "text-decoration:none;padding:12px 22px;border-radius:6px;font-weight:700;\">"
+            "Download signed PDF</a></p>"
+        )
     texto = (
-        f"Hola,\n\n{cliente} aceptó el contrato {folio} de {empresa}.\n\n"
-        "Puedes ver el estado actualizado en tu historial.\n"
+        f"Hola,\n\n{cliente} firmó el contrato {folio}.\n\n"
+        "El PDF firmado va adjunto (si el envío lo permite). "
+        "También puedes abrirlo desde tu historial en QuantixBuilds.\n"
     )
+    if enlace_pdf:
+        texto += f"\nPDF: {enlace_pdf}\n"
     html_body = (
         "<html><body style=\"margin:0;padding:24px;background:#ffffff;font-family:Arial,Helvetica,sans-serif;"
         "color:#1e293b;font-size:15px;line-height:1.6;\">"
         "<p style=\"margin:0 0 14px;\">Hola,</p>"
-        f"<p style=\"margin:0 0 14px;\"><strong>{cliente_html}</strong> aceptó el contrato "
+        f"<p style=\"margin:0 0 14px;\"><strong>{cliente_html}</strong> firmó el contrato "
         f"<strong>{folio_html}</strong> de <strong>{empresa_html}</strong>.</p>"
-        "<p style=\"margin:0;\">Puedes ver el estado actualizado en tu historial.</p>"
+        "<p style=\"margin:0 0 14px;\">Status actualizado: <strong>Signed</strong>.</p>"
+        f"{enlace_html}"
+        "<p style=\"margin:0;\">Revisa el documento en tu historial de QuantixBuilds.</p>"
         "</body></html>"
     )
     reply_cliente = (datos or {}).get("cliente_email")
-    filename = _nombre_pdf_adjunto("contract", (datos or {}).get("folio"))
+    filename = _nombre_pdf_adjunto("contract", folio)
+    if not pdf_bytes:
+        try:
+            pdf_bytes = _pdf_contrato_firmado(datos)
+        except Exception as err:
+            print(f"--> notificar firma pdf regen: {type(err).__name__}")
+            pdf_bytes = None
     if pdf_bytes:
         _enviar_correo_pdf(
             destino,
@@ -14310,6 +14363,7 @@ def aceptar_contrato_publico(token_aceptacion):
         return _respuesta_pagina_firma(previo, "Could not save the signature", "Try again in a few minutes.", boton=True, status=503, as_json=quiere_json, token=token)
     if not datos:
         return _respuesta_pagina_firma(None, "Contract not found", "This link does not match a pending contract.", status=404, as_json=quiere_json, token=token)
+    notificado = False
     if not datos.get("already"):
         pdf_bytes = None
         try:
@@ -14318,14 +14372,32 @@ def aceptar_contrato_publico(token_aceptacion):
             print(f"--> pdf firma remoto: {type(err).__name__}")
         try:
             _notificar_aceptacion_contratista(datos, pdf_bytes=pdf_bytes)
+            notificado = True
         except Exception as err:
             print(f"--> notificar firma: {err}")
+            notificado = False
+    mensaje_ok = (
+        "Thank you. The contractor has been notified by email."
+        if notificado or datos.get("already")
+        else "Thank you. Your signature was saved. The contractor will see it in their dashboard."
+    )
+    if quiere_json:
+        return jsonify({
+            "ok": True,
+            "estado": "Signed",
+            "status": "Signed",
+            "id": (datos or {}).get("id"),
+            "folio": (datos or {}).get("folio"),
+            "already": bool((datos or {}).get("already")),
+            "notified": notificado or bool((datos or {}).get("already")),
+            "pdf_url": f"/aceptar/{token}/pdf" if token else "",
+        })
     return _respuesta_pagina_firma(
         datos,
         "Contract signed",
-        "Thank you. The contractor has been notified.",
+        mensaje_ok,
         boton=False,
-        as_json=quiere_json,
+        as_json=False,
         token=token,
     )
 

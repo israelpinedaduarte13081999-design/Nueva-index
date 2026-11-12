@@ -456,8 +456,15 @@
     .draft-dialog p { margin:0 0 16px; color:var(--muted); line-height:1.45; }
     .draft-dialog-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
     .draft-toast { position:fixed; bottom:22px; right:22px; z-index:40; background:#19385f; color:#fff; padding:10px 14px; border-radius:6px; font-size:13px; font-weight:700; box-shadow:0 8px 20px rgba(25,56,95,.28); }
-    .save-toast { position:fixed; top:18px; right:18px; z-index:80; background:#15803d; color:#fff; padding:12px 18px; border-radius:8px; font-size:14px; font-weight:700; box-shadow:0 8px 22px rgba(21,128,61,.28); }
+    .save-toast { position:fixed; top:18px; right:18px; z-index:80; background:#15803d; color:#fff; padding:12px 18px; border-radius:8px; font-size:14px; font-weight:700; box-shadow:0 8px 22px rgba(21,128,61,.28); max-width:min(92vw,360px); }
     .save-toast.is-error { background:#b91c1c; box-shadow:0 8px 22px rgba(185,28,28,.28); }
+    .save-toast.is-info { background:#0d47a1; box-shadow:0 8px 22px rgba(13,71,161,.28); }
+    .save-toast .toast-row { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+    .save-toast .toast-msg { flex:1 1 auto; line-height:1.35; }
+    .save-toast .toast-action {
+      flex:0 0 auto; border:1px solid rgba(255,255,255,.55); background:rgba(255,255,255,.14);
+      color:#fff; border-radius:6px; padding:6px 10px; font-weight:700; font-size:12px; cursor:pointer;
+    }
     .document.export-clean { background:#fff!important; box-shadow:none!important; }
     .document.export-clean .area-actions,
     .document.export-clean .add-row,
@@ -2058,7 +2065,7 @@
       </div>
     </div>
     <div class="draft-toast no-print" id="draftToast" hidden>Draft saved</div>
-    <div class="save-toast no-print" id="saveToast" hidden>Saved successfully</div>
+    <div class="save-toast no-print" id="saveToast" hidden role="status" aria-live="polite">Saved successfully</div>
     <section class="document" aria-label="Work estimate">
       <header class="brand">
         <h2 id="companyBanner" data-brand-name data-company-banner>{{ nombre_empresa_visible }}</h2>
@@ -7150,14 +7157,39 @@
       const profit=gc?subtotalTotal*(typeof MARGEN_PROFIT==='number'?MARGEN_PROFIT:.10):0;
       return subtotalTotal+ajusteCargoMinimoProyecto(subtotalTotal)+taxTotal+overhead+profit;
     }
-    function mostrarToastGuardado(texto,tipo){
+    function mostrarToastGuardado(texto,tipo,opts){
       const toast=document.getElementById('saveToast');
       if(!toast)return;
-      toast.textContent=texto||'Saved successfully';
+      const opciones=opts&&typeof opts==='object'?opts:{};
       toast.classList.toggle('is-error',tipo==='error');
+      toast.classList.toggle('is-info',tipo==='info');
+      toast.innerHTML='';
+      const row=document.createElement('div');
+      row.className='toast-row';
+      const msg=document.createElement('span');
+      msg.className='toast-msg';
+      msg.textContent=texto||'Saved successfully';
+      row.appendChild(msg);
+      if(opciones.actionLabel&&typeof opciones.onAction==='function'){
+        const btn=document.createElement('button');
+        btn.type='button';
+        btn.className='toast-action';
+        btn.textContent=opciones.actionLabel;
+        btn.addEventListener('click',function(ev){
+          ev.preventDefault();
+          try{ opciones.onAction(); }catch(err){ console.error(err); }
+        });
+        row.appendChild(btn);
+      }
+      toast.appendChild(row);
       toast.hidden=false;
       clearTimeout(mostrarToastGuardado._t);
-      mostrarToastGuardado._t=setTimeout(()=>{ toast.hidden=true; toast.classList.remove('is-error'); },3000);
+      const ms=opciones.duration||(opciones.actionLabel?8000:3000);
+      mostrarToastGuardado._t=setTimeout(()=>{
+        toast.hidden=true;
+        toast.classList.remove('is-error','is-info');
+        toast.textContent='Saved successfully';
+      }, ms);
     }
     function leerHistorialLocal(clave){
       try{
@@ -7589,6 +7621,7 @@
           const json=await res.json();
           const items=Array.isArray(json)?json:(json.items||json.documents||[]);
           historialRemotoCache=Array.isArray(items)?items:[];
+          if(typeof revisarContratosFirmadosRemotos==='function') revisarContratosFirmadosRemotos(historialRemotoCache);
         }
       }catch(_){
       }finally{
@@ -7598,6 +7631,154 @@
       pintarTablaHistorial();
     }
     renderHistorial._seq=0;
+
+    // Contractor notifications: contract signed (Realtime + polling fallback).
+    const firmadosVistosKey='qb_contratos_firmados_vistos';
+    function leerFirmadosVistos(){
+      try{
+        const raw=JSON.parse(localStorage.getItem(firmadosVistosKey)||'[]');
+        return new Set(Array.isArray(raw)?raw.map(String):[]);
+      }catch(_){ return new Set(); }
+    }
+    function guardarFirmadosVistos(setIds){
+      try{ localStorage.setItem(firmadosVistosKey, JSON.stringify([...setIds].slice(-200))); }catch(_){}
+    }
+    function contratoEstaFirmadoUI(item){
+      if(!item) return false;
+      const st=String(item.status||item.estado||'').toLowerCase();
+      if(st==='signed'||st==='firmado'||st==='accepted') return true;
+      const firmas=item.firmas&&typeof item.firmas==='object'?item.firmas:{};
+      const cli=String(firmas.cliente||firmas.client_signature||firmas.client||'').trim();
+      return cli.startsWith('data:image/');
+    }
+    function etiquetaContratoFirmado(item){
+      const folio=String(item.folio||item.number||'').trim();
+      const cliente=String((item.cliente&&item.cliente.name)||item.clienteNombre||item.client||'').trim();
+      if(folio&&cliente) return folio+' · '+cliente;
+      return folio||cliente||String(item.id||'contract').slice(0,8);
+    }
+    async function abrirPdfContratoFirmado(id){
+      const ident=String(id||'').trim();
+      if(!ident) return;
+      try{
+        const res=await fetch('/api/download_pdf/'+encodeURIComponent(ident),{
+          method:'GET',
+          headers:headersContratista({Accept:'application/pdf'}),
+          credentials:'same-origin'
+        });
+        if(!res.ok) throw new Error('Could not open the signed PDF.');
+        const blob=await res.blob();
+        const url=URL.createObjectURL(blob);
+        window.open(url,'_blank','noopener');
+        setTimeout(()=>URL.revokeObjectURL(url), 60000);
+      }catch(err){
+        mostrarToastGuardado(err.message||'Could not open the signed PDF.','error');
+      }
+    }
+    function notificarContratoFirmadoUI(item){
+      if(!item||!item.id) return;
+      const label=etiquetaContratoFirmado(item);
+      mostrarToastGuardado(
+        'Contract '+label+' accepted and signed!',
+        'info',
+        {
+          duration:10000,
+          actionLabel:'Open PDF',
+          onAction:function(){ abrirPdfContratoFirmado(item.id); }
+        }
+      );
+      if(typeof renderHistorial==='function') renderHistorial();
+      try{
+        if('Notification' in window && Notification.permission==='granted'){
+          new Notification('Contract signed', { body:'Contract '+label+' was accepted and signed.' });
+        }
+      }catch(_){}
+    }
+    let firmadosVistos=leerFirmadosVistos();
+    let firmadosSeedHecho=false;
+    function revisarContratosFirmadosRemotos(items){
+      const lista=Array.isArray(items)?items:[];
+      if(!firmadosSeedHecho){
+        lista.forEach(it=>{
+          if(contratoEstaFirmadoUI(it)&&it.id) firmadosVistos.add(String(it.id));
+        });
+        guardarFirmadosVistos(firmadosVistos);
+        firmadosSeedHecho=true;
+        return;
+      }
+      lista.forEach(it=>{
+        if(!it||!it.id) return;
+        const id=String(it.id);
+        if(!contratoEstaFirmadoUI(it)) return;
+        if(firmadosVistos.has(id)) return;
+        firmadosVistos.add(id);
+        guardarFirmadosVistos(firmadosVistos);
+        notificarContratoFirmadoUI(it);
+      });
+    }
+    let canalFirmasRealtime=null;
+    let pollFirmasTimer=null;
+    async function iniciarMonitorContratosFirmados(){
+      if(pollFirmasTimer) return;
+      pollFirmasTimer=setInterval(function(){
+        if(!leerTokenContratistaLocal()) return;
+        if(document.hidden) return;
+        if(typeof renderHistorial==='function') renderHistorial();
+      }, 12000);
+      try{
+        if('Notification' in window && Notification.permission==='default'){
+          Notification.requestPermission().catch(function(){});
+        }
+      }catch(_){}
+      try{
+        const cid=localStorage.getItem(contratistaIdKey)||sessionStorage.getItem(contratistaIdKey)||'';
+        if(!cid||typeof clienteAuthSupabase!=='function') return;
+        const cliente=await clienteAuthSupabase();
+        if(!cliente||!cliente.channel) return;
+        if(canalFirmasRealtime){
+          try{ await cliente.removeChannel(canalFirmasRealtime); }catch(_){}
+          canalFirmasRealtime=null;
+        }
+        canalFirmasRealtime=cliente
+          .channel('historial-firmas-'+cid)
+          .on('postgres_changes', {
+            event:'UPDATE',
+            schema:'public',
+            table:'historial_estimados',
+            filter:'contratista_id=eq.'+cid
+          }, function(payload){
+            const row=payload&&payload.new?payload.new:null;
+            if(!row) return;
+            const st=String(row.estado||row.status||'').toLowerCase();
+            const firmas=row.firmas&&typeof row.firmas==='object'?row.firmas:{};
+            const cli=String(firmas.cliente||firmas.client_signature||'').trim();
+            const firmado=st==='signed'||st==='firmado'||st==='accepted'||cli.startsWith('data:image/');
+            if(!firmado) return;
+            const id=String(row.id||'');
+            if(!id||firmadosVistos.has(id)) return;
+            firmadosVistos.add(id);
+            guardarFirmadosVistos(firmadosVistos);
+            notificarContratoFirmadoUI({
+              id:row.id,
+              folio:row.folio,
+              clienteNombre:row.cliente_nombre,
+              cliente:row.cliente,
+              estado:row.estado||'Signed',
+              firmas:firmas
+            });
+          })
+          .subscribe(function(status){
+            if(status==='SUBSCRIBED') console.log('--> realtime contratos firmados activo');
+          });
+      }catch(err){
+        console.warn('Realtime firmas no disponible; usando polling.', err);
+      }
+    }
+    document.addEventListener('visibilitychange', function(){
+      if(!document.hidden && typeof renderHistorial==='function' && leerTokenContratistaLocal()){
+        renderHistorial();
+      }
+    });
     let sesionActual=null;
     let planOnboardingElegido='';
     let sesionLista=false;
@@ -10634,6 +10815,7 @@
       sesionActual=json&&json.id?json:null;
       sesionLista=true;
       aplicarBloqueoPrueba();
+      if(sesionActual&&sesionActual.id&&typeof iniciarMonitorContratosFirmados==='function') iniciarMonitorContratosFirmados();
       if(sesionActual && typeof aplicarRutaInicial==='function') aplicarRutaInicial();
     }
     function marcarEstadoAuth(id, mensaje, error){
@@ -11134,6 +11316,7 @@
       syncCompanyName();
       const mail=document.getElementById('loginEmail');
       if(mail&&sesionActual&&sesionActual.email&&!mail.value) mail.value=sesionActual.email;
+      if(sesionActual&&sesionActual.id) iniciarMonitorContratosFirmados();
       aplicarRutaInicial();
     }).catch(()=>{
       sesionActual=null;
