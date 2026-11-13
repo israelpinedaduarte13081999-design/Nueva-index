@@ -1288,7 +1288,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
-<body class="{{ 'auth-solo' if vista == 'login' else ('pagando' if vista == 'pago' else ('paywall' if vista == 'paywall' else ('eligiendo-plan' if vista == 'planes' else 'con-sesion'))) }}" data-nombre-empresa="{{ nombre_empresa }}">
+<body class="{{ 'auth-solo' if vista == 'login' else ('pagando' if vista == 'pago' else ('paywall' if vista == 'paywall' else ('eligiendo-plan' if vista == 'planes' else 'con-sesion'))) }}" data-nombre-empresa="{{ nombre_empresa }}" data-square-link-basico="{{ square_links.basico if square_links is defined else '' }}" data-square-link-profesional="{{ square_links.profesional if square_links is defined else '' }}" data-square-link-premium="{{ square_links.premium if square_links is defined else '' }}">
   <nav class="app-navbar no-print" aria-label="Main navigation">
     <div class="brand-title" data-brand-name>{{ nombre_empresa_visible }}</div>
     <div class="nav-links">
@@ -1570,12 +1570,12 @@
   </section>
   <section id="view-paywall" class="view-section{{ ' active' if vista == 'paywall' else '' }} no-print">
     <div class="pago-card">
-      <p class="pago-kicker">Subscription expired</p>
+      <p class="pago-kicker">SUBSCRIPTION EXPIRED</p>
       <h2>Activate your account</h2>
-      <p class="pago-aviso pago-aviso-alerta" id="paywallMensaje">Your 14-day trial has ended. To keep using QuantixBuilds and retain access to your estimates, pay your monthly subscription securely with Square.</p>
-      <p class="pago-hint">Square opens a hosted checkout page. Your email is sent as the payment reference so we can activate Premium automatically.</p>
+      <p class="pago-aviso pago-aviso-alerta" id="paywallMensaje">Your 14-day trial has ended. Choose Basic, Professional, or Premium, then pay securely with Square to keep using QuantixBuilds.</p>
+      <p class="pago-hint">Next you will pick a plan. Checkout opens on Square only after you select one.</p>
       <form class="pago-form" id="paywallTarjetaForm" autocomplete="off">
-        <button class="btn btn-primary pago-submit" type="submit" id="paywallSubmit">Pay with Square</button>
+        <button class="btn btn-primary pago-submit" type="submit" id="paywallSubmit">Activate my account</button>
       </form>
       <p class="auth-status" id="paywallStatus" hidden></p>
     </div>
@@ -8381,7 +8381,7 @@
     }
     function exigirCuotaIaPdf(){
       if(typeof pruebaExpirada==='function'&&pruebaExpirada()){
-        if(typeof mostrarVistaPaywall==='function') mostrarVistaPaywall();
+        if(typeof mostrarVistaPlanes==='function') mostrarVistaPlanes({forzarPago:true});
         return false;
       }
       if(typeof puedeIaPdf==='function'&&puedeIaPdf()) return true;
@@ -8428,9 +8428,14 @@
       return String(plan||'').toLowerCase()==='premium'?'Start Trial & Enable AI':'Start 14-Day Free Trial';
     }
     function textoCtaPlanes(plan){
-      if(!esUpgradePlan()) return textoCtaOnboarding(plan);
       const actual=planSeleccionadoDe();
       const clave=String(plan||actual||'').toLowerCase();
+      if(debePagarAntesDeEntrar()){
+        const nombre=(PLANES_PAGO[clave]&&PLANES_PAGO[clave].nombre)||'selected plan';
+        if(clave&&actual&&clave===actual) return 'Keep '+nombre;
+        return 'Pay for '+(PLANES_PAGO[clave]&&PLANES_PAGO[clave].nombre||'this plan');
+      }
+      if(!esUpgradePlan()) return textoCtaOnboarding(plan);
       if(clave&&actual&&clave===actual) return 'Keep '+(PLANES_PAGO[clave]&&PLANES_PAGO[clave].nombre||'current plan');
       return 'Change Plan / Upgrade';
     }
@@ -8439,14 +8444,20 @@
       if(cta) cta.textContent=textoCtaPlanes(plan);
     }
     function sincronizarCopyPlanes(){
-      const upgrade=esUpgradePlan();
+      const pagar=debePagarAntesDeEntrar();
+      const upgrade=esUpgradePlan()||pagar;
       const stepper=document.getElementById('planesStepper');
       const welcome=document.getElementById('planesWelcome');
       const kicker=document.getElementById('planesKicker');
       const heading=document.getElementById('pricing-heading');
       const lead=document.getElementById('planesLead');
       if(stepper) stepper.hidden=upgrade;
-      if(upgrade){
+      if(pagar){
+        if(welcome) welcome.textContent='Your free trial has ended. Pick a plan to continue.';
+        if(kicker) kicker.textContent='Subscription required';
+        if(heading) heading.textContent='Change Plan / Upgrade';
+        if(lead) lead.textContent='Select Basic ($29), Professional ($49), or Premium ($99). You will be taken to Square to pay before reopening the dashboard.';
+      }else if(upgrade){
         if(welcome) welcome.textContent='Manage your QuantixBuilds subscription.';
         if(kicker) kicker.textContent='Upgrade';
         if(heading) heading.textContent='Change Plan / Upgrade';
@@ -8467,7 +8478,7 @@
       el.innerHTML="You're starting with <strong>"+info.nombre+'</strong> · $'+info.precio+'/mo after the trial.';
     }
     function mostrarVistaPago(){
-      if(necesitaPaywall()){ mostrarVistaPaywall(); return; }
+      if(necesitaPaywall()){ mostrarVistaPlanes({forzarPago:true}); return; }
       document.body.classList.add('pagando');
       document.body.classList.remove('auth-solo','con-sesion','eligiendo-plan','paywall');
       aplicarViewportApp(true);
@@ -8524,13 +8535,13 @@
         if(submit){ submit.disabled=false; submit.textContent=textoCtaOnboarding(planSeleccionadoDe()); }
       }
     }
-    function mostrarVistaPlanes(){
+    function mostrarVistaPlanes(opts){
       if(!sesionActual){ mostrarVistaLogin(); return; }
-      if(necesitaPaywall()){ mostrarVistaPaywall(); return; }
-      const upgrade=esUpgradePlan();
+      const forzarPago=!!(opts&&opts.forzarPago)||debePagarAntesDeEntrar();
+      const upgrade=esUpgradePlan()||forzarPago;
       document.body.classList.add('eligiendo-plan');
-      document.body.classList.remove('auth-solo','pagando','paywall');
-      document.body.classList.toggle('con-sesion', upgrade);
+      document.body.classList.remove('auth-solo','pagando','paywall','prueba-expirada');
+      document.body.classList.toggle('con-sesion', upgrade&&!forzarPago);
       aplicarViewportApp(false);
       mostrarBotonesSesion(true);
       document.querySelectorAll('.view-section').forEach(section=>section.classList.toggle('active',section.id==='view-planes'));
@@ -8540,7 +8551,7 @@
       const path=(location.pathname||'').replace(/\/+$/,'')||'/';
       if(path!=='/planes'){
         try{
-          if(upgrade) history.pushState({view:'planes'},'', '/planes');
+          if(upgrade||forzarPago) history.pushState({view:'planes'},'', '/planes');
           else history.replaceState({view:'planes'},'', '/planes');
         }catch(_){}
       }
@@ -8549,7 +8560,21 @@
       sincronizarCopyPlanes();
     }
     function mensajePaywall(sesion){
-      return 'Your 14-day trial has ended. To keep using QuantixBuilds and retain access to your estimates, enter your card to activate your '+nombrePlanDe(sesion)+'.';
+      return 'Your 14-day trial has ended. Choose a plan (Basic, Professional, or Premium) and pay with Square to keep using QuantixBuilds.';
+    }
+    function squareLinkPlan(plan){
+      const clave=String(plan||'').trim().toLowerCase();
+      const mapa={
+        basico:document.body?.getAttribute('data-square-link-basico')||'',
+        profesional:document.body?.getAttribute('data-square-link-profesional')||'',
+        premium:document.body?.getAttribute('data-square-link-premium')||''
+      };
+      const directo=(mapa[clave]||'').trim();
+      if(directo) return directo;
+      return '/checkout?plan='+encodeURIComponent(clave||'premium');
+    }
+    function debePagarAntesDeEntrar(){
+      return !!necesitaPaywall();
     }
     function mostrarVistaPaywall(){
       document.body.classList.add('paywall');
@@ -8573,11 +8598,11 @@
         mostrarVistaLogin();
         return;
       }
-      location.assign('/checkout');
+      mostrarVistaPlanes({forzarPago:true});
     }
     function aplicarBloqueoPrueba(){
       if(necesitaPaywall()){
-        mostrarVistaPaywall();
+        mostrarVistaPlanes({forzarPago:true});
         return true;
       }
       document.body.classList.remove('prueba-expirada');
@@ -8594,8 +8619,16 @@
         mostrarVistaLogin();
         return;
       }
-      if(view==='paywall'||(view!=='login'&&necesitaPaywall())){
+      if(view==='paywall'){
         mostrarVistaPaywall();
+        return;
+      }
+      if(necesitaPaywall()){
+        if(view==='planes'){
+          mostrarVistaPlanes({forzarPago:true});
+          return;
+        }
+        mostrarVistaPlanes({forzarPago:true});
         return;
       }
       if(view==='planes'||(view!=='login'&&view!=='pago'&&necesitaElegirPlan())){
@@ -8603,10 +8636,6 @@
         return;
       }
       if(view==='pago'||necesitaMetodoPago()){
-        if(necesitaPaywall()){
-          mostrarVistaPaywall();
-          return;
-        }
         view='home';
       }
       const saliendoDelGenerador=view!=='quote' && document.getElementById('view-quote')?.classList.contains('active');
@@ -8639,7 +8668,7 @@
     }
     function crearDocumento(tipo){
       if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
-      if(necesitaPaywall()){ mostrarVistaPaywall(); return; }
+      if(necesitaPaywall()){ mostrarVistaPlanes({forzarPago:true}); return; }
       if(necesitaElegirPlan()){ mostrarVistaPlanes(); return; }
       if(necesitaMetodoPago()){ mostrarVistaPago(); return; }
       const t=String(tipo||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -8653,7 +8682,7 @@
     function cambiarVista(vista){
       const view={inicio:'home',home:'home',cotizador:'quote',quote:'quote',historial:'history',history:'history'}[String(vista||'').toLowerCase()]||'home';
       if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
-      if(necesitaPaywall()){ mostrarVistaPaywall(); return; }
+      if(necesitaPaywall()){ mostrarVistaPlanes({forzarPago:true}); return; }
       if(necesitaElegirPlan()){ mostrarVistaPlanes(); return; }
       if(necesitaMetodoPago()){ mostrarVistaPago(); return; }
       showAppView(view);
@@ -8698,21 +8727,19 @@
         }
         return;
       }
-      if(necesitaPaywall()||path==='/suscripcion'||path==='/activar'){
-        if(necesitaPaywall()){
+      if(necesitaPaywall()){
+        if(path==='/suscripcion'||path==='/activar'){
           mostrarVistaPaywall();
           return;
         }
+        mostrarVistaPlanes({forzarPago:true});
+        return;
       }
       if(path==='/planes'||necesitaElegirPlan()){
         mostrarVistaPlanes();
         return;
       }
       if(path==='/pago'||path==='/pago/exito'){
-        if(necesitaPaywall()){
-          mostrarVistaPaywall();
-          return;
-        }
         try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
         showAppView('home');
         return;
@@ -10825,7 +10852,7 @@
     document.querySelectorAll('.nav-btn').forEach(el=>el.addEventListener('click',()=>{
       if(!el.dataset.view) return;
       if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
-      if(necesitaPaywall()){ mostrarVistaPaywall(); return; }
+      if(necesitaPaywall()){ mostrarVistaPlanes({forzarPago:true}); return; }
       if(necesitaElegirPlan()){ mostrarVistaPlanes(); return; }
       if(necesitaMetodoPago()){ mostrarVistaPago(); return; }
       const view=el.dataset.view;
@@ -10835,7 +10862,7 @@
     }));
     document.getElementById('cambiarPlanNav')?.addEventListener('click',()=>{
       if(!sesionActual){ mostrarVistaLogin(); return; }
-      if(necesitaPaywall()){ mostrarVistaPaywall(); return; }
+      if(necesitaPaywall()){ mostrarVistaPlanes({forzarPago:true}); return; }
       mostrarVistaPlanes();
     });
     document.getElementById('upgradeModalClose')?.addEventListener('click',cerrarModalUpgrade);
@@ -10843,11 +10870,19 @@
       const irPremium=(document.getElementById('upgradeModalGo')||{}).textContent==='Upgrade to Premium';
       cerrarModalUpgrade();
       if(!sesionActual){ mostrarVistaLogin(); return; }
-      if(irPremium){
-        location.assign('/checkout?plan=premium');
+      if(necesitaPaywall()){
+        if(irPremium){
+          marcarPlanOnboarding('premium');
+          location.assign(squareLinkPlan('premium'));
+          return;
+        }
+        mostrarVistaPlanes({forzarPago:true});
         return;
       }
-      if(necesitaPaywall()){ mostrarVistaPaywall(); return; }
+      if(irPremium){
+        location.assign(squareLinkPlan('premium'));
+        return;
+      }
       mostrarVistaPlanes();
     });
     document.getElementById('upgradeModal')?.addEventListener('click',ev=>{
@@ -11266,9 +11301,10 @@
         if(typeof mostrarPanelAuth==='function')mostrarPanelAuth('registro');
         return;
       }
+      const cobrar=debePagarAntesDeEntrar()||(esUpgradePlan()&&plan!==planSeleccionadoDe());
       try{
         if(cta) cta.disabled=true;
-        marcarEstadoAuth('planStatus', t.savingPlan||'Saving your plan…', false);
+        marcarEstadoAuth('planStatus', cobrar?(t.redirectSquare||'Opening Square checkout…'):(t.savingPlan||'Saving your plan…'), false);
         const res=await fetch('/api/contratistas/plan',{
           method:'POST',
           credentials:'same-origin',
@@ -11285,6 +11321,10 @@
         }
         aplicarFeatureGating();
         resumenPlanPago(sesionActual&&sesionActual.plan_seleccionado||plan);
+        if(cobrar){
+          location.assign(squareLinkPlan(plan));
+          return;
+        }
         location.replace('/estimado');
       }catch(err){
         marcarEstadoAuth('planStatus', err.message||t.planFail||'Could not save the plan.', true);

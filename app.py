@@ -267,8 +267,8 @@ def _redirigir_login_si_hay_sesion():
         contratista, error = _exigir_contratista()
         if not contratista or error:
             return None
-        if _prueba_expirada(contratista):
-            return None if _misma_ruta("/suscripcion") else redirect("/suscripcion")
+        if not _suscripcion_activa(contratista):
+            return None if _misma_ruta("/planes") else redirect("/planes")
         if not _plan_valido(contratista.get("plan_seleccionado")):
             return None if _misma_ruta("/planes") else redirect("/planes")
         return None if _misma_ruta("/estimado") else redirect("/estimado")
@@ -291,10 +291,11 @@ def _exigir_login_panel():
     try:
         contratista, error = _exigir_contratista()
         if contratista and not error:
-            if _prueba_expirada(contratista):
-                if path not in _RUTAS_PAYWALL:
-                    return None if _misma_ruta("/suscripcion") else redirect("/suscripcion")
-                return None
+            # Inactive subscription → only plan picker (and legacy paywall) until Square activates.
+            if not _suscripcion_activa(contratista):
+                if path in _RUTAS_PLANES or path in _RUTAS_PAYWALL or path == "/checkout":
+                    return None
+                return None if _misma_ruta("/planes") else redirect("/planes")
             if path in _RUTAS_PAYWALL or path in _RUTAS_PAGO:
                 return None if _misma_ruta("/estimado") else redirect("/estimado")
     except Exception:
@@ -1187,6 +1188,7 @@ def home():
         vista=vista,
         industrias_seo=industrias_seo,
         video_ld=video_ld,
+        square_links=_square_checkout_links(),
     )
 
 
@@ -4449,12 +4451,30 @@ def _prueba_expirada(contratista):
     return bool(fin and datetime.now(timezone.utc) > fin)
 
 
+def _suscripcion_activa(contratista):
+    """Active = trial still running or paid (fecha_fin_prueba extended after Square)."""
+    return bool(contratista) and not _prueba_expirada(contratista)
+
+
 def _respuesta_prueba_expirada():
     return jsonify({
-        "error": "Your 14-day trial has ended. Activate your account to keep using QuantixBuilds.",
+        "error": "Your 14-day trial has ended. Choose a plan and pay to keep using QuantixBuilds.",
         "code": "trial_expired",
-        "siguiente": "suscripcion",
+        "siguiente": "planes",
     }), 402
+
+
+def _square_checkout_links():
+    return {
+        "basico": (os.getenv("SQUARE_LINK_BASIC") or "").strip(),
+        "profesional": (os.getenv("SQUARE_LINK_PRO") or "").strip(),
+        "premium": (os.getenv("SQUARE_LINK_PREMIUM") or "").strip(),
+    }
+
+
+def _square_link_plan(plan):
+    clave = _plan_valido(plan) or "premium"
+    return (_square_checkout_links().get(clave) or "").strip()
 
 
 def _nombre_plan(plan):
@@ -7302,16 +7322,29 @@ def _square_token():
 
 
 def _square_sandbox():
-    env = (os.getenv("SQUARE_ENVIRONMENT") or os.getenv("SQUARE_ENV") or "").strip().lower()
+    """Live/production by default. Sandbox only if SQUARE_ENVIRONMENT=sandbox|test."""
+    env = (os.getenv("SQUARE_ENVIRONMENT") or os.getenv("SQUARE_ENV") or "production").strip().lower()
     if env in ("sandbox", "test"):
         return True
-    if env in ("production", "prod", "live"):
-        return False
+    # production | prod | live | empty → connect.squareup.com
     return False
 
 
 def _square_host():
+    # Production API host for live Application ID + Access Token.
     return "https://connect.squareupsandbox.com" if _square_sandbox() else "https://connect.squareup.com"
+
+
+_SQUARE_HOST_LOGGED = False
+
+
+def _square_log_host_once():
+    global _SQUARE_HOST_LOGGED
+    if _SQUARE_HOST_LOGGED:
+        return
+    _SQUARE_HOST_LOGGED = True
+    modo = "sandbox" if _square_sandbox() else "production"
+    print(f"--> Square API host={_square_host()} mode={modo}")
 
 
 def _square_headers():
@@ -7330,7 +7363,10 @@ def _square_http(method, path, body=None):
     headers = _square_headers()
     if not headers:
         raise RuntimeError("Falta SQUARE_ACCESS_TOKEN en .env")
+    _square_log_host_once()
     url = _square_host() + path
+    if "squareupsandbox.com" in url and not _square_sandbox():
+        raise RuntimeError("Square sandbox URL blocked while running in production mode.")
     resp = None
     try:
         import requests as req
@@ -7637,7 +7673,21 @@ def _procesar_evento_square(event):
     if not email:
         print("--> Square webhook: no se pudo resolver el email del pagador")
         return
-    _activar_premium_por_square(email, customer_id=customer_id, plan=plan or "premium", user_id=uid)
+    plan_final = _plan_valido(plan)
+    if not plan_final:
+        # Hosted Checkout links from .env may omit our payment_note; use plan saved before redirect.
+        try:
+            sb = _supabase_client()
+            if sb is not None:
+                res = sb.table("perfiles").select("plan_seleccionado,id").eq("email", email).limit(1).execute()
+                filas = list(res.data or [])
+                if filas:
+                    plan_final = _plan_valido(filas[0].get("plan_seleccionado"))
+                    if not uid:
+                        uid = str(filas[0].get("id") or "")
+        except Exception as err:
+            print(f"--> Square plan desde perfil: {err}")
+    _activar_premium_por_square(email, customer_id=customer_id, plan=plan_final or "premium", user_id=uid)
 
 
 @app.route("/checkout")
@@ -7648,12 +7698,16 @@ def checkout_square():
     if error or not contratista:
         return redirect("/login")
     plan = _plan_valido(request.args.get("plan") or contratista.get("plan_seleccionado")) or "premium"
+    enlace_fijo = _square_link_plan(plan)
+    if enlace_fijo:
+        return redirect(enlace_fijo, code=303)
     try:
         url = _crear_enlace_pago_square(contratista, plan)
     except Exception as err:
         print(f"--> Square checkout: {err}")
         return Response(
-            "Could not open Square checkout. Check SQUARE_ACCESS_TOKEN and SQUARE_LOCATION_ID.",
+            "Could not open Square checkout. Set SQUARE_LINK_BASIC / SQUARE_LINK_PRO / SQUARE_LINK_PREMIUM "
+            "or check SQUARE_ACCESS_TOKEN and SQUARE_LOCATION_ID.",
             status=502,
             mimetype="text/plain; charset=utf-8",
         )
