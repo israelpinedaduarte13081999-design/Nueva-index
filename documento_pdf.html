@@ -32,29 +32,44 @@
     .totales .fila span, .totales .fila strong { display: table-cell; }
     .totales .fila strong { text-align: right; }
     .totales .grand { border-top: 2px solid #19385f; border-bottom: 0; font-size: 12pt; padding-top: 8px; }
-    .firmas { width: 100%; margin-top: 22px; border-collapse: separate; border-spacing: 0; }
-    .firmas td { width: 50%; vertical-align: top; padding-right: 16px; }
-    .firmas td:last-child { padding-right: 0; padding-left: 16px; }
-    /* Signature rests ON TOP of the horizontal rule (border-bottom). */
+    .signatures-section { width: 100%; margin-top: 22px; }
+    .signatures-labels {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      margin-bottom: 4px;
+    }
+    .signatures-labels .label { width: 45%; }
+    /* flex-end keeps both signature lines on the same baseline. */
+    .signatures-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      width: 100%;
+    }
     .signature-box,
     .firma-box {
-      display: block;
-      min-height: 60px;
-      border-bottom: 1px solid #000;
+      width: 45%;
+      height: 80px;
+      border-bottom: 1px solid black;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
       text-align: center;
       padding: 0 4px 2px;
-      margin: 4px 0 0;
-      vertical-align: bottom;
+      box-sizing: border-box;
+      overflow: hidden;
     }
     .signature-box img,
     .firma-box img {
-      display: inline-block;
+      display: block;
       max-height: 60px;
       width: auto;
       max-width: 100%;
       object-fit: contain;
       margin: 0 auto 2px;
-      vertical-align: bottom;
     }
     .signature-box .firma-nombre-impreso,
     .firma-box .firma-nombre-impreso {
@@ -66,12 +81,20 @@
       color: #0f172a;
       line-height: 1.15;
     }
+    /* Timestamps live outside the bordered boxes so they never push the lines up. */
+    .signatures-timestamps {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      margin-top: 4px;
+    }
     .firma-timestamp {
-      display: block;
-      margin: 4px 0 0;
+      width: 45%;
+      margin: 0;
       font-size: 8pt;
       color: #475569;
       text-align: center;
+      min-height: 12px;
     }
     img.plano { display: block; max-width: 100%; max-height: 420px; margin: 8px 0 12px; border: 1px solid #dbe3ee; }
   </style>
@@ -189,34 +212,30 @@
     {% set contractor_sig = "" %}
   {% endif %}
   {% if d.tipo == "contract" or contractor_sig or client_sig or contractor_name or client_name %}
-  <table class="firmas pie-firmas">
-    <tr>
-      <td>
-        <span class="label">Contractor signature</span>
-        <div class="signature-box firma-box">
-          {% if contractor_sig %}
-          <img src="{{ contractor_sig }}" alt="Contractor signature" style="max-height:60px;width:auto;object-fit:contain;margin-bottom:2px;">
-          {% endif %}
-          {% if contractor_name %}<span class="firma-nombre-impreso">{{ contractor_name }}</span>{% endif %}
-        </div>
-        {% if (contractor_sig or contractor_name) and d.firma_contratista_fecha %}
-        <p class="firma-timestamp">{{ d.firma_contratista_fecha }}</p>
+  <div class="signatures-section">
+    <div class="signatures-labels">
+      <span class="label">Contractor signature</span>
+      <span class="label">Client signature</span>
+    </div>
+    <div class="signatures-row">
+      <div class="signature-box firma-box">
+        {% if contractor_sig %}
+        <img src="{{ contractor_sig }}" alt="Contractor signature" style="max-height:60px;width:auto;object-fit:contain;margin-bottom:2px;">
         {% endif %}
-      </td>
-      <td>
-        <span class="label">Client signature</span>
-        <div class="signature-box firma-box">
-          {% if client_sig %}
-          <img src="{{ client_sig }}" alt="Client signature" style="max-height:60px;width:auto;object-fit:contain;margin-bottom:2px;">
-          {% endif %}
-          {% if client_name %}<span class="firma-nombre-impreso">{{ client_name }}</span>{% endif %}
-        </div>
-        {% if (client_sig or client_name) and d.firma_cliente_fecha %}
-        <p class="firma-timestamp">{{ d.firma_cliente_fecha }}</p>
+        {% if contractor_name %}<span class="firma-nombre-impreso">{{ contractor_name }}</span>{% endif %}
+      </div>
+      <div class="signature-box firma-box">
+        {% if client_sig %}
+        <img src="{{ client_sig }}" alt="Client signature" style="max-height:60px;width:auto;object-fit:contain;margin-bottom:2px;">
         {% endif %}
-      </td>
-    </tr>
-  </table>
+        {% if client_name %}<span class="firma-nombre-impreso">{{ client_name }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="signatures-timestamps">
+      <p class="firma-timestamp">{% if (contractor_sig or contractor_name) and d.firma_contratista_fecha %}{{ d.firma_contratista_fecha }}{% endif %}</p>
+      <p class="firma-timestamp">{% if (client_sig or client_name) and d.firma_cliente_fecha %}{{ d.firma_cliente_fecha }}{% endif %}</p>
+    </div>
+  </div>
   {% endif %}
 </body>
 </html>
