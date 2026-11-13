@@ -6560,14 +6560,26 @@ def _extraer_firmas_documento(datos):
                     return imagen
         return ""
 
-    def _tomar_nombre(claves):
-        for pool in (merged, datos, payload if isinstance(payload, dict) else {}):
-            if not isinstance(pool, dict):
-                continue
-            for clave in claves:
-                texto = re.sub(r"\s+", " ", str(pool.get(clave) or "")).strip()
-                if len(texto) >= 2 and not texto.startswith("data:image/"):
-                    return texto[:80]
+    def _nombre_firma_valido(texto):
+        t = re.sub(r"\s+", " ", str(texto or "")).strip()
+        if len(t) < 2 or t.startswith("data:image/"):
+            return ""
+        # Never treat bill-to placeholders as a printed signature name.
+        if t.lower() in {"no client", "client name", "nombre del cliente", "n/a", "na", "-"}:
+            return ""
+        return t[:80]
+
+    def _tomar_nombre_firmado(claves_firmas, claves_top=None):
+        # 1) Only from firmas JSON (typed name at sign time).
+        for clave in claves_firmas:
+            ok = _nombre_firma_valido(merged.get(clave))
+            if ok:
+                return ok
+        # 2) Optional top-level signature-only aliases (never bill-to clienteNombre).
+        for clave in (claves_top or ()):
+            ok = _nombre_firma_valido(datos.get(clave) if isinstance(datos, dict) else "")
+            if ok:
+                return ok
         return ""
 
     # Solo claves explícitas del contratista (nunca "client").
@@ -6592,20 +6604,14 @@ def _extraer_firmas_documento(datos):
         candidato = merged.get("client")
         if isinstance(candidato, str) and candidato.startswith("data:image/"):
             cliente = _img_firma(candidato)
-    cliente_nombre = _tomar_nombre((
-        "clienteNombre",
-        "client_name",
-        "client_signature_name",
-        "firma_cliente_nombre",
-        "printed_name",
-        "nombre",
-    ))
-    contratista_nombre = _tomar_nombre((
-        "contratistaNombre",
-        "contractor_name",
-        "contractor_signature_name",
-        "firma_contratista_nombre",
-    ))
+    cliente_nombre = _tomar_nombre_firmado(
+        ("client_signature_name", "clienteNombre", "client_name", "firma_cliente_nombre", "printed_name"),
+        ("client_signature_name", "firma_cliente_nombre"),
+    )
+    contratista_nombre = _tomar_nombre_firmado(
+        ("contractor_signature_name", "contratistaNombre", "contractor_name", "firma_contratista_nombre"),
+        ("contractor_signature_name", "firma_contratista_nombre"),
+    )
     cliente_confirmado = bool(
         merged.get("clienteFecha")
         or merged.get("clienteIp")
@@ -6707,10 +6713,31 @@ def _vista_contrato_publico(datos):
         "contractor_signature": firmas.get("contratista") or "",
         "contractor_signature_image": firmas.get("contratista") or "",
         "firma_cliente_fecha": firmas.get("clienteFecha") or "",
-        "firma_cliente_nombre": firmas.get("clienteNombre") or firmas.get("client_name") or "",
-        "client_signature_name": firmas.get("clienteNombre") or firmas.get("client_name") or "",
-        "firma_contratista_nombre": firmas.get("contratistaNombre") or firmas.get("contractor_name") or "",
-        "contractor_signature_name": firmas.get("contratistaNombre") or firmas.get("contractor_name") or "",
+        # Printed names under signature lines — only from firmas.*, never bill-to d.cliente.
+        "firma_cliente_nombre": (
+            firmas.get("client_signature_name")
+            or firmas.get("clienteNombre")
+            or firmas.get("client_name")
+            or ""
+        ),
+        "client_signature_name": (
+            firmas.get("client_signature_name")
+            or firmas.get("clienteNombre")
+            or firmas.get("client_name")
+            or ""
+        ),
+        "firma_contratista_nombre": (
+            firmas.get("contractor_signature_name")
+            or firmas.get("contratistaNombre")
+            or firmas.get("contractor_name")
+            or ""
+        ),
+        "contractor_signature_name": (
+            firmas.get("contractor_signature_name")
+            or firmas.get("contratistaNombre")
+            or firmas.get("contractor_name")
+            or ""
+        ),
         "firma_contratista_fecha": firmas.get("contratistaFecha") or "",
         "plano_imagen": plano_imagen,
     }
@@ -6771,6 +6798,7 @@ def _payload_firma_cliente(firmas, firma, ip="", metodo="remoto", ahora_txt="", 
         "clienteMetodo": str(metodo or "remoto")[:32],
         "clienteNombre": nombre_limpio,
         "client_name": nombre_limpio,
+        "client_signature_name": nombre_limpio,
     })
     # No mezclar columnas: quitar aliases ambiguos y no tocar contractor_signature.
     mezcladas.pop("client", None)
@@ -13975,31 +14003,34 @@ def _fusionar_firmas_para_pdf(fila, datos_vivos=None):
         or firmas_fila.get("contratista")
         or firmas_fila.get("contractor_signature")
     )
-    cli_nom = re.sub(
-        r"\s+",
-        " ",
-        str(
-            vivos.get("clienteNombre")
-            or vivos.get("client_name")
-            or vivos.get("client_signature_name")
-            or vivos.get("nombre")
-            or firmas_fila.get("clienteNombre")
-            or firmas_fila.get("client_name")
-            or ""
-        ),
-    ).strip()[:80]
-    ctr_nom = re.sub(
-        r"\s+",
-        " ",
-        str(
-            vivos.get("contratistaNombre")
-            or vivos.get("contractor_name")
-            or vivos.get("contractor_signature_name")
-            or firmas_fila.get("contratistaNombre")
-            or firmas_fila.get("contractor_name")
-            or ""
-        ),
-    ).strip()[:80]
+    def _nom_firma(*cands):
+        for raw in cands:
+            t = re.sub(r"\s+", " ", str(raw or "")).strip()
+            if len(t) < 2 or t.startswith("data:image/"):
+                continue
+            if t.lower() in {"no client", "client name", "nombre del cliente", "n/a", "na", "-"}:
+                continue
+            return t[:80]
+        return ""
+
+    # Prefer typed signature names from firmas / signature-only keys.
+    # Never prefer document bill-to clienteNombre ("No client").
+    cli_nom = _nom_firma(
+        firmas_fila.get("client_signature_name"),
+        firmas_fila.get("clienteNombre"),
+        firmas_fila.get("client_name"),
+        vivos.get("client_signature_name"),
+        (vivos.get("firmas") or {}).get("clienteNombre") if isinstance(vivos.get("firmas"), dict) else "",
+        (vivos.get("firmas") or {}).get("client_signature_name") if isinstance(vivos.get("firmas"), dict) else "",
+    )
+    ctr_nom = _nom_firma(
+        firmas_fila.get("contractor_signature_name"),
+        firmas_fila.get("contratistaNombre"),
+        firmas_fila.get("contractor_name"),
+        vivos.get("contractor_signature_name"),
+        (vivos.get("firmas") or {}).get("contratistaNombre") if isinstance(vivos.get("firmas"), dict) else "",
+        (vivos.get("firmas") or {}).get("contractor_signature_name") if isinstance(vivos.get("firmas"), dict) else "",
+    )
     if cli_img:
         firmas_fila["cliente"] = cli_img
         firmas_fila["client_signature"] = cli_img
@@ -14009,9 +14040,11 @@ def _fusionar_firmas_para_pdf(fila, datos_vivos=None):
     if cli_nom:
         firmas_fila["clienteNombre"] = cli_nom
         firmas_fila["client_name"] = cli_nom
+        firmas_fila["client_signature_name"] = cli_nom
     if ctr_nom:
         firmas_fila["contratistaNombre"] = ctr_nom
         firmas_fila["contractor_name"] = ctr_nom
+        firmas_fila["contractor_signature_name"] = ctr_nom
     merged["firmas"] = firmas_fila
     if vivos.get("estado"):
         merged["estado"] = vivos.get("estado")
@@ -14688,12 +14721,16 @@ def aceptar_contrato_publico(token_aceptacion):
         or ""
     )
     nombre_payload = (
-        payload.get("clienteNombre")
+        payload.get("client_signature_name")
+        or payload.get("clienteNombre")
         or payload.get("client_name")
-        or payload.get("nombre")
         or payload.get("printed_name")
+        or payload.get("nombre")
         or ""
     )
+    # Ignore bill-to placeholders mistakenly sent as the printed signature name.
+    if str(nombre_payload or "").strip().lower() in {"no client", "client name", "nombre del cliente"}:
+        nombre_payload = ""
     print(
         f"--> aceptar POST token={token} contractId={previo.get('id')} "
         f"client_signature_image_len={len(str(firma_payload or ''))} "

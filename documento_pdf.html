@@ -200,8 +200,15 @@
 
   {% set contractor_sig = d.contractor_signature_image or d.contractor_signature or d.firma_contratista or "" %}
   {% set client_sig = d.client_signature_image or d.client_signature or d.firma_cliente or "" %}
+  {# Printed names: typed signature only — never bill-to d.cliente / "No client". #}
   {% set contractor_name = d.contractor_signature_name or d.firma_contratista_nombre or "" %}
-  {% set client_name = d.client_signature_name or d.firma_cliente_nombre or "" %}
+  {% set client_printed = d.client_signature_name or d.firma_cliente_nombre or "" %}
+  {% if client_printed|lower in ["no client", "client name", "nombre del cliente", "n/a", "-", ""] %}
+    {% set client_printed = "" %}
+  {% endif %}
+  {% if contractor_name|lower in ["no client", "client name", "nombre del cliente", "n/a", "-", ""] %}
+    {% set contractor_name = "" %}
+  {% endif %}
   {% if client_sig and contractor_sig and client_sig == contractor_sig %}
     {% set client_sig = "" %}
   {% endif %}
@@ -211,7 +218,7 @@
   {% if not (contractor_sig and contractor_sig.startswith("data:image/")) %}
     {% set contractor_sig = "" %}
   {% endif %}
-  {% if d.tipo == "contract" or contractor_sig or client_sig or contractor_name or client_name %}
+  {% if d.tipo == "contract" or contractor_sig or client_sig or contractor_name or client_printed %}
   <div class="signatures-section">
     <div class="signatures-labels">
       <span class="label">Contractor signature</span>
@@ -228,12 +235,12 @@
         {% if client_sig %}
         <img src="{{ client_sig }}" alt="Client signature" style="max-height:60px;width:auto;object-fit:contain;margin-bottom:2px;">
         {% endif %}
-        {% if client_name %}<span class="firma-nombre-impreso">{{ client_name }}</span>{% endif %}
+        {% if client_printed %}<span class="firma-nombre-impreso">{{ client_printed }}</span>{% endif %}
       </div>
     </div>
     <div class="signatures-timestamps">
       <p class="firma-timestamp">{% if (contractor_sig or contractor_name) and d.firma_contratista_fecha %}{{ d.firma_contratista_fecha }}{% endif %}</p>
-      <p class="firma-timestamp">{% if (client_sig or client_name) and d.firma_cliente_fecha %}{{ d.firma_cliente_fecha }}{% endif %}</p>
+      <p class="firma-timestamp">{% if (client_sig or client_printed) and d.firma_cliente_fecha %}{{ d.firma_cliente_fecha }}{% endif %}</p>
     </div>
   </div>
   {% endif %}
