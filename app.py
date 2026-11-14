@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 ssl._create_default_https_context = ssl._create_unverified_context
-from flask import Flask, Response, abort, redirect, request, jsonify, send_file, send_from_directory, render_template
+from flask import Flask, Response, abort, redirect, request, jsonify, send_file, send_from_directory, render_template, session
 from xml.sax.saxutils import escape as xml_escape
 from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -26,6 +26,14 @@ app = Flask(__name__, template_folder=".")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 CORS(app)
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024
+app.secret_key = (
+    os.getenv("FLASK_SECRET_KEY")
+    or os.getenv("SECRET_KEY")
+    or os.getenv("SQUARE_WEBHOOK_SIGNATURE_KEY")
+    or "quantixbuilds-dev-secret"
+)
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 DOMINIO_APP = "quantixbuilds.com"
 
 
@@ -264,14 +272,19 @@ def _redirigir_login_si_hay_sesion():
     if not _token_contratista_solicitud():
         return None
     try:
+        # Absolute rule: live free trial must never be sent to the paywall.
+        if _trial_valido():
+            contratista, error = _exigir_contratista()
+            if contratista and not error and not _plan_valido(contratista.get("plan_seleccionado")):
+                return None if _misma_ruta("/planes") else redirect("/planes")
+            return None if _misma_ruta("/estimado") else redirect("/estimado")
         contratista, error = _exigir_contratista()
         if not contratista or error:
             return None
-        # Allow when trial is open OR Square payment is active.
         if not _acceso_permitido(contratista):
             print(
                 f"--> guard login→planes email={contratista.get('email')} "
-                f"trial_vigente={_trial_vigente(contratista)} "
+                f"trial_valido={_trial_valido(contratista)} "
                 f"fin={contratista.get('fecha_fin_prueba')}"
             )
             return None if _misma_ruta("/planes") else redirect("/planes")
@@ -280,6 +293,8 @@ def _redirigir_login_si_hay_sesion():
         return None if _misma_ruta("/estimado") else redirect("/estimado")
     except Exception as err:
         print(f"--> guard login redirect: {type(err).__name__}: {err}")
+        if _trial_valido():
+            return None if _misma_ruta("/estimado") else redirect("/estimado")
         return redirect("/planes")
 
 
@@ -299,26 +314,31 @@ def _exigir_login_panel():
         return None
     if not _token_contratista_solicitud():
         return None if _misma_ruta("/login") else redirect("/login")
+    # Absolute exception: trial_valido → allow every panel route (estimado, factura, etc.).
+    if _trial_valido():
+        if path in _RUTAS_PAYWALL or path in _RUTAS_PAGO:
+            return None if _misma_ruta("/estimado") else redirect("/estimado")
+        return None
     try:
         contratista, error = _exigir_contratista()
         if error or not contratista:
             return None if _misma_ruta("/login") else redirect("/login")
-        # Block only when trial ended AND there is no active Square payment.
-        if not _acceso_permitido(contratista):
-            if path in _RUTAS_PLANES or path in _RUTAS_PAYWALL:
-                return None
-            print(
-                f"--> guard panel→planes path={path} email={contratista.get('email')} "
-                f"trial_vigente={_trial_vigente(contratista)} "
-                f"fin={contratista.get('fecha_fin_prueba')}"
-            )
-            return redirect("/planes")
-        if path in _RUTAS_PAYWALL or path in _RUTAS_PAGO:
-            return None if _misma_ruta("/estimado") else redirect("/estimado")
+        if _trial_valido(contratista) or _acceso_permitido(contratista):
+            if path in _RUTAS_PAYWALL or path in _RUTAS_PAGO:
+                return None if _misma_ruta("/estimado") else redirect("/estimado")
+            return None
+        if path in _RUTAS_PLANES or path in _RUTAS_PAYWALL:
+            return None
+        print(
+            f"--> guard panel→planes path={path} email={contratista.get('email')} "
+            f"trial_valido={_trial_valido(contratista)} fin={contratista.get('fecha_fin_prueba')}"
+        )
+        return redirect("/planes")
     except Exception as err:
         print(f"--> guard panel: {type(err).__name__}: {err}")
+        if _trial_valido():
+            return None
         return redirect("/planes")
-    return None
 
 
 @app.before_request
@@ -333,21 +353,31 @@ def _bloquear_api_si_expirada():
     if path.startswith("/api/contratistas") or path.startswith("/api/pagos") or path.startswith("/api/feedback"):
         if path.startswith("/api/pagos/simular"):
             try:
+                if _trial_valido():
+                    return None
                 contratista, error = _exigir_contratista()
                 if contratista and not error and not _acceso_permitido(contratista):
                     return _respuesta_prueba_expirada()
             except Exception:
+                if _trial_valido():
+                    return None
                 return _respuesta_prueba_expirada()
         return None
     if not _token_contratista_solicitud():
         return None
+    # Absolute exception: never wall APIs (save_draft, historial, etc.) during a live trial.
+    if _trial_valido():
+        return None
     try:
         contratista, error = _exigir_contratista()
-        # Full API access during free trial or paid Square subscription.
-        if contratista and not error and not _acceso_permitido(contratista):
+        if contratista and not error and (_trial_valido(contratista) or _acceso_permitido(contratista)):
+            return None
+        if contratista and not error:
             return _respuesta_prueba_expirada()
     except Exception as err:
         print(f"--> guard api: {type(err).__name__}: {err}")
+        if _trial_valido():
+            return None
         return _respuesta_prueba_expirada()
     return None
 
@@ -4498,15 +4528,50 @@ def _pago_square_confirmado(contratista):
     return True
 
 
+def _guardar_trial_en_sesion_flask(fin, plan="", email=""):
+    """Keep a request-local Flask session copy so middleware/APIs stay in sync immediately."""
+    try:
+        if fin is None:
+            return
+        session["trial_fin"] = fin.isoformat() if hasattr(fin, "isoformat") else str(fin)
+        session["trial_plan"] = str(plan or "")
+        session["trial_email"] = str(email or "").strip().lower()
+        session["trial_started"] = datetime.now(timezone.utc).isoformat()
+        session.modified = True
+    except Exception as err:
+        print(f"--> flask trial session: {err}")
+
+
+def _trial_fin_sesion_flask():
+    try:
+        return _parse_ts(session.get("trial_fin"))
+    except Exception:
+        return None
+
+
+def _trial_valido(contratista=None):
+    """
+    Strict professional rule:
+      trial_valido = fecha_actual <= fecha_fin_prueba
+    Checks (in order): contratista dict, Flask session, then nothing else.
+    requiere_pago / Square must NEVER override a live trial window.
+    """
+    ahora = datetime.now(timezone.utc)
+    if contratista and _es_admin(contratista.get("email")):
+        return True
+    candidatos = []
+    if contratista is not None:
+        candidatos.append(_parse_ts(contratista.get("fecha_fin_prueba")))
+    candidatos.append(_trial_fin_sesion_flask())
+    for fin in candidatos:
+        if fin and ahora <= fin:
+            return True
+    return False
+
+
 def _trial_vigente(contratista):
     """True when now(UTC) <= fecha_fin_prueba (14-day free trial or paid window)."""
-    if not contratista or _es_admin((contratista or {}).get("email")):
-        return True
-    fin = _parse_ts((contratista or {}).get("fecha_fin_prueba"))
-    if not fin:
-        # Missing end date is NOT expired — caller should start/heal the 14-day window.
-        return False
-    return datetime.now(timezone.utc) <= fin
+    return _trial_valido(contratista)
 
 
 def _pago_activo(contratista):
@@ -4521,21 +4586,17 @@ def _pago_activo(contratista):
 
 def _acceso_permitido(contratista):
     """
-    Combined access rule:
-      allow if pago Square activo OR trial_vigente (fecha_actual <= fecha_fin_prueba).
-    Missing fecha_fin_prueba alone must NOT bounce a brand-new account.
+    Combined access rule (absolute):
+      allow if trial_valido OR pago Square activo.
+    requiere_pago must not block a live trial.
     """
     if not contratista:
-        return False
+        return bool(_trial_valido(None))
     if _es_admin(contratista.get("email")):
         return True
+    if _trial_valido(contratista):
+        return True
     if _pago_activo(contratista):
-        return True
-    if _trial_vigente(contratista):
-        return True
-    # No end date yet and no confirmed expiry → allow while trial is being created/healed.
-    fin = _parse_ts(contratista.get("fecha_fin_prueba"))
-    if not fin and contratista.get("trial_expirada") is not True:
         return True
     return False
 
@@ -4615,13 +4676,14 @@ def _persistir_ventana_trial_si_falta(sb, uid, email, inicio, fin):
 def _iniciar_prueba_14_dias(contratista, plan=""):
     """
     Start or heal the free trial: fecha_fin_prueba = now + 14 days.
+    Writes Supabase + Flask session in the same request so middleware/APIs stay synced.
     Never shortens an already-valid future trial window.
     """
     sb = _supabase_client()
     ahora = datetime.now(timezone.utc)
     email = str((contratista or {}).get("email") or "").strip().lower()
     uid = str((contratista or {}).get("user_id") or "").strip()
-    fin_actual = _parse_ts((contratista or {}).get("fecha_fin_prueba"))
+    fin_actual = _parse_ts((contratista or {}).get("fecha_fin_prueba")) or _trial_fin_sesion_flask()
     inicio_actual = _parse_ts((contratista or {}).get("trial_inicio"))
     if fin_actual and fin_actual > ahora:
         inicio = inicio_actual or ahora
@@ -4630,6 +4692,7 @@ def _iniciar_prueba_14_dias(contratista, plan=""):
         inicio = ahora
         fin = _fecha_fin_prueba_desde(ahora)
     _persistir_ventana_trial(sb, uid, email, inicio, fin, plan=plan, forzar=not (fin_actual and fin_actual > ahora))
+    _guardar_trial_en_sesion_flask(fin, plan=plan, email=email)
     if contratista is not None:
         contratista["trial_inicio"] = inicio.isoformat()
         contratista["fecha_fin_prueba"] = fin.isoformat()
@@ -4638,6 +4701,7 @@ def _iniciar_prueba_14_dias(contratista, plan=""):
         contratista["requiere_pago"] = False
         if _plan_valido(plan):
             contratista["plan_seleccionado"] = _plan_valido(plan)
+    print(f"--> trial sync BD+session email={email} fin={fin.isoformat()} plan={plan}")
     return fin
 
 
@@ -4731,6 +4795,11 @@ def _refrescar_suscripcion_supabase(contratista):
             inicio = created_contratista
         datos["plan_seleccionado"] = _plan_valido(contratista.get("plan_seleccionado"))
 
+    # Bridge FE/BE desync: if BD lag wiped fecha_fin but Flask session still has a live trial, keep it.
+    fin_sesion = _trial_fin_sesion_flask()
+    if fin_sesion and (not fin or fin_sesion > fin):
+        fin = fin_sesion
+
     pago_ok = _pago_square_confirmado(datos)
     ahora = datetime.now(timezone.utc)
     ancla = inicio or created_contratista
@@ -4757,8 +4826,11 @@ def _refrescar_suscripcion_supabase(contratista):
             )
         elif fin and ancla:
             # Cap only clearly inflated unpaid windows (> ancla+14), never shrink a valid live trial.
+            # Never shrink below Flask-session trial fin (just started via Start Free Trial).
             fin_max = _fecha_fin_prueba_desde(ancla)
-            if fin > fin_max + timedelta(days=1):
+            if fin_sesion and fin_sesion >= ahora:
+                fin = max(fin, fin_sesion)
+            elif fin > fin_max + timedelta(days=1):
                 fin = fin_max
                 inicio = inicio or ancla
 
@@ -4766,12 +4838,18 @@ def _refrescar_suscripcion_supabase(contratista):
         datos["trial_inicio"] = inicio.isoformat()
     if fin:
         datos["fecha_fin_prueba"] = fin.isoformat()
+        _guardar_trial_en_sesion_flask(
+            fin,
+            plan=datos.get("plan_seleccionado") or "",
+            email=email,
+        )
 
     fin = _parse_ts(datos.get("fecha_fin_prueba"))
     trial_ok = bool(fin and ahora <= fin)
     datos["trial_vigente"] = trial_ok
 
     # Access rule: trial vigente OR pago Square. Missing fin after heal attempt ≠ expired yet.
+    # Absolute: requiere_pago from BD must never override a live trial window.
     if trial_ok or pago_ok:
         datos["trial_expirada"] = False
         datos["requiere_pago"] = False
@@ -4794,9 +4872,12 @@ def _prueba_expirada(contratista):
     """Expired only when fecha_fin_prueba is in the past and there is no Square payment."""
     if not contratista or _es_admin(contratista.get("email")):
         return False
+    # Absolute: a live trial (BD or Flask session) is never expired.
+    if _trial_valido(contratista):
+        return False
     if _pago_activo(contratista):
         return False
-    fin = _parse_ts(contratista.get("fecha_fin_prueba"))
+    fin = _parse_ts(contratista.get("fecha_fin_prueba")) or _trial_fin_sesion_flask()
     if not fin:
         # No end date yet → trial not started/healed, NOT expired.
         return False
@@ -4822,10 +4903,24 @@ def _adjuntar_destino_sesion(payload):
         payload["siguiente"] = "estimado"
         payload["activo"] = True
         payload["trial_vigente"] = True
+        payload["trial_expirada"] = False
+        payload["requiere_pago"] = False
         return payload
-    payload["trial_vigente"] = _trial_vigente(payload) or (
-        not _parse_ts(payload.get("fecha_fin_prueba")) and not _prueba_expirada(payload)
-    )
+    # Absolute exception: live trial (BD or Flask session) → never paywall destination.
+    if _trial_valido(payload):
+        fin = _parse_ts(payload.get("fecha_fin_prueba")) or _trial_fin_sesion_flask()
+        if fin:
+            payload["fecha_fin_prueba"] = fin.isoformat()
+        payload["trial_vigente"] = True
+        payload["trial_expirada"] = False
+        payload["requiere_pago"] = False
+        if not _plan_valido(payload.get("plan_seleccionado")):
+            payload["siguiente"] = "planes"
+            payload["activo"] = False
+            return payload
+        payload["siguiente"] = "estimado"
+        payload["activo"] = True
+        return payload
     if _prueba_expirada(payload):
         payload["trial_expirada"] = True
         payload["requiere_pago"] = True
@@ -5228,16 +5323,30 @@ def _sesion_desde_fila(row):
             prueba.update(_refrescar_suscripcion_supabase(row) or {})
     except Exception as err:
         print(f"--> sesion perfil/contadores: {err}")
-        prueba["trial_expirada"] = True
-        prueba["requiere_pago"] = True
+        # Never invent expiry when Flask session still has a live trial.
+        if _trial_valido(row):
+            fin_ses = _parse_ts(row.get("fecha_fin_prueba")) or _trial_fin_sesion_flask()
+            if fin_ses:
+                prueba["fecha_fin_prueba"] = fin_ses.isoformat()
+            prueba["trial_vigente"] = True
+            prueba["trial_expirada"] = False
+            prueba["requiere_pago"] = False
+        else:
+            prueba["trial_expirada"] = True
+            prueba["requiere_pago"] = True
     try:
         count = int(prueba.get("ai_pdf_extractions_count") or 0)
     except Exception:
         count = 0
-    trial_ok = False if _es_admin(row.get("email")) else bool(prueba.get("trial_vigente"))
-    if not trial_ok and not _es_admin(row.get("email")):
-        fin_tmp = _parse_ts(prueba.get("fecha_fin_prueba"))
-        trial_ok = bool(fin_tmp and datetime.now(timezone.utc) <= fin_tmp)
+    # Absolute: Flask session + row fecha_fin both count as a live trial.
+    trial_ok = True if _es_admin(row.get("email")) else _trial_valido({
+        **row,
+        "fecha_fin_prueba": prueba.get("fecha_fin_prueba") or row.get("fecha_fin_prueba"),
+    })
+    if trial_ok and not prueba.get("fecha_fin_prueba"):
+        fin_ses = _trial_fin_sesion_flask()
+        if fin_ses:
+            prueba["fecha_fin_prueba"] = fin_ses.isoformat()
     return {
         "id": row.get("id"),
         "email": row.get("email"),
@@ -6313,8 +6422,30 @@ def _exigir_contratista():
         contratista.update(_refrescar_suscripcion_supabase(contratista))
     except Exception as err:
         print(f"--> sesion perfil/contadores: {err}")
-        contratista["trial_expirada"] = True
-        contratista["requiere_pago"] = True
+        # Do NOT invent expiry on transient DB errors if Flask still has a live trial.
+        if _trial_valido(contratista):
+            fin = _parse_ts(contratista.get("fecha_fin_prueba")) or _trial_fin_sesion_flask()
+            if fin:
+                contratista["fecha_fin_prueba"] = fin.isoformat()
+            contratista["trial_vigente"] = True
+            contratista["trial_expirada"] = False
+            contratista["requiere_pago"] = False
+        else:
+            contratista["trial_expirada"] = True
+            contratista["requiere_pago"] = True
+    # Reconcile Flask session with DB so subsequent API/middleware checks stay green during trial.
+    if _trial_valido(contratista):
+        fin = _parse_ts(contratista.get("fecha_fin_prueba")) or _trial_fin_sesion_flask()
+        if fin:
+            _guardar_trial_en_sesion_flask(
+                fin,
+                plan=contratista.get("plan_seleccionado") or "",
+                email=contratista.get("email") or "",
+            )
+            contratista["fecha_fin_prueba"] = fin.isoformat()
+        contratista["trial_vigente"] = True
+        contratista["trial_expirada"] = False
+        contratista["requiere_pago"] = False
     return contratista, None
 
 
@@ -7747,11 +7878,20 @@ def api_guardar_plan_contratista():
         payload["plan_seleccionado"] = plan
         payload["fecha_fin_prueba"] = contratista.get("fecha_fin_prueba") or payload.get("fecha_fin_prueba") or ""
         payload["trial_inicio"] = contratista.get("trial_inicio") or payload.get("trial_inicio") or ""
+        if not payload.get("fecha_fin_prueba"):
+            fin_garantizado = _iniciar_prueba_14_dias(contratista, plan=plan)
+            payload["fecha_fin_prueba"] = fin_garantizado.isoformat() if hasattr(fin_garantizado, "isoformat") else str(fin_garantizado)
+            payload["trial_inicio"] = contratista.get("trial_inicio") or payload.get("trial_inicio") or ""
+        else:
+            fin_payload = _parse_ts(payload.get("fecha_fin_prueba"))
+            if fin_payload:
+                _guardar_trial_en_sesion_flask(fin_payload, plan=plan, email=contratista.get("email") or "")
         payload["trial_vigente"] = True
         payload["trial_expirada"] = False
         payload["requiere_pago"] = False
         payload["siguiente"] = "estimado"
         payload["activado"] = True
+        payload["activo"] = True
         print(
             f"--> trial plan ok email={payload.get('email')} plan={plan} "
             f"fin={payload.get('fecha_fin_prueba')}"
@@ -9188,15 +9328,35 @@ def api_contratista_actual():
         payload = _sesion_desde_fila(contratista)
     except Exception as err:
         print(f"--> /yo perfil/contadores: {err}")
+        trial_ok = _trial_valido(contratista)
+        fin = _parse_ts(contratista.get("fecha_fin_prueba")) or _trial_fin_sesion_flask()
         payload = {
             "id": contratista.get("id"),
             "email": contratista.get("email"),
             "nombre_empresa": contratista.get("nombre_empresa"),
             "user_id": contratista.get("user_id") or "",
             "token": contratista.get("token"),
-            "trial_expirada": True,
-            "requiere_pago": True,
+            "fecha_fin_prueba": fin.isoformat() if fin else "",
+            "trial_vigente": trial_ok,
+            "trial_expirada": False if trial_ok else True,
+            "requiere_pago": False if trial_ok else True,
+            "plan_seleccionado": contratista.get("plan_seleccionado") or "",
         }
+    # Absolute: live trial never leaves /yo with paywall flags that flash-redirect the SPA.
+    if _trial_valido(contratista) or payload.get("trial_vigente") is True:
+        fin = _parse_ts(payload.get("fecha_fin_prueba") or contratista.get("fecha_fin_prueba")) or _trial_fin_sesion_flask()
+        if fin:
+            payload["fecha_fin_prueba"] = fin.isoformat()
+            _guardar_trial_en_sesion_flask(
+                fin,
+                plan=payload.get("plan_seleccionado") or contratista.get("plan_seleccionado") or "",
+                email=contratista.get("email") or "",
+            )
+        payload["trial_vigente"] = True
+        payload["trial_expirada"] = False
+        payload["requiere_pago"] = False
+        payload["siguiente"] = "estimado"
+        payload["activo"] = True
     payload = _adjuntar_destino_sesion(payload)
     resp = jsonify(payload)
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))

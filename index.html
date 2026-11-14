@@ -2961,19 +2961,61 @@
       if(token) headers.Authorization='Bearer '+token;
       return headers;
     }
+    function trialFinLocal(){
+      try{
+        const fin=String(sessionStorage.getItem('quantix_trial_fin')||'').trim();
+        if(!fin) return null;
+        const dt=new Date(fin);
+        return isNaN(dt.getTime())?null:dt;
+      }catch(_){ return null; }
+    }
+    function guardarTrialFinLocal(fecha){
+      const raw=String(fecha||'').trim();
+      if(!raw) return;
+      try{ sessionStorage.setItem('quantix_trial_fin', raw); }catch(_){}
+    }
+    function trialLocalVigente(sesion){
+      const finLocal=trialFinLocal();
+      if(finLocal&&Date.now()<=finLocal.getTime()) return true;
+      return typeof trialVigente==='function'?trialVigente(sesion||sesionActual):false;
+    }
+    function fusionarSesionConTrialLocal(json){
+      if(!json||!json.id) return json;
+      const finLocal=trialFinLocal();
+      const vigenteLocal=!!(finLocal&&Date.now()<=finLocal.getTime());
+      const vigenteServer=json.trial_vigente===true||(json.fecha_fin_prueba&&Date.now()<=new Date(json.fecha_fin_prueba).getTime());
+      if(vigenteLocal||vigenteServer){
+        json.trial_vigente=true;
+        json.trial_expirada=false;
+        json.requiere_pago=false;
+        if(!json.fecha_fin_prueba&&finLocal) json.fecha_fin_prueba=finLocal.toISOString();
+        if(json.fecha_fin_prueba) guardarTrialFinLocal(json.fecha_fin_prueba);
+      }
+      return json;
+    }
     async function leerContratistaActual(){
       const res=await fetch('/api/contratistas/yo',{headers:headersContratista(),credentials:'same-origin'});
       if(!res.ok){
+        // During a live local trial, never treat auth blips as paywall.
+        if(trialLocalVigente(sesionActual)&&(res.status===402||res.status===403)){
+          return sesionActual;
+        }
         if(res.status===401||res.status===403) borrarTokenContratistaLocal();
         return null;
       }
-      const json=await res.json().catch(()=>null);
+      let json=await res.json().catch(()=>null);
+      json=fusionarSesionConTrialLocal(json);
       if(json&&json.id) localStorage.setItem(contratistaIdKey, json.id);
       if(json&&json.user_id) guardarUserIdAuthLocal(json.user_id);
       sesionActual=json&&json.id?json:sesionActual;
       // Fuente de verdad multi-tenant: company_name / nombre_empresa del perfil autenticado.
       aplicarCompanyNameDesdePerfil(json&&json.nombre_empresa, {forceInput:true});
-      aplicarBloqueoPrueba();
+      // Only apply paywall after merge — never bounce a live 14-day trial on stale flags.
+      if(!trialLocalVigente(sesionActual)) aplicarBloqueoPrueba();
+      else{
+        document.body.classList.remove('prueba-expirada');
+        aplicarFeatureGating();
+      }
       aplicarFeatureGating();
       return json;
     }
@@ -8299,9 +8341,12 @@
     }
     function fechaFinPruebaDe(sesion){
       const raw=String((sesion||{}).fecha_fin_prueba||'');
-      if(!raw) return null;
-      const fin=new Date(raw);
-      return isNaN(fin.getTime())?null:fin;
+      if(raw){
+        const fin=new Date(raw);
+        if(!isNaN(fin.getTime())) return fin;
+      }
+      // Bridge FE desync: sessionStorage written at Start Free Trial.
+      return typeof trialFinLocal==='function'?trialFinLocal():null;
     }
     function pagoSquareActivo(sesion){
       const actual=sesion||sesionActual||{};
@@ -8323,8 +8368,9 @@
       const actual=sesion||sesionActual||{};
       if(!actual||!actual.id) return false;
       if(esAdmin(actual)) return false;
-      // Combined rule: never treat a live 14-day trial as expired because of requiere_pago alone.
-      if(trialVigente(actual)||pagoSquareActivo(actual)) return false;
+      // Absolute: live trial (server or sessionStorage) never counts as expired.
+      if(trialLocalVigente(actual)||trialVigente(actual)||pagoSquareActivo(actual)) return false;
+      if(actual.requiere_pago===true&&trialLocalVigente(actual)) return false;
       if(actual.trial_expirada===true) return true;
       const fin=fechaFinPruebaDe(actual);
       if(fin&&Date.now()>fin.getTime()) return true;
@@ -8333,6 +8379,7 @@
     function necesitaPaywall(sesion){
       const actual=sesion||sesionActual||{};
       if(esAdmin(actual)) return false;
+      if(trialLocalVigente(actual)) return false;
       return pruebaExpirada(actual);
     }
     function nombrePlanDe(sesion){
@@ -8607,6 +8654,7 @@
       return true;
     }
     function forzarBloqueoSiVencido(){
+      if(trialLocalVigente(sesionActual)) return false;
       if(!debePagarAntesDeEntrar()) return false;
       if(sesionActual){
         sesionActual.trial_expirada=true;
@@ -8644,6 +8692,16 @@
       mostrarVistaPlanes({forzarPago:true});
     }
     function aplicarBloqueoPrueba(){
+      if(trialLocalVigente(sesionActual)||trialVigente(sesionActual)||pagoSquareActivo(sesionActual)){
+        document.body.classList.remove('prueba-expirada');
+        const panelOk=document.getElementById('trialExpiredPanel');
+        if(panelOk) panelOk.hidden=true;
+        const quoteBtnOk=document.querySelector('.nav-btn[data-view="quote"]');
+        if(quoteBtnOk) quoteBtnOk.hidden=false;
+        const newBtnOk=document.getElementById('historyNewButton');
+        if(newBtnOk) newBtnOk.hidden=false;
+        return false;
+      }
       if(necesitaPaywall()){
         mostrarVistaPlanes({forzarPago:true});
         return true;
@@ -8666,7 +8724,10 @@
         mostrarVistaPaywall();
         return;
       }
-      if(necesitaPaywall()){
+      // Absolute: never bounce a live 14-day trial off internal views.
+      if(trialLocalVigente(sesionActual)){
+        /* skip paywall */
+      }else if(necesitaPaywall()){
         if(view==='planes'){
           mostrarVistaPlanes({forzarPago:true});
           return;
@@ -8711,7 +8772,10 @@
     }
     function crearDocumento(tipo){
       if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
-      if(necesitaPaywall()){ mostrarVistaPlanes({forzarPago:true}); return; }
+      // Live 14-day trial: never bounce internal doc creation to /planes.
+      if(trialLocalVigente(sesionActual)){
+        /* allow */
+      }else if(necesitaPaywall()){ mostrarVistaPlanes({forzarPago:true}); return; }
       if(necesitaElegirPlan()){ mostrarVistaPlanes(); return; }
       if(necesitaMetodoPago()){ mostrarVistaPago(); return; }
       const t=String(tipo||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -8725,7 +8789,8 @@
     function cambiarVista(vista){
       const view={inicio:'home',home:'home',cotizador:'quote',quote:'quote',historial:'history',history:'history'}[String(vista||'').toLowerCase()]||'home';
       if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
-      if(necesitaPaywall()){ mostrarVistaPlanes({forzarPago:true}); return; }
+      if(trialLocalVigente(sesionActual)){ /* allow */ }
+      else if(necesitaPaywall()){ mostrarVistaPlanes({forzarPago:true}); return; }
       if(necesitaElegirPlan()){ mostrarVistaPlanes(); return; }
       if(necesitaMetodoPago()){ mostrarVistaPago(); return; }
       showAppView(view);
@@ -10895,7 +10960,8 @@
     document.querySelectorAll('.nav-btn').forEach(el=>el.addEventListener('click',()=>{
       if(!el.dataset.view) return;
       if(!sesionActual){ mostrarVistaLogin(); try{ history.replaceState({view:'login'},'', '/login'); }catch(_){} return; }
-      if(necesitaPaywall()){ mostrarVistaPlanes({forzarPago:true}); return; }
+      if(trialLocalVigente(sesionActual)){ /* allow */ }
+      else if(necesitaPaywall()){ mostrarVistaPlanes({forzarPago:true}); return; }
       if(necesitaElegirPlan()){ mostrarVistaPlanes(); return; }
       if(necesitaMetodoPago()){ mostrarVistaPago(); return; }
       const view=el.dataset.view;
@@ -11252,7 +11318,8 @@
       sesionLista=true;
       // Combined rule: live trial OR paid Square → full app. Only expired unpaid → /planes paywall.
       if(sesionActual&&sesionActual.id){
-        if(trialVigente(sesionActual)||pagoSquareActivo(sesionActual)){
+        if(sesionActual.fecha_fin_prueba) guardarTrialFinLocal(sesionActual.fecha_fin_prueba);
+        if(trialLocalVigente(sesionActual)||trialVigente(sesionActual)||pagoSquareActivo(sesionActual)){
           sesionActual.trial_expirada=false;
           sesionActual.requiere_pago=false;
           sesionActual.trial_vigente=true;
@@ -11431,13 +11498,21 @@
         if(sesionActual){
           sesionActual.plan_seleccionado=json.plan_seleccionado||plan;
           sesionActual.plan_pendiente=sesionActual.plan_seleccionado;
-          if(json.fecha_fin_prueba) sesionActual.fecha_fin_prueba=json.fecha_fin_prueba;
+          if(json.fecha_fin_prueba){
+            sesionActual.fecha_fin_prueba=json.fecha_fin_prueba;
+            guardarTrialFinLocal(json.fecha_fin_prueba);
+          }
           if(json.trial_inicio) sesionActual.trial_inicio=json.trial_inicio;
           if(json.pago_cliente_id) sesionActual.pago_cliente_id=json.pago_cliente_id;
           if(json.siguiente==='estimado'||json.activado===true||json.trial_vigente===true){
             sesionActual.trial_vigente=true;
             sesionActual.trial_expirada=false;
             sesionActual.requiere_pago=false;
+            if(!sesionActual.fecha_fin_prueba){
+              // Local bridge if API omitted fin: keep SPA green until next /yo refresh.
+              sesionActual.fecha_fin_prueba=new Date(Date.now()+14*24*60*60*1000).toISOString();
+            }
+            guardarTrialFinLocal(sesionActual.fecha_fin_prueba);
           }else if(json.siguiente==='square'||json.trial_expirada===true||json.activado===false){
             sesionActual.trial_expirada=true;
             sesionActual.trial_vigente=false;
@@ -11454,7 +11529,11 @@
           }
           return;
         }
-        location.replace('/estimado');
+        // Prefer soft navigation so Flask session cookie from /api/contratistas/plan is kept
+        // and middleware already sees trial_valido without a cold redirect race.
+        try{ history.replaceState({view:'home'},'', '/estimado'); }catch(_){}
+        if(typeof showAppView==='function') showAppView('home');
+        else location.replace('/estimado');
       }catch(err){
         if(cobrarLocal){
           const url=await obtenerCheckoutSquare(plan);
