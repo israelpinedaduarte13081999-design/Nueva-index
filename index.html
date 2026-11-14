@@ -11347,6 +11347,20 @@
       if(cta){ cta.disabled=false; actualizarCtaOnboarding(clave); }
       resumenPlanPago(clave);
     }
+    async function obtenerCheckoutSquare(plan){
+      const clave=String(plan||'').trim().toLowerCase()||'premium';
+      try{
+        const res=await fetch('/api/pagos/square-link?plan='+encodeURIComponent(clave),{
+          method:'GET',
+          credentials:'same-origin',
+          headers:headersContratista({Accept:'application/json'})
+        });
+        const json=await res.json().catch(()=>({}));
+        const url=String((json&&json.checkout_url)||'').trim();
+        if(url) return url;
+      }catch(_){}
+      return squareLinkPlan(clave);
+    }
     async function guardarPlanYContinuar(){
       const t=TEXTOS_AUTH[idiomaAuth()]||TEXTOS_AUTH.en;
       const plan=planOnboardingElegido||planSeleccionadoDe();
@@ -11363,6 +11377,32 @@
       try{
         if(cta) cta.disabled=true;
         marcarEstadoAuth('planStatus', cobrarLocal?(t.redirectSquare||'Opening Square checkout…'):(t.savingPlan||'Saving your plan…'), false);
+        // Payment path: auth + plan is enough. Prefer Square link endpoint; never block on company profile.
+        if(cobrarLocal){
+          if(sesionActual){
+            sesionActual.plan_seleccionado=plan;
+            sesionActual.plan_pendiente=plan;
+            sesionActual.trial_expirada=true;
+            sesionActual.requiere_pago=true;
+          }
+          let checkoutUrl='';
+          try{
+            const res=await fetch('/api/contratistas/plan',{
+              method:'POST',
+              credentials:'same-origin',
+              headers:headersContratista({'Content-Type':'application/json'}),
+              body:JSON.stringify({plan_seleccionado:plan})
+            });
+            const json=await res.json().catch(()=>({}));
+            checkoutUrl=String((json&&json.checkout_url)||'').trim();
+            if(json&&json.plan_seleccionado) sesionActual.plan_seleccionado=json.plan_seleccionado;
+          }catch(_){}
+          if(!checkoutUrl) checkoutUrl=await obtenerCheckoutSquare(plan);
+          if(irACheckoutSquare(plan, checkoutUrl)) return;
+          marcarEstadoAuth('planStatus', 'Could not open Square checkout. Check SQUARE_LINK_* in .env.', true);
+          if(cta) cta.disabled=false;
+          return;
+        }
         const res=await fetch('/api/contratistas/plan',{
           method:'POST',
           credentials:'same-origin',
@@ -11370,33 +11410,39 @@
           body:JSON.stringify({plan_seleccionado:plan})
         });
         const json=await res.json().catch(()=>({}));
-        if(!res.ok) throw new Error(mensajeErrorAuth(json, t.planFail||'Could not save the plan.'));
+        if(!res.ok){
+          const code=String((json&&json.code)||'');
+          if(code==='sin_cuenta') throw new Error(t.planFail||'Could not save the plan.');
+          throw new Error(mensajeErrorAuth(json, t.planFail||'Could not save the plan.'));
+        }
         if(sesionActual){
           sesionActual.plan_seleccionado=json.plan_seleccionado||plan;
           sesionActual.plan_pendiente=sesionActual.plan_seleccionado;
-          // Never unlock from this endpoint: only Square webhook may clear trial_expirada.
-          if(json.trial_expirada===true||json.siguiente==='square'||json.activado===false||cobrarLocal){
+          if(json.trial_expirada===true||json.siguiente==='square'||json.activado===false){
             sesionActual.trial_expirada=true;
             sesionActual.requiere_pago=true;
           }else if(typeof json.requiere_pago==='boolean'){
             sesionActual.requiere_pago=json.requiere_pago;
           }
           if(json.pago_cliente_id) sesionActual.pago_cliente_id=json.pago_cliente_id;
-          if(json.fecha_fin_prueba&&!(json.trial_expirada===true||json.siguiente==='square'||json.activado===false||cobrarLocal)){
+          if(json.fecha_fin_prueba&&!(json.trial_expirada===true||json.siguiente==='square'||json.activado===false)){
             sesionActual.fecha_fin_prueba=json.fecha_fin_prueba;
           }
         }
         aplicarFeatureGating();
         resumenPlanPago(sesionActual&&sesionActual.plan_seleccionado||plan);
-        const cobrar=cobrarLocal||json.siguiente==='square'||json.trial_expirada===true||json.activado===false||!!json.checkout_url;
-        if(cobrar){
-          if(!irACheckoutSquare(plan, json.checkout_url)){
+        if(json.siguiente==='square'||json.trial_expirada===true||json.activado===false||json.checkout_url){
+          if(!irACheckoutSquare(plan, json.checkout_url||await obtenerCheckoutSquare(plan))){
             if(cta) cta.disabled=false;
           }
           return;
         }
         location.replace('/estimado');
       }catch(err){
+        if(cobrarLocal){
+          const url=await obtenerCheckoutSquare(plan);
+          if(irACheckoutSquare(plan, url)) return;
+        }
         marcarEstadoAuth('planStatus', err.message||t.planFail||'Could not save the plan.', true);
         if(cta) cta.disabled=false;
       }

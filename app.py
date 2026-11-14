@@ -5264,6 +5264,136 @@ def _guardar_perfil(sb, user_id, email, nombre, plan, exigir_pago=False):
         print(f"--> perfil no guardado: {err}")
 
 
+def _asegurar_contratista_minimo(sb, email, token="", user_id="", nombre=""):
+    """Create a bare contratistas row (email only) if missing. Company name is optional."""
+    email = str(email or "").strip().lower()
+    if not email or sb is None:
+        return None
+    row = _contratista_por_email_tabla(sb, email)
+    if row and row.get("id"):
+        return row
+    token = str(token or "").strip() or secrets.token_hex(32)
+    payload = {
+        "email": email,
+        "nombre_empresa": str(nombre or "").strip() or "",
+        "token": token,
+    }
+    uid = str(user_id or "").strip()
+    if _es_uuid(uid) and not _sin_columna_user_id:
+        payload["user_id"] = uid
+    try:
+        res = sb.table(TABLA_CONTRATISTAS).insert(payload).execute()
+        filas = list(res.data or [])
+        if filas:
+            print(f"--> contratista minimo creado email={email}")
+            return filas[0]
+    except Exception as err:
+        if "user_id" in payload and _marcar_sin_user_id(err):
+            payload.pop("user_id", None)
+            try:
+                res = sb.table(TABLA_CONTRATISTAS).insert(payload).execute()
+                filas = list(res.data or [])
+                if filas:
+                    return filas[0]
+            except Exception as err2:
+                print(f"--> contratista minimo: {err2}")
+        else:
+            print(f"--> contratista minimo: {err}")
+    return _contratista_por_email_tabla(sb, email)
+
+
+def _asegurar_perfil_para_pago(sb, uid, email, plan, vencido=False):
+    """
+    Persist plan for checkout without activating access.
+    Never extends fecha_fin_prueba. Company/profile completeness is irrelevant.
+    """
+    email = str(email or "").strip().lower()
+    plan = _plan_valido(plan)
+    if not sb or not plan:
+        return False
+    ahora_dt = datetime.now(timezone.utc)
+    ahora = ahora_dt.isoformat()
+    cambios = {
+        "plan_seleccionado": plan,
+        "updated_at": ahora,
+        "requiere_pago": True if vencido else False,
+    }
+    if email:
+        cambios["email"] = email
+    try:
+        if uid:
+            res = sb.table("perfiles").update(cambios).eq("id", uid).execute()
+            if list(res.data or []):
+                return True
+        if email:
+            res = sb.table("perfiles").update(cambios).eq("email", email).execute()
+            if list(res.data or []):
+                return True
+    except Exception as err:
+        print(f"--> perfil pago update: {err}")
+
+    # Upsert minimal row. Keep existing trial end; if missing and expired, keep it expired (yesterday).
+    fecha_fin = None
+    trial_inicio = None
+    try:
+        q = None
+        if uid:
+            q = sb.table("perfiles").select("fecha_fin_prueba,trial_inicio").eq("id", uid).limit(1)
+        elif email:
+            q = sb.table("perfiles").select("fecha_fin_prueba,trial_inicio").eq("email", email).limit(1)
+        if q is not None:
+            filas = list(q.execute().data or [])
+            if filas:
+                fecha_fin = filas[0].get("fecha_fin_prueba")
+                trial_inicio = filas[0].get("trial_inicio")
+    except Exception:
+        pass
+    if not fecha_fin and vencido:
+        fecha_fin = (ahora_dt - timedelta(days=1)).isoformat()
+    elif not fecha_fin and trial_inicio:
+        fecha_fin = _fecha_fin_prueba_desde(trial_inicio).isoformat()
+    elif not fecha_fin and not vencido:
+        fecha_fin = _fecha_fin_prueba_desde(ahora_dt).isoformat()
+        trial_inicio = trial_inicio or ahora
+
+    payload = {
+        "email": email,
+        "plan_seleccionado": plan,
+        "requiere_pago": True if vencido else bool(cambios.get("requiere_pago")),
+        "updated_at": ahora,
+    }
+    if uid and _es_uuid(uid):
+        payload["id"] = uid
+    if fecha_fin:
+        payload["fecha_fin_prueba"] = fecha_fin
+    if trial_inicio:
+        payload["trial_inicio"] = trial_inicio
+    try:
+        if uid and _es_uuid(uid):
+            sb.table("perfiles").upsert(payload, on_conflict="id").execute()
+            return True
+        if email:
+            # No stable id — best-effort insert/update by email.
+            try:
+                sb.table("perfiles").insert(payload).execute()
+                return True
+            except Exception:
+                sb.table("perfiles").update(cambios).eq("email", email).execute()
+                return True
+    except Exception as err:
+        print(f"--> perfil pago upsert: {err}")
+        try:
+            payload.pop("requiere_pago", None)
+            payload.pop("fecha_fin_prueba", None)
+            payload.pop("trial_inicio", None)
+            if uid and _es_uuid(uid):
+                sb.table("perfiles").upsert(payload, on_conflict="id").execute()
+                return True
+        except Exception as err2:
+            print(f"--> perfil pago upsert minimo: {err2}")
+    return False
+
+
 def guardar_plan_contratista(contratista, plan, exigir_pago=None):
     """Save selected plan only. Never activates subscription / never extends fecha_fin_prueba."""
     sb = _supabase_client()
@@ -5272,13 +5402,27 @@ def guardar_plan_contratista(contratista, plan, exigir_pago=None):
     plan = _plan_valido(plan)
     if not plan:
         raise ErrorAuth("plan", "Choose a plan to start your trial.", 400)
-    uid = str(contratista.get("user_id") or _user_id_de_contratista(sb, contratista) or "").strip()
     email = str(contratista.get("email") or "").strip().lower()
-    ahora = datetime.now(timezone.utc).isoformat()
+    uid = str(contratista.get("user_id") or _user_id_de_contratista(sb, contratista) or "").strip()
     vencido = _prueba_expirada(contratista)
-    # Clicking a plan must NOT unlock access. Expired users stay blocked until Square webhook.
     if exigir_pago is None:
         exigir_pago = True if vencido else False
+
+    # Auth is enough to pay: ensure bare contratista row exists (company name optional).
+    if email:
+        minimo = _asegurar_contratista_minimo(
+            sb,
+            email,
+            token=str(contratista.get("token") or ""),
+            user_id=uid,
+            nombre=contratista.get("nombre_empresa") or "",
+        )
+        if minimo and minimo.get("id") and not contratista.get("id"):
+            contratista["id"] = minimo.get("id")
+        if minimo and minimo.get("token") and not contratista.get("token"):
+            contratista["token"] = minimo.get("token")
+
+    ahora = datetime.now(timezone.utc).isoformat()
     cambios = {
         "plan_seleccionado": plan,
         "updated_at": ahora,
@@ -5296,14 +5440,18 @@ def guardar_plan_contratista(contratista, plan, exigir_pago=None):
                 return plan
     except Exception as err:
         print(f"--> plan perfil: {err}")
-    if vencido:
-        # Never upsert/create a fresh trial window for expired users.
-        raise ErrorAuth("sin_cuenta", "Could not save the selected plan. Please reload and try again.", 404)
+
+    ok = _asegurar_perfil_para_pago(sb, uid, email, plan, vencido=bool(vencido or exigir_pago))
+    if ok:
+        return plan
+    if vencido or exigir_pago:
+        # Payment must still proceed — caller returns Square URL even if profile write is soft-failed.
+        print(f"--> plan perfil soft-fail email={email} plan={plan} (checkout continues)")
+        return plan
     if uid:
         _guardar_perfil(sb, uid, email, "", plan, exigir_pago=bool(exigir_pago))
-    else:
-        raise ErrorAuth("sin_cuenta", "Could not save the selected plan.", 404)
-    return plan
+        return plan
+    raise ErrorAuth("plan", "Could not save the selected plan.", 400)
 
 
 def _stripe_secreta():
@@ -7350,37 +7498,66 @@ def api_guardar_plan_contratista():
     contratista, error = _exigir_contratista()
     if error:
         return error
-    vencido_antes = _prueba_expirada(contratista)
+    vencido_antes = _prueba_expirada(contratista) or _debe_forzar_planes(contratista)
+    plan_pedido = _plan_valido(body.get("plan_seleccionado") or body.get("plan") or "") or ""
+    plan = plan_pedido
     try:
         plan = guardar_plan_contratista(
             contratista,
-            body.get("plan_seleccionado") or body.get("plan") or "",
+            plan_pedido or body.get("plan_seleccionado") or body.get("plan") or "",
             exigir_pago=True if vencido_antes else None,
         )
     except ErrorAuth as err:
-        return _respuesta_auth(err)
+        # Expired users must still receive the Square URL — auth + plan choice is enough.
+        if vencido_antes and plan_pedido:
+            print(f"--> plan auth soft-fail {err.code}: checkout continues plan={plan_pedido}")
+            plan = plan_pedido
+        else:
+            return _respuesta_auth(err)
     except Exception as err:
-        print(f"--> guardar plan {type(err).__name__}: {err}")
-        return _respuesta_tenant(err)
+        if vencido_antes and plan_pedido:
+            print(f"--> guardar plan soft-fail {type(err).__name__}: {err}")
+            plan = plan_pedido
+        else:
+            print(f"--> guardar plan {type(err).__name__}: {err}")
+            return _respuesta_tenant(err)
+    if not plan:
+        return jsonify({"error": "Choose a plan to continue.", "code": "plan"}), 400
     contratista["plan_seleccionado"] = plan
     if vencido_antes:
         contratista["requiere_pago"] = True
         contratista["trial_expirada"] = True
     sb = _supabase_client()
     if sb is not None:
-        contratista.update(_datos_prueba(sb, contratista))
+        try:
+            contratista.update(_datos_prueba(sb, contratista))
+        except Exception as err:
+            print(f"--> plan refresh soft-fail: {err}")
         if vencido_antes:
             # Hard lock: plan click must not clear expiry flags even if profile read is stale.
             contratista["trial_expirada"] = True
             contratista["requiere_pago"] = True
-    payload = _sesion_desde_fila(contratista)
+    try:
+        payload = _sesion_desde_fila(contratista)
+    except Exception as err:
+        print(f"--> plan sesion soft-fail: {err}")
+        payload = {
+            "id": contratista.get("id"),
+            "email": contratista.get("email"),
+            "token": contratista.get("token"),
+            "user_id": contratista.get("user_id") or "",
+            "plan_seleccionado": plan,
+            "trial_expirada": True if vencido_antes else bool(contratista.get("trial_expirada")),
+            "requiere_pago": True if vencido_antes else bool(contratista.get("requiere_pago")),
+        }
     if vencido_antes or _prueba_expirada(contratista) or not _suscripcion_activa(contratista):
+        payload["plan_seleccionado"] = plan
         payload["trial_expirada"] = True
         payload["requiere_pago"] = True
         payload["siguiente"] = "square"
         payload["checkout_url"] = _checkout_url_plan(plan)
         payload["activado"] = False
-        print(f"--> plan elegido sin activar plan={plan} checkout={payload['checkout_url'][:48]}")
+        print(f"--> plan elegido sin activar plan={plan} checkout={payload['checkout_url'][:64]}")
     else:
         payload["siguiente"] = "estimado"
         payload["activado"] = True
@@ -7388,18 +7565,39 @@ def api_guardar_plan_contratista():
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
 
 
-@app.route("/api/pagos/square-link", methods=["GET"])
+@app.route("/api/pagos/square-link", methods=["GET", "POST"])
 def api_pagos_square_link():
     contratista, error = _exigir_contratista()
     if error:
         return error
-    plan = _plan_valido(request.args.get("plan") or contratista.get("plan_seleccionado")) or "premium"
+    body = request.get_json(silent=True) or {}
+    plan = _plan_valido(
+        request.args.get("plan")
+        or body.get("plan")
+        or body.get("plan_seleccionado")
+        or contratista.get("plan_seleccionado")
+    ) or "premium"
+    # Best-effort remember plan; never block checkout if profile/company is incomplete.
+    try:
+        guardar_plan_contratista(contratista, plan, exigir_pago=True if _debe_forzar_planes(contratista) else None)
+    except Exception as err:
+        print(f"--> square-link plan soft-fail: {err}")
     url = _checkout_url_plan(plan)
+    if not url:
+        return jsonify({
+            "error": "Square checkout link missing. Set SQUARE_LINK_BASIC / SQUARE_LINK_PRO / SQUARE_LINK_PREMIUM.",
+            "code": "square_link",
+            "plan": plan,
+        }), 502
     return jsonify({
+        "ok": True,
         "plan": plan,
         "checkout_url": url,
-        "trial_expirada": _prueba_expirada(contratista),
-        "activo": _suscripcion_activa(contratista),
+        "siguiente": "square",
+        "trial_expirada": _prueba_expirada(contratista) or _debe_forzar_planes(contratista),
+        "requiere_pago": True if _debe_forzar_planes(contratista) else bool(contratista.get("requiere_pago")),
+        "activo": False if _debe_forzar_planes(contratista) else _suscripcion_activa(contratista),
+        "activado": False,
     })
 
 
