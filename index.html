@@ -8308,11 +8308,19 @@
       if(!actual||!actual.id) return false;
       if(esAdmin(actual)) return false;
       if(actual.trial_expirada===true) return true;
+      if(actual.requiere_pago===true&&!String(actual.pago_cliente_id||'').trim()) return true;
+      if(actual.requiere_pago===true&&/^(simulado|simulated|test|pending)$/i.test(String(actual.pago_cliente_id||'').trim())) return true;
       const fin=fechaFinPruebaDe(actual);
-      return !!(fin&&Date.now()>fin.getTime());
+      if(fin&&Date.now()>fin.getTime()){
+        const pago=String(actual.pago_cliente_id||'').trim();
+        if(!pago||/^(simulado|simulated|test|pending)$/i.test(pago)||actual.requiere_pago===true) return true;
+      }
+      return false;
     }
     function necesitaPaywall(sesion){
-      return pruebaExpirada(sesion);
+      const actual=sesion||sesionActual||{};
+      if(esAdmin(actual)) return false;
+      return pruebaExpirada(actual)||actual.requiere_pago===true;
     }
     function nombrePlanDe(sesion){
       const actual=sesion||sesionActual||{};
@@ -11229,6 +11237,22 @@
       if(typeof syncCompanyName==='function') syncCompanyName();
       sesionActual=json&&json.id?json:null;
       sesionLista=true;
+      // Server is source of truth after login: expired / payment-required → hard navigate to /planes.
+      if(sesionActual&&(sesionActual.trial_expirada===true||sesionActual.requiere_pago===true||sesionActual.siguiente==='planes'||sesionActual.activo===false)){
+        if(sesionActual.trial_expirada===true||sesionActual.requiere_pago===true||sesionActual.activo===false){
+          sesionActual.trial_expirada=sesionActual.trial_expirada===true||sesionActual.requiere_pago===true||pruebaExpirada(sesionActual);
+          if(sesionActual.trial_expirada||sesionActual.requiere_pago){
+            try{ history.replaceState({view:'planes'},'', '/planes'); }catch(_){}
+            mostrarVistaPlanes({forzarPago:true});
+            return;
+          }
+        }
+        if(sesionActual.siguiente==='planes'&&!sesionActual.activo){
+          try{ history.replaceState({view:'planes'},'', '/planes'); }catch(_){}
+          mostrarVistaPlanes();
+          return;
+        }
+      }
       aplicarBloqueoPrueba();
       if(sesionActual&&sesionActual.id&&typeof iniciarMonitorContratosFirmados==='function') iniciarMonitorContratosFirmados();
       if(sesionActual && typeof aplicarRutaInicial==='function') aplicarRutaInicial();
