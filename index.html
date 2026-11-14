@@ -8570,11 +8570,33 @@
         premium:document.body?.getAttribute('data-square-link-premium')||''
       };
       const directo=(mapa[clave]||'').trim();
-      if(directo) return directo;
+      if(directo&&/^https?:\/\//i.test(directo)) return directo;
       return '/checkout?plan='+encodeURIComponent(clave||'premium');
     }
     function debePagarAntesDeEntrar(){
       return !!necesitaPaywall();
+    }
+    function irACheckoutSquare(plan, checkoutUrl){
+      const destino=(String(checkoutUrl||'').trim())||squareLinkPlan(plan);
+      if(!destino){
+        marcarEstadoAuth('planStatus', 'Square checkout link is missing. Check SQUARE_LINK_* in .env.', true);
+        return false;
+      }
+      window.location.href=destino;
+      return true;
+    }
+    function forzarBloqueoSiVencido(){
+      if(!debePagarAntesDeEntrar()) return false;
+      if(sesionActual){
+        sesionActual.trial_expirada=true;
+        sesionActual.requiere_pago=true;
+      }
+      const path=(location.pathname||'').replace(/\/+$/,'')||'/';
+      if(path!=='/planes'&&path!=='/suscripcion'&&path!=='/activar'&&path!=='/checkout'){
+        mostrarVistaPlanes({forzarPago:true});
+        try{ history.replaceState({view:'planes'},'', '/planes'); }catch(_){}
+      }
+      return true;
     }
     function mostrarVistaPaywall(){
       document.body.classList.add('paywall');
@@ -10873,14 +10895,14 @@
       if(necesitaPaywall()){
         if(irPremium){
           marcarPlanOnboarding('premium');
-          location.assign(squareLinkPlan('premium'));
+          irACheckoutSquare('premium');
           return;
         }
         mostrarVistaPlanes({forzarPago:true});
         return;
       }
       if(irPremium){
-        location.assign(squareLinkPlan('premium'));
+        irACheckoutSquare('premium');
         return;
       }
       mostrarVistaPlanes();
@@ -10914,7 +10936,19 @@
         cambiarVista(el.dataset.viewLink);
       });
     });
-    window.addEventListener('popstate',()=>aplicarRutaInicial());
+    window.addEventListener('popstate',async ()=>{
+      try{ await leerContratistaActual(); }catch(_){}
+      if(forzarBloqueoSiVencido()) return;
+      aplicarRutaInicial();
+    });
+    window.addEventListener('pageshow',async (ev)=>{
+      // Back-forward cache must not reopen the dashboard after an unpaid plan click.
+      if(ev&&ev.persisted){
+        try{ await leerContratistaActual(); }catch(_){}
+      }
+      if(forzarBloqueoSiVencido()) return;
+      if(ev&&ev.persisted) aplicarRutaInicial();
+    });
     document.querySelector('#historyTabs')?.addEventListener('click',event=>{
       const tab=event.target.closest('[data-history-filter]');
       if(!tab)return;
@@ -11301,10 +11335,10 @@
         if(typeof mostrarPanelAuth==='function')mostrarPanelAuth('registro');
         return;
       }
-      const cobrar=debePagarAntesDeEntrar()||(esUpgradePlan()&&plan!==planSeleccionadoDe());
+      const cobrarLocal=debePagarAntesDeEntrar()||(esUpgradePlan()&&plan!==planSeleccionadoDe());
       try{
         if(cta) cta.disabled=true;
-        marcarEstadoAuth('planStatus', cobrar?(t.redirectSquare||'Opening Square checkout…'):(t.savingPlan||'Saving your plan…'), false);
+        marcarEstadoAuth('planStatus', cobrarLocal?(t.redirectSquare||'Opening Square checkout…'):(t.savingPlan||'Saving your plan…'), false);
         const res=await fetch('/api/contratistas/plan',{
           method:'POST',
           credentials:'same-origin',
@@ -11316,13 +11350,25 @@
         if(sesionActual){
           sesionActual.plan_seleccionado=json.plan_seleccionado||plan;
           sesionActual.plan_pendiente=sesionActual.plan_seleccionado;
-          if(typeof json.requiere_pago==='boolean') sesionActual.requiere_pago=json.requiere_pago;
+          // Never unlock from this endpoint: only Square webhook may clear trial_expirada.
+          if(json.trial_expirada===true||json.siguiente==='square'||json.activado===false||cobrarLocal){
+            sesionActual.trial_expirada=true;
+            sesionActual.requiere_pago=true;
+          }else if(typeof json.requiere_pago==='boolean'){
+            sesionActual.requiere_pago=json.requiere_pago;
+          }
           if(json.pago_cliente_id) sesionActual.pago_cliente_id=json.pago_cliente_id;
+          if(json.fecha_fin_prueba&&!(json.trial_expirada===true||json.siguiente==='square'||json.activado===false||cobrarLocal)){
+            sesionActual.fecha_fin_prueba=json.fecha_fin_prueba;
+          }
         }
         aplicarFeatureGating();
         resumenPlanPago(sesionActual&&sesionActual.plan_seleccionado||plan);
+        const cobrar=cobrarLocal||json.siguiente==='square'||json.trial_expirada===true||json.activado===false||!!json.checkout_url;
         if(cobrar){
-          location.assign(squareLinkPlan(plan));
+          if(!irACheckoutSquare(plan, json.checkout_url)){
+            if(cta) cta.disabled=false;
+          }
           return;
         }
         location.replace('/estimado');

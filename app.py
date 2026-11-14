@@ -272,7 +272,8 @@ def _redirigir_login_si_hay_sesion():
         if not _plan_valido(contratista.get("plan_seleccionado")):
             return None if _misma_ruta("/planes") else redirect("/planes")
         return None if _misma_ruta("/estimado") else redirect("/estimado")
-    except Exception:
+    except Exception as err:
+        print(f"--> guard login redirect: {type(err).__name__}: {err}")
         return None
 
 
@@ -283,6 +284,10 @@ def _exigir_login_panel():
     path = request.path.rstrip("/") or "/"
     if path.startswith("/aceptar/"):
         return None
+    if path == "/checkout":
+        if not _token_contratista_solicitud():
+            return redirect("/login")
+        return None
     protegidas = _RUTAS_PLANES | _RUTAS_PAGO | _RUTAS_PAYWALL | _RUTAS_PANEL
     if path not in protegidas and not path.startswith("/proyecto/"):
         return None
@@ -290,16 +295,18 @@ def _exigir_login_panel():
         return None if _misma_ruta("/login") else redirect("/login")
     try:
         contratista, error = _exigir_contratista()
-        if contratista and not error:
-            # Inactive subscription → only plan picker (and legacy paywall) until Square activates.
-            if not _suscripcion_activa(contratista):
-                if path in _RUTAS_PLANES or path in _RUTAS_PAYWALL or path == "/checkout":
-                    return None
-                return None if _misma_ruta("/planes") else redirect("/planes")
-            if path in _RUTAS_PAYWALL or path in _RUTAS_PAGO:
-                return None if _misma_ruta("/estimado") else redirect("/estimado")
-    except Exception:
-        pass
+        if error or not contratista:
+            return None if _misma_ruta("/login") else redirect("/login")
+        # Inactive subscription → only plan picker / paywall until Square webhook activates.
+        if not _suscripcion_activa(contratista):
+            if path in _RUTAS_PLANES or path in _RUTAS_PAYWALL:
+                return None
+            return redirect("/planes")
+        if path in _RUTAS_PAYWALL or path in _RUTAS_PAGO:
+            return None if _misma_ruta("/estimado") else redirect("/estimado")
+    except Exception as err:
+        print(f"--> guard panel: {type(err).__name__}: {err}")
+        return redirect("/planes")
     return None
 
 
@@ -310,17 +317,39 @@ def _bloquear_api_si_expirada():
     path = request.path or ""
     if not path.startswith("/api/"):
         return None
+    # Plan save + Square checkout helpers stay reachable while expired; nothing else.
+    if path.startswith("/api/contratistas/plan") or path.startswith("/api/pagos/square") or path.startswith("/api/pagos/checkout"):
+        return None
     if path.startswith("/api/contratistas") or path.startswith("/api/pagos") or path.startswith("/api/feedback"):
+        # Still allow auth/session endpoints, but block payment simulators that activate accounts.
+        if path.startswith("/api/pagos/simular"):
+            try:
+                contratista, error = _exigir_contratista()
+                if contratista and not error and not _suscripcion_activa(contratista):
+                    return _respuesta_prueba_expirada()
+            except Exception:
+                return _respuesta_prueba_expirada()
         return None
     if not _token_contratista_solicitud():
         return None
     try:
         contratista, error = _exigir_contratista()
-        if contratista and not error and _prueba_expirada(contratista):
+        if contratista and not error and not _suscripcion_activa(contratista):
             return _respuesta_prueba_expirada()
-    except Exception:
-        pass
+    except Exception as err:
+        print(f"--> guard api: {type(err).__name__}: {err}")
+        return _respuesta_prueba_expirada()
     return None
+
+
+@app.after_request
+def _cache_no_store_panel(resp):
+    path = (request.path or "").rstrip("/") or "/"
+    if path in (_RUTAS_PLANES | _RUTAS_PAGO | _RUTAS_PAYWALL | _RUTAS_PANEL | _RUTAS_LOGIN) or path.startswith("/proyecto/") or path == "/checkout":
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+    return resp
 
 
 def _vista_inicial():
@@ -4447,13 +4476,27 @@ def _prueba_expirada(contratista):
         return False
     if contratista.get("trial_expirada") is True:
         return True
+    if contratista.get("requiere_pago") is True and not str(contratista.get("pago_cliente_id") or "").strip():
+        fin = _parse_ts(contratista.get("fecha_fin_prueba"))
+        if not fin or datetime.now(timezone.utc) > fin:
+            return True
     fin = _parse_ts(contratista.get("fecha_fin_prueba"))
     return bool(fin and datetime.now(timezone.utc) > fin)
 
 
 def _suscripcion_activa(contratista):
-    """Active = trial still running or paid (fecha_fin_prueba extended after Square)."""
-    return bool(contratista) and not _prueba_expirada(contratista)
+    """Active only with a non-expired trial/paid window. Never trust a plan click alone."""
+    if not contratista:
+        return False
+    if _es_admin(contratista.get("email")):
+        return True
+    if _prueba_expirada(contratista):
+        return False
+    fin = _parse_ts(contratista.get("fecha_fin_prueba"))
+    if fin and datetime.now(timezone.utc) <= fin:
+        return True
+    # Paid accounts keep an extended fecha_fin_prueba after Square webhook.
+    return False
 
 
 def _respuesta_prueba_expirada():
@@ -4465,6 +4508,11 @@ def _respuesta_prueba_expirada():
 
 
 def _square_checkout_links():
+    # Re-read .env so Live links work even if the process started before they were pasted.
+    try:
+        load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
+    except Exception:
+        pass
     return {
         "basico": (os.getenv("SQUARE_LINK_BASIC") or "").strip(),
         "profesional": (os.getenv("SQUARE_LINK_PRO") or "").strip(),
@@ -4474,7 +4522,19 @@ def _square_checkout_links():
 
 def _square_link_plan(plan):
     clave = _plan_valido(plan) or "premium"
-    return (_square_checkout_links().get(clave) or "").strip()
+    url = (_square_checkout_links().get(clave) or "").strip()
+    if url and not (url.startswith("https://") or url.startswith("http://")):
+        return ""
+    return url
+
+
+def _checkout_url_plan(plan):
+    """Prefer hosted Square Payment Link from .env; else app /checkout fallback."""
+    clave = _plan_valido(plan) or "premium"
+    directo = _square_link_plan(clave)
+    if directo:
+        return directo
+    return (_url_publica_app().rstrip("/") + "/checkout?plan=" + clave)
 
 
 def _nombre_plan(plan):
@@ -5026,7 +5086,8 @@ def _guardar_perfil(sb, user_id, email, nombre, plan, exigir_pago=False):
         print(f"--> perfil no guardado: {err}")
 
 
-def guardar_plan_contratista(contratista, plan):
+def guardar_plan_contratista(contratista, plan, exigir_pago=None):
+    """Save selected plan only. Never activates subscription / never extends fecha_fin_prueba."""
     sb = _supabase_client()
     if sb is None:
         raise ErrorAuth("config", "Supabase no configurado", 503)
@@ -5036,8 +5097,16 @@ def guardar_plan_contratista(contratista, plan):
     uid = str(contratista.get("user_id") or _user_id_de_contratista(sb, contratista) or "").strip()
     email = str(contratista.get("email") or "").strip().lower()
     ahora = datetime.now(timezone.utc).isoformat()
-    cambios = {"plan_seleccionado": plan, "updated_at": ahora}
-    cambios["requiere_pago"] = False
+    vencido = _prueba_expirada(contratista)
+    # Clicking a plan must NOT unlock access. Expired users stay blocked until Square webhook.
+    if exigir_pago is None:
+        exigir_pago = True if vencido else False
+    cambios = {
+        "plan_seleccionado": plan,
+        "updated_at": ahora,
+    }
+    if vencido or exigir_pago:
+        cambios["requiere_pago"] = True
     try:
         if uid:
             res = sb.table("perfiles").update(cambios).eq("id", uid).execute()
@@ -5049,8 +5118,11 @@ def guardar_plan_contratista(contratista, plan):
                 return plan
     except Exception as err:
         print(f"--> plan perfil: {err}")
+    if vencido:
+        # Never upsert/create a fresh trial window for expired users.
+        raise ErrorAuth("sin_cuenta", "Could not save the selected plan. Please reload and try again.", 404)
     if uid:
-        _guardar_perfil(sb, uid, email, "", plan, exigir_pago=True)
+        _guardar_perfil(sb, uid, email, "", plan, exigir_pago=bool(exigir_pago))
     else:
         raise ErrorAuth("sin_cuenta", "Could not save the selected plan.", 404)
     return plan
@@ -7097,10 +7169,12 @@ def api_guardar_plan_contratista():
     contratista, error = _exigir_contratista()
     if error:
         return error
+    vencido_antes = _prueba_expirada(contratista)
     try:
         plan = guardar_plan_contratista(
             contratista,
             body.get("plan_seleccionado") or body.get("plan") or "",
+            exigir_pago=True if vencido_antes else None,
         )
     except ErrorAuth as err:
         return _respuesta_auth(err)
@@ -7108,14 +7182,44 @@ def api_guardar_plan_contratista():
         print(f"--> guardar plan {type(err).__name__}: {err}")
         return _respuesta_tenant(err)
     contratista["plan_seleccionado"] = plan
+    if vencido_antes:
+        contratista["requiere_pago"] = True
+        contratista["trial_expirada"] = True
     sb = _supabase_client()
     if sb is not None:
         contratista.update(_datos_prueba(sb, contratista))
+        if vencido_antes:
+            # Hard lock: plan click must not clear expiry flags even if profile read is stale.
+            contratista["trial_expirada"] = True
+            contratista["requiere_pago"] = True
     payload = _sesion_desde_fila(contratista)
-    payload["requiere_pago"] = False
-    payload["siguiente"] = "estimado"
+    if vencido_antes or _prueba_expirada(contratista) or not _suscripcion_activa(contratista):
+        payload["trial_expirada"] = True
+        payload["requiere_pago"] = True
+        payload["siguiente"] = "square"
+        payload["checkout_url"] = _checkout_url_plan(plan)
+        payload["activado"] = False
+        print(f"--> plan elegido sin activar plan={plan} checkout={payload['checkout_url'][:48]}")
+    else:
+        payload["siguiente"] = "estimado"
+        payload["activado"] = True
     resp = jsonify(payload)
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
+
+
+@app.route("/api/pagos/square-link", methods=["GET"])
+def api_pagos_square_link():
+    contratista, error = _exigir_contratista()
+    if error:
+        return error
+    plan = _plan_valido(request.args.get("plan") or contratista.get("plan_seleccionado")) or "premium"
+    url = _checkout_url_plan(plan)
+    return jsonify({
+        "plan": plan,
+        "checkout_url": url,
+        "trial_expirada": _prueba_expirada(contratista),
+        "activo": _suscripcion_activa(contratista),
+    })
 
 
 @app.route("/api/pagos/simular", methods=["POST"])
@@ -7698,9 +7802,13 @@ def checkout_square():
     if error or not contratista:
         return redirect("/login")
     plan = _plan_valido(request.args.get("plan") or contratista.get("plan_seleccionado")) or "premium"
+    # Selecting checkout must never activate the account; only Square webhook does.
     enlace_fijo = _square_link_plan(plan)
     if enlace_fijo:
-        return redirect(enlace_fijo, code=303)
+        print(f"--> Square hosted link redirect plan={plan}")
+        resp = redirect(enlace_fijo, code=303)
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        return resp
     try:
         url = _crear_enlace_pago_square(contratista, plan)
     except Exception as err:
@@ -7711,7 +7819,9 @@ def checkout_square():
             status=502,
             mimetype="text/plain; charset=utf-8",
         )
-    return redirect(url, code=303)
+    resp = redirect(url, code=303)
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return resp
 
 
 @app.route("/square-webhook", methods=["GET", "POST"])
