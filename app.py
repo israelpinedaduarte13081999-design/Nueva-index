@@ -267,12 +267,11 @@ def _redirigir_login_si_hay_sesion():
         contratista, error = _exigir_contratista()
         if not contratista or error:
             return None
-        # Expired / payment-required accounts must never land on the dashboard from login.
-        if _debe_forzar_planes(contratista) or not _suscripcion_activa(contratista):
+        # Allow when trial is open OR Square payment is active.
+        if not _acceso_permitido(contratista):
             print(
                 f"--> guard login→planes email={contratista.get('email')} "
-                f"trial_expirada={contratista.get('trial_expirada')} "
-                f"requiere_pago={contratista.get('requiere_pago')} "
+                f"trial_vigente={_trial_vigente(contratista)} "
                 f"fin={contratista.get('fecha_fin_prueba')}"
             )
             return None if _misma_ruta("/planes") else redirect("/planes")
@@ -304,14 +303,14 @@ def _exigir_login_panel():
         contratista, error = _exigir_contratista()
         if error or not contratista:
             return None if _misma_ruta("/login") else redirect("/login")
-        # Live Supabase check: expired or payment due → only /planes (or legacy paywall).
-        if _debe_forzar_planes(contratista) or not _suscripcion_activa(contratista):
+        # Block only when trial ended AND there is no active Square payment.
+        if not _acceso_permitido(contratista):
             if path in _RUTAS_PLANES or path in _RUTAS_PAYWALL:
                 return None
             print(
                 f"--> guard panel→planes path={path} email={contratista.get('email')} "
-                f"trial_expirada={contratista.get('trial_expirada')} "
-                f"requiere_pago={contratista.get('requiere_pago')}"
+                f"trial_vigente={_trial_vigente(contratista)} "
+                f"fin={contratista.get('fecha_fin_prueba')}"
             )
             return redirect("/planes")
         if path in _RUTAS_PAYWALL or path in _RUTAS_PAGO:
@@ -329,15 +328,13 @@ def _bloquear_api_si_expirada():
     path = request.path or ""
     if not path.startswith("/api/"):
         return None
-    # Plan save + Square checkout helpers stay reachable while expired; nothing else.
     if path.startswith("/api/contratistas/plan") or path.startswith("/api/pagos/square") or path.startswith("/api/pagos/checkout"):
         return None
     if path.startswith("/api/contratistas") or path.startswith("/api/pagos") or path.startswith("/api/feedback"):
-        # Still allow auth/session endpoints, but block payment simulators that activate accounts.
         if path.startswith("/api/pagos/simular"):
             try:
                 contratista, error = _exigir_contratista()
-                if contratista and not error and not _suscripcion_activa(contratista):
+                if contratista and not error and not _acceso_permitido(contratista):
                     return _respuesta_prueba_expirada()
             except Exception:
                 return _respuesta_prueba_expirada()
@@ -346,7 +343,8 @@ def _bloquear_api_si_expirada():
         return None
     try:
         contratista, error = _exigir_contratista()
-        if contratista and not error and not _suscripcion_activa(contratista):
+        # Full API access during free trial or paid Square subscription.
+        if contratista and not error and not _acceso_permitido(contratista):
             return _respuesta_prueba_expirada()
     except Exception as err:
         print(f"--> guard api: {type(err).__name__}: {err}")
@@ -374,9 +372,7 @@ def _vista_inicial():
         # Cookie present: middleware should redirect; never paint the dashboard shell on /login.
         try:
             contratista, error = _exigir_contratista()
-            if contratista and not error and (
-                _debe_forzar_planes(contratista) or not _suscripcion_activa(contratista)
-            ):
+            if contratista and not error and not _acceso_permitido(contratista):
                 return "planes"
         except Exception:
             return "planes"
@@ -4499,10 +4495,75 @@ def _pago_square_confirmado(contratista):
         return False
     if pago.lower() in ("simulado", "simulated", "test", "pending", "none", "null"):
         return False
-    if (contratista or {}).get("requiere_pago") is True and pago.lower() != "admin_bypass":
-        # Still flagged as needing payment → not an active paid subscription.
-        return False
     return True
+
+
+def _trial_vigente(contratista):
+    """True when now(UTC) <= fecha_fin_prueba (14-day free trial or paid window)."""
+    if not contratista or _es_admin((contratista or {}).get("email")):
+        return True
+    fin = _parse_ts((contratista or {}).get("fecha_fin_prueba"))
+    if not fin:
+        return False
+    return datetime.now(timezone.utc) <= fin
+
+
+def _pago_activo(contratista):
+    """Paid Square subscription still inside its valid fecha_fin window."""
+    if not _pago_square_confirmado(contratista):
+        return False
+    return _trial_vigente(contratista)
+
+
+def _acceso_permitido(contratista):
+    """
+    Combined access rule:
+      allow if estado_suscripcion activa (pago Square) OR trial_vigente.
+    Block only when trial ended AND there is no active Square payment.
+    """
+    if not contratista:
+        return False
+    if _es_admin(contratista.get("email")):
+        return True
+    return bool(_trial_vigente(contratista) or _pago_activo(contratista))
+
+
+def _persistir_ventana_trial_si_falta(sb, uid, email, inicio, fin):
+    """Write trial_inicio / fecha_fin_prueba when missing so APIs keep seeing a valid window."""
+    if sb is None or not fin:
+        return
+    ahora = datetime.now(timezone.utc).isoformat()
+    cambios = {
+        "fecha_fin_prueba": fin.isoformat(),
+        "updated_at": ahora,
+        "requiere_pago": False,
+    }
+    if inicio:
+        cambios["trial_inicio"] = inicio.isoformat()
+    if email:
+        cambios["email"] = str(email).strip().lower()
+    try:
+        if uid and _es_uuid(uid):
+            existing = sb.table("perfiles").select("fecha_fin_prueba").eq("id", uid).limit(1).execute()
+            filas = list(existing.data or [])
+            if filas and _parse_ts((filas[0] or {}).get("fecha_fin_prueba")):
+                return
+            if filas:
+                sb.table("perfiles").update(cambios).eq("id", uid).execute()
+            else:
+                payload = dict(cambios)
+                payload["id"] = uid
+                sb.table("perfiles").upsert(payload, on_conflict="id").execute()
+            return
+        if email:
+            existing = sb.table("perfiles").select("fecha_fin_prueba").eq("email", email).limit(1).execute()
+            filas = list(existing.data or [])
+            if filas and _parse_ts((filas[0] or {}).get("fecha_fin_prueba")):
+                return
+            if filas:
+                sb.table("perfiles").update(cambios).eq("email", email).execute()
+    except Exception as err:
+        print(f"--> persistir trial: {err}")
 
 
 def _refrescar_suscripcion_supabase(contratista):
@@ -4514,6 +4575,7 @@ def _refrescar_suscripcion_supabase(contratista):
         "pago_cliente_id": "",
         "requiere_pago": False,
         "trial_inicio": "",
+        "trial_vigente": False,
         "ai_pdf_extractions_count": 0,
     }
     if not contratista:
@@ -4522,12 +4584,13 @@ def _refrescar_suscripcion_supabase(contratista):
     if _es_admin(email):
         datos["plan_seleccionado"] = _plan_valido(contratista.get("plan_seleccionado")) or "premium"
         datos["pago_cliente_id"] = "admin_bypass"
+        datos["trial_vigente"] = True
         return datos
     sb = _supabase_client()
     if sb is None:
-        # Fail closed for access decisions when billing DB is unavailable.
-        datos["trial_expirada"] = True
-        datos["requiere_pago"] = True
+        # Without billing DB, do not invent access — but also do not invent expiry for brand-new sessions.
+        datos["trial_expirada"] = False
+        datos["requiere_pago"] = False
         return datos
     uid = str(contratista.get("user_id") or "").strip()
     if not uid:
@@ -4574,32 +4637,37 @@ def _refrescar_suscripcion_supabase(contratista):
 
     inicio = None
     fin = None
+    fin_db = None
     if fila:
         datos["plan_seleccionado"] = _plan_valido(fila.get("plan_seleccionado"))
         datos["pago_cliente_id"] = str(fila.get("pago_cliente_id") or "").strip()
         datos["requiere_pago"] = bool(fila.get("requiere_pago"))
         inicio = _parse_ts(fila.get("trial_inicio"))
-        fin = _parse_ts(fila.get("fecha_fin_prueba"))
+        fin_db = _parse_ts(fila.get("fecha_fin_prueba"))
+        fin = fin_db
         if not fin and inicio:
             fin = _fecha_fin_prueba_desde(inicio)
         if not fin and created_contratista:
             fin = _fecha_fin_prueba_desde(created_contratista)
             inicio = inicio or created_contratista
     else:
-        # No perfiles row — derive trial from contratistas.created_at when possible.
         if created_contratista:
             fin = _fecha_fin_prueba_desde(created_contratista)
             inicio = created_contratista
         datos["plan_seleccionado"] = _plan_valido(contratista.get("plan_seleccionado"))
 
     pago_ok = _pago_square_confirmado(datos)
-    # Without a real Square payment, never honor an inflated fecha_fin beyond the 14-day trial.
+    # Without Square payment, never honor an inflated fecha_fin beyond the real 14-day trial.
     ancla = inicio or created_contratista
     if not pago_ok and ancla:
         fin_max = _fecha_fin_prueba_desde(ancla)
         if not fin or fin > fin_max:
             fin = fin_max
         inicio = inicio or ancla
+
+    # Ensure every account has a concrete trial window (create+14) persisted when missing.
+    if fin and not fin_db and not pago_ok:
+        _persistir_ventana_trial_si_falta(sb, uid, email, inicio, fin)
 
     if inicio:
         datos["trial_inicio"] = inicio.isoformat()
@@ -4608,34 +4676,26 @@ def _refrescar_suscripcion_supabase(contratista):
 
     ahora = datetime.now(timezone.utc)
     fin = _parse_ts(datos.get("fecha_fin_prueba"))
-    # Rule: now > fecha_fin_prueba and no confirmed Square payment → expired.
-    if fin and ahora > fin and not pago_ok:
-        datos["trial_expirada"] = True
-        datos["requiere_pago"] = True
-    elif datos.get("requiere_pago") is True and not pago_ok:
-        datos["trial_expirada"] = True
-        datos["requiere_pago"] = True
-    elif not fin and not pago_ok and datos.get("plan_seleccionado"):
-        # Had a plan but no trial window left in DB → treat as blocked until Square pays.
-        datos["trial_expirada"] = True
-        datos["requiere_pago"] = True
-    elif fin and ahora <= fin:
+    trial_ok = bool(fin and ahora <= fin)
+    datos["trial_vigente"] = trial_ok
+
+    # Access rule: trial vigente OR pago Square activo. requiere_pago alone never kills a live trial.
+    if trial_ok:
         datos["trial_expirada"] = False
-        if pago_ok:
+        # During free trial, clear stale payment-due flags so APIs/middleware allow full use.
+        if not pago_ok:
             datos["requiere_pago"] = False
-    else:
-        if datos.get("plan_seleccionado") or pago_ok is False:
-            # Missing/invalid window with a chosen plan → block until Square confirms payment.
-            if datos.get("plan_seleccionado") and not pago_ok:
-                datos["trial_expirada"] = True
-                datos["requiere_pago"] = True
-            else:
-                # Brand-new onboarding (no plan yet): not active, but not a paid-paywall either.
-                datos["trial_expirada"] = False
-                datos["requiere_pago"] = False
         else:
-            datos["trial_expirada"] = True
-            datos["requiere_pago"] = True
+            datos["requiere_pago"] = False
+    elif pago_ok and trial_ok:
+        datos["trial_expirada"] = False
+        datos["requiere_pago"] = False
+    elif not trial_ok and not pago_ok:
+        datos["trial_expirada"] = True
+        datos["requiere_pago"] = True
+    else:
+        datos["trial_expirada"] = not trial_ok
+        datos["requiere_pago"] = not pago_ok
 
     try:
         datos["ai_pdf_extractions_count"] = _leer_contador_ia_pdf(sb, contratista)
@@ -4645,41 +4705,23 @@ def _refrescar_suscripcion_supabase(contratista):
 
 
 def _prueba_expirada(contratista):
+    """Expired only when the trial/paid window ended and there is no active Square payment."""
     if not contratista or _es_admin(contratista.get("email")):
         return False
-    if contratista.get("trial_expirada") is True:
-        return True
-    if contratista.get("requiere_pago") is True and not _pago_square_confirmado(contratista):
-        return True
-    fin = _parse_ts(contratista.get("fecha_fin_prueba"))
-    if fin and datetime.now(timezone.utc) > fin and not _pago_square_confirmado(contratista):
-        return True
-    return False
+    # Inverse of combined access: not (trial_vigente OR pago_activo).
+    return not _acceso_permitido(contratista)
 
 
 def _suscripcion_activa(contratista):
-    """Active = within trial window OR paid Square sub with valid fecha_fin. Fresh flags required."""
-    if not contratista:
-        return False
-    if _es_admin(contratista.get("email")):
-        return True
-    if contratista.get("requiere_pago") is True and not _pago_square_confirmado(contratista):
-        return False
-    if _prueba_expirada(contratista):
-        return False
-    fin = _parse_ts(contratista.get("fecha_fin_prueba"))
-    if not fin:
-        return False
-    return datetime.now(timezone.utc) <= fin
+    """Alias kept for callers: paid Square OR free-trial window still open."""
+    return _acceso_permitido(contratista)
 
 
 def _debe_forzar_planes(contratista):
-    """Login + middleware gate: expired trial or payment required → /planes only."""
+    """Force /planes only when access is denied (trial ended AND no Square payment)."""
     if not contratista or _es_admin(contratista.get("email")):
         return False
-    return bool(_prueba_expirada(contratista) or (
-        contratista.get("requiere_pago") is True and not _pago_square_confirmado(contratista)
-    ))
+    return not _acceso_permitido(contratista)
 
 
 def _adjuntar_destino_sesion(payload):
@@ -4688,11 +4730,12 @@ def _adjuntar_destino_sesion(payload):
     if _es_admin(payload.get("email")):
         payload["siguiente"] = "estimado"
         payload["activo"] = True
+        payload["trial_vigente"] = True
         return payload
-    if _debe_forzar_planes(payload) or not _suscripcion_activa(payload):
-        if _prueba_expirada(payload) or payload.get("requiere_pago"):
-            payload["trial_expirada"] = True
-            payload["requiere_pago"] = True
+    payload["trial_vigente"] = _trial_vigente(payload)
+    if not _acceso_permitido(payload):
+        payload["trial_expirada"] = True
+        payload["requiere_pago"] = True
         payload["siguiente"] = "planes"
         payload["activo"] = False
         return payload
@@ -4700,6 +4743,8 @@ def _adjuntar_destino_sesion(payload):
         payload["siguiente"] = "planes"
         payload["activo"] = False
         return payload
+    payload["trial_expirada"] = False
+    payload["requiere_pago"] = False
     payload["siguiente"] = "estimado"
     payload["activo"] = True
     return payload
@@ -5094,6 +5139,10 @@ def _sesion_desde_fila(row):
         count = int(prueba.get("ai_pdf_extractions_count") or 0)
     except Exception:
         count = 0
+    trial_ok = False if _es_admin(row.get("email")) else bool(prueba.get("trial_vigente"))
+    if not trial_ok and not _es_admin(row.get("email")):
+        fin_tmp = _parse_ts(prueba.get("fecha_fin_prueba"))
+        trial_ok = bool(fin_tmp and datetime.now(timezone.utc) <= fin_tmp)
     return {
         "id": row.get("id"),
         "email": row.get("email"),
@@ -5101,10 +5150,12 @@ def _sesion_desde_fila(row):
         "token": row.get("token"),
         "user_id": row.get("user_id") or "",
         "fecha_fin_prueba": "" if _es_admin(row.get("email")) else (prueba.get("fecha_fin_prueba") or ""),
-        "trial_expirada": False if _es_admin(row.get("email")) else bool(prueba.get("trial_expirada")),
+        "trial_inicio": "" if _es_admin(row.get("email")) else (prueba.get("trial_inicio") or ""),
+        "trial_vigente": True if _es_admin(row.get("email")) else trial_ok,
+        "trial_expirada": False if _es_admin(row.get("email")) else (False if trial_ok else bool(prueba.get("trial_expirada"))),
         "plan_seleccionado": prueba.get("plan_seleccionado") or "",
         "pago_cliente_id": prueba.get("pago_cliente_id") or "",
-        "requiere_pago": False if _es_admin(row.get("email")) else bool(prueba.get("requiere_pago")),
+        "requiere_pago": False if _es_admin(row.get("email")) else (False if trial_ok else bool(prueba.get("requiere_pago"))),
         "nombre_plan": _nombre_plan(prueba.get("plan_seleccionado")),
         "ai_pdf_extractions_count": 0 if _es_admin(row.get("email")) else count,
     }
@@ -9026,11 +9077,8 @@ def api_save_draft():
         if not row:
             return jsonify({"draft": None}), 200
         return jsonify(documento_desde_fila_historial(row))
-    if contratista.get("trial_expirada"):
-        return jsonify({
-            "error": "Your 14-day free trial has expired. Please add a payment method to keep using QuantixBuilds.",
-            "code": "trial_expired",
-        }), 402
+    if not _acceso_permitido(contratista):
+        return _respuesta_prueba_expirada()
     body = request.get_json(silent=True) or {}
     fila = _fila_historial_desde_body(body)
     fila["estado"] = "Draft"
@@ -9053,11 +9101,8 @@ def api_historial():
     if error:
         return error
     if request.method == "POST":
-        if contratista.get("trial_expirada"):
-            return jsonify({
-                "error": "Your 14-day free trial has expired. Please add a payment method to keep using QuantixBuilds.",
-                "code": "trial_expired",
-            }), 402
+        if not _acceso_permitido(contratista):
+            return _respuesta_prueba_expirada()
         body = request.get_json(silent=True) or {}
         fila = _fila_historial_desde_body(body)
         try:
