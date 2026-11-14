@@ -11431,20 +11431,24 @@
         if(sesionActual){
           sesionActual.plan_seleccionado=json.plan_seleccionado||plan;
           sesionActual.plan_pendiente=sesionActual.plan_seleccionado;
-          if(json.trial_expirada===true||json.siguiente==='square'||json.activado===false){
+          if(json.fecha_fin_prueba) sesionActual.fecha_fin_prueba=json.fecha_fin_prueba;
+          if(json.trial_inicio) sesionActual.trial_inicio=json.trial_inicio;
+          if(json.pago_cliente_id) sesionActual.pago_cliente_id=json.pago_cliente_id;
+          if(json.siguiente==='estimado'||json.activado===true||json.trial_vigente===true){
+            sesionActual.trial_vigente=true;
+            sesionActual.trial_expirada=false;
+            sesionActual.requiere_pago=false;
+          }else if(json.siguiente==='square'||json.trial_expirada===true||json.activado===false){
             sesionActual.trial_expirada=true;
+            sesionActual.trial_vigente=false;
             sesionActual.requiere_pago=true;
           }else if(typeof json.requiere_pago==='boolean'){
             sesionActual.requiere_pago=json.requiere_pago;
           }
-          if(json.pago_cliente_id) sesionActual.pago_cliente_id=json.pago_cliente_id;
-          if(json.fecha_fin_prueba&&!(json.trial_expirada===true||json.siguiente==='square'||json.activado===false)){
-            sesionActual.fecha_fin_prueba=json.fecha_fin_prueba;
-          }
         }
         aplicarFeatureGating();
         resumenPlanPago(sesionActual&&sesionActual.plan_seleccionado||plan);
-        if(json.siguiente==='square'||json.trial_expirada===true||json.activado===false||json.checkout_url){
+        if(json.siguiente==='square'||(json.trial_expirada===true&&json.activado===false)||(json.checkout_url&&json.siguiente==='square')){
           if(!irACheckoutSquare(plan, json.checkout_url||await obtenerCheckoutSquare(plan))){
             if(cta) cta.disabled=false;
           }

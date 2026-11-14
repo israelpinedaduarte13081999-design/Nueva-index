@@ -4504,6 +4504,7 @@ def _trial_vigente(contratista):
         return True
     fin = _parse_ts((contratista or {}).get("fecha_fin_prueba"))
     if not fin:
+        # Missing end date is NOT expired — caller should start/heal the 14-day window.
         return False
     return datetime.now(timezone.utc) <= fin
 
@@ -4512,58 +4513,132 @@ def _pago_activo(contratista):
     """Paid Square subscription still inside its valid fecha_fin window."""
     if not _pago_square_confirmado(contratista):
         return False
-    return _trial_vigente(contratista)
+    fin = _parse_ts((contratista or {}).get("fecha_fin_prueba"))
+    if not fin:
+        return True  # paid marker present; treat as active until webhook window is stored
+    return datetime.now(timezone.utc) <= fin
 
 
 def _acceso_permitido(contratista):
     """
     Combined access rule:
-      allow if estado_suscripcion activa (pago Square) OR trial_vigente.
-    Block only when trial ended AND there is no active Square payment.
+      allow if pago Square activo OR trial_vigente (fecha_actual <= fecha_fin_prueba).
+    Missing fecha_fin_prueba alone must NOT bounce a brand-new account.
     """
     if not contratista:
         return False
     if _es_admin(contratista.get("email")):
         return True
-    return bool(_trial_vigente(contratista) or _pago_activo(contratista))
+    if _pago_activo(contratista):
+        return True
+    if _trial_vigente(contratista):
+        return True
+    # No end date yet and no confirmed expiry → allow while trial is being created/healed.
+    fin = _parse_ts(contratista.get("fecha_fin_prueba"))
+    if not fin and contratista.get("trial_expirada") is not True:
+        return True
+    return False
 
 
-def _persistir_ventana_trial_si_falta(sb, uid, email, inicio, fin):
-    """Write trial_inicio / fecha_fin_prueba when missing so APIs keep seeing a valid window."""
+def _persistir_ventana_trial(sb, uid, email, inicio, fin, plan="", forzar=False):
+    """Persist trial_inicio / fecha_fin_prueba on perfiles (and contratistas when columns exist)."""
     if sb is None or not fin:
-        return
+        return False
     ahora = datetime.now(timezone.utc).isoformat()
     cambios = {
-        "fecha_fin_prueba": fin.isoformat(),
+        "fecha_fin_prueba": fin.isoformat() if hasattr(fin, "isoformat") else str(fin),
         "updated_at": ahora,
         "requiere_pago": False,
     }
     if inicio:
-        cambios["trial_inicio"] = inicio.isoformat()
+        cambios["trial_inicio"] = inicio.isoformat() if hasattr(inicio, "isoformat") else str(inicio)
     if email:
         cambios["email"] = str(email).strip().lower()
+    if _plan_valido(plan):
+        cambios["plan_seleccionado"] = _plan_valido(plan)
+    ok = False
     try:
         if uid and _es_uuid(uid):
             existing = sb.table("perfiles").select("fecha_fin_prueba").eq("id", uid).limit(1).execute()
             filas = list(existing.data or [])
-            if filas and _parse_ts((filas[0] or {}).get("fecha_fin_prueba")):
-                return
+            fin_existente = _parse_ts((filas[0] or {}).get("fecha_fin_prueba")) if filas else None
+            if filas and fin_existente and not forzar and fin_existente >= datetime.now(timezone.utc):
+                return True
             if filas:
                 sb.table("perfiles").update(cambios).eq("id", uid).execute()
             else:
                 payload = dict(cambios)
                 payload["id"] = uid
                 sb.table("perfiles").upsert(payload, on_conflict="id").execute()
-            return
-        if email:
+            ok = True
+        elif email:
             existing = sb.table("perfiles").select("fecha_fin_prueba").eq("email", email).limit(1).execute()
             filas = list(existing.data or [])
-            if filas and _parse_ts((filas[0] or {}).get("fecha_fin_prueba")):
-                return
+            fin_existente = _parse_ts((filas[0] or {}).get("fecha_fin_prueba")) if filas else None
+            if filas and fin_existente and not forzar and fin_existente >= datetime.now(timezone.utc):
+                return True
             if filas:
                 sb.table("perfiles").update(cambios).eq("email", email).execute()
+                ok = True
+            else:
+                sb.table("perfiles").insert(cambios).execute()
+                ok = True
     except Exception as err:
-        print(f"--> persistir trial: {err}")
+        print(f"--> persistir trial perfiles: {err}")
+    # Best-effort mirror on contratistas if those columns were added.
+    try:
+        mirror = {
+            "fecha_fin_prueba": cambios["fecha_fin_prueba"],
+            "updated_at": ahora,
+        }
+        if cambios.get("trial_inicio"):
+            mirror["trial_inicio"] = cambios["trial_inicio"]
+        if cambios.get("plan_seleccionado"):
+            mirror["plan_seleccionado"] = cambios["plan_seleccionado"]
+        q = sb.table(TABLA_CONTRATISTAS).update(mirror)
+        if email:
+            q = q.eq("email", email)
+        elif uid:
+            q = q.eq("user_id", uid)
+        q.execute()
+    except Exception as err:
+        # Column may not exist on contratistas — ignore.
+        if "fecha_fin_prueba" not in str(err) and "trial_inicio" not in str(err) and "plan_seleccionado" not in str(err):
+            print(f"--> persistir trial contratistas: {err}")
+    return ok
+
+
+def _persistir_ventana_trial_si_falta(sb, uid, email, inicio, fin):
+    return _persistir_ventana_trial(sb, uid, email, inicio, fin, forzar=False)
+
+
+def _iniciar_prueba_14_dias(contratista, plan=""):
+    """
+    Start or heal the free trial: fecha_fin_prueba = now + 14 days.
+    Never shortens an already-valid future trial window.
+    """
+    sb = _supabase_client()
+    ahora = datetime.now(timezone.utc)
+    email = str((contratista or {}).get("email") or "").strip().lower()
+    uid = str((contratista or {}).get("user_id") or "").strip()
+    fin_actual = _parse_ts((contratista or {}).get("fecha_fin_prueba"))
+    inicio_actual = _parse_ts((contratista or {}).get("trial_inicio"))
+    if fin_actual and fin_actual > ahora:
+        inicio = inicio_actual or ahora
+        fin = fin_actual
+    else:
+        inicio = ahora
+        fin = _fecha_fin_prueba_desde(ahora)
+    _persistir_ventana_trial(sb, uid, email, inicio, fin, plan=plan, forzar=not (fin_actual and fin_actual > ahora))
+    if contratista is not None:
+        contratista["trial_inicio"] = inicio.isoformat()
+        contratista["fecha_fin_prueba"] = fin.isoformat()
+        contratista["trial_vigente"] = True
+        contratista["trial_expirada"] = False
+        contratista["requiere_pago"] = False
+        if _plan_valido(plan):
+            contratista["plan_seleccionado"] = _plan_valido(plan)
+    return fin
 
 
 def _refrescar_suscripcion_supabase(contratista):
@@ -4657,45 +4732,56 @@ def _refrescar_suscripcion_supabase(contratista):
         datos["plan_seleccionado"] = _plan_valido(contratista.get("plan_seleccionado"))
 
     pago_ok = _pago_square_confirmado(datos)
-    # Without Square payment, never honor an inflated fecha_fin beyond the real 14-day trial.
+    ahora = datetime.now(timezone.utc)
     ancla = inicio or created_contratista
-    if not pago_ok and ancla:
-        fin_max = _fecha_fin_prueba_desde(ancla)
-        if not fin or fin > fin_max:
-            fin = fin_max
-        inicio = inicio or ancla
 
-    # Ensure every account has a concrete trial window (create+14) persisted when missing.
-    if fin and not fin_db and not pago_ok:
-        _persistir_ventana_trial_si_falta(sb, uid, email, inicio, fin)
+    # Heal missing/corrupt trial windows for new accounts.
+    if not pago_ok:
+        if ancla and (ahora - ancla).days <= 14 and (not fin or fin < ahora):
+            # Account still inside first 14 days from creation — restore a valid trial even if
+            # a previous bug wrote an already-expired fecha_fin_prueba.
+            inicio = ancla
+            fin = _fecha_fin_prueba_desde(ancla)
+            _persistir_ventana_trial(
+                sb, uid, email, inicio, fin,
+                plan=datos.get("plan_seleccionado") or "",
+                forzar=True,
+            )
+        elif not fin and not ancla:
+            inicio = ahora
+            fin = _fecha_fin_prueba_desde(ahora)
+            _persistir_ventana_trial(
+                sb, uid, email, inicio, fin,
+                plan=datos.get("plan_seleccionado") or "",
+                forzar=True,
+            )
+        elif fin and ancla:
+            # Cap only clearly inflated unpaid windows (> ancla+14), never shrink a valid live trial.
+            fin_max = _fecha_fin_prueba_desde(ancla)
+            if fin > fin_max + timedelta(days=1):
+                fin = fin_max
+                inicio = inicio or ancla
 
     if inicio:
         datos["trial_inicio"] = inicio.isoformat()
     if fin:
         datos["fecha_fin_prueba"] = fin.isoformat()
 
-    ahora = datetime.now(timezone.utc)
     fin = _parse_ts(datos.get("fecha_fin_prueba"))
     trial_ok = bool(fin and ahora <= fin)
     datos["trial_vigente"] = trial_ok
 
-    # Access rule: trial vigente OR pago Square activo. requiere_pago alone never kills a live trial.
-    if trial_ok:
-        datos["trial_expirada"] = False
-        # During free trial, clear stale payment-due flags so APIs/middleware allow full use.
-        if not pago_ok:
-            datos["requiere_pago"] = False
-        else:
-            datos["requiere_pago"] = False
-    elif pago_ok and trial_ok:
+    # Access rule: trial vigente OR pago Square. Missing fin after heal attempt ≠ expired yet.
+    if trial_ok or pago_ok:
         datos["trial_expirada"] = False
         datos["requiere_pago"] = False
-    elif not trial_ok and not pago_ok:
+    elif fin and ahora > fin and not pago_ok:
         datos["trial_expirada"] = True
         datos["requiere_pago"] = True
     else:
-        datos["trial_expirada"] = not trial_ok
-        datos["requiere_pago"] = not pago_ok
+        # No reliable expiry proof → do not bounce new users.
+        datos["trial_expirada"] = False
+        datos["requiere_pago"] = False
 
     try:
         datos["ai_pdf_extractions_count"] = _leer_contador_ia_pdf(sb, contratista)
@@ -4705,11 +4791,16 @@ def _refrescar_suscripcion_supabase(contratista):
 
 
 def _prueba_expirada(contratista):
-    """Expired only when the trial/paid window ended and there is no active Square payment."""
+    """Expired only when fecha_fin_prueba is in the past and there is no Square payment."""
     if not contratista or _es_admin(contratista.get("email")):
         return False
-    # Inverse of combined access: not (trial_vigente OR pago_activo).
-    return not _acceso_permitido(contratista)
+    if _pago_activo(contratista):
+        return False
+    fin = _parse_ts(contratista.get("fecha_fin_prueba"))
+    if not fin:
+        # No end date yet → trial not started/healed, NOT expired.
+        return False
+    return datetime.now(timezone.utc) > fin
 
 
 def _suscripcion_activa(contratista):
@@ -4718,10 +4809,10 @@ def _suscripcion_activa(contratista):
 
 
 def _debe_forzar_planes(contratista):
-    """Force /planes only when access is denied (trial ended AND no Square payment)."""
+    """Force /planes paywall only when the 14-day window has ended and Square is unpaid."""
     if not contratista or _es_admin(contratista.get("email")):
         return False
-    return not _acceso_permitido(contratista)
+    return _prueba_expirada(contratista)
 
 
 def _adjuntar_destino_sesion(payload):
@@ -4732,10 +4823,13 @@ def _adjuntar_destino_sesion(payload):
         payload["activo"] = True
         payload["trial_vigente"] = True
         return payload
-    payload["trial_vigente"] = _trial_vigente(payload)
-    if not _acceso_permitido(payload):
+    payload["trial_vigente"] = _trial_vigente(payload) or (
+        not _parse_ts(payload.get("fecha_fin_prueba")) and not _prueba_expirada(payload)
+    )
+    if _prueba_expirada(payload):
         payload["trial_expirada"] = True
         payload["requiere_pago"] = True
+        payload["trial_vigente"] = False
         payload["siguiente"] = "planes"
         payload["activo"] = False
         return payload
@@ -4745,6 +4839,7 @@ def _adjuntar_destino_sesion(payload):
         return payload
     payload["trial_expirada"] = False
     payload["requiere_pago"] = False
+    payload["trial_vigente"] = True if _trial_vigente(payload) or payload.get("trial_vigente") else payload.get("trial_vigente")
     payload["siguiente"] = "estimado"
     payload["activo"] = True
     return payload
@@ -5446,7 +5541,11 @@ def _asegurar_perfil_para_pago(sb, uid, email, plan, vencido=False):
 
 
 def guardar_plan_contratista(contratista, plan, exigir_pago=None):
-    """Save selected plan only. Never activates subscription / never extends fecha_fin_prueba."""
+    """
+    Save selected plan.
+    - Free trial start: writes fecha_fin_prueba = now+14 and requiere_pago=False.
+    - Expired pay flow: keeps account blocked; never extends fecha_fin_prueba.
+    """
     sb = _supabase_client()
     if sb is None:
         raise ErrorAuth("config", "Supabase no configurado", 503)
@@ -5455,11 +5554,12 @@ def guardar_plan_contratista(contratista, plan, exigir_pago=None):
         raise ErrorAuth("plan", "Choose a plan to start your trial.", 400)
     email = str(contratista.get("email") or "").strip().lower()
     uid = str(contratista.get("user_id") or _user_id_de_contratista(sb, contratista) or "").strip()
+    if uid:
+        contratista["user_id"] = uid
     vencido = _prueba_expirada(contratista)
     if exigir_pago is None:
         exigir_pago = True if vencido else False
 
-    # Auth is enough to pay: ensure bare contratista row exists (company name optional).
     if email:
         minimo = _asegurar_contratista_minimo(
             sb,
@@ -5473,13 +5573,38 @@ def guardar_plan_contratista(contratista, plan, exigir_pago=None):
         if minimo and minimo.get("token") and not contratista.get("token"):
             contratista["token"] = minimo.get("token")
 
+    # Free-trial path: always register/heal the 14-day window before returning.
+    if not vencido and not exigir_pago:
+        _iniciar_prueba_14_dias(contratista, plan=plan)
+        ahora = datetime.now(timezone.utc).isoformat()
+        cambios = {
+            "plan_seleccionado": plan,
+            "requiere_pago": False,
+            "updated_at": ahora,
+            "fecha_fin_prueba": contratista.get("fecha_fin_prueba"),
+            "trial_inicio": contratista.get("trial_inicio"),
+        }
+        try:
+            if uid:
+                sb.table("perfiles").update(cambios).eq("id", uid).execute()
+            if email:
+                sb.table("perfiles").update(cambios).eq("email", email).execute()
+        except Exception as err:
+            print(f"--> plan trial update: {err}")
+            _guardar_perfil(sb, uid, email, "", plan, exigir_pago=False)
+        print(
+            f"--> trial 14d iniciada email={email} plan={plan} "
+            f"fin={contratista.get('fecha_fin_prueba')}"
+        )
+        return plan
+
+    # Expired → pay flow: store plan + requiere_pago, do NOT extend trial.
     ahora = datetime.now(timezone.utc).isoformat()
     cambios = {
         "plan_seleccionado": plan,
         "updated_at": ahora,
+        "requiere_pago": True,
     }
-    if vencido or exigir_pago:
-        cambios["requiere_pago"] = True
     try:
         if uid:
             res = sb.table("perfiles").update(cambios).eq("id", uid).execute()
@@ -5492,17 +5617,11 @@ def guardar_plan_contratista(contratista, plan, exigir_pago=None):
     except Exception as err:
         print(f"--> plan perfil: {err}")
 
-    ok = _asegurar_perfil_para_pago(sb, uid, email, plan, vencido=bool(vencido or exigir_pago))
+    ok = _asegurar_perfil_para_pago(sb, uid, email, plan, vencido=True)
     if ok:
         return plan
-    if vencido or exigir_pago:
-        # Payment must still proceed — caller returns Square URL even if profile write is soft-failed.
-        print(f"--> plan perfil soft-fail email={email} plan={plan} (checkout continues)")
-        return plan
-    if uid:
-        _guardar_perfil(sb, uid, email, "", plan, exigir_pago=bool(exigir_pago))
-        return plan
-    raise ErrorAuth("plan", "Could not save the selected plan.", 400)
+    print(f"--> plan perfil soft-fail email={email} plan={plan} (checkout continues)")
+    return plan
 
 
 def _stripe_secreta():
@@ -7549,17 +7668,17 @@ def api_guardar_plan_contratista():
     contratista, error = _exigir_contratista()
     if error:
         return error
-    vencido_antes = _prueba_expirada(contratista) or _debe_forzar_planes(contratista)
+    # Only truly expired trials (past fecha_fin_prueba) go to Square — missing dates start a free trial.
+    vencido_antes = _prueba_expirada(contratista)
     plan_pedido = _plan_valido(body.get("plan_seleccionado") or body.get("plan") or "") or ""
     plan = plan_pedido
     try:
         plan = guardar_plan_contratista(
             contratista,
             plan_pedido or body.get("plan_seleccionado") or body.get("plan") or "",
-            exigir_pago=True if vencido_antes else None,
+            exigir_pago=True if vencido_antes else False,
         )
     except ErrorAuth as err:
-        # Expired users must still receive the Square URL — auth + plan choice is enough.
         if vencido_antes and plan_pedido:
             print(f"--> plan auth soft-fail {err.code}: checkout continues plan={plan_pedido}")
             plan = plan_pedido
@@ -7575,7 +7694,14 @@ def api_guardar_plan_contratista():
     if not plan:
         return jsonify({"error": "Choose a plan to continue.", "code": "plan"}), 400
     contratista["plan_seleccionado"] = plan
-    if vencido_antes:
+    if not vencido_antes:
+        # Guarantee in-memory trial flags even if a later refresh is flaky.
+        if not _trial_vigente(contratista):
+            _iniciar_prueba_14_dias(contratista, plan=plan)
+        contratista["requiere_pago"] = False
+        contratista["trial_expirada"] = False
+        contratista["trial_vigente"] = True
+    else:
         contratista["requiere_pago"] = True
         contratista["trial_expirada"] = True
     sb = _supabase_client()
@@ -7585,9 +7711,13 @@ def api_guardar_plan_contratista():
         except Exception as err:
             print(f"--> plan refresh soft-fail: {err}")
         if vencido_antes:
-            # Hard lock: plan click must not clear expiry flags even if profile read is stale.
             contratista["trial_expirada"] = True
             contratista["requiere_pago"] = True
+        else:
+            contratista["trial_expirada"] = False
+            contratista["requiere_pago"] = False
+            if not contratista.get("fecha_fin_prueba"):
+                _iniciar_prueba_14_dias(contratista, plan=plan)
     try:
         payload = _sesion_desde_fila(contratista)
     except Exception as err:
@@ -7598,20 +7728,34 @@ def api_guardar_plan_contratista():
             "token": contratista.get("token"),
             "user_id": contratista.get("user_id") or "",
             "plan_seleccionado": plan,
-            "trial_expirada": True if vencido_antes else bool(contratista.get("trial_expirada")),
-            "requiere_pago": True if vencido_antes else bool(contratista.get("requiere_pago")),
+            "fecha_fin_prueba": contratista.get("fecha_fin_prueba") or "",
+            "trial_inicio": contratista.get("trial_inicio") or "",
+            "trial_vigente": not vencido_antes,
+            "trial_expirada": bool(vencido_antes),
+            "requiere_pago": bool(vencido_antes),
         }
-    if vencido_antes or _prueba_expirada(contratista) or not _suscripcion_activa(contratista):
+    if vencido_antes:
         payload["plan_seleccionado"] = plan
         payload["trial_expirada"] = True
+        payload["trial_vigente"] = False
         payload["requiere_pago"] = True
         payload["siguiente"] = "square"
         payload["checkout_url"] = _checkout_url_plan(plan)
         payload["activado"] = False
-        print(f"--> plan elegido sin activar plan={plan} checkout={payload['checkout_url'][:64]}")
+        print(f"--> plan elegido sin activar plan={plan} checkout={str(payload.get('checkout_url') or '')[:64]}")
     else:
+        payload["plan_seleccionado"] = plan
+        payload["fecha_fin_prueba"] = contratista.get("fecha_fin_prueba") or payload.get("fecha_fin_prueba") or ""
+        payload["trial_inicio"] = contratista.get("trial_inicio") or payload.get("trial_inicio") or ""
+        payload["trial_vigente"] = True
+        payload["trial_expirada"] = False
+        payload["requiere_pago"] = False
         payload["siguiente"] = "estimado"
         payload["activado"] = True
+        print(
+            f"--> trial plan ok email={payload.get('email')} plan={plan} "
+            f"fin={payload.get('fecha_fin_prueba')}"
+        )
     resp = jsonify(payload)
     return _adjuntar_sesion_contratista(resp, contratista.get("token"))
 
