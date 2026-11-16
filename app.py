@@ -7399,6 +7399,57 @@ def _vista_contrato_publico(datos):
         totales.append({"label": total_label, "valor": _dinero_publico(total_num), "destacado": True})
     snapshot = datos.get("snapshot") if isinstance(datos.get("snapshot"), dict) else {}
     company = snapshot.get("company") if isinstance(snapshot.get("company"), dict) else {}
+    payment = snapshot.get("payment") if isinstance(snapshot.get("payment"), dict) else {}
+    if not payment and isinstance(datos.get("payment"), dict):
+        payment = datos.get("payment")
+    payment_methods = snapshot.get("paymentMethods") if isinstance(snapshot.get("paymentMethods"), dict) else {}
+    try:
+        paid_amount = float(payment.get("paidAmount") or payment.get("amount") or 0)
+    except (TypeError, ValueError):
+        paid_amount = 0.0
+    if paid_amount < 0:
+        paid_amount = 0.0
+    balance_due = max(round(total_num - paid_amount, 2), 0.0)
+    if tipo_clave == "invoice":
+        totales.append({"label": "Amount paid", "valor": _dinero_publico(paid_amount), "destacado": False, "kind": "paid"})
+        totales.append({"label": "Balance due", "valor": _dinero_publico(balance_due), "destacado": True, "kind": "balance"})
+    metodos_pago = []
+    if tipo_clave == "invoice":
+        zelle = payment_methods.get("zelle") if isinstance(payment_methods.get("zelle"), dict) else {}
+        check = payment_methods.get("check") if isinstance(payment_methods.get("check"), dict) else {}
+        online = payment_methods.get("online") if isinstance(payment_methods.get("online"), dict) else {}
+        bank = payment_methods.get("bank") if isinstance(payment_methods.get("bank"), dict) else {}
+        if zelle.get("visible", True) or any(zelle.get(k) for k in ("phone", "email", "name")):
+            metodos_pago.append({
+                "titulo": "Zelle",
+                "lineas": [
+                    ("Registered phone", zelle.get("phone") or ""),
+                    ("Registered email", zelle.get("email") or ""),
+                    ("Account name", zelle.get("name") or ""),
+                ],
+            })
+        if check.get("visible", True) or any(check.get(k) for k in ("payee", "address")):
+            metodos_pago.append({
+                "titulo": "Check",
+                "lineas": [
+                    ("Make check payable to", check.get("payee") or company.get("name") or datos.get("nombre_empresa") or ""),
+                    ("Address", check.get("address") or ""),
+                ],
+            })
+        if online.get("visible") and online.get("url"):
+            metodos_pago.append({
+                "titulo": "Online payment",
+                "lineas": [("Payment link", online.get("url") or "")],
+            })
+        if bank.get("visible") and any(bank.get(k) for k in ("bank", "routing", "account")):
+            metodos_pago.append({
+                "titulo": "Bank transfer",
+                "lineas": [
+                    ("Bank", bank.get("bank") or ""),
+                    ("Routing number", bank.get("routing") or ""),
+                    ("Account", bank.get("account") or ""),
+                ],
+            })
     firmas = _extraer_firmas_documento(datos)
     plano = datos.get("plano") if isinstance(datos.get("plano"), dict) else {}
     if not plano and isinstance(snapshot.get("plano"), dict):
@@ -7425,6 +7476,13 @@ def _vista_contrato_publico(datos):
         "terminos": str(datos.get("terminos") or datos.get("terms") or "").strip(),
         "notas": str(datos.get("notas") or datos.get("projectNotes") or "").strip(),
         "totales": totales,
+        "metodos_pago": metodos_pago,
+        "amount_paid": paid_amount,
+        "amount_paid_txt": _dinero_publico(paid_amount),
+        "balance_due": balance_due,
+        "balance_due_txt": _dinero_publico(balance_due),
+        "pago_status": str(payment.get("status") or "").strip().lower(),
+        "pago_fecha": str(payment.get("paidDate") or "")[:10],
         "subtotal_txt": _dinero_publico(subtotal) if bloques else "",
         "total_txt": _dinero_publico(total_num) if total_num or bloques else "",
         "tiene_alcance": bool(bloques),
@@ -14566,7 +14624,11 @@ def _html_a_pdf(html):
         try:
             from weasyprint import CSS as WeasyCSS
             return _WEASYPRINT_HTML(string=str(html or ""), encoding="utf-8").write_pdf(
-                stylesheets=[WeasyCSS(string="@page { size: Letter; margin: 14mm 12mm; }")]
+                stylesheets=[WeasyCSS(string=(
+                    "@page { size: Letter; margin: 12mm 11mm; } "
+                    "html, body, * { -webkit-print-color-adjust: exact !important; "
+                    "print-color-adjust: exact !important; color-adjust: exact !important; }"
+                ))]
             )
         except Exception as err:
             errores.append(f"weasyprint: {err}")

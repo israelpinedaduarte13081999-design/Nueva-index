@@ -912,7 +912,6 @@
       .remove-row,
       .payment-method-controls,
       .payment-quick-actions,
-      .payment-tracking,
       .task-dropdown-menu,
       .address-autocomplete-menu,
       .btn-ia-precio,
@@ -921,6 +920,17 @@
       .signature-clear,
       .sign-type-field,
       .no-print { display:none !important; }
+      /* Keep invoice payment UI printable; only the editor chrome is hidden. */
+      .payment-tracking { display:none !important; }
+      .payments, .payment, .payment-grid, .summary-line.grand, .summary-line.balance, .summary-line.amount-paid-print, .invoice-thanks, .brand {
+        display:revert !important;
+        visibility:visible !important;
+        -webkit-print-color-adjust:exact !important;
+        print-color-adjust:exact !important;
+      }
+      .brand { background:#19385f !important; color:#fff !important; }
+      .payments { background:#eef8f1 !important; border:1px solid #b9deca !important; }
+      html:not(.is-contract) #signatures, html:not(.is-contract) .signatures { display:none !important; }
       #view-quote, .app, .document {
         display:block !important;
         width:100% !important;
@@ -1231,7 +1241,6 @@
     html.print-document .remove-row,
     html.print-document .payment-method-controls,
     html.print-document .payment-quick-actions,
-    html.print-document .payment-tracking,
     html.print-document .task-dropdown-menu,
     html.print-document .sugerencia-desc-menu,
     html.print-document .address-autocomplete-menu,
@@ -1241,6 +1250,22 @@
     html.print-document .signature-clear,
     html.print-document .sign-type-field,
     html.print-document .solo-interno { display:none !important; }
+    html.print-document .payment-tracking { display:none !important; }
+    html.print-document .payments,
+    html.print-document .payment,
+    html.print-document .summary-line.grand,
+    html.print-document .summary-line.balance,
+    html.print-document .summary-line.amount-paid-print,
+    html.print-document .invoice-thanks,
+    html.print-document .brand {
+      visibility:visible !important;
+      -webkit-print-color-adjust:exact !important;
+      print-color-adjust:exact !important;
+    }
+    html.print-document .brand { background:#19385f !important; color:#fff !important; }
+    html.print-document .payments { display:block !important; background:#eef8f1 !important; }
+    html.print-document:not(.is-contract) #signatures,
+    html.print-document:not(.is-contract) .signatures { display:none !important; }
     html.print-document .print-value { display:inline-block; min-height:1em; font-weight:600; }
     .print-textarea-clone { display:none; }
     .print-input-clone { display:none; }
@@ -6982,11 +7007,41 @@
         minimos:document.querySelector('#toggleMinimos')?.checked!==false,
         client:typeof getClientData==='function'?getClientData():{},
         payment:paymentState,
+        paymentMethods:(()=>{
+          const metodos={};
+          document.querySelectorAll('.payment-method-toggle').forEach(toggle=>{
+            const key=toggle.dataset.paymentMethod;
+            if(!key) return;
+            metodos[key]={visible:!!toggle.checked};
+          });
+          metodos.zelle={
+            ...(metodos.zelle||{}),
+            phone:document.getElementById('zellePhone')?.value||'',
+            email:document.getElementById('zelleEmail')?.value||'',
+            name:document.getElementById('zelleName')?.value||''
+          };
+          metodos.online={
+            ...(metodos.online||{}),
+            url:document.getElementById('onlinePaymentUrl')?.value||''
+          };
+          metodos.check={
+            ...(metodos.check||{}),
+            payee:document.getElementById('checkPayee')?.value||'',
+            address:document.getElementById('checkAddress')?.value||''
+          };
+          metodos.bank={
+            ...(metodos.bank||{}),
+            bank:document.getElementById('bankName')?.value||'',
+            routing:document.getElementById('routingNumber')?.value||'',
+            account:document.getElementById('accountNumber')?.value||''
+          };
+          return metodos;
+        })(),
         company:{
           name:(typeof companyNameParaDocumento==='function'?companyNameParaDocumento():'')||String(document.querySelector('#company')?.value||'').trim(),
           representative:document.querySelector('#representative')?.value||'',
           email:document.querySelector('#email')?.value||'',
-          phone:document.querySelector('#companyPhone')?.value||'',
+          phone:document.getElementById('companyPhone')?.value||'',
           service:document.querySelector('#service')?.value||''
         },
         nombre_empresa:(typeof companyNameParaDocumento==='function'?companyNameParaDocumento():'')||String(document.querySelector('#company')?.value||'').trim(),
@@ -9006,6 +9061,35 @@
         span.textContent=valorCampoImpresion(el);
         el.replaceWith(span);
       });
+      // Invoice: keep Amount paid as a printed summary line (editor UI is stripped).
+      clone.querySelectorAll('.payment-tracking').forEach(track=>{
+        const label=String(track.querySelector('label')?.textContent||'Amount paid').trim()||'Amount paid';
+        const valor=String(
+          track.querySelector('#paidAmount,.print-value,input')?.textContent
+          || track.querySelector('input')?.value
+          || (typeof paymentState!=='undefined'&&paymentState?paymentState.paidAmount:'')
+          || '0'
+        ).trim();
+        let monto=valor;
+        try{
+          const n=Number(String(valor).replace(/[^0-9.-]/g,''));
+          if(typeof money!=='undefined'&&money&&!isNaN(n)) monto=money.format(Math.max(n,0))+' USD';
+          else if(!isNaN(n)) monto='$'+Math.max(n,0).toFixed(2)+' USD';
+        }catch(_){}
+        const linea=document.createElement('div');
+        linea.className='summary-line amount-paid-print';
+        linea.innerHTML='<span>'+label+'</span><strong>'+monto+'</strong>';
+        track.replaceWith(linea);
+      });
+      // Hide unchecked payment cards; never print signature pads on invoices/estimates.
+      clone.querySelectorAll('.payment[data-payment-card]').forEach(card=>{
+        const estilo=String(card.getAttribute('style')||'');
+        if(/display\s*:\s*none/i.test(estilo)||card.hidden) card.remove();
+      });
+      const esContrato=document.documentElement.classList.contains('is-contract')||(typeof docMode!=='undefined'&&docMode==='contract');
+      if(!esContrato){
+        clone.querySelectorAll('#signatures,.signatures,.signature-grid,.signature-box').forEach(el=>el.remove());
+      }
       clone.querySelectorAll('.no-print,.area-actions,.add-row,.remove-row,.payment-method-controls,.payment-quick-actions,.payment-tracking,.task-dropdown-menu,.address-autocomplete-menu,.btn-ia-precio,.ia-precio-menu,.signature-mode-toggle,.signature-clear,.sign-type-field,.typed-signature-preview,.solo-interno,.btn,.icon-btn').forEach(el=>el.remove());
       clone.querySelectorAll('[hidden]').forEach(el=>el.remove());
       return clone;
@@ -9014,6 +9098,7 @@
       const origen=document.querySelector('.document');
       if(!origen)throw new Error('Document not found');
       if(typeof window.recalcularSubtotalesAgresivo==='function')window.recalcularSubtotalesAgresivo();
+      if(typeof update==='function') update();
       syncCompanyName();
       const marca=companyNameParaDocumento()||nombreEmpresaActiva()||COMPANY_BANNER_FALLBACK;
       const clone=materializarDocumentoImpresion(origen);
@@ -9027,9 +9112,35 @@
         if(firstPrint) firstPrint.textContent=marca;
       }
       const estilos=[...document.querySelectorAll('style')].map(n=>n.textContent||'').join('\n');
-      const contrato=document.documentElement.classList.contains('is-contract')?' is-contract':'';
+      const modo=String((typeof tipoDocumentoActual==='function'?tipoDocumentoActual():(typeof docMode!=='undefined'?docMode:''))||'').toLowerCase();
+      const contrato=modo==='contract'||document.documentElement.classList.contains('is-contract')?' is-contract':'';
+      const factura=modo==='invoice'||modo==='factura'?' is-invoice':'';
       const titulo=exportFilename();
-      let html=`<!DOCTYPE html><html lang="en" class="print-document${contrato}"><head><meta charset="UTF-8"><link rel="icon" type="image/svg+xml" href="/static/favicon.svg"><link rel="apple-touch-icon" href="/static/apple-touch-icon.png"><title>${titulo}</title><style>${estilos}</style></head><body>${clone.outerHTML}</body></html>`;
+      const colorCss=`
+        html,body,.document,.brand,.payments,.payment,.summary-line.grand,.summary-line.balance,.paid-stamp{
+          -webkit-print-color-adjust:exact !important;
+          print-color-adjust:exact !important;
+          color-adjust:exact !important;
+        }
+        html.print-document .brand{background:#19385f !important;color:#fff !important;}
+        html.print-document .brand p{color:#f0c344 !important;}
+        html.print-document .brand small,html.print-document .brand-folio label{color:#d8e2ec !important;}
+        html.print-document .payments{display:block !important;background:#eef8f1 !important;border:1px solid #b9deca !important;}
+        html.print-document .payments[hidden],html.print-document .invoice-thanks[hidden]{display:none !important;}
+        html.print-document .payment{background:#fff !important;border:1px solid #dcefe2 !important;}
+        html.print-document .payment b{color:#27834e !important;}
+        html.print-document .summary-line.grand{background:#f0f4f8 !important;color:#19385f !important;}
+        html.print-document .summary-line.balance,html.print-document .summary-line.amount-paid-print{display:flex !important;}
+        html.print-document .summary-line.balance{background:#fff7df !important;border:2px solid #f0c344 !important;color:#19385f !important;}
+        html.print-document:not(.is-contract) #signatures,
+        html.print-document:not(.is-contract) .signatures{display:none !important;}
+        html.print-document.is-invoice .payments,
+        html.print-document.is-invoice .invoice-thanks,
+        html.print-document.is-invoice .summary-line.balance,
+        html.print-document.is-invoice .summary-line.grand,
+        html.print-document.is-invoice .summary-line.amount-paid-print{visibility:visible !important;}
+      `;
+      let html=`<!DOCTYPE html><html lang="en" class="print-document${contrato}${factura}"><head><meta charset="UTF-8"><link rel="icon" type="image/svg+xml" href="/static/favicon.svg"><link rel="apple-touch-icon" href="/static/apple-touch-icon.png"><title>${titulo}</title><style>${estilos}\n${colorCss}</style></head><body>${clone.outerHTML}</body></html>`;
       html=html.replace(/Zipnova/gi,'');
       html=html.replace(/Solid Remodeling(?:\s*(?:&amp;|&)\s*Reconstruction\s*LLC)?/gi, marca);
       html=html.replace(/Company Name \(Edit in settings\)/gi, marca);
@@ -9045,11 +9156,13 @@
       const html=construirHtmlDocumentoImpresion();
       const res=await fetch('/api/generar-pdf',{
         method:'POST',
-        headers:{'Content-Type':'application/json','Accept':'application/pdf'},
+        credentials:'same-origin',
+        headers:headersContratista({'Content-Type':'application/json','Accept':'application/pdf'}),
         body:JSON.stringify({
           html,
           filename,
           preview:!!preview,
+          tipo:(typeof tipoDocumentoActual==='function'?tipoDocumentoActual():(typeof docMode!=='undefined'?docMode:'')),
           nombre_empresa:companyNameParaDocumento()||nombreEmpresaActiva()||COMPANY_BANNER_FALLBACK,
           company:companyNameParaDocumento()||nombreEmpresaActiva()||COMPANY_BANNER_FALLBACK,
           companyName:companyNameParaDocumento()||nombreEmpresaActiva()||COMPANY_BANNER_FALLBACK
@@ -9085,24 +9198,35 @@
       if(btn){ btn.disabled=true; }
       try{
         try{ await asegurarContratista(); }catch(_){}
-        await guardarEstimadoEnHistorial();
-        const id=String(documentoHistorialId||'').trim();
-        if(!/^[0-9a-f-]{36}$/i.test(id)){
-          throw new Error('Save the document first, then download the PDF.');
+        try{ await guardarEstimadoEnHistorial(); }catch(_){}
+        const modo=String((typeof tipoDocumentoActual==='function'?tipoDocumentoActual():(typeof docMode!=='undefined'?docMode:''))||'').toLowerCase();
+        // Invoices (and editor exports) must use the live UI template — navy header,
+        // payment instructions, amount paid / balance due — not documento_pdf.html.
+        const usarPlantillaUi=modo==='invoice'||modo==='factura'||!!document.querySelector('.document');
+        let blob=null;
+        let filename=exportFilename()+'.pdf';
+        if(usarPlantillaUi){
+          blob=await pedirPdfDocumento(false);
+        }else{
+          const id=String(documentoHistorialId||'').trim();
+          if(!/^[0-9a-f-]{36}$/i.test(id)){
+            throw new Error('Save the document first, then download the PDF.');
+          }
+          const res=await fetch('/api/download_pdf/'+encodeURIComponent(id),{
+            method:'GET',
+            headers:headersContratista({Accept:'application/pdf'}),
+            credentials:'same-origin'
+          });
+          if(!res.ok){
+            let detalle='';
+            try{ const err=await res.json(); detalle=err.error||''; }catch(_){}
+            throw new Error(detalle||('PDF download failed ('+res.status+')'));
+          }
+          blob=await res.blob();
+          filename=nombreArchivoDesdeCabecera(res, filename);
         }
-        const res=await fetch('/api/download_pdf/'+encodeURIComponent(id),{
-          method:'GET',
-          headers:headersContratista({Accept:'application/pdf'}),
-          credentials:'same-origin'
-        });
-        if(!res.ok){
-          let detalle='';
-          try{ const err=await res.json(); detalle=err.error||''; }catch(_){}
-          throw new Error(detalle||('PDF download failed ('+res.status+')'));
-        }
-        const blob=await res.blob();
         if(!blob||!blob.size) throw new Error('The PDF file was empty.');
-        forzarDescargaBlob(blob, nombreArchivoDesdeCabecera(res, exportFilename()+'.pdf'));
+        forzarDescargaBlob(blob, filename);
         document.querySelector('#exportModal').hidden=true;
         if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('PDF downloaded');
       }catch(error){

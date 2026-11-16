@@ -4,13 +4,34 @@
   <meta charset="UTF-8">
   <title>{{ documento.tipo_label or "Document" }} {{ documento.folio or "" }}</title>
   <style>
-    @page { size: Letter; margin: 14mm 12mm; }
+    @page { size: Letter; margin: 12mm 11mm; }
     * { box-sizing: border-box; }
-    body { margin: 0; color: #0f172a; font-family: Helvetica, Arial, DejaVu Sans, sans-serif; font-size: 11pt; }
-    h1 { margin: 10px 0 6px; font-size: 18pt; }
+    html, body {
+      margin: 0;
+      color: #0f172a;
+      font-family: Helvetica, Arial, DejaVu Sans, sans-serif;
+      font-size: 11pt;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      color-adjust: exact;
+    }
+    h1 { margin: 0; font-size: 18pt; }
     h2 { margin: 16px 0 8px; font-size: 12pt; color: #19385f; }
     h3 { margin: 0; font-size: 11pt; }
     p { margin: 0 0 6px; line-height: 1.4; }
+    .brand-banner {
+      background: #19385f !important;
+      color: #fff !important;
+      border-radius: 4px;
+      padding: 16px 18px 14px;
+      margin-bottom: 14px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .brand-banner .company { font-size: 18pt; font-weight: 700; }
+    .brand-banner .doc-type { margin-top: 6px; color: #f0c344 !important; font-size: 13pt; font-weight: 700; }
+    .brand-banner .muted-light { color: #d8e2ec !important; font-size: 9pt; margin-top: 4px; }
+    .brand-banner .folio { margin-top: 8px; font-weight: 700; letter-spacing: .03em; }
     .head { display: table; width: 100%; border-bottom: 2px solid #19385f; padding-bottom: 10px; }
     .head-left, .head-right { display: table-cell; vertical-align: top; }
     .head-right { text-align: right; }
@@ -27,11 +48,67 @@
     .area-head { margin-bottom: 4px; }
     .ref { color: #64748b; font-size: 9pt; }
     .texto { white-space: pre-wrap; background: #f8fafc; border: 1px solid #dbe3ee; padding: 8px 10px; }
-    .totales { width: 280px; margin-left: auto; }
+    .bottom-grid { width: 100%; margin-top: 16px; }
+    .bottom-grid td { vertical-align: top; }
+    .bottom-grid .pay-col { width: 58%; padding-right: 10px; }
+    .bottom-grid .tot-col { width: 42%; }
+    .payments {
+      padding: 12px 14px;
+      border: 1px solid #b9deca;
+      border-radius: 5px;
+      background: #eef8f1 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .payments h3 { margin: 0 0 10px; color: #236c43; font-size: 10pt; text-transform: uppercase; }
+    .payment-grid { width: 100%; border-collapse: separate; border-spacing: 8px; }
+    .payment-grid td {
+      width: 50%;
+      background: #fff !important;
+      border: 1px solid #dcefe2;
+      text-align: center;
+      padding: 10px;
+      vertical-align: top;
+    }
+    .payment-grid b { display: block; color: #27834e !important; font-size: 14pt; }
+    .payment-grid .pay-line { margin-top: 6px; text-align: left; font-size: 9pt; }
+    .payment-grid .pay-line span { display: block; color: #64748b; font-size: 8pt; text-transform: uppercase; }
+    .payment-grid .pay-line strong { font-size: 10pt; }
+    .totales { width: 100%; margin-left: auto; }
     .totales .fila { display: table; width: 100%; padding: 4px 0; border-bottom: 1px solid #edf2f7; }
     .totales .fila span, .totales .fila strong { display: table-cell; }
     .totales .fila strong { text-align: right; }
-    .totales .grand { border-top: 2px solid #19385f; border-bottom: 0; font-size: 12pt; padding-top: 8px; }
+    .totales .grand {
+      border-top: 2px solid #19385f;
+      border-bottom: 0;
+      font-size: 12pt;
+      padding: 8px 6px;
+      background: #f0f4f8 !important;
+      color: #19385f !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .totales .balance {
+      margin-top: 6px;
+      border: 2px solid #f0c344;
+      background: #fff7df !important;
+      color: #19385f !important;
+      font-size: 13pt;
+      padding: 10px 8px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .paid-stamp {
+      display: inline-block;
+      margin: 10px 0 0 auto;
+      padding: 8px 12px;
+      border: 3px double #27834e;
+      color: #27834e !important;
+      font-weight: 800;
+      font-size: 16pt;
+      text-align: center;
+    }
+    .invoice-thanks { margin-top: 16px; color: #19385f; font-size: 11pt; font-weight: 700; text-align: center; }
     .signatures-section { width: 100%; margin-top: 22px; }
     .signatures-labels {
       display: flex;
@@ -40,7 +117,6 @@
       margin-bottom: 4px;
     }
     .signatures-labels .label { width: 45%; }
-    /* flex-end keeps both signature lines on the same baseline. */
     .signatures-row {
       display: flex;
       justify-content: space-between;
@@ -81,7 +157,6 @@
       color: #0f172a;
       line-height: 1.15;
     }
-    /* Timestamps live outside the bordered boxes so they never push the lines up. */
     .signatures-timestamps {
       display: flex;
       justify-content: space-between;
@@ -101,6 +176,18 @@
 </head>
 <body>
   {% set d = documento or {} %}
+  {% set es_invoice = (d.tipo == "invoice") %}
+
+  {% if es_invoice %}
+  <div class="brand-banner">
+    <div class="company">{{ d.empresa or "QuantixBuilds" }}</div>
+    <div class="doc-type">INVOICE</div>
+    {% if d.servicio %}<div class="muted-light">{{ d.servicio }}</div>{% endif %}
+    {% if d.folio %}<div class="folio"># {{ d.folio }}</div>{% endif %}
+    {% if d.fecha %}<div class="muted-light">Date: {{ d.fecha }}</div>{% endif %}
+    {% if d.vencimiento %}<div class="muted-light">Due: {{ d.vencimiento }}</div>{% endif %}
+  </div>
+  {% else %}
   <div class="head">
     <div class="head-left">
       <div class="brand">{{ d.empresa or "QuantixBuilds" }}</div>
@@ -116,6 +203,7 @@
       {% if d.vencimiento %}<div class="muted">Due: {{ d.vencimiento }}</div>{% endif %}
     </div>
   </div>
+  {% endif %}
 
   <table class="partes">
     <tr>
@@ -129,6 +217,7 @@
       <td>
         <span class="label">Prepared by</span>
         <strong>{{ d.empresa or "QuantixBuilds" }}</strong>
+        {% if d.representante %}<div class="muted">{{ d.representante }}</div>{% endif %}
         {% if d.empresa_email %}<div class="muted">{{ d.empresa_email }}</div>{% endif %}
         {% if d.empresa_telefono %}<div class="muted">{{ d.empresa_telefono }}</div>{% endif %}
       </td>
@@ -140,7 +229,7 @@
   <img class="plano" src="{{ d.plano_imagen }}" alt="Job plan">
   {% endif %}
 
-  <h2>Scope of work</h2>
+  <h2>{% if es_invoice %}Invoice items{% else %}Scope of work{% endif %}</h2>
   {% if d.areas %}
     {% for area in d.areas %}
     <div class="area">
@@ -177,18 +266,70 @@
     <p class="muted">No scope lines on this document.</p>
   {% endif %}
 
-  {% if d.terminos %}
+  {% if d.terminos and not es_invoice %}
   <h2>Terms and exclusions</h2>
   <div class="texto">{{ d.terminos }}</div>
   {% endif %}
 
-  {% if d.notas %}
+  {% if d.notas and not es_invoice %}
   <h2>Project notes</h2>
   <div class="texto">{{ d.notas }}</div>
   {% endif %}
 
+  {% if es_invoice %}
+  <table class="bottom-grid">
+    <tr>
+      <td class="pay-col">
+        <div class="payments">
+          <h3>Payment instructions</h3>
+          {% if d.metodos_pago %}
+          <table class="payment-grid">
+            {% set ns = namespace(i=0) %}
+            {% for metodo in d.metodos_pago %}
+              {% if ns.i % 2 == 0 %}<tr>{% endif %}
+              <td>
+                <b>{{ metodo.titulo }}</b>
+                {% for linea in metodo.lineas %}
+                  {% if linea[1] %}
+                  <div class="pay-line"><span>{{ linea[0] }}</span><strong>{{ linea[1] }}</strong></div>
+                  {% endif %}
+                {% endfor %}
+              </td>
+              {% set ns.i = ns.i + 1 %}
+              {% if ns.i % 2 == 0 %}</tr>{% endif %}
+            {% endfor %}
+            {% if ns.i % 2 == 1 %}<td></td></tr>{% endif %}
+          </table>
+          {% else %}
+          <p class="muted">Add Zelle or check details in the invoice editor.</p>
+          {% endif %}
+        </div>
+      </td>
+      <td class="tot-col">
+        <div class="totales">
+          {% if d.totales %}
+            {% for fila in d.totales %}
+              {% set kind = fila.kind or '' %}
+              <div class="fila{% if kind == 'balance' %} balance{% elif fila.destacado and kind != 'paid' %} grand{% endif %}">
+                <span>{{ fila.label }}</span><strong>{{ fila.valor }}</strong>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="fila grand"><span>Invoice total</span><strong>{{ d.total_txt or "—" }}</strong></div>
+            <div class="fila"><span>Amount paid</span><strong>{{ d.amount_paid_txt or "$0.00" }}</strong></div>
+            <div class="fila balance"><span>Balance due</span><strong>{{ d.balance_due_txt or d.total_txt or "—" }}</strong></div>
+          {% endif %}
+        </div>
+        {% if d.pago_status == 'paid' or (d.balance_due is defined and d.balance_due <= 0 and d.total_txt) %}
+        <div class="paid-stamp">PAID{% if d.pago_fecha %}<div class="muted" style="font-size:8pt;font-weight:600;margin-top:4px;">{{ d.pago_fecha }}</div>{% endif %}</div>
+        {% endif %}
+      </td>
+    </tr>
+  </table>
+  <div class="invoice-thanks">Thank you for your business!</div>
+  {% else %}
   <h2>{{ d.tipo_label or "Document" }} totals</h2>
-  <div class="totales">
+  <div class="totales" style="width:280px;margin-left:auto;">
     {% if d.totales %}
       {% for fila in d.totales %}
       <div class="fila{% if fila.destacado %} grand{% endif %}"><span>{{ fila.label }}</span><strong>{{ fila.valor }}</strong></div>
@@ -218,7 +359,7 @@
   {% if not (contractor_sig and contractor_sig.startswith("data:image/")) %}
     {% set contractor_sig = "" %}
   {% endif %}
-  {% if d.tipo == "contract" or contractor_sig or client_sig or contractor_name or client_printed %}
+  {% if d.tipo == "contract" %}
   <div class="signatures-section">
     <div class="signatures-labels">
       <span class="label">Contractor signature</span>
@@ -243,6 +384,7 @@
       <p class="firma-timestamp">{% if (client_sig or client_printed) and d.firma_cliente_fecha %}{{ d.firma_cliente_fecha }}{% endif %}</p>
     </div>
   </div>
+  {% endif %}
   {% endif %}
 </body>
 </html>
