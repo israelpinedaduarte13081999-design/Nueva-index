@@ -886,17 +886,18 @@
     .select-alcance,.codigo-item { width:100%; margin-top:3px; padding:4px; border:1px solid #ced4da; border-radius:4px; color:var(--ink); background:#fff; font-size:11px; }
     body.con-sesion .tech-grid { grid-template-columns:minmax(280px,1.15fr) minmax(240px,1fr); }
     @media print {
-      @page { size: Letter; margin: 0.5in; }
+      @page { size: Letter; margin: 0.45in; }
       html, body {
         background:#fff !important;
         width:100% !important;
         max-width:none !important;
         margin:0 !important;
         padding:0 !important;
-        font-size:11pt !important;
+        font-size:10pt !important;
         color:#111 !important;
-        -webkit-print-color-adjust:exact;
-        print-color-adjust:exact;
+        -webkit-print-color-adjust:exact !important;
+        print-color-adjust:exact !important;
+        color-adjust:exact !important;
       }
       .solo-interno,
       .app-navbar,
@@ -966,14 +967,14 @@
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
-      .brand { margin-bottom:14px; padding:16px 18px; }
+      .brand { margin-bottom:10px !important; padding:12px 14px !important; page-break-inside:avoid !important; break-inside:avoid !important; }
       .brand h2, #companyBanner, #documentSubtitle {
-        font-size:18pt;
+        font-size:16pt;
         width:100% !important;
         max-width:none !important;
         white-space:normal !important;
         overflow:visible !important;
-        overflow-wrap:anywhere !important;
+        overflow-wrap:break-word !important;
       }
       #company, .tech-card #company, .field-row #company {
         width:100% !important;
@@ -1000,7 +1001,7 @@
       .brand-folio label { font-size:10pt; }
       .brand-folio input, .brand-folio .print-value { border:0; background:transparent; color:#fff; padding:0; font-size:13pt; max-width:none; font-weight:800; }
       .section-title, #itemsHeading {
-        margin:10px 0 4px !important;
+        margin:8px 0 3px !important;
         page-break-after: avoid !important;
         break-after: avoid !important;
         page-break-before: auto !important;
@@ -1018,14 +1019,14 @@
       }
       .items-split-nav, .items-catalog-card, .items-room-empty, .items-split-nav-foot { display:none !important; }
       .items-split #areas .area.is-room-hidden { display:block !important; }
-      .tech-grid { grid-template-columns:1fr 1fr; gap:16px; break-inside:auto; page-break-inside:auto; }
-      .tech-card { padding:10px 12px; background:#fff; min-height:0 !important; }
-      .tech-card h3 { font-size:10pt; }
-      .field-row { margin:4px 0; grid-template-columns:96px 1fr; }
-      .field-row label, .field-row .print-value, .field-row input, .field-row select { font-size:11pt !important; }
+      .tech-grid { grid-template-columns:1fr 1fr; gap:10px; margin:8px 0 !important; break-inside:avoid; page-break-inside:avoid; }
+      .tech-card { padding:8px 10px; background:#fff; min-height:0 !important; }
+      .tech-card h3 { font-size:9pt; margin:0 0 4px; }
+      .field-row { margin:2px 0; grid-template-columns:88px 1fr; }
+      .field-row label, .field-row .print-value, .field-row input, .field-row select { font-size:9.5pt !important; }
       .client-details-card .client-address-grid { display:grid; }
       #areas, .area, .area table, .table-container {
-        margin-top:8px;
+        margin-top:6px;
         overflow:visible !important;
         page-break-inside: auto !important;
         break-inside: auto !important;
@@ -1034,35 +1035,44 @@
         page-break-after: auto !important;
         break-after: auto !important;
       }
-      .area { margin-top:8px !important; }
+      .area { margin-top:6px !important; }
       .area-header {
-        padding:8px 10px;
+        padding:6px 8px;
         min-width:0 !important;
         page-break-after: avoid !important;
         break-after: avoid !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
-      .area-name input, .area-name .print-value { font-size:11pt; color:#fff; }
+      .area-name input, .area-name .print-value { font-size:10pt; color:#fff; }
       .area table {
         width:100% !important;
         min-width:0 !important;
-        table-layout:auto !important;
-        font-size:11pt !important;
+        table-layout:fixed !important;
+        font-size:9.5pt !important;
       }
       .area thead { display:table-header-group; }
       .area tbody { display:table-row-group; }
-      .area tbody tr, .area thead tr {
+      .area tbody tr, .area thead tr, .area tr.fila-trabajo {
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
       .area tbody tr, .area th, .area td {
         overflow:visible !important;
         height:auto !important;
-        font-size:11pt !important;
-        padding:6px 5px;
+        font-size:9.5pt !important;
+        padding:4px 3px !important;
         vertical-align:top;
       }
+      /* Compact column widths — Work description gets the bulk without excessive wraps. */
+      .area th:nth-child(1), .area td:nth-child(1) { width:8% !important; }
+      .area th:nth-child(2), .area td:nth-child(2) { width:12% !important; }
+      .area th:nth-child(3), .area td:nth-child(3), td.desc-cell { width:40% !important; }
+      .area th:nth-child(4), .area td:nth-child(4) { width:6% !important; }
+      .area th:nth-child(5), .area td:nth-child(5) { width:6% !important; }
+      .area th:nth-child(6), .area td:nth-child(6) { width:10% !important; }
+      .area th:nth-child(7), .area td:nth-child(7) { width:6% !important; }
+      .area th:nth-child(8), .area td:nth-child(8), .area td.subtotal-cell { width:12% !important; }
       .area textarea.item-desc, .area textarea.description,
       td.desc-cell textarea, .area td:nth-child(3) textarea {
         display:block !important;
@@ -1072,50 +1082,78 @@
         max-height: none !important;
         white-space: pre-wrap !important;
         word-wrap: break-word !important;
-        overflow-wrap: anywhere !important;
-        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+        word-break: normal !important;
         border: 0 !important;
         outline: 0 !important;
         box-shadow: none !important;
         background: transparent !important;
         resize: none !important;
         padding: 0 !important;
+        line-height: 1.25 !important;
       }
       td.desc-cell .print-value, .area td:nth-child(3) .print-value {
         display:block !important;
         white-space: pre-wrap !important;
         word-wrap: break-word !important;
-        overflow-wrap: anywhere !important;
+        overflow-wrap: break-word !important;
+        word-break: normal !important;
         overflow: visible !important;
         height: auto !important;
+        line-height: 1.25 !important;
       }
-      .area th { font-size:9pt !important; }
+      .area th { font-size:8pt !important; }
       .area th:nth-child(9), .area td:nth-child(9) { display:none !important; }
-      .item-action, .unit-select, .print-value { font-size:10pt !important; }
+      .item-action, .unit-select, .print-value { font-size:9pt !important; }
       td.desc-cell, .area td:nth-child(3) { overflow:visible !important; white-space:normal; }
-      .row-total { font-size:11pt !important; }
-      .summary { font-size:11pt; }
-      .summary-line { font-size:11pt; }
-      .summary-line.grand { font-size:13pt; }
-      .summary-line.balance { font-size:14pt; }
-      .summary-line.balance strong { font-size:16pt; }
+      .row-total { font-size:9.5pt !important; }
+      .summary, #summary {
+        font-size:10pt;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .summary-line { font-size:10pt; padding:5px 7px !important; }
+      .summary-line.grand { font-size:12pt; padding:8px 7px !important; }
+      .summary-line.balance { font-size:12pt; padding:9px 7px !important; }
+      .summary-line.balance strong { font-size:13pt; }
+      #signatures, .signatures {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        margin-top:12px !important;
+        padding:10px 12px !important;
+      }
       #signatures[hidden], .signatures[hidden] { display:none !important; }
       html:not(.is-contract) #signatures,
+      html:not(.is-contract) .signatures,
       html:not(.is-contract) .signature-mode-toggle,
       html:not(.is-contract) .signature-clear,
       html:not(.is-contract) .sign-type-field { display:none !important; }
-      .typed-signature-preview { min-height:48px; font-size:28pt; padding:4px 0 0; }
-      .bottom-grid { margin-top:14px; gap:14px; }
-      .terms, .payments { padding:10px 12px; overflow:visible !important; }
+      html:not(.is-invoice) .payments,
+      html:not(.is-invoice) .invoice-thanks,
+      html:not(.is-invoice) .paid-stamp { display:none !important; }
+      .typed-signature-preview { min-height:40px; font-size:22pt; padding:2px 0 0; }
+      .bottom-grid {
+        margin-top:10px !important;
+        gap:10px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .terms, .payments {
+        padding:8px 10px !important;
+        overflow:visible !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
       .terms textarea, .terms .print-value, #terms, #projectNotes {
         min-height:0 !important;
         max-height:none !important;
         overflow:visible !important;
         white-space:pre-wrap !important;
         word-wrap:break-word !important;
-        font-size:11pt;
+        font-size:9.5pt;
+        line-height:1.3;
       }
-      .footer-note { margin-top:10px; font-size:9pt; }
+      .footer-note { margin-top:8px; font-size:8pt; }
       input, textarea, select, .print-value {
         border-color:transparent !important;
         background:transparent !important;
@@ -1129,11 +1167,13 @@
       max-width:none !important;
       margin:0 !important;
       padding:0 !important;
-      font-size:11pt !important;
+      font-size:10pt !important;
       color:#111 !important;
-      -webkit-print-color-adjust:exact;
-      print-color-adjust:exact;
+      -webkit-print-color-adjust:exact !important;
+      print-color-adjust:exact !important;
+      color-adjust:exact !important;
     }
+    @page { size: Letter; margin: 0.45in; }
     html.print-document .document {
       width:100% !important;
       max-width:none !important;
@@ -1144,7 +1184,7 @@
     }
     html.print-document .section-title,
     html.print-document #itemsHeading {
-      margin:10px 0 4px !important;
+      margin:8px 0 3px !important;
       page-break-after: avoid !important;
       break-after: avoid !important;
       page-break-before: auto !important;
@@ -1196,16 +1236,17 @@
       page-break-inside: avoid !important;
       break-inside: avoid !important;
     }
-    html.print-document .area { margin-top:8px !important; }
+    html.print-document .area { margin-top:6px !important; }
     html.print-document .area table {
       width:100% !important;
       min-width:0 !important;
-      table-layout:auto !important;
-      font-size:11pt !important;
+      table-layout:fixed !important;
+      font-size:9.5pt !important;
     }
     html.print-document .area thead { display:table-header-group; }
     html.print-document .area tbody tr,
-    html.print-document .area thead tr {
+    html.print-document .area thead tr,
+    html.print-document .area tr.fila-trabajo {
       page-break-inside: avoid !important;
       break-inside: avoid !important;
     }
@@ -1213,7 +1254,17 @@
     html.print-document .area td {
       height:auto !important;
       overflow:visible !important;
+      padding:4px 3px !important;
     }
+    html.print-document .area th:nth-child(1), html.print-document .area td:nth-child(1) { width:8% !important; }
+    html.print-document .area th:nth-child(2), html.print-document .area td:nth-child(2) { width:12% !important; }
+    html.print-document .area th:nth-child(3), html.print-document .area td:nth-child(3),
+    html.print-document td.desc-cell { width:40% !important; }
+    html.print-document .area th:nth-child(4), html.print-document .area td:nth-child(4) { width:6% !important; }
+    html.print-document .area th:nth-child(5), html.print-document .area td:nth-child(5) { width:6% !important; }
+    html.print-document .area th:nth-child(6), html.print-document .area td:nth-child(6) { width:10% !important; }
+    html.print-document .area th:nth-child(7), html.print-document .area td:nth-child(7) { width:6% !important; }
+    html.print-document .area th:nth-child(8), html.print-document .area td:nth-child(8) { width:12% !important; }
     html.print-document .area textarea.item-desc,
     html.print-document .area textarea.description,
     html.print-document td.desc-cell textarea,
@@ -1225,8 +1276,9 @@
       max-height: none !important;
       white-space: pre-wrap !important;
       word-wrap: break-word !important;
-      overflow-wrap: anywhere !important;
-      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+      word-break: normal !important;
+      line-height: 1.25 !important;
       border: 0 !important;
       outline: 0 !important;
       box-shadow: none !important;
@@ -1253,19 +1305,31 @@
     html.print-document .payment-tracking { display:none !important; }
     html.print-document .payments,
     html.print-document .payment,
+    html.print-document .summary,
+    html.print-document #summary,
     html.print-document .summary-line.grand,
     html.print-document .summary-line.balance,
     html.print-document .summary-line.amount-paid-print,
     html.print-document .invoice-thanks,
-    html.print-document .brand {
-      visibility:visible !important;
+    html.print-document .brand,
+    html.print-document #signatures,
+    html.print-document .signatures,
+    html.print-document .bottom-grid {
       -webkit-print-color-adjust:exact !important;
       print-color-adjust:exact !important;
+      color-adjust:exact !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
     }
-    html.print-document .brand { background:#19385f !important; color:#fff !important; }
+    html.print-document .brand { background:#19385f !important; color:#fff !important; margin-bottom:10px !important; padding:12px 14px !important; }
     html.print-document .payments { display:block !important; background:#eef8f1 !important; }
     html.print-document:not(.is-contract) #signatures,
     html.print-document:not(.is-contract) .signatures { display:none !important; }
+    html.print-document:not(.is-invoice) .payments,
+    html.print-document:not(.is-invoice) .invoice-thanks,
+    html.print-document:not(.is-invoice) .paid-stamp { display:none !important; }
+    html.print-document .tech-grid { margin:8px 0 !important; gap:10px !important; page-break-inside:avoid !important; break-inside:avoid !important; }
+    html.print-document .bottom-grid { margin-top:10px !important; gap:10px !important; }
     html.print-document .print-value { display:inline-block; min-height:1em; font-weight:600; }
     .print-textarea-clone { display:none; }
     .print-input-clone { display:none; }
@@ -9081,14 +9145,28 @@
         linea.innerHTML='<span>'+label+'</span><strong>'+monto+'</strong>';
         track.replaceWith(linea);
       });
-      // Hide unchecked payment cards; never print signature pads on invoices/estimates.
+      // Mode-aware blocks: invoice keeps payments; contract keeps signatures/terms; estimate keeps quote totals only.
+      const modo=String((typeof tipoDocumentoActual==='function'?tipoDocumentoActual():(typeof docMode!=='undefined'?docMode:''))||'').toLowerCase();
+      const esContrato=modo==='contract'||modo==='contrato'||document.documentElement.classList.contains('is-contract');
+      const esFactura=modo==='invoice'||modo==='factura';
       clone.querySelectorAll('.payment[data-payment-card]').forEach(card=>{
         const estilo=String(card.getAttribute('style')||'');
         if(/display\s*:\s*none/i.test(estilo)||card.hidden) card.remove();
       });
-      const esContrato=document.documentElement.classList.contains('is-contract')||(typeof docMode!=='undefined'&&docMode==='contract');
       if(!esContrato){
         clone.querySelectorAll('#signatures,.signatures,.signature-grid,.signature-box').forEach(el=>el.remove());
+      }
+      if(!esFactura){
+        clone.querySelectorAll('.payments,.invoice-thanks,#paidStamp,.paid-stamp').forEach(el=>el.remove());
+        clone.querySelectorAll('.summary-line.balance,.summary-line.amount-paid-print,.payment-tracking').forEach(el=>el.remove());
+        // Estimates/contracts: drop invoice-only payment received / balance rows.
+        clone.querySelectorAll('.summary-line').forEach(line=>{
+          if(line.querySelector('#depositLabel,#finalPaymentLabel,#paidAmount')) line.remove();
+        });
+      }
+      if(!esContrato){
+        // Only contracts keep legal terms + signature lines.
+        clone.querySelectorAll('#legalTerms,.terms.mode-block').forEach(el=>el.remove());
       }
       clone.querySelectorAll('.no-print,.area-actions,.add-row,.remove-row,.payment-method-controls,.payment-quick-actions,.payment-tracking,.task-dropdown-menu,.address-autocomplete-menu,.btn-ia-precio,.ia-precio-menu,.signature-mode-toggle,.signature-clear,.sign-type-field,.typed-signature-preview,.solo-interno,.btn,.icon-btn').forEach(el=>el.remove());
       clone.querySelectorAll('[hidden]').forEach(el=>el.remove());
@@ -9113,34 +9191,74 @@
       }
       const estilos=[...document.querySelectorAll('style')].map(n=>n.textContent||'').join('\n');
       const modo=String((typeof tipoDocumentoActual==='function'?tipoDocumentoActual():(typeof docMode!=='undefined'?docMode:''))||'').toLowerCase();
-      const contrato=modo==='contract'||document.documentElement.classList.contains('is-contract')?' is-contract':'';
-      const factura=modo==='invoice'||modo==='factura'?' is-invoice':'';
+      const esContrato=modo==='contract'||modo==='contrato';
+      const esFactura=modo==='invoice'||modo==='factura';
+      const claseModo=esContrato?' is-contract':(esFactura?' is-invoice':' is-estimate');
       const titulo=exportFilename();
-      const colorCss=`
-        html,body,.document,.brand,.payments,.payment,.summary-line.grand,.summary-line.balance,.paid-stamp{
-          -webkit-print-color-adjust:exact !important;
-          print-color-adjust:exact !important;
-          color-adjust:exact !important;
+      const pdfLayoutCss=`
+        @page { size: Letter; margin: 0.45in; }
+        html, body, .document, .brand, .payments, .payment, .summary, #summary, .summary-line.grand, .summary-line.balance, .paid-stamp, #signatures, .signatures, .bottom-grid, .terms {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          color-adjust: exact !important;
         }
-        html.print-document .brand{background:#19385f !important;color:#fff !important;}
-        html.print-document .brand p{color:#f0c344 !important;}
-        html.print-document .brand small,html.print-document .brand-folio label{color:#d8e2ec !important;}
-        html.print-document .payments{display:block !important;background:#eef8f1 !important;border:1px solid #b9deca !important;}
-        html.print-document .payments[hidden],html.print-document .invoice-thanks[hidden]{display:none !important;}
-        html.print-document .payment{background:#fff !important;border:1px solid #dcefe2 !important;}
-        html.print-document .payment b{color:#27834e !important;}
-        html.print-document .summary-line.grand{background:#f0f4f8 !important;color:#19385f !important;}
-        html.print-document .summary-line.balance,html.print-document .summary-line.amount-paid-print{display:flex !important;}
-        html.print-document .summary-line.balance{background:#fff7df !important;border:2px solid #f0c344 !important;color:#19385f !important;}
+        html.print-document, html.print-document body { font-size:10pt !important; }
+        html.print-document .brand { background:#19385f !important; color:#fff !important; margin-bottom:10px !important; padding:12px 14px !important; page-break-inside:avoid !important; break-inside:avoid !important; }
+        html.print-document .brand p { color:#f0c344 !important; }
+        html.print-document .brand small, html.print-document .brand-folio label { color:#d8e2ec !important; }
+        html.print-document .tech-grid { margin:8px 0 !important; gap:10px !important; page-break-inside:avoid !important; break-inside:avoid !important; }
+        html.print-document .section-title, html.print-document #itemsHeading { margin:8px 0 3px !important; }
+        html.print-document .area { margin-top:6px !important; }
+        html.print-document .area table { table-layout:fixed !important; font-size:9.5pt !important; }
+        html.print-document .area th, html.print-document .area td { padding:4px 3px !important; }
+        html.print-document .area th:nth-child(1), html.print-document .area td:nth-child(1) { width:8% !important; }
+        html.print-document .area th:nth-child(2), html.print-document .area td:nth-child(2) { width:12% !important; }
+        html.print-document .area th:nth-child(3), html.print-document .area td:nth-child(3), html.print-document td.desc-cell { width:40% !important; }
+        html.print-document .area th:nth-child(4), html.print-document .area td:nth-child(4) { width:6% !important; }
+        html.print-document .area th:nth-child(5), html.print-document .area td:nth-child(5) { width:6% !important; }
+        html.print-document .area th:nth-child(6), html.print-document .area td:nth-child(6) { width:10% !important; }
+        html.print-document .area th:nth-child(7), html.print-document .area td:nth-child(7) { width:6% !important; }
+        html.print-document .area th:nth-child(8), html.print-document .area td:nth-child(8) { width:12% !important; }
+        html.print-document .area tbody tr, html.print-document .area thead tr, html.print-document .area tr.fila-trabajo,
+        html.print-document tr {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+        html.print-document td.desc-cell .print-value, html.print-document .area td:nth-child(3) .print-value {
+          overflow-wrap: break-word !important;
+          word-break: normal !important;
+          line-height: 1.25 !important;
+        }
+        html.print-document .summary, html.print-document #summary,
+        html.print-document .payments, html.print-document .bottom-grid,
+        html.print-document #signatures, html.print-document .signatures,
+        html.print-document .terms {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+        html.print-document .payments { display:block !important; background:#eef8f1 !important; border:1px solid #b9deca !important; padding:8px 10px !important; }
+        html.print-document .payment { background:#fff !important; border:1px solid #dcefe2 !important; }
+        html.print-document .payment b { color:#27834e !important; }
+        html.print-document .summary-line.grand { background:#f0f4f8 !important; color:#19385f !important; }
+        html.print-document .summary-line.balance { display:flex !important; background:#fff7df !important; border:2px solid #f0c344 !important; color:#19385f !important; }
+        html.print-document .summary-line.amount-paid-print { display:flex !important; }
         html.print-document:not(.is-contract) #signatures,
-        html.print-document:not(.is-contract) .signatures{display:none !important;}
+        html.print-document:not(.is-contract) .signatures { display:none !important; }
+        html.print-document:not(.is-invoice) .payments,
+        html.print-document:not(.is-invoice) .invoice-thanks,
+        html.print-document:not(.is-invoice) .paid-stamp,
+        html.print-document:not(.is-invoice) .summary-line.balance,
+        html.print-document:not(.is-invoice) .summary-line.amount-paid-print { display:none !important; }
         html.print-document.is-invoice .payments,
         html.print-document.is-invoice .invoice-thanks,
         html.print-document.is-invoice .summary-line.balance,
         html.print-document.is-invoice .summary-line.grand,
-        html.print-document.is-invoice .summary-line.amount-paid-print{visibility:visible !important;}
+        html.print-document.is-invoice .summary-line.amount-paid-print { visibility:visible !important; }
+        html.print-document.is-contract #signatures,
+        html.print-document.is-contract .signatures,
+        html.print-document.is-contract .terms { display:block !important; visibility:visible !important; }
       `;
-      let html=`<!DOCTYPE html><html lang="en" class="print-document${contrato}${factura}"><head><meta charset="UTF-8"><link rel="icon" type="image/svg+xml" href="/static/favicon.svg"><link rel="apple-touch-icon" href="/static/apple-touch-icon.png"><title>${titulo}</title><style>${estilos}\n${colorCss}</style></head><body>${clone.outerHTML}</body></html>`;
+      let html=`<!DOCTYPE html><html lang="en" class="print-document${claseModo}"><head><meta charset="UTF-8"><link rel="icon" type="image/svg+xml" href="/static/favicon.svg"><link rel="apple-touch-icon" href="/static/apple-touch-icon.png"><title>${titulo}</title><style>${estilos}\n${pdfLayoutCss}</style></head><body>${clone.outerHTML}</body></html>`;
       html=html.replace(/Zipnova/gi,'');
       html=html.replace(/Solid Remodeling(?:\s*(?:&amp;|&)\s*Reconstruction\s*LLC)?/gi, marca);
       html=html.replace(/Company Name \(Edit in settings\)/gi, marca);
@@ -9199,34 +9317,14 @@
       try{
         try{ await asegurarContratista(); }catch(_){}
         try{ await guardarEstimadoEnHistorial(); }catch(_){}
-        const modo=String((typeof tipoDocumentoActual==='function'?tipoDocumentoActual():(typeof docMode!=='undefined'?docMode:''))||'').toLowerCase();
-        // Invoices (and editor exports) must use the live UI template — navy header,
-        // payment instructions, amount paid / balance due — not documento_pdf.html.
-        const usarPlantillaUi=modo==='invoice'||modo==='factura'||!!document.querySelector('.document');
-        let blob=null;
-        let filename=exportFilename()+'.pdf';
-        if(usarPlantillaUi){
-          blob=await pedirPdfDocumento(false);
-        }else{
-          const id=String(documentoHistorialId||'').trim();
-          if(!/^[0-9a-f-]{36}$/i.test(id)){
-            throw new Error('Save the document first, then download the PDF.');
-          }
-          const res=await fetch('/api/download_pdf/'+encodeURIComponent(id),{
-            method:'GET',
-            headers:headersContratista({Accept:'application/pdf'}),
-            credentials:'same-origin'
-          });
-          if(!res.ok){
-            let detalle='';
-            try{ const err=await res.json(); detalle=err.error||''; }catch(_){}
-            throw new Error(detalle||('PDF download failed ('+res.status+')'));
-          }
-          blob=await res.blob();
-          filename=nombreArchivoDesdeCabecera(res, filename);
+        // Golden rule: ALL document types (invoice / estimate / contract) export as a
+        // 1:1 WYSIWYG clone of the live editor — never the generic Jinja template.
+        if(!document.querySelector('.document')){
+          throw new Error('Open the document editor before exporting the PDF.');
         }
+        const blob=await pedirPdfDocumento(false);
         if(!blob||!blob.size) throw new Error('The PDF file was empty.');
-        forzarDescargaBlob(blob, filename);
+        forzarDescargaBlob(blob, exportFilename()+'.pdf');
         document.querySelector('#exportModal').hidden=true;
         if(typeof mostrarToastGuardado==='function') mostrarToastGuardado('PDF downloaded');
       }catch(error){

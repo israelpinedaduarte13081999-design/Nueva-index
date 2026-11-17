@@ -14625,9 +14625,12 @@ def _html_a_pdf(html):
             from weasyprint import CSS as WeasyCSS
             return _WEASYPRINT_HTML(string=str(html or ""), encoding="utf-8").write_pdf(
                 stylesheets=[WeasyCSS(string=(
-                    "@page { size: Letter; margin: 12mm 11mm; } "
+                    "@page { size: Letter; margin: 0.45in; } "
                     "html, body, * { -webkit-print-color-adjust: exact !important; "
-                    "print-color-adjust: exact !important; color-adjust: exact !important; }"
+                    "print-color-adjust: exact !important; color-adjust: exact !important; } "
+                    "tr, .summary, #summary, .payments, .signatures, #signatures, "
+                    ".bottom-grid, .terms, .brand, .tech-grid { "
+                    "page-break-inside: avoid !important; break-inside: avoid !important; }"
                 ))]
             )
         except Exception as err:

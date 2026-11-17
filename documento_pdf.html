@@ -4,16 +4,20 @@
   <meta charset="UTF-8">
   <title>{{ documento.tipo_label or "Document" }} {{ documento.folio or "" }}</title>
   <style>
-    @page { size: Letter; margin: 12mm 11mm; }
+    @page { size: Letter; margin: 0.45in; }
     * { box-sizing: border-box; }
     html, body {
       margin: 0;
       color: #0f172a;
       font-family: Helvetica, Arial, DejaVu Sans, sans-serif;
-      font-size: 11pt;
+      font-size: 10pt;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
       color-adjust: exact;
+    }
+    tr, .area, .totales, .payments, .signatures-section, .bottom-grid, .brand-banner, .partes {
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     h1 { margin: 0; font-size: 18pt; }
     h2 { margin: 16px 0 8px; font-size: 12pt; color: #19385f; }
@@ -23,8 +27,8 @@
       background: #19385f !important;
       color: #fff !important;
       border-radius: 4px;
-      padding: 16px 18px 14px;
-      margin-bottom: 14px;
+      padding: 12px 14px 10px;
+      margin-bottom: 10px;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
@@ -40,9 +44,15 @@
     .partes { width: 100%; margin: 12px 0; }
     .partes td { width: 50%; vertical-align: top; padding: 8px 10px; background: #f8fafc; border: 1px solid #dbe3ee; }
     .label { display: block; font-size: 8pt; letter-spacing: .06em; text-transform: uppercase; color: #64748b; font-weight: 700; }
-    table.items { width: 100%; border-collapse: collapse; margin: 6px 0 4px; font-size: 9pt; }
-    table.items th, table.items td { border-bottom: 1px solid #e2e8f0; padding: 5px 6px; text-align: left; vertical-align: top; }
+    table.items { width: 100%; border-collapse: collapse; margin: 4px 0 3px; font-size: 9pt; table-layout: fixed; }
+    table.items th, table.items td { border-bottom: 1px solid #e2e8f0; padding: 4px 4px; text-align: left; vertical-align: top; overflow-wrap: break-word; word-break: normal; }
     table.items th { background: #f1f5f9; font-size: 8pt; text-transform: uppercase; letter-spacing: .03em; }
+    table.items th:nth-child(1), table.items td:nth-child(1) { width: 42%; }
+    table.items th:nth-child(2), table.items td:nth-child(2) { width: 10%; }
+    table.items th:nth-child(3), table.items td:nth-child(3) { width: 10%; }
+    table.items th:nth-child(4), table.items td:nth-child(4) { width: 18%; }
+    table.items th:nth-child(5), table.items td:nth-child(5) { width: 20%; }
+    table.items tr { page-break-inside: avoid; break-inside: avoid; }
     .num { text-align: right; white-space: nowrap; }
     .area { margin: 0 0 12px; }
     .area-head { margin-bottom: 4px; }
